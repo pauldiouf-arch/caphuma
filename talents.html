@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Configuration de la charte graphique d'origine (ALIMA / Cap Huma) -->
+    <!-- Configuration de la charte graphique ALIMA / Cap Huma -->
     <script>
         tailwind.config = {
             theme: {
@@ -175,7 +175,7 @@
     </main>
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         MODAL : FORMULAIRE À 6 ONGLETS (Création de Talent - Universel)
+         MODAL : FORMULAIRE À 6 ONGLETS (Création de Talent - Universelle)
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="addTalentModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-all">
         <div class="bg-white rounded-3xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100">
@@ -259,7 +259,7 @@
                     </div>
                 </div>
 
-                <!-- ONGLET 3 : FORMATION -->
+                <!-- ONGLET 3 : FORMATION & LANGUES (Mappe sur table Supabase) -->
                 <div id="panel-tabFormation" class="form-tab-panel hidden space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-1.5">
@@ -280,6 +280,16 @@
                         <div class="space-y-1.5">
                             <label class="text-xs font-bold text-slate-500 uppercase" for="educationSpecialty">Spécialité d'étude</label>
                             <input id="educationSpecialty" type="text" placeholder="Ex: Supply Chain, Finance" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                    </div>
+                    <div class="space-y-2 pt-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase">Langues maîtrisées (Cochez pour insérer dans public.talents.languages)</label>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" name="languages" value="Français" class="h-4 w-4" /> Français</label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" name="languages" value="Anglais" class="h-4 w-4" /> Anglais</label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" name="languages" value="Espagnol" class="h-4 w-4" /> Espagnol</label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" name="languages" value="Arabe" class="h-4 w-4" /> Arabe</label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" name="languages" value="Portugais" class="h-4 w-4" /> Portugais</label>
                         </div>
                     </div>
                 </div>
@@ -507,7 +517,7 @@
         // ============================================================================
         async function loadTalentsList() {
             try {
-                // Récupère uniquement les talents valides et non sur liste rouge de ce pool (colonne pool d'origine)
+                // Récupère uniquement les talents valides et non sur liste rouge de ce pool (colonne pool conforme)
                 const { data: talents, error } = await supabaseClient
                     .from('talents')
                     .select('*')
@@ -796,6 +806,12 @@
             const zonesRaw = document.getElementById('interventionZones').value.trim();
             const intervention_zones = zonesRaw ? zonesRaw.split(',').map(s => s.trim()) : [];
 
+            // Tableau de langues
+            const languages = [];
+            document.querySelectorAll('input[name="languages"]:checked').forEach(cb => {
+                languages.push(cb.value);
+            });
+
             if (submitAddBtn) {
                 submitAddBtn.disabled = true;
                 submitAddBtn.textContent = 'Enregistrement...';
@@ -831,7 +847,8 @@
                         closure_mission_comments,
                         key_skills,
                         intervention_contexts,
-                        intervention_zones
+                        intervention_zones,
+                        languages
                     }]);
 
                 if (error) throw error;
