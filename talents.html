@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool de Talents - Cap Huma</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Configuration de la charte graphique d'origine (ALIMA / Cap Huma) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1d4ed8', // Bleu ALIMA d'origine
+                            dark: '#1e3a8a',
+                            light: '#eff6ff',
+                        },
+                        accent: {
+                            DEFAULT: '#ea580c', // Orange humanitaire d'origine
+                            dark: '#c2410c',
+                            light: '#fff7ed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         EN-TÊTE SUPÉRIEUR (Navigation & Actions)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <a href="dashboard.html" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all" title="Retour au tableau de bord">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                </a>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight" id="poolTitleHeader">Pool de Talents</h1>
+                        <p class="text-xs text-slate-400 font-medium animate-pulse" id="poolSubtitleHeader">Chargement du vivier...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action d'ajout -->
+            <button id="addTalentBtn" disabled onclick="openAddModal()" class="opacity-50 cursor-not-allowed bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Ajouter un Talent
+            </button>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE (Moteurs de recherche & Grille des Talents)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="max-w-7xl w-full mx-auto px-6 py-6 flex-1 flex flex-col space-y-6 overflow-hidden">
+        
+        <!-- Module de Recherche Multi-critères -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm shrink-0">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1 relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z" />
+                    </svg>
+                    <input 
+                        id="searchInput" 
+                        type="text" 
+                        oninput="triggerLocalSearch()"
+                        placeholder="Rechercher par nom, prénom, email ou fonction..." 
+                        class="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleAdvancedFilters()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                        </svg>
+                        Filtres avancés
+                    </button>
+                    <button onclick="resetAllFilters()" class="border border-slate-200 text-slate-500 bg-slate-100 hover:bg-slate-200/60 px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all">
+                        Réinitialiser
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tiroir d'accordéon pour filtres avancés -->
+            <div id="advancedFiltersPanel" class="hidden mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 transition-all">
+                <div class="space-y-1.5">
+                    <label for="filterStatus" class="text-xs font-bold text-slate-500 uppercase">Statut</label>
+                    <select id="filterStatus" onchange="triggerLocalSearch()" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white outline-none">
+                        <option value="all">Tous les statuts</option>
+                        <option value="En poste ALIMA">En poste ALIMA</option>
+                        <option value="En attente de poste">En attente de poste</option>
+                        <option value="En poste autre ONG">En poste autre ONG</option>
+                        <option value="En poste hors humanitaire">En poste hors humanitaire</option>
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <label for="filterVisa" class="text-xs font-bold text-slate-500 uppercase">Visa Schengen</label>
+                    <select id="filterVisa" onchange="triggerLocalSearch()" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white outline-none">
+                        <option value="all">Tous</option>
+                        <option value="true">Possède un visa valide</option>
+                        <option value="false">Pas de visa valide</option>
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <label for="filterKeyword" class="text-xs font-bold text-slate-500 uppercase">Indexation Compétence (Tag)</label>
+                    <input id="filterKeyword" type="text" oninput="triggerLocalSearch()" placeholder="Ex: Leadership, Urgences..." class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white outline-none" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableau principal des Talents -->
+        <div class="flex-1 bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col overflow-hidden">
+            <div class="flex-1 overflow-auto">
+                <table class="w-full border-collapse text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                        <tr>
+                            <th class="px-6 py-4">Professionnel</th>
+                            <th class="px-6 py-4">Fonction Actuelle</th>
+                            <th class="px-6 py-4">Expérience ALIMA</th>
+                            <th class="px-6 py-4 max-w-xs">Validité dans le pool (24 mois max)</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="talentsTableBody" class="divide-y divide-slate-100">
+                        <!-- Squelettes de chargement par défaut (Aucune page blanche) -->
+                        <tr class="animate-pulse">
+                            <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-2/3"></div></td>
+                            <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-1/2"></div></td>
+                            <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-1/3"></div></td>
+                            <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-1/2"></div></td>
+                            <td class="px-6 py-6 text-right"><div class="h-8 bg-slate-200 rounded-lg w-20 ml-auto"></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination et information quantitative -->
+            <div class="h-16 border-t border-slate-100 px-6 flex items-center justify-between shrink-0 bg-slate-50/50 text-xs text-slate-400 font-semibold">
+                <span id="resultsCounter">Chargement du vivier...</span>
+                <div class="flex items-center gap-1">
+                    <button class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50" disabled>Précédent</button>
+                    <button class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50" disabled>Suivant</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         MODAL : FORMULAIRE À 6 ONGLETS (Création de Talent)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <div id="addTalentModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-all">
+        <div class="bg-white rounded-3xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100">
+            <!-- En-tête -->
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-primary-light/50">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Ajouter un nouveau talent</h3>
+                    <p class="text-xs text-slate-400">Renseignez méticuleusement le profil du professionnel</p>
+                </div>
+                <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 hover:bg-slate-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Onglets de Navigation du Formulaire -->
+            <div class="border-b border-slate-100 bg-slate-50 flex overflow-x-auto select-none shrink-0">
+                <button type="button" onclick="switchFormTab('tabPerso')" class="form-tab-btn flex-1 px-4 py-3 text-xs font-bold text-primary border-b-2 border-primary outline-none whitespace-nowrap" id="btn-tabPerso">1. Personnel</button>
+                <button type="button" onclick="switchFormTab('tabGeo')" class="form-tab-btn flex-1 px-4 py-3 text-xs font-bold text-slate-400 hover:text-slate-600 outline-none whitespace-nowrap" id="btn-tabGeo">2. Géographie</button>
+                <button type="button" onclick="switchFormTab('tabFormation')" class="form-tab-btn flex-1 px-4 py-3 text-xs font-bold text-slate-400 hover:text-slate-600 outline-none whitespace-nowrap" id="btn-tabFormation">3. Formation</button>
+                <button type="button" onclick="switchFormTab('tabExp')" class="form-tab-btn flex-1 px-4 py-3 text-xs font-bold text-slate-400 hover:text-slate-600 outline-none whitespace-nowrap" id="btn-tabExp">4. Expérience</button>
+                <button type="button" onclick="switchFormTab('tabMissionsSpeciales')" class="form-tab-btn flex-1 px-4 py-3 text-xs font-bold text-slate-400 hover:text-slate-600 outline-none whitespace-nowrap" id="btn-tabMissionsSpeciales">5. Terrains</button>
+                <button type="button" onclick="switchFormTab('tabSkills')" class="form-tab-btn flex-1 px-4 py-3 text-xs font-bold text-slate-400 hover:text-slate-600 outline-none whitespace-nowrap" id="btn-tabSkills">6. Compétences</button>
+            </div>
+
+            <!-- Formulaire Principal -->
+            <form id="addTalentForm" onsubmit="submitTalentForm(event)" class="flex-1 overflow-y-auto p-6 space-y-6">
+                
+                <!-- ONGLET 1 : INFOS PERSONNELLES -->
+                <div id="panel-tabPerso" class="form-tab-panel space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="firstName">Prénom *</label>
+                            <input id="firstName" type="text" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="lastName">Nom *</label>
+                            <input id="lastName" type="text" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase" for="email">Adresse email</label>
+                        <input id="email" type="email" placeholder="nom.prenom@alima.ngo" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="gender">Genre *</label>
+                            <select id="gender" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
+                                <option value="H">Homme</option>
+                                <option value="F">Femme</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="currentFunction">Fonction Actuelle *</label>
+                            <input id="currentFunction" type="text" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ONGLET 2 : INFOS GÉOGRAPHIQUES -->
+                <div id="panel-tabGeo" class="form-tab-panel hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="nationality">Nationalité *</label>
+                            <input id="nationality" type="text" required placeholder="Française" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="countryOfResidence">Pays de résidence *</label>
+                            <input id="countryOfResidence" type="text" required placeholder="Sénégal" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2.5 pt-2">
+                        <input id="hasVisa" type="checkbox" class="h-4 w-4 rounded-sm border-slate-200 text-primary focus:ring-primary/20 cursor-pointer" />
+                        <label for="hasVisa" class="text-sm font-semibold text-slate-700 cursor-pointer">Possède un visa Schengen valide</label>
+                    </div>
+                </div>
+
+                <!-- ONGLET 3 : FORMATION & LANGUES -->
+                <div id="panel-tabFormation" class="form-tab-panel hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="educationLevel">Niveau d'études *</label>
+                            <select id="educationLevel" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
+                                <option value="none">Néant</option>
+                                <option value="bac">Baccalauréat</option>
+                                <option value="bac+1">Bac +1</option>
+                                <option value="bac+2">Bac +2</option>
+                                <option value="bac+3">Bac +3 (Licence)</option>
+                                <option value="bac+4">Bac +4</option>
+                                <option value="bac+5">Bac +5 (Master)</option>
+                                <option value="bac+6">Bac +6</option>
+                                <option value="bac+7">Bac +7</option>
+                                <option value="bac+8+">Bac +8+ (Doctorat)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="educationSpecialty">Spécialité d'étude</label>
+                            <input id="educationSpecialty" type="text" placeholder="Ex: Supply Chain, Finance" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ONGLET 4 : EXPERIENCE ALIMA -->
+                <div id="panel-tabExp" class="form-tab-panel hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="expAlima">Expérience ALIMA (Mois) *</label>
+                            <input id="expAlima" type="number" required min="0" value="0" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="expHumanitarian">Expérience Humanitaire (Mois) *</label>
+                            <input id="expHumanitarian" type="number" required min="0" value="0" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="poolIntegrationDate">Date d'intégration pool *</label>
+                            <input id="poolIntegrationDate" type="date" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="numMissions">Paliers de missions ALIMA *</label>
+                            <select id="numMissions" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
+                                <option value="none">Aucune mission (0)</option>
+                                <option value="one">1ère mission</option>
+                                <option value="two">2ème mission</option>
+                                <option value="three_plus">3 missions et plus</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ONGLET 5 : MISSIONS SPÉCIALES (Aptitudes Terrains) -->
+                <div id="panel-tabMissionsSpeciales" class="form-tab-panel hidden space-y-4">
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <input id="hasMissionOpening" type="checkbox" onchange="toggleFormTextarea('missionOpeningComments', this.checked)" class="h-4 w-4" />
+                            <label for="hasMissionOpening" class="text-sm font-semibold text-slate-700 cursor-pointer">A fait de l'ouverture de mission</label>
+                        </div>
+                        <textarea id="missionOpeningComments" disabled placeholder="Détaillez les ouvertures de mission..." class="hidden w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 min-h-16 resize-none disabled:bg-slate-50"></textarea>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <input id="hasEmergencyMission" type="checkbox" onchange="toggleFormTextarea('emergencyMissionComments', this.checked)" class="h-4 w-4" />
+                            <label for="hasEmergencyMission" class="text-sm font-semibold text-slate-700 cursor-pointer">A fait des contextes d'urgence</label>
+                        </div>
+                        <textarea id="emergencyMissionComments" disabled placeholder="Détaillez les crises gérées (conflit, épidémie...)" class="hidden w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 min-h-16 resize-none disabled:bg-slate-50"></textarea>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <input id="hasMissionClosure" type="checkbox" onchange="toggleFormTextarea('closureMissionComments', this.checked)" class="h-4 w-4" />
+                            <label for="hasMissionClosure" class="text-sm font-semibold text-slate-700 cursor-pointer">A fait de la fermeture de mission</label>
+                        </div>
+                        <textarea id="closureMissionComments" disabled placeholder="Détaillez les fermetures de projets..." class="hidden w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 min-h-16 resize-none disabled:bg-slate-50"></textarea>
+                    </div>
+                </div>
+
+                <!-- ONGLET 6 : COMPÉTENCES CLÉS (Mots-clés de recherche & Contextes) -->
+                <div id="panel-tabSkills" class="form-tab-panel hidden space-y-4">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase" for="keySkills">Compétences clés (Saisie libre - Max 5 séparées par des virgules)</label>
+                        <input id="keySkills" type="text" placeholder="Ex: Leadership, Logistique d'urgence, Sante, Gestion" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        <p class="text-[10px] text-slate-400 font-semibold uppercase">Ces mots-clés seront indexés par le moteur de recherche.</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase" for="interventionContexts">Contextes vécus (Séparés par des virgules)</label>
+                        <input id="interventionContexts" type="text" placeholder="conflit, crise_alimentaire, deplacement" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase" for="interventionZones">Zones géographiques d'intervention (Séparées par des virgules)</label>
+                        <input id="interventionZones" type="text" placeholder="sahel, afrique_ouest, afrique_centrale" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                    </div>
+                </div>
+
+                <!-- Footer du dialogue d'ajout -->
+                <div class="pt-6 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                    <button type="button" onclick="closeAddModal()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-bold">Annuler</button>
+                    <button type="submit" id="submitAddBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md">Ajouter le Talent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script de Connexion Supabase en mode Client Direct (sans module d'importation) -->
+    <script>
+        const { createClient } = supabase;
+
+        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
+
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Liaison des éléments du DOM principaux
+        const appBody = document.getElementById('appBody');
+        const addTalentBtn = document.getElementById('addTalentBtn');
+        const poolTitleHeader = document.getElementById('poolTitleHeader');
+        const poolSubtitleHeader = document.getElementById('poolSubtitleHeader');
+        const talentsTableBody = document.getElementById('talentsTableBody');
+        const resultsCounter = document.getElementById('resultsCounter');
+        
+        let currentPoolId = null;
+        let loadedTalents = []; // Stockage local des talents du pool pour la recherche rapide
+
+        // Constantes réglementaires
+        const DEVALIDATION_MAX_MONTHS = 24;
+
+        // ============================================================================
+        // 1. PROTECTION ZERO TRUST ET PARAMÈTRE D'URL (Expulsion relative sécurisée)
+        // ============================================================================
+        async function checkSession() {
+            try {
+                // A. Vérifie la session active de Supabase Auth
+                const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+
+                if (sessionError || !session) {
+                    throw new Error("Session absente ou expirée.");
+                }
+
+                const user = session.user;
+
+                // B. Récupération des droits de l'utilisateur (table 'users')
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('name, role, is_active')
+                    .eq('id', user.id);
+
+                if (profileError || !profiles || profiles.length === 0) {
+                    // Tolérance si le profil n'est pas encore synchronisé
+                    unlockUIForRole('user');
+                } else {
+                    const profile = profiles[0];
+
+                    // Interdit l'accès si le compte est désactivé
+                    if (profile.is_active === false) {
+                        throw new Error("Compte utilisateur désactivé.");
+                    }
+
+                    // Interdit l'accès si le visiteur temporaire a expiré (7 jours)
+                    if (profile.role === 'visitor') {
+                        const ageMs = Date.now() - new Date(profile.created_at).getTime();
+                        const expirationMs = 7 * 24 * 60 * 60 * 1000;
+                        if (ageMs > expirationMs) {
+                            throw new Error("Accès visiteur expiré.");
+                        }
+                    }
+
+                    unlockUIForRole(profile.role);
+                }
+
+                // C. Récupération du paramètre de Pool dans l'URL (?pool=COLOG)
+                const urlParams = new URLSearchParams(window.location.search);
+                currentPoolId = urlParams.get('pool');
+
+                if (!currentPoolId) {
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+
+                // D. Chargement des métadonnées du Pool
+                const { data: poolMetadata, error: poolError } = await supabaseClient
+                    .from('pools')
+                    .select('name, full_name, level')
+                    .eq('pool_id', currentPoolId)
+                    .single();
+
+                if (poolError || !poolMetadata) {
+                    alert("Le pool demandé n'existe pas.");
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+
+                if (poolTitleHeader && poolSubtitleHeader) {
+                    poolTitleHeader.textContent = `Pool ${poolMetadata.name}`;
+                    poolSubtitleHeader.textContent = `${poolMetadata.full_name} — Niveau ${poolMetadata.level === 'project' ? 'projet' : 'mission'}`;
+                    poolSubtitleHeader.classList.remove('animate-pulse');
+                }
+
+                // E. Chargement de la liste des talents actifs du pool
+                await loadTalentsList();
+
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion vers login.html. Raison :", error.message);
+                
+                // Déconnexion de la session Supabase
+                try {
+                    await supabaseClient.auth.signOut();
+                } catch (logoutErr) {}
+                
+                // Redirection relative stricte sans slash
+                window.location.replace('login.html');
+            }
+        }
+
+        // Lancement immédiat de la vérification au chargement de la page
+        checkSession();
+
+        /**
+         * Débloque le bouton de création si l'utilisateur n'est pas visiteur
+         */
+        function unlockUIForRole(role) {
+            if (addTalentBtn) {
+                if (role === 'visitor') {
+                    addTalentBtn.style.display = 'none'; // Masqué pour les visiteurs
+                } else {
+                    addTalentBtn.disabled = false;
+                    addTalentBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        }
+
+        // ============================================================================
+        // 2. RÉCUPÉRATION EN DIRECT ET CHARGEMENT DU TABLEAU
+        // ============================================================================
+        async function loadTalentsList() {
+            try {
+                // Récupère uniquement les talents valides et non sur liste rouge de ce pool (colonne pool conforme)
+                const { data: talents, error } = await supabaseClient
+                    .from('talents')
+                    .select('*')
+                    .eq('pool', currentPoolId)
+                    .eq('is_red_listed', false)
+                    .eq('is_valid', true);
+
+                if (error) throw error;
+
+                loadedTalents = talents || [];
+                renderTalentsTable(loadedTalents);
+
+            } catch (error) {
+                console.error("[Stats] Erreur globale lors du chargement :", error);
+                showTableMessage("Une erreur est survenue lors de la récupération du vivier.");
+            }
+        }
+
+        /**
+         * Calcule le nombre de mois d'inactivité du talent pour le moteur des 24 mois.
+         */
+        function calculateMonthsWithoutMission(talent) {
+            if (talent.is_currently_on_mission || talent.status === "En poste ALIMA") {
+                return talent.months_without_mission || 0;
+            }
+
+            const now = new Date();
+            const refDate = talent.last_mission_end_date 
+                ? new Date(talent.last_mission_end_date) 
+                : new Date(talent.pool_integration_date);
+
+            const yearsDiff = now.getFullYear() - refDate.getFullYear();
+            const monthsDiff = now.getMonth() - refDate.getMonth();
+            
+            let totalMonths = (yearsDiff * 12) + monthsDiff;
+            if (now.getDate() < refDate.getDate()) {
+                totalMonths--;
+            }
+
+            return Math.max(0, totalMonths);
+        }
+
+        /**
+         * Rendu du tableau HTML
+         */
+        function renderTalentsTable(talents) {
+            talentsTableBody.innerHTML = '';
+
+            if (resultsCounter) {
+                resultsCounter.textContent = `${talents.length} professionnel(s) trouvé(s) pour ce pool`;
+            }
+
+            if (talents.length === 0) {
+                showTableMessage("Aucun talent enregistré dans ce pool pour le moment.");
+                return;
+            }
+
+            talents.forEach(talent => {
+                const monthsWithoutMission = calculateMonthsWithoutMission(talent);
+                const percent = Math.min(100, Math.round((monthsWithoutMission / DEVALIDATION_MAX_MONTHS) * 100));
+                
+                // Couleurs de la barre de progression d'origine
+                let progressColor = 'bg-emerald-500';
+                if (monthsWithoutMission >= 22) progressColor = 'bg-red-600';
+                else if (monthsWithoutMission >= 20) progressColor = 'bg-orange-500';
+
+                // Couleur du badge de statut d'origine
+                let statusBadgeColor = 'bg-blue-100 text-blue-800';
+                if (talent.status === 'En poste ALIMA') statusBadgeColor = 'bg-emerald-100 text-emerald-800';
+                else if (talent.status === 'En poste autre ONG') statusBadgeColor = 'bg-orange-100 text-orange-800';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors duration-100';
+                tr.innerHTML = `
+                    <td class="px-6 py-4 flex flex-col">
+                        <span class="font-bold text-slate-800 text-sm">${talent.first_name} ${talent.last_name}</span>
+                        <span class="text-xs text-slate-400">${talent.email || 'Pas d\'adresse email'}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium text-slate-800 text-xs">${talent.current_function}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeColor}">${talent.status}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-800 text-xs">${talent.experience_months_alima} mois</span>
+                            <span class="text-[10px] text-slate-400 font-semibold uppercase">ALIMA Exp</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 max-w-xs">
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-[10px] text-slate-400 font-bold">
+                                <span>Inactivité : ${monthsWithoutMission} mois</span>
+                                <span>${DEVALIDATION_MAX_MONTHS - monthsWithoutMission} mois restants</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full ${progressColor}" style="width: ${percent}%;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <a href="id-card.html?id=${talent.id}" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">
+                            Carte d'Identité
+                        </a>
+                    </td>
+                `;
+                talentsTableBody.appendChild(tr);
+            });
+        }
+
+        function showTableMessage(message) {
+            talentsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 font-medium">
+                        ${message}
+                    </td>
+                </tr>
+            `;
+        }
+
+        // ============================================================================
+        // 3. RECHERCHE ET FILTRAGE DYNAMIQUE (Côté Client)
+        // ============================================================================
+        function triggerLocalSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('filterStatus').value;
+            const visaFilter = document.getElementById('filterVisa').value;
+            const keywordFilter = document.getElementById('filterKeyword').value.toLowerCase().trim();
+
+            const filtered = loadedTalents.filter(talent => {
+                const fullName = `${talent.first_name} ${talent.last_name}`.toLowerCase();
+                const email = (talent.email || '').toLowerCase();
+                const func = (talent.current_function || '').toLowerCase();
+                const matchesText = !query || fullName.includes(query) || email.includes(query) || func.includes(query);
+
+                const matchesStatus = statusFilter === 'all' || talent.status === statusFilter;
+
+                let matchesVisa = true;
+                if (visaFilter !== 'all') {
+                    matchesVisa = String(talent.has_visa) === visaFilter;
+                }
+
+                let matchesKeywords = true;
+                if (keywordFilter) {
+                    const skills = Array.isArray(talent.key_skills) ? talent.key_skills.join(' ').toLowerCase() : '';
+                    matchesKeywords = skills.includes(keywordFilter);
+                }
+
+                return matchesText && matchesStatus && matchesVisa && matchesKeywords;
+            });
+
+            renderTalentsTable(filtered);
+        }
+
+        function toggleAdvancedFilters() {
+            const panel = document.getElementById('advancedFiltersPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function resetAllFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterStatus').value = 'all';
+            document.getElementById('filterVisa').value = 'all';
+            document.getElementById('filterKeyword').value = '';
+            renderTalentsTable(loadedTalents);
+        }
+
+        // ============================================================================
+        // 4. CREATION DE TALENT (BOITE DE DIALOGUE À 6 ONGLETS)
+        // ============================================================================
+        const addTalentModal = document.getElementById('addTalentModal');
+        const addTalentForm = document.getElementById('addTalentForm');
+        const submitAddBtn = document.getElementById('submitAddBtn');
+
+        function openAddModal() {
+            if (addTalentModal) {
+                document.getElementById('poolIntegrationDate').value = new Date().toISOString().split('T')[0];
+                addTalentModal.classList.remove('hidden');
+                switchFormTab('tabPerso'); 
+            }
+        }
+
+        function closeAddModal() {
+            if (addTalentModal) {
+                addTalentModal.classList.add('hidden');
+                addTalentForm.reset();
+            }
+        }
+
+        function switchFormTab(targetTabId) {
+            document.querySelectorAll('.form-tab-btn').forEach(btn => {
+                btn.classList.remove('text-primary', 'border-b-2', 'border-primary');
+                btn.classList.add('text-slate-400');
+            });
+            document.querySelectorAll('.form-tab-panel').forEach(panel => {
+                panel.classList.add('hidden');
+            });
+
+            const btn = document.getElementById(`btn-${targetTabId}`);
+            if (btn) {
+                btn.classList.add('text-primary', 'border-b-2', 'border-primary');
+                btn.classList.remove('text-slate-400');
+            }
+            const panel = document.getElementById(`panel-${targetTabId}`);
+            if (panel) {
+                panel.classList.remove('hidden');
+            }
+        }
+
+        function toggleFormTextarea(textareaId, isChecked) {
+            const el = document.getElementById(textareaId);
+            if (el) {
+                if (isChecked) {
+                    el.classList.remove('hidden');
+                    el.removeAttribute('disabled');
+                } else {
+                    el.classList.add('hidden');
+                    el.setAttribute('disabled', 'true');
+                }
+            }
+        }
+
+        async function submitTalentForm(e) {
+            e.preventDefault();
+
+            const first_name = document.getElementById('firstName').value.trim();
+            const last_name = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim() || null;
+            const gender = document.getElementById('gender').value;
+            const current_function = document.getElementById('currentFunction').value.trim();
+
+            const nationality = document.getElementById('nationality').value.trim();
+            const country_of_residence = document.getElementById('countryOfResidence').value.trim();
+            const has_visa = document.getElementById('hasVisa').checked;
+
+            const education_level = document.getElementById('educationLevel').value;
+            const education_specialty = document.getElementById('educationSpecialty').value.trim() || null;
+
+            const experience_months_alima = parseInt(document.getElementById('expAlima').value) || 0;
+            const experience_months_humanitarian = parseInt(document.getElementById('expHumanitarian').value) || 0;
+            const pool_integration_date = new Date(document.getElementById('poolIntegrationDate').value).toISOString();
+            const number_of_alima_missions = document.getElementById('numMissions').value;
+
+            const has_mission_opening = document.getElementById('hasMissionOpening').checked;
+            const mission_opening_comments = has_mission_opening ? document.getElementById('missionOpeningComments').value.trim() : null;
+
+            const has_emergency_mission = document.getElementById('hasEmergencyMission').checked;
+            const emergency_mission_comments = has_emergency_mission ? document.getElementById('emergencyMissionComments').value.trim() : null;
+
+            const has_mission_closure = document.getElementById('hasMissionClosure').checked;
+            const closure_mission_comments = has_mission_closure ? document.getElementById('closureMissionComments').value.trim() : null;
+
+            const skillsRaw = document.getElementById('keySkills').value.trim();
+            const key_skills = skillsRaw ? skillsRaw.split(',').map(s => s.trim()).slice(0, 5) : [];
+
+            const contextsRaw = document.getElementById('interventionContexts').value.trim();
+            const intervention_contexts = contextsRaw ? contextsRaw.split(',').map(s => s.trim()) : [];
+
+            const zonesRaw = document.getElementById('interventionZones').value.trim();
+            const intervention_zones = zonesRaw ? zonesRaw.split(',').map(s => s.trim()) : [];
+
+            if (submitAddBtn) {
+                submitAddBtn.disabled = true;
+                submitAddBtn.textContent = 'Enregistrement...';
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('talents')
+                    .insert([{
+                        first_name,
+                        last_name,
+                        email,
+                        gender,
+                        pool: currentPoolId, // Raccordement chirurgical de la colonne de pool Supabase
+                        current_function,
+                        status: 'En attente de poste', // Statut obligatoire par défaut lors de la création
+                        is_valid: true,
+                        is_red_listed: false,
+                        experience_months_alima,
+                        experience_months_humanitarian,
+                        pool_integration_date,
+                        number_of_alima_missions,
+                        has_visa,
+                        nationality,
+                        country_of_residence,
+                        education_level,
+                        education_specialty,
+                        has_mission_opening,
+                        mission_opening_comments,
+                        has_emergency_mission,
+                        emergency_mission_comments,
+                        has_mission_closure,
+                        closure_mission_comments,
+                        key_skills,
+                        intervention_contexts,
+                        intervention_zones
+                    }]);
+
+                if (error) throw error;
+
+                closeAddModal();
+                loadTalentsList(); 
+
+            } catch (error) {
+                console.error("[Creation Error] :", error);
+                alert(`Erreur lors de la création : ${error.message}`);
+            } finally {
+                if (submitAddBtn) {
+                    submitAddBtn.disabled = false;
+                    submitAddBtn.textContent = 'Ajouter le Talent';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
