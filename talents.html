@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Configuration de la charte graphique ALIMA / Cap Huma -->
+    <!-- Configuration de la charte graphique d'origine (ALIMA / Cap Huma) -->
     <script>
         tailwind.config = {
             theme: {
@@ -151,6 +151,7 @@
                         </tr>
                     </thead>
                     <tbody id="talentsTableBody" class="divide-y divide-slate-100">
+                        <!-- Squelettes de chargement par défaut (Aucune page blanche) -->
                         <tr class="animate-pulse">
                             <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-2/3"></div></td>
                             <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-1/2"></div></td>
@@ -231,7 +232,7 @@
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-xs font-bold text-slate-500 uppercase" for="status">Statut Initial *</label>
-                            <select id="status" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
+                            <select id="status" required onchange="updateLastMissionEndDateVisibility()" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
                                 <option value="En attente de poste">En attente de poste (Disponible)</option>
                                 <option value="En poste ALIMA">En poste ALIMA</option>
                                 <option value="En poste autre ONG">En poste autre ONG</option>
@@ -259,7 +260,7 @@
                     </div>
                 </div>
 
-                <!-- ONGLET 3 : FORMATION & LANGUES (Mappe sur table Supabase) -->
+                <!-- ONGLET 3 : FORMATION & LANGUES -->
                 <div id="panel-tabFormation" class="form-tab-panel hidden space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-1.5">
@@ -283,7 +284,7 @@
                         </div>
                     </div>
                     <div class="space-y-2 pt-2">
-                        <label class="text-xs font-bold text-slate-500 uppercase">Langues maîtrisées (Cochez pour insérer dans public.talents.languages)</label>
+                        <label class="text-xs font-bold text-slate-500 uppercase">Langues maîtrisées (Cochez pour insérer)</label>
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" name="languages" value="Français" class="h-4 w-4" /> Français</label>
                             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"><input type="checkbox" name="languages" value="Anglais" class="h-4 w-4" /> Anglais</label>
@@ -294,7 +295,7 @@
                     </div>
                 </div>
 
-                <!-- ONGLET 4 : EXPERIENCE ALIMA (Case universelle) -->
+                <!-- ONGLET 4 : EXPERIENCE ALIMA (Case universelle & Dates masquées) -->
                 <div id="panel-tabExp" class="form-tab-panel hidden space-y-4">
                     <div class="flex items-center gap-2.5 pb-2">
                         <!-- Case à cocher universelle ALIMA -->
@@ -317,6 +318,13 @@
                                     <option value="three_plus">3 missions et plus</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <!-- LOGIQUE RH : Masquage conditionnel de la date de fin de contrat -->
+                        <div id="lastMissionEndDateContainer" class="hidden space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="lastMissionEndDate">Date de fin de la dernière mission ALIMA *</label>
+                            <input id="lastMissionEndDate" type="date" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                            <p class="text-[10px] text-slate-400 font-semibold uppercase">Requis pour calculer le compteur d'inactivité de 24 mois.</p>
                         </div>
                     </div>
 
@@ -429,7 +437,6 @@
                     .eq('id', user.id);
 
                 if (profileError || !profiles || profiles.length === 0) {
-                    // Tolérance si le profil n'est pas encore synchronisé
                     unlockUIForRole('user');
                 } else {
                     const profile = profiles[0];
@@ -517,7 +524,7 @@
         // ============================================================================
         async function loadTalentsList() {
             try {
-                // Récupère uniquement les talents valides et non sur liste rouge de ce pool (colonne pool conforme)
+                // Récupère uniquement les talents valides et non sur liste rouge de ce pool (colonne pool d'origine)
                 const { data: talents, error } = await supabaseClient
                     .from('talents')
                     .select('*')
@@ -752,6 +759,38 @@
                     document.getElementById('numMissions').value = 'none';
                 }
             }
+            updateLastMissionEndDateVisibility();
+        }
+
+        /**
+         * LOGIQUE MÉTIER D'AFFICHAGE DYNAMIQUE (Date de fin de contrat ALIMA)
+         */
+        function updateLastMissionEndDateVisibility() {
+            const status = document.getElementById('status').value;
+            const hadAlima = document.getElementById('hadAlimaMission').checked;
+            const container = document.getElementById('lastMissionEndDateContainer');
+            const input = document.getElementById('lastMissionEndDate');
+            
+            if (!container || !input) return;
+
+            if (status === 'En poste ALIMA') {
+                // Mission active en cours : Pas de date de fin requise ou affichée
+                container.classList.add('hidden');
+                input.removeAttribute('required');
+                input.disabled = true;
+                input.value = '';
+            } else if (hadAlima) {
+                // Mission finie : Date de fin obligatoire pour le calcul de la jauge
+                container.classList.remove('hidden');
+                input.setAttribute('required', 'true');
+                input.disabled = false;
+            } else {
+                // Pas de mission ALIMA
+                container.classList.add('hidden');
+                input.removeAttribute('required');
+                input.disabled = true;
+                input.value = '';
+            }
         }
 
         /**
@@ -782,6 +821,11 @@
             // LOGIQUE UNIVERSELLE : Forçage des valeurs si la case "hadAlimaMission" est décochée
             const experience_months_alima = hadAlimaMission ? (parseInt(document.getElementById('expAlima').value) || 0) : 0;
             const number_of_alima_missions = hadAlimaMission ? document.getElementById('numMissions').value : 'none';
+            
+            // LOGIQUE D'AFFICHAGE DYNAMIQUE : Date obligatoire selon les règles ALIMA
+            const last_mission_end_date = (hadAlimaMission && status !== 'En poste ALIMA' && document.getElementById('lastMissionEndDate').value)
+                ? new Date(document.getElementById('lastMissionEndDate').value).toISOString()
+                : null;
             
             const experience_months_humanitarian = parseInt(document.getElementById('expHumanitarian').value) || 0;
             const pool_integration_date = new Date(document.getElementById('poolIntegrationDate').value).toISOString();
@@ -818,7 +862,7 @@
             }
 
             try {
-                // Insertion Supabase chirurgicale (sans la colonne current_function pour éviter tout crash)
+                // Insertion Supabase chirurgicale (sans la colonne current_function pour éviter tout crash de cache)
                 const { error } = await supabaseClient
                     .from('talents')
                     .insert([{
@@ -834,6 +878,7 @@
                         experience_months_humanitarian,
                         pool_integration_date,
                         number_of_alima_missions,
+                        last_mission_end_date,
                         has_visa,
                         nationality,
                         country_of_residence,
