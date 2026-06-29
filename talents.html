@@ -93,7 +93,7 @@
                         id="searchInput" 
                         type="text" 
                         oninput="triggerLocalSearch()"
-                        placeholder="Rechercher par nom, prénom, email ou fonction..." 
+                        placeholder="Rechercher par nom, prénom ou adresse email..." 
                         class="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                 </div>
@@ -144,14 +144,13 @@
                     <thead class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
                         <tr>
                             <th class="px-6 py-4">Professionnel</th>
-                            <th class="px-6 py-4">Fonction Actuelle</th>
+                            <th class="px-6 py-4">Statut</th>
                             <th class="px-6 py-4">Expérience ALIMA</th>
                             <th class="px-6 py-4 max-w-xs">Validité dans le pool (24 mois max)</th>
                             <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="talentsTableBody" class="divide-y divide-slate-100">
-                        <!-- Squelettes de chargement par défaut (Aucune page blanche) -->
                         <tr class="animate-pulse">
                             <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-2/3"></div></td>
                             <td class="px-6 py-6"><div class="h-4 bg-slate-200 rounded w-1/2"></div></td>
@@ -176,7 +175,7 @@
     </main>
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         MODAL : FORMULAIRE À 6 ONGLETS (Création de Talent)
+         MODAL : FORMULAIRE À 6 ONGLETS (Création de Talent - Universel)
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="addTalentModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-all">
         <div class="bg-white rounded-3xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100">
@@ -231,8 +230,13 @@
                             </select>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-xs font-bold text-slate-500 uppercase" for="currentFunction">Fonction Actuelle *</label>
-                            <input id="currentFunction" type="text" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="status">Statut Initial *</label>
+                            <select id="status" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
+                                <option value="En attente de poste">En attente de poste (Disponible)</option>
+                                <option value="En poste ALIMA">En poste ALIMA</option>
+                                <option value="En poste autre ONG">En poste autre ONG</option>
+                                <option value="En poste hors humanitaire">En poste hors humanitaire</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -255,7 +259,7 @@
                     </div>
                 </div>
 
-                <!-- ONGLET 3 : FORMATION & LANGUES -->
+                <!-- ONGLET 3 : FORMATION -->
                 <div id="panel-tabFormation" class="form-tab-panel hidden space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-1.5">
@@ -280,36 +284,45 @@
                     </div>
                 </div>
 
-                <!-- ONGLET 4 : EXPERIENCE ALIMA -->
+                <!-- ONGLET 4 : EXPERIENCE ALIMA (Case universelle) -->
                 <div id="panel-tabExp" class="form-tab-panel hidden space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="space-y-1.5">
-                            <label class="text-xs font-bold text-slate-500 uppercase" for="expAlima">Expérience ALIMA (Mois) *</label>
-                            <input id="expAlima" type="number" required min="0" value="0" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-xs font-bold text-slate-500 uppercase" for="expHumanitarian">Expérience Humanitaire (Mois) *</label>
-                            <input id="expHumanitarian" type="number" required min="0" value="0" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                    <div class="flex items-center gap-2.5 pb-2">
+                        <!-- Case à cocher universelle ALIMA -->
+                        <input id="hadAlimaMission" type="checkbox" onchange="toggleAlimaExperienceFields(this.checked)" class="h-4 w-4 rounded-sm border-slate-200 text-primary focus:ring-primary/20 cursor-pointer" />
+                        <label for="hadAlimaMission" class="text-sm font-semibold text-slate-700 cursor-pointer">A déjà effectué une mission avec ALIMA</label>
+                    </div>
+
+                    <div id="alimaExpFields" class="hidden space-y-4 border-l-2 border-slate-100 pl-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1.5">
+                                <label class="text-xs font-bold text-slate-500 uppercase" for="expAlima">Expérience ALIMA (Mois) *</label>
+                                <input id="expAlima" type="number" min="0" value="0" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="text-xs font-bold text-slate-500 uppercase" for="numMissions">Paliers de missions ALIMA *</label>
+                                <select id="numMissions" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
+                                    <option value="none">Aucune mission (0)</option>
+                                    <option value="one">1ère mission</option>
+                                    <option value="two">2ème mission</option>
+                                    <option value="three_plus">3 missions et plus</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
+
                     <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-bold text-slate-500 uppercase" for="expHumanitarian">Expérience Humanitaire Totale (Mois) *</label>
+                            <input id="expHumanitarian" type="number" required min="0" value="0" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                        </div>
                         <div class="space-y-1.5">
                             <label class="text-xs font-bold text-slate-500 uppercase" for="poolIntegrationDate">Date d'intégration pool *</label>
                             <input id="poolIntegrationDate" type="date" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
                         </div>
-                        <div class="space-y-1.5">
-                            <label class="text-xs font-bold text-slate-500 uppercase" for="numMissions">Paliers de missions ALIMA *</label>
-                            <select id="numMissions" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800 bg-white">
-                                <option value="none">Aucune mission (0)</option>
-                                <option value="one">1ère mission</option>
-                                <option value="two">2ème mission</option>
-                                <option value="three_plus">3 missions et plus</option>
-                            </select>
-                        </div>
                     </div>
                 </div>
 
-                <!-- ONGLET 5 : MISSIONS SPÉCIALES (Aptitudes Terrains) -->
+                <!-- ONGLET 5 : MISSIONS SPÉCIALES -->
                 <div id="panel-tabMissionsSpeciales" class="form-tab-panel hidden space-y-4">
                     <div class="space-y-3">
                         <div class="flex items-center gap-2">
@@ -336,7 +349,7 @@
                     </div>
                 </div>
 
-                <!-- ONGLET 6 : COMPÉTENCES CLÉS (Mots-clés de recherche & Contextes) -->
+                <!-- ONGLET 6 : COMPÉTENCES CLÉS (Tableaux ARRAY) -->
                 <div id="panel-tabSkills" class="form-tab-panel hidden space-y-4">
                     <div class="space-y-1.5">
                         <label class="text-xs font-bold text-slate-500 uppercase" for="keySkills">Compétences clés (Saisie libre - Max 5 séparées par des virgules)</label>
@@ -344,7 +357,7 @@
                         <p class="text-[10px] text-slate-400 font-semibold uppercase">Ces mots-clés seront indexés par le moteur de recherche.</p>
                     </div>
                     <div class="space-y-1.5">
-                        <label class="text-xs font-bold text-slate-500 uppercase" for="interventionContexts">Contextes vécus (Séparés par des virgules)</label>
+                        <label class="text-xs font-bold text-slate-500 uppercase" for="interventionContexts">Contextes d'urgence vécus (Séparés par des virgules)</label>
                         <input id="interventionContexts" type="text" placeholder="conflit, crise_alimentaire, deplacement" class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
                     </div>
                     <div class="space-y-1.5">
@@ -490,11 +503,11 @@
         }
 
         // ============================================================================
-        // 2. RÉCUPÉRATION EN DIRECT ET CHARGEMENT DU TABLEAU
+        // 2. RÉCUPÉRATION EN DIRECT ET CHARGEMENT DU TABLEAU (Filtrage sur la colonne 'pool')
         // ============================================================================
         async function loadTalentsList() {
             try {
-                // Récupère uniquement les talents valides et non sur liste rouge de ce pool (colonne pool conforme)
+                // Récupère uniquement les talents valides et non sur liste rouge de ce pool (colonne pool d'origine)
                 const { data: talents, error } = await supabaseClient
                     .from('talents')
                     .select('*')
@@ -538,7 +551,7 @@
         }
 
         /**
-         * Rendu du tableau HTML
+         * Rendu du tableau HTML (Sécurisé contre le crash si vide)
          */
         function renderTalentsTable(talents) {
             talentsTableBody.innerHTML = '';
@@ -574,10 +587,7 @@
                         <span class="text-xs text-slate-400">${talent.email || 'Pas d\'adresse email'}</span>
                     </td>
                     <td class="px-6 py-4">
-                        <div class="flex items-center gap-2">
-                            <span class="font-medium text-slate-800 text-xs">${talent.current_function}</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeColor}">${talent.status}</span>
-                        </div>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusBadgeColor}">${talent.status}</span>
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex flex-col">
@@ -628,8 +638,7 @@
             const filtered = loadedTalents.filter(talent => {
                 const fullName = `${talent.first_name} ${talent.last_name}`.toLowerCase();
                 const email = (talent.email || '').toLowerCase();
-                const func = (talent.current_function || '').toLowerCase();
-                const matchesText = !query || fullName.includes(query) || email.includes(query) || func.includes(query);
+                const matchesText = !query || fullName.includes(query) || email.includes(query);
 
                 const matchesStatus = statusFilter === 'all' || talent.status === statusFilter;
 
@@ -664,7 +673,7 @@
         }
 
         // ============================================================================
-        // 4. CREATION DE TALENT (BOITE DE DIALOGUE À 6 ONGLETS)
+        // 4. CREATION DE TALENT (BOITE DE DIALOGUE À 6 ONGLETS - UNIVERSELLE)
         // ============================================================================
         const addTalentModal = document.getElementById('addTalentModal');
         const addTalentForm = document.getElementById('addTalentForm');
@@ -718,27 +727,56 @@
             }
         }
 
+        /**
+         * Règle d'auto-remplissage : active ou masque les champs ALIMA
+         */
+        function toggleAlimaExperienceFields(isChecked) {
+            const fields = document.getElementById('alimaExpFields');
+            if (fields) {
+                if (isChecked) {
+                    fields.classList.remove('hidden');
+                } else {
+                    fields.classList.add('hidden');
+                    // Forçage à 0
+                    document.getElementById('expAlima').value = 0;
+                    document.getElementById('numMissions').value = 'none';
+                }
+            }
+        }
+
+        /**
+         * Enregistrement du nouveau Talent sur les colonnes exactes de la base
+         */
         async function submitTalentForm(e) {
             e.preventDefault();
 
+            // Onglet 1 : Infos personnelles
             const first_name = document.getElementById('firstName').value.trim();
             const last_name = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim() || null;
             const gender = document.getElementById('gender').value;
-            const current_function = document.getElementById('currentFunction').value.trim();
+            const status = document.getElementById('status').value;
 
+            // Onglet 2 : Géo
             const nationality = document.getElementById('nationality').value.trim();
             const country_of_residence = document.getElementById('countryOfResidence').value.trim();
             const has_visa = document.getElementById('hasVisa').checked;
 
+            // Onglet 3 : Formation
             const education_level = document.getElementById('educationLevel').value;
             const education_specialty = document.getElementById('educationSpecialty').value.trim() || null;
 
-            const experience_months_alima = parseInt(document.getElementById('expAlima').value) || 0;
+            // Onglet 4 : Expérience ALIMA
+            const hadAlimaMission = document.getElementById('hadAlimaMission').checked;
+            
+            // LOGIQUE UNIVERSELLE : Forçage des valeurs si la case "hadAlimaMission" est décochée
+            const experience_months_alima = hadAlimaMission ? (parseInt(document.getElementById('expAlima').value) || 0) : 0;
+            const number_of_alima_missions = hadAlimaMission ? document.getElementById('numMissions').value : 'none';
+            
             const experience_months_humanitarian = parseInt(document.getElementById('expHumanitarian').value) || 0;
             const pool_integration_date = new Date(document.getElementById('poolIntegrationDate').value).toISOString();
-            const number_of_alima_missions = document.getElementById('numMissions').value;
 
+            // Onglet 5 : Terrains & Urgence
             const has_mission_opening = document.getElementById('hasMissionOpening').checked;
             const mission_opening_comments = has_mission_opening ? document.getElementById('missionOpeningComments').value.trim() : null;
 
@@ -748,6 +786,7 @@
             const has_mission_closure = document.getElementById('hasMissionClosure').checked;
             const closure_mission_comments = has_mission_closure ? document.getElementById('closureMissionComments').value.trim() : null;
 
+            // Onglet 6 : Compétences (Tableaux ARRAY)
             const skillsRaw = document.getElementById('keySkills').value.trim();
             const key_skills = skillsRaw ? skillsRaw.split(',').map(s => s.trim()).slice(0, 5) : [];
 
@@ -763,6 +802,7 @@
             }
 
             try {
+                // Insertion Supabase chirurgicale (sans la colonne current_function pour éviter tout crash)
                 const { error } = await supabaseClient
                     .from('talents')
                     .insert([{
@@ -770,9 +810,8 @@
                         last_name,
                         email,
                         gender,
-                        pool: currentPoolId, // Raccordement chirurgical de la colonne de pool Supabase
-                        current_function,
-                        status: 'En attente de poste', // Statut obligatoire par défaut lors de la création
+                        pool: currentPoolId, // Raccordement dynamique universel du pool capturé par l'URL
+                        status, 
                         is_valid: true,
                         is_red_listed: false,
                         experience_months_alima,
