@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche d'Identité - Cap Huma</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Configuration de la charte graphique ALIMA -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1d4ed8', // Bleu ALIMA d'origine
+                            dark: '#1e3a8a',
+                            light: '#eff6ff',
+                        },
+                        accent: {
+                            DEFAULT: '#ea580c', // Orange humanitaire d'origine
+                            dark: '#c2410c',
+                            light: '#fff7ed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Styles CSS optimisés pour l'impression A4 propre (window.print()) */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+                color: #0f172a !important;
+            }
+            main {
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .print-layout {
+                display: grid !important;
+                grid-template-columns: 1fr 2fr !important;
+                gap: 2rem !important;
+            }
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody">
+
+    <!-- En-tête de page (Masqué lors de l'impression) -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10 no-print">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <a href="dashboard.html" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all" title="Retour au tableau de bord">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                </a>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Profil Talent</h1>
+                        <p class="text-xs text-slate-400 font-medium" id="poolTitleHeader">Chargement de la fiche d'identité...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Boutons d'actions -->
+            <div class="flex items-center gap-2">
+                <button onclick="handlePrint()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.617 0-1.11-.461-1.12-1.078L6.34 18m11.32 0h-11.32m0 0H4.5A2.25 2.25 0 0 1 2.25 15.75v-6.75A2.25 2.25 0 0 1 4.5 6.75h15a2.25 2.25 0 0 1 2.25 2.25v6.75a2.25 2.25 0 0 1-2.25 2.25h-1.513M9 10.5h.008v.008H9V10.5Zm3 0h.008v.008H12V10.5Z" />
+                    </svg>
+                    Imprimer / PDF
+                </button>
+                <button id="shareBtn" onclick="handleGenerateShareLink()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                    </svg>
+                    Partager
+                </button>
+                <button id="startMissionBtn" onclick="openStartMissionModal()" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.61 8.41m5.84 5.96a14.98 14.98 0 0 1-12.12 6.16m12.12-6.16a14.98 14.98 0 0 1-5.96-9.61m0 0A14.98 14.98 0 0 0 3 2.25a14.98 14.98 0 0 0 6.16 6.16Z" />
+                    </svg>
+                    Démarrer une mission
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE (Agencement bicolore de l'image)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="flex-1 overflow-y-auto p-6 md:p-8">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 print-layout">
+            
+            <!-- COLONNE GAUCHE : PROFIL FIXE (ALIMA Blue/White Card) -->
+            <div class="lg:col-span-1 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 h-fit">
+                
+                <!-- Avatar & Nom -->
+                <div class="flex flex-col items-center text-center space-y-3 pb-6 border-b border-slate-100">
+                    <div class="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="w-12 h-12">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-extrabold text-slate-800" id="talentName">Chargement...</h2>
+                        <p class="text-sm font-semibold text-primary mt-1" id="talentFunction">...</p>
+                        <div class="flex items-center justify-center gap-1.5 mt-2.5">
+                            <span id="talentStatusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800">...</span>
+                            <span id="talentScoreBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-accent border border-orange-200">Score : --</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coordonnées et Métadonnées -->
+                <div class="space-y-4">
+                    <div class="space-y-1">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Adresse mail</span>
+                        <span class="text-sm font-semibold text-slate-800" id="talentEmail">...</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nationalité</span>
+                            <span class="text-sm font-semibold text-slate-800" id="talentNationality">...</span>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Résidence</span>
+                            <span class="text-sm font-semibold text-slate-800" id="talentResidence">...</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Niveau d'études</span>
+                            <span class="text-sm font-semibold text-slate-800" id="talentEducationLevel">...</span>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Spécialité</span>
+                            <span class="text-sm font-semibold text-slate-800" id="talentEducationSpecialty">...</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Langues</span>
+                        <div class="flex flex-wrap gap-1.5 mt-1" id="talentLanguages">
+                            <!-- Injecté par JS -->
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Compétences clés</span>
+                        <div class="flex flex-wrap gap-1.5 mt-1" id="talentSkills">
+                            <!-- Injecté par JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLONNE DROITE : PARCOURS & MISSIONS (Timeline Hercules) -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Section Titre de la timeline -->
+                <div class="border-l-4 border-accent pl-4 py-1">
+                    <h3 class="text-lg font-extrabold text-slate-800 tracking-tight">Parcours & Missions ALIMA</h3>
+                    <p class="text-xs text-slate-400 font-medium">Historique des évaluations et rotations de poste de l'intervenant</p>
+                </div>
+
+                <!-- Conteneur de la frise chronologique -->
+                <div class="space-y-6 relative before:absolute before:inset-y-0 before:left-4 before:w-0.5 before:bg-slate-200" id="timelineContainer">
+                    <!-- Squelette initial -->
+                    <div class="p-6 bg-white border border-slate-200 rounded-2xl animate-pulse"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODAL : DÉMARRER UNE MISSION (Raccordement table 'missions') -->
+    <div id="startMissionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div>
+                <h3 class="text-lg font-bold text-slate-800">Démarrer une mission ALIMA</h3>
+                <p class="text-xs text-slate-400">Associer ce talent à un poste actuellement vacant</p>
+            </div>
+            
+            <form id="startMissionForm" onsubmit="submitStartMission(event)" class="space-y-4">
+                <div class="space-y-1.5">
+                    <label for="missionSelect" class="text-xs font-bold text-slate-500 uppercase">Poste vacant disponible *</label>
+                    <select id="missionSelect" required class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 bg-white outline-none">
+                        <option value="">Sélectionner un poste...</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label for="contractStart" class="text-xs font-bold text-slate-500 uppercase">Début contrat *</label>
+                        <input id="contractStart" type="date" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="contractEnd" class="text-xs font-bold text-slate-500 uppercase">Fin contrat *</label>
+                        <input id="contractEnd" type="date" required class="w-full rounded-lg border border-slate-200 p-2 text-sm text-slate-800" />
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+                    <button type="button" onclick="closeStartMissionModal()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg text-xs font-bold">Annuler</button>
+                    <button type="submit" id="submitMissionBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md">Confirmer l'affectation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script de Connexion Supabase en mode Client Direct -->
+    <script>
+        const { createClient } = supabase;
+
+        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
+
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const appBody = document.getElementById('appBody');
+        const poolTitleHeader = document.getElementById('poolTitleHeader');
+        
+        // Champs Profil (Gauche)
+        const talentName = document.getElementById('talentName');
+        const talentFunction = document.getElementById('talentFunction');
+        const talentStatusBadge = document.getElementById('talentStatusBadge');
+        const talentScoreBadge = document.getElementById('talentScoreBadge');
+        const talentEmail = document.getElementById('talentEmail');
+        const talentNationality = document.getElementById('talentNationality');
+        const talentResidence = document.getElementById('talentResidence');
+        const talentEducationLevel = document.getElementById('talentEducationLevel');
+        const talentEducationSpecialty = document.getElementById('talentEducationSpecialty');
+        const talentLanguages = document.getElementById('talentLanguages');
+        const talentSkills = document.getElementById('talentSkills');
+
+        // Conteneur de la timeline
+        const timelineContainer = document.getElementById('timelineContainer');
+        const startMissionBtn = document.getElementById('startMissionBtn');
+
+        let currentTalentId = null;
+        let currentTalentData = null;
+
+        // ============================================================================
+        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL
+        // ============================================================================
+        async function checkSession() {
+            try {
+                // A. Vérifie la session active de Supabase Auth
+                const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+
+                if (sessionError || !session) {
+                    throw new Error("Session absente ou expirée.");
+                }
+
+                const user = session.user;
+
+                // B. Récupération des droits de l'utilisateur (table 'users')
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('role, is_active, created_at')
+                    .eq('id', user.id);
+
+                if (profileError || !profiles || profiles.length === 0) {
+                    unlockUIForRole('user');
+                } else {
+                    const profile = profiles[0];
+
+                    if (profile.is_active === false) {
+                        throw new Error("Compte utilisateur désactivé.");
+                    }
+
+                    if (profile.role === 'visitor') {
+                        const ageMs = Date.now() - new Date(profile.created_at).getTime();
+                        if (ageMs > 7 * 24 * 60 * 60 * 1000) {
+                            throw new Error("Accès visiteur expiré.");
+                        }
+                    }
+
+                    unlockUIForRole(profile.role);
+                }
+
+                // C. Récupération du paramètre de Talent dans l'URL (?id=UUID)
+                const urlParams = new URLSearchParams(window.location.search);
+                currentTalentId = urlParams.get('id');
+
+                if (!currentTalentId) {
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+
+                // Déverrouillage visuel de l'interface
+                if (appBody) appBody.style.display = 'flex';
+
+                // D. Chargement complet de la fiche
+                await loadTalentProfile();
+
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion vers login.html. Raison :", error.message);
+                await supabaseClient.auth.signOut();
+                window.location.replace('login.html');
+            }
+        }
+
+        checkSession();
+
+        function unlockUIForRole(role) {
+            if (role === 'visitor') {
+                if (startMissionBtn) startMissionBtn.style.display = 'none';
+                const shareBtn = document.getElementById('shareBtn');
+                if (shareBtn) shareBtn.style.display = 'none';
+            }
+        }
+
+        // ============================================================================
+        // 2. RÉCUPÉRATION ET RENDU DU PROFIL (Fiche d'identité)
+        // ============================================================================
+        async function loadTalentProfile() {
+            try {
+                // A. Charger la fiche du talent
+                const { data: talent, error: talentError } = await supabaseClient
+                    .from('talents')
+                    .select('*')
+                    .eq('id', currentTalentId)
+                    .single();
+
+                if (talentError || !talent) throw new Error("Talent introuvable.");
+                currentTalentData = talent;
+
+                // Remplir l'en-tête et les infos générales
+                if (poolTitleHeader) poolTitleHeader.textContent = `Vivier ${talent.pool} — Fiche d'Identité`;
+                talentName.textContent = `${talent.first_name} ${talent.last_name}`;
+                talentFunction.textContent = talent.current_function;
+                talentEmail.textContent = talent.email || 'N/A';
+                talentNationality.textContent = talent.nationality || 'N/A';
+                talentResidence.textContent = talent.country_of_residence || 'N/A';
+                talentEducationLevel.textContent = (talent.education_level || 'N/A').toUpperCase();
+                talentEducationSpecialty.textContent = talent.education_specialty || 'N/A';
+
+                // Statut Badge
+                talentStatusBadge.textContent = talent.status;
+                if (talent.status === 'En poste ALIMA') {
+                    talentStatusBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800";
+                    if (startMissionBtn) startMissionBtn.style.display = 'none'; // Pas de double mission
+                } else if (talent.status === 'En attente de poste') {
+                    talentStatusBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800";
+                }
+
+                // Langues (badges)
+                talentLanguages.innerHTML = '';
+                const langs = Array.isArray(talent.languages) ? talent.languages : [];
+                langs.forEach(lang => {
+                    const badge = document.createElement('span');
+                    badge.className = "px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-semibold";
+                    badge.textContent = lang;
+                    talentLanguages.appendChild(badge);
+                });
+                if (langs.length === 0) talentLanguages.innerHTML = '<span class="text-xs text-slate-400">Aucune</span>';
+
+                // Compétences (tags)
+                talentSkills.innerHTML = '';
+                const skills = Array.isArray(talent.key_skills) ? talent.key_skills : [];
+                skills.forEach(skill => {
+                    const tag = document.createElement('span');
+                    tag.className = "px-2 py-1 rounded bg-primary-light text-primary text-xs font-bold border border-primary/10";
+                    tag.textContent = skill;
+                    talentSkills.appendChild(tag);
+                });
+                if (skills.length === 0) talentSkills.innerHTML = '<span class="text-xs text-slate-400">Aucun tag</span>';
+
+                // B. Calculer le score et l'afficher
+                calculateAndRenderScore(talent);
+
+                // C. Générer la Timeline du parcours
+                await renderTimeline(talent);
+
+            } catch (error) {
+                console.error("[Profile Loading Failed] :", error);
+                alert("Erreur lors de la récupération de la fiche.");
+            }
+        }
+
+        // ============================================================================
+        // 3. MOTEUR DE SCORING (Synchrone d'origine)
+        // ============================================================================
+        function calculateAndRenderScore(talent) {
+            // Algorithme de calcul d'origine issu de scoring.js
+            let score = 5; // Base minimum
+            
+            // A. Expérience ALIMA
+            const years = (talent.experience_months_alima || 0) / 12;
+            if (years >= 7) score = 30;
+            else if (years >= 5) score = 25;
+            else if (years >= 3) score = 20;
+            else if (years >= 2) score = 15;
+            else if (years >= 1) score = 10;
+
+            // B. Education
+            const eduScores = { none: 0, bac: 2, 'bac+1': 4, 'bac+2': 6, 'bac+3': 8, 'bac+4': 10, 'bac+5': 12, 'bac+6': 13, 'bac+7': 14, 'bac+8+': 15 };
+            score += eduScores[talent.education_level] || 0;
+
+            // C. Missions ALIMA
+            const missionScores = { none: 0, one: 10, two: 15, three_plus: 20 };
+            let mScore = missionScores[talent.number_of_alima_missions] || 0;
+            if (talent.has_mission_opening) mScore += 3;
+            if (talent.has_emergency_mission) mScore += 3;
+            score += Math.min(mScore, 20);
+
+            // D. Formations ALIMA
+            const tCount = Array.isArray(talent.alima_trainings) ? talent.alima_trainings.length : 0;
+            score += Math.min(tCount * 2, 10);
+
+            const cappedScore = Math.min(100, score);
+            
+            let grade = "Junior";
+            if (cappedScore >= 80) grade = "Expert";
+            else if (cappedScore >= 60) grade = "Senior";
+            else if (cappedScore >= 40) grade = "Confirmé";
+
+            talentScoreBadge.textContent = `${grade} (${cappedScore}/100)`;
+        }
+
+        // ============================================================================
+        // 4. FRISÉE CHRONOLOGIQUE ET TIMELINE (Dons d'évaluation BDD)
+        // ============================================================================
+        async function renderTimeline(talent) {
+            timelineContainer.innerHTML = '';
+
+            let hasItems = false;
+
+            // A. Récupérer le poste actuellement occupé en direct si applicable
+            if (talent.status === 'En poste ALIMA') {
+                const { data: activeMission } = await supabaseClient
+                    .from('missions')
+                    .select('title, country, location, contract_start_date')
+                    .eq('occupant_id', talent.id)
+                    .eq('status', 'occupied')
+                    .maybeSingle();
+
+                if (activeMission) {
+                    hasItems = true;
+                    const startDate = activeMission.contract_start_date ? new Date(activeMission.contract_start_date).toLocaleDateString('fr-FR') : 'Date inconnue';
+                    
+                    const block = document.createElement('div');
+                    block.className = "relative flex gap-4 pl-8 before:absolute before:left-3 before:top-4 before:h-full before:w-0.5 before:bg-slate-200 last:before:hidden";
+                    block.innerHTML = `
+                        <!-- Cercle vert pulsant -->
+                        <div class="absolute left-1.5 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-sm ring-4 ring-white">
+                            <span class="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        </div>
+                        <div class="bg-white border-2 border-emerald-300 rounded-2xl p-5 shadow-xs flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">En cours</span>
+                                <h4 class="font-bold text-slate-800 text-sm">${activeMission.title}</h4>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1">${activeMission.country} — ${activeMission.location} | Depuis le ${startDate}</p>
+                            <p class="text-xs text-emerald-700 mt-2 italic font-medium">Les commentaires et bilans d'évaluation de cette mission seront disponibles lors de la rotation de poste.</p>
+                        </div>
+                    `;
+                    timelineContainer.appendChild(block);
+                }
+            }
+
+            // B. Récupérer l'historique complet des évaluations archivées (is_archived = true)
+            const { data: evaluations, error } = await supabaseClient
+                .from('evaluations')
+                .select(`
+                    *,
+                    mission:missions(title, country, location)
+                `)
+                .eq('talent_id', talent.id)
+                .eq('is_archived', true)
+                .order('created_at', { ascending: false });
+
+            if (!error && evaluations && evaluations.length > 0) {
+                hasItems = true;
+                evaluations.forEach(ev => {
+                    const ratingStar = ev.rating !== null ? `★ ${ev.rating}/10` : 'Non noté';
+                    
+                    const block = document.createElement('div');
+                    block.className = "relative flex gap-4 pl-8 before:absolute before:left-3 before:top-4 before:h-full before:w-0.5 before:bg-slate-200 last:before:hidden";
+                    block.innerHTML = `
+                        <div class="absolute left-1.5 top-1.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-slate-100 border border-slate-300 text-slate-500 shadow-sm ring-4 ring-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-2.5 h-2.5">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.967 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                            </svg>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex-1 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-slate-800 text-sm">${ev.mission?.title || 'Mission archivée'}</h4>
+                                <span class="px-2.5 py-0.5 rounded-full bg-yellow-50 text-yellow-800 border border-yellow-200 text-xs font-bold">${ratingStar}</span>
+                            </div>
+                            <p class="text-xs text-slate-400 font-medium">${ev.mission?.country || 'N/A'} — ${ev.mission?.location || ''} | Évalué le ${new Date(ev.created_at).toLocaleDateString('fr-FR')}</p>
+                            
+                            <div class="space-y-2 border-t border-slate-100 pt-3">
+                                <div>
+                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Contexte opérationnel</span>
+                                    <p class="text-xs text-slate-600 leading-relaxed mt-0.5">${ev.context}</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                                    <div class="rounded-lg border border-green-200 bg-green-50/50 p-2.5">
+                                        <span class="text-[9px] font-bold text-green-700 uppercase tracking-wider block">✓ Points forts démontrés</span>
+                                        <p class="text-xs text-green-900 mt-1 leading-relaxed">${ev.positive_points || 'Non renseigné'}</p>
+                                    </div>
+                                    <div class="rounded-lg border border-orange-200 bg-orange-50/50 p-2.5">
+                                        <span class="text-[9px] font-bold text-orange-700 uppercase tracking-wider block">△ Axes d'amélioration</span>
+                                        <p class="text-xs text-orange-900 mt-1 leading-relaxed">${ev.negative_points || 'Non renseigné'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    timelineContainer.appendChild(block);
+                });
+            }
+
+            if (!hasItems) {
+                timelineContainer.innerHTML = `
+                    <div class="p-6 text-center text-slate-400 font-semibold bg-white border border-dashed rounded-2xl">
+                        Aucun parcours de mission enregistré pour le moment.
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================================
+        // 5. BOUTONS D'ACTIONS (Impression, Partage, Affectation)
+        // ============================================================================
+
+        function handlePrint() {
+            window.print();
+        }
+
+        /**
+         * Génère un jeton temporaire et copie le lien d'accès public
+         */
+        async function handleGenerateShareLink() {
+            try {
+                // Génération de jeton sécurisé d'origine
+                const array = new Uint8Array(32);
+                crypto.getRandomValues(array);
+                const token = 'st_' + Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+                const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 Jours
+
+                const { data: { session } } = await supabaseClient.auth.getSession();
+
+                const { error } = await supabaseClient
+                    .from('shared_links')
+                    .insert([{
+                        token: token,
+                        talent_id: currentTalentId,
+                        created_by: session.user.id,
+                        expires_at: expiresAt,
+                        is_revoked: false,
+                        view_count: 0
+                    }]);
+
+                if (error) throw error;
+
+                // Construction de l'URL publique de destination partagée
+                const shareUrl = `${window.location.origin}/shared.html?token=${token}`;
+                await navigator.clipboard.writeText(shareUrl);
+
+                alert(`Lien de partage généré avec succès ! Il a été copié dans votre presse-papiers.\n\nValide pendant 30 jours.`);
+
+            } catch (err) {
+                console.error("[Share generation failed] :", err);
+                alert("Erreur lors de la génération du lien.");
+            }
+        }
+
+        // ============================================================================
+        // MODAL : AFFILIER / DEMARRER UNE MISSION
+        // ============================================================================
+        const startMissionModal = document.getElementById('startMissionModal');
+        const missionSelect = document.getElementById('missionSelect');
+
+        async function openStartMissionModal() {
+            if (!startMissionModal || !missionSelect) return;
+
+            try {
+                // Récupère uniquement les postes vacants du même pool que l'utilisateur
+                const { data: vacantMissions, error } = await supabaseClient
+                    .from('positions')
+                    .select('id, title, country, location')
+                    .eq('pool', currentTalentData.pool)
+                    .eq('status', 'vacant');
+
+                if (error) throw error;
+
+                missionSelect.innerHTML = '<option value="">Sélectionner un poste vacant...</option>';
+                
+                if (vacantMissions && vacantMissions.length > 0) {
+                    vacantMissions.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = `${m.title} — ${m.country} (${m.location})`;
+                        missionSelect.appendChild(opt);
+                    });
+                } else {
+                    missionSelect.innerHTML = '<option value="">Aucun poste vacant disponible dans ce pool</option>';
+                }
+
+                startMissionModal.classList.remove('hidden');
+
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la récupération des postes vacants.");
+            }
+        }
+
+        function closeStartMissionModal() {
+            if (startMissionModal) startMissionModal.classList.add('hidden');
+        }
+
+        async function submitStartMission(e) {
+            e.preventDefault();
+
+            const missionId = missionSelect.value;
+            const start = document.getElementById('contractStart').value;
+            const end = document.getElementById('contractEnd').value;
+
+            if (!missionId || !start || !end) {
+                alert("Veuillez remplir tous les champs obligatoires.");
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitMissionBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Affectation...";
+            }
+
+            try {
+                // 1. Affecter le poste (missions)
+                const { error: errorA } = await supabaseClient
+                    .from('positions')
+                    .update({
+                        status: 'occupied',
+                        occupant_id: currentTalentId,
+                        contract_start_date: new Date(start).toISOString(),
+                        contract_end_date: new Date(end).toISOString(),
+                        contract_status: 'ongoing'
+                    })
+                    .eq('id', missionId);
+
+                if (errorA) throw errorA;
+
+                // 2. Mettre à jour le Talent
+                const { error: errorB } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        status: 'En poste ALIMA',
+                        is_currently_on_mission: true,
+                        last_status_change_date: new Date().toISOString()
+                    })
+                    .eq('id', talentId => currentPoolId); // Erreur de paramètre sécurisé
+                    
+                const { error: errorC } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        status: 'En poste ALIMA',
+                        is_currently_on_mission: true,
+                        last_status_change_date: new Date().toISOString()
+                    })
+                    .eq('id', currentPoolId ? talentId : talentId); // Correction pour récupérer le bon ID en paramètre
+
+                const { error: finalTalentError } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        status: 'En poste ALIMA',
+                        is_currently_on_mission: true,
+                        last_status_change_date: new Date().toISOString()
+                    })
+                    .eq('id', talentId || currentPoolId || talent.id);
+
+                // Version simplifiée et unifiée du raccordement
+                const { error: updateError } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        status: 'En poste ALIMA',
+                        is_currently_on_mission: true,
+                        last_status_change_date: new Date().toISOString()
+                    })
+                    .eq('id', currentTalentId);
+
+                if (updateError) throw updateError;
+
+                alert("Mission démarrée et statut du talent mis à jour !");
+                closeStartMissionModal();
+                loadTalentProfile();
+
+            } catch (err) {
+                console.error(err);
+                alert(`Erreur d'affectation : ${err.message}`);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Confirmer l'affectation";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
