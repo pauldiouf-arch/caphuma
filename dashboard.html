@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord - Cap Huma</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Configuration de la charte graphique ALIMA / Cap Huma -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1d4ed8', // Bleu ALIMA d'origine
+                            dark: '#1e3a8a',
+                            light: '#eff6ff',
+                        },
+                        accent: {
+                            DEFAULT: '#ea580c', // Orange humanitaire d'origine
+                            dark: '#c2410c',
+                            light: '#fff7ed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-slate-50 font-sans flex overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         SIDEBAR DE NAVIGATION LATÉRALE (Fidélité visuelle Hercules)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <aside class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-primary-dark text-white z-20">
+        <!-- En-tête de la barre latérale (Logo Compass & Nom de l'appli) -->
+        <div class="flex items-center gap-3 px-6 h-20 border-b border-white/10 shrink-0">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1 1 15 0Z" />
+                </svg>
+            </div>
+            <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-orange-100 bg-clip-text text-transparent">
+                Cap Huma
+            </span>
+        </div>
+
+        <!-- Menu de navigation principal -->
+        <div class="flex-1 flex flex-col justify-between overflow-y-auto px-4 py-6">
+            <nav class="space-y-1.5">
+                <a href="dashboard.html" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold bg-primary text-white shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5  9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                    </svg>
+                    Vue d'ensemble
+                </a>
+                <a href="talents.html" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                    </svg>
+                    Pools & Talents
+                </a>
+                <a href="missions.html" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.45.258-.717.258H3.571a.8.8 0 0 1-.717-.258m17.5 0a2.18 2.18 0 0 1-.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m0 0a48.58 48.58 0 0 0-6.177 0m6.177 0v1.502a2.25 2.25 0 0 1-2.25 2.25H9.75a2.25 2.25 0 0 1-2.25-2.25V6.144m6.177 0a48.114 48.114 0 0 0-3.413.387m0 0a48.58 48.58 0 0 1-6.177 0" />
+                    </svg>
+                    Missions & Rotations
+                </a>
+                <a href="evaluations.html" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499c-.105-.3-.423-.5-.747-.5H4.125C3.504 3 3 3.504 3 4.125v15.75c0 .621.504 1.125 1.125 1.125h15.75c.621 0 1.125-.504 1.125-1.125V11.48c0-.324-.2-.642-.5-.747L11.48 3.499Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 9.75 11.25 13.5m0 0L9.75 12m1.5 1.5V6" />
+                    </svg>
+                    Évaluations
+                </a>
+                <a href="redlist.html" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-orange-400">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                    Liste Rouge
+                </a>
+                <a href="audit.html" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    Journal d'Audit
+                </a>
+
+                <!-- Administration (Affiché uniquement pour les admins en JS) -->
+                <a id="adminNavBtn" href="admin.html" class="hidden items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-blue-400">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z" />
+                    </svg>
+                    Administration
+                </a>
+
+                <!-- Guide d'utilisation -->
+                <a href="guide.html" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.967 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                    </svg>
+                    Guide d'utilisation
+                </a>
+            </nav>
+
+            <!-- Bouton Déconnexion standard de la sidebar -->
+            <button id="logoutBtn" class="flex items-center gap-3 w-full px-4 py-2.5 rounded-lg text-sm font-medium text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-all border border-red-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+                </svg>
+                Déconnexion
+            </button>
+        </div>
+    </aside>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE DU TABLEAU DE BORD (Sidebar Offset)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <div class="md:pl-64 flex flex-col flex-1 h-screen overflow-hidden">
+        
+        <!-- En-tête supérieur de la page -->
+        <header class="flex items-center justify-between h-20 bg-white border-b border-slate-200 px-8 shrink-0">
+            <div>
+                <h2 class="text-sm font-medium text-slate-400">Section Administrative</h2>
+                <h3 class="text-xl font-bold text-slate-800 mt-0.5">Tableau de Bord</h3>
+            </div>
+            
+            <!-- Badge Profil Connecté d'Origine -->
+            <div class="flex items-center gap-3">
+                <div class="text-right hidden sm:block">
+                    <p class="text-sm font-bold text-slate-800" id="userNameHeader">...</p>
+                    <p class="text-xs text-primary font-semibold" id="userRoleHeader">...</p>
+                </div>
+                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold">
+                    PD
+                </div>
+            </div>
+        </header>
+
+        <!-- Zone de défilement du contenu -->
+        <main class="flex-1 overflow-y-auto bg-slate-50/50 p-8 space-y-8">
+            
+            <!-- Message de bienvenue d'origine -->
+            <div class="rounded-2xl border border-sky-100 bg-sky-50/50 p-6 flex flex-col gap-3 relative overflow-hidden">
+                <div class="flex items-center gap-3 text-primary-dark">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1 1 15 0Z" />
+                    </svg>
+                    <h4 class="font-bold text-sm uppercase tracking-wider">Bienvenue sur Cap Huma</h4>
+                </div>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    <strong>Cap Huma</strong> accompagne les trajectoires professionnelles des intervenants humanitaires ALIMA. Comme un cap fixé en navigation, la plateforme donne une direction claire à chaque parcours : intégration au pool, expériences de terrain, bilans de suivi et évolution vers de nouvelles missions.
+                </p>
+                <p class="text-xs text-slate-500 font-medium">
+                    Sélectionnez un pool ci-dessous pour consulter les profils, suivre les postes ouverts et piloter les parcours professionnels.
+                </p>
+            </div>
+
+            <!-- Les 4 Statistiques Clés en Direct (KPIs) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Carte 1 : Total Talents -->
+                <div class="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-slate-400">Total Talents</span>
+                        <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 12.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <p id="statTotalTalents" class="text-3xl font-extrabold text-slate-800 animate-pulse">...</p>
+                        <p class="text-xs text-slate-400 mt-1">Profils enregistrés hors liste rouge</p>
+                    </div>
+                </div>
+
+                <!-- Carte 2 : Postes Vacants -->
+                <div class="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-slate-400">Postes Vacants</span>
+                        <div class="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <p id="statVacantMissions" class="text-3xl font-extrabold text-slate-800 animate-pulse">...</p>
+                        <p class="text-xs text-slate-400 mt-1">Missions nécessitant un recrutement</p>
+                    </div>
+                </div>
+
+                <!-- Carte 3 : Profils Valides -->
+                <div class="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-slate-400">Profils Valides</span>
+                        <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <p id="statValidTalents" class="text-3xl font-extrabold text-slate-800 animate-pulse">...</p>
+                        <p class="text-xs text-slate-400 mt-1">Talents éligibles au départ immédiat</p>
+                    </div>
+                </div>
+
+                <!-- Carte 4 : Liste Rouge -->
+                <div class="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-slate-400">Liste Rouge</span>
+                        <div class="p-2 bg-red-50 text-red-600 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <p id="statRedListCount" class="text-3xl font-extrabold text-slate-800 animate-pulse">...</p>
+                        <p class="text-xs text-slate-400 mt-1">Profils actuellement bloqués en recrutement</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Titre de section "Pools disponibles" avec la barre orange d'origine -->
+            <div class="border-l-4 border-accent pl-4 py-1.5">
+                <h2 class="text-2xl font-extrabold text-slate-800 tracking-tight">Pools disponibles</h2>
+                <p class="text-xs text-slate-400 mt-1 font-medium">Accédez aux différents pools de professionnels humanitaires</p>
+            </div>
+
+            <!-- Grille des Pools dynamique (Générée par JS ci-dessous) -->
+            <div id="poolsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Squelettes de chargement des cartes de pools -->
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 h-56 animate-pulse"></div>
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 h-56 animate-pulse"></div>
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 h-56 animate-pulse"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Script de Connexion Supabase en mode Client Direct -->
+    <script>
+        const { createClient } = supabase;
+
+        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
+
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const appBody = document.getElementById('appBody');
+        const userNameHeader = document.getElementById('userNameHeader');
+        const userRoleHeader = document.getElementById('userRoleHeader');
+        const adminNavBtn = document.getElementById('adminNavBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const poolsGrid = document.getElementById('poolsGrid');
+
+        // Éléments des compteurs principaux
+        const statTotalTalents = document.getElementById('statTotalTalents');
+        const statVacantMissions = document.getElementById('statVacantMissions');
+        const statValidTalents = document.getElementById('statValidTalents');
+        const statRedListCount = document.getElementById('statRedListCount');
+
+        const pools = ['CDM', 'COFIN', 'COFIRH', 'COLOG', 'COMED', 'CORH'];
+
+        // ============================================================================
+        // 1. PROTECTION ZERO TRUST ET PERSISTANCE DE SESSION
+        // ============================================================================
+        async function checkSession() {
+            try {
+                // Récupération instantanée de la session stockée par le navigateur
+                const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+
+                if (sessionError || !session) {
+                    throw new Error("Session absente ou expirée.");
+                }
+
+                const user = session.user;
+
+                // Récupération souple des informations du profil (table 'users')
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('name, role, is_active, created_at')
+                    .eq('id', user.id);
+
+                if (profileError || !profiles || profiles.length === 0) {
+                    document.getElementById('userNameHeader').textContent = user.email;
+                    document.getElementById('userRoleHeader').textContent = 'Utilisateur';
+                } else {
+                    const profile = profiles[0];
+
+                    // Sécurité : Compte suspendu
+                    if (profile.is_active === false) {
+                        throw new Error("Compte désactivé.");
+                    }
+
+                    // Sécurité : Visiteur expiré (7 jours maximum)
+                    if (profile.role === 'visitor') {
+                        const ageMs = Date.now() - new Date(profile.created_at).getTime();
+                        if (ageMs > 7 * 24 * 60 * 60 * 1000) {
+                            throw new Error("Compte visiteur expiré.");
+                        }
+                    }
+
+                    const roleLabels = { admin: 'Administrateur', user: 'Utilisateur', visitor: 'Visiteur' };
+                    document.getElementById('userNameHeader').textContent = profile.name || user.email;
+                    document.getElementById('userRoleHeader').textContent = roleLabels[profile.role] || 'Utilisateur';
+
+                    // Afficher le bouton Administration si l'utilisateur est Admin
+                    if (profile.role === 'admin' && adminNavBtn) {
+                        adminNavBtn.classList.remove('hidden');
+                        adminNavBtn.classList.add('flex');
+                    }
+                }
+
+                // Déverrouillage visuel de l'interface
+                document.getElementById('appBody').style.display = 'flex';
+
+                // Vérification, peuplement initial de la table 'pools' (Seed) puis rendu
+                await verifyAndSeedPools();
+
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, redirection sécurisée. Raison :", error.message);
+                await supabaseClient.auth.signOut();
+                window.location.replace('login.html');
+            }
+        }
+
+        // Lancement immédiat de la vérification au chargement de la page
+        checkSession();
+
+        // ============================================================================
+        // 2. LOGIQUE DE SEED ET DE GÉNÉRATION DYNAMIQUE DES CARTES
+        // ============================================================================
+        async function verifyAndSeedPools() {
+            try {
+                // Interroger la table pools
+                const { data: existingPools, error: fetchPoolError } = await supabaseClient
+                    .from('pools')
+                    .select('*');
+
+                if (fetchPoolError) throw fetchPoolError;
+
+                // Si la table pools est complètement vide, on la peuple automatiquement (Seed)
+                if (!existingPools || existingPools.length === 0) {
+                    console.log("[Seed] Table 'pools' vide. Initialisation des 6 pools d'origine...");
+                    
+                    const defaultPools = [
+                        { pool_id: "CDM", name: "CDM", full_name: "Chef de mission", level: "mission", description: "Chef de mission", color: "blue", is_active: true },
+                        { pool_id: "COFIN", name: "COFIN", full_name: "Coordinateur Financier", level: "mission", description: "Coordination financière niveau mission", color: "amber", is_active: true },
+                        { pool_id: "COFIRH", name: "COFIRH", full_name: "Coordinateur RH et Financier", level: "mission", description: "Coordination RH et financière niveau mission", color: "orange", is_active: true },
+                        { pool_id: "COLOG", name: "COLOG", full_name: "Coordinateur Logistique", level: "mission", description: "Coordination logistique niveau mission", color: "blue", is_active: true },
+                        { pool_id: "COMED", name: "COMED", full_name: "Coordinateur Médical", level: "mission", description: "Coordination médicale niveau mission", color: "blue", is_active: true },
+                        { pool_id: "CORH", name: "CORH", full_name: "Coordinateur RH", level: "mission", description: "Coordination RH niveau mission", color: "green", is_active: true }
+                    ];
+
+                    const { error: seedError } = await supabaseClient.from('pools').insert(defaultPools);
+                    if (seedError) throw seedError;
+
+                    // Re-récupérer après insertion
+                    const { data: newlySeededPools } = await supabaseClient.from('pools').select('*');
+                    renderPoolCards(newlySeededPools);
+                } else {
+                    // Sinon, on effectue le rendu direct avec les données existantes
+                    renderPoolCards(existingPools);
+                }
+
+            } catch (error) {
+                console.error("[Seed/Rendu] Échec de l'auto-peuplage des pools :", error);
+                if (poolsGrid) {
+                    poolsGrid.innerHTML = `
+                        <div class="col-span-3 text-center text-red-600 font-semibold p-6 bg-white border border-red-200 rounded-2xl">
+                            Erreur de chargement des pools : ${error.message}. Vérifiez les configurations et droits Supabase.
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        /**
+         * Rendu dynamique des cartes de pools (Fidélité visuelle 100% Hercules)
+         */
+        function renderPoolCards(poolsList) {
+            if (!poolsGrid) return;
+            poolsGrid.innerHTML = '';
+
+            poolsList.forEach(pool => {
+                const colorMap = {
+                    blue: 'bg-blue-600',
+                    amber: 'bg-amber-500',
+                    orange: 'bg-orange-600',
+                    green: 'bg-emerald-600',
+                    rose: 'bg-rose-500',
+                    teal: 'bg-teal-600'
+                };
+                const iconColor = colorMap[pool.color] || 'bg-blue-600';
+
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col space-y-4";
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-xl ${iconColor} text-white shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-extrabold text-slate-800 leading-none">${pool.name}</h3>
+                            <p class="text-xs text-slate-400 font-medium mt-1">${pool.full_name}</p>
+                            <p class="text-[10px] text-slate-400 uppercase font-semibold mt-0.5">Niveau ${pool.level === 'project' ? 'projet' : 'mission'}</p>
+                        </div>
+                    </div>
+                    <!-- Grille Micro-KPIs -->
+                    <div class="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-3 text-xs">
+                        <div>
+                            <span class="text-[10px] text-slate-400 block font-semibold">Total</span>
+                            <span class="text-base font-bold text-slate-800 animate-pulse" id="total-${pool.pool_id}">0</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block font-semibold">En poste</span>
+                            <span class="text-base font-bold text-emerald-600 animate-pulse" id="active-${pool.pool_id}">0</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block font-semibold">Disponibles</span>
+                            <span class="text-base font-bold text-primary animate-pulse" id="avail-${pool.pool_id}">0</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block font-semibold">Autre ONG</span>
+                            <span class="text-base font-bold text-accent animate-pulse" id="other-${pool.pool_id}">0</span>
+                        </div>
+                    </div>
+                    <!-- Actions (Raccordement des liens dynamiques) -->
+                    <div class="space-y-2 pt-2">
+                        <div class="flex gap-2">
+                            <a href="talents.html?pool=${pool.pool_id}" class="flex-1 bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                                </svg>
+                                Professionnels
+                            </a>
+                            <a href="missions.html?pool=${pool.pool_id}" class="flex-1 bg-primary-light border border-blue-100 hover:bg-blue-100/60 text-primary text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all">
+                                Postes
+                            </a>
+                        </div>
+                        <a href="statistics.html?pool=${pool.pool_id}" class="w-full bg-orange-50/50 hover:bg-orange-100/50 text-accent border border-orange-200 text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
+                            </svg>
+                            Statistiques
+                        </a>
+                    </div>
+                `;
+                poolsGrid.appendChild(card);
+            });
+
+            // Lancement du comptage asynchrone des statistiques pour chaque pool
+            loadPoolsKPIs(poolsList);
+        }
+
+        // ============================================================================
+        // 3. RECUPERATION EN DIRECT DES STATISTIQUES GLOBALES ET LOCALES (PAR POOL)
+        // ============================================================================
+        async function loadDashboardStats() {
+            try {
+                // Exécution simultanée des requêtes pour les 4 indicateurs globaux
+                const [talentsRes, vacantMissionsRes, validTalentsRes, redListRes] = await Promise.all([
+                    supabaseClient.from('talents').select('*', { count: 'exact', head: true }).eq('is_red_listed', false),
+                    supabaseClient.from('positions').select('*', { count: 'exact', head: true }).eq('status', 'vacant'),
+                    supabaseClient.from('talents').select('*', { count: 'exact', head: true }).eq('is_valid', true).eq('is_red_listed', false),
+                    supabaseClient.from('talents').select('*', { count: 'exact', head: true }).eq('is_red_listed', true)
+                ]);
+
+                updateStatUI(statTotalTalents, talentsRes.error ? '0' : talentsRes.count);
+                updateStatUI(statVacantMissions, vacantMissionsRes.error ? '0' : vacantMissionsRes.count);
+                updateStatUI(statValidTalents, validTalentsRes.error ? '0' : validTalentsRes.count);
+                updateStatUI(statRedListCount, redListRes.error ? '0' : redListRes.count);
+
+            } catch (error) {
+                console.error("[Stats] Erreur globale lors du chargement :", error);
+            }
+        }
+
+        /**
+         * Récupère asynchronement et indépendamment les statistiques pour chaque pool de la liste.
+         * Évite le ralentissement de la page en gérant la simultanéité de façon optimale.
+         */
+        async function loadPoolsKPIs(poolsList) {
+            poolsList.forEach(async (pool) => {
+                try {
+                    const [pTotal, pActive, pAvail, pOther] = await Promise.all([
+                        supabaseClient.from('talents').select('*', { count: 'exact', head: true }).eq('pool', pool.pool_id).eq('is_red_listed', false),
+                        supabaseClient.from('talents').select('*', { count: 'exact', head: true }).eq('pool', pool.pool_id).eq('status', 'En poste ALIMA').eq('is_valid', true).eq('is_red_listed', false),
+                        supabaseClient.from('talents').select('*', { count: 'exact', head: true }).eq('pool', pool.pool_id).eq('status', 'En attente de poste').eq('is_valid', true).eq('is_red_listed', false),
+                        supabaseClient.from('talents').select('*', { count: 'exact', head: true }).eq('pool', pool.pool_id).eq('status', 'En poste autre ONG').eq('is_valid', true).eq('is_red_listed', false)
+                    ]);
+
+                    updateCardStat(`total-${pool.pool_id}`, pTotal.error ? 0 : pTotal.count);
+                    updateCardStat(`active-${pool.pool_id}`, pActive.error ? 0 : pActive.count);
+                    updateCardStat(`avail-${pool.pool_id}`, pAvail.error ? 0 : pAvail.count);
+                    updateCardStat(`other-${pool.pool_id}`, pOther.error ? 0 : pOther.count);
+
+                } catch (err) {
+                    console.error(`[Card KPI Error] Échec de lecture des compteurs pour le pool ${pool.pool_id} :`, err);
+                }
+            });
+        }
+
+        function updateStatUI(element, value) {
+            if (element) {
+                element.textContent = value;
+                element.classList.remove('animate-pulse');
+            }
+        }
+
+        function updateCardStat(elementId, value) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.textContent = value;
+                el.classList.remove('animate-pulse');
+            }
+        }
+
+        // ============================================================================
+        // 4. ACTION DE DECONNEXION SYSTEME
+        // ============================================================================
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await supabaseClient.auth.signOut();
+                    window.location.replace('login.html');
+                } catch (error) {
+                    console.error("Erreur déconnexion :", error);
+                    window.location.replace('login.html');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
