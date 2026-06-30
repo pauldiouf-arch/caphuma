@@ -216,7 +216,7 @@
         let pendingReleaseData = null;
 
         // ============================================================================
-        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL (Expulsion relative stricte)
+        // 1. PROTECTION ZERO TRUST ET PARAMETRE D'URL (Expulsion relative stricte)
         // ============================================================================
         async function checkSession() {
             try {
@@ -432,6 +432,7 @@
                     `;
                 }
 
+                // Correction de la faille de concaténation syntaxique (utilisation de +=)
                 tableRowContent += `
                         </div>
                     </td>
