@@ -62,7 +62,7 @@
                     </div>
                     <div>
                         <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight" id="poolTitleHeader">Suivi des Postes</h1>
-                        <p class="text-xs text-slate-400 font-medium" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
+                        <p class="text-xs text-slate-400 font-medium animate-pulse" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
                     </div>
                 </div>
             </div>
@@ -132,6 +132,85 @@
         </div>
 
     </main>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         MODAL : CREATION DE POSTE (Mappe sur table Supabase 'positions')
+         ──────────────────────────────────────────────────────────────────────── -->
+    <div id="addPositionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-800">Ajouter un nouveau poste</h3>
+                <button type="button" onclick="closeAddPositionModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="addPositionForm" onsubmit="submitAddPositionForm(event)" class="space-y-4">
+                <div class="space-y-1.5">
+                    <label for="posTitle" class="text-xs font-bold text-slate-500 uppercase">Titre du poste *</label>
+                    <input id="posTitle" type="text" required placeholder="Ex: COLOG Tchad - N'Djamena" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none" />
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label for="posDesk" class="text-xs font-bold text-slate-500 uppercase">Desk *</label>
+                        <select id="posDesk" required class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 bg-white outline-none">
+                            <option value="desk1">Desk 1</option>
+                            <option value="desk2">Desk 2</option>
+                            <option value="desk3">Desk 3</option>
+                            <option value="suo">SUO</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="posCandidateType" class="text-xs font-bold text-slate-500 uppercase">Type candidat *</label>
+                        <select id="posCandidateType" required class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 bg-white outline-none">
+                            <option value="expat">Expatrié</option>
+                            <option value="nat">Staff National</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label for="posCountry" class="text-xs font-bold text-slate-500 uppercase">Pays *</label>
+                        <input id="posCountry" type="text" required placeholder="Tchad" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="posLocation" class="text-xs font-bold text-slate-500 uppercase">Lieu/Mission *</label>
+                        <input id="posLocation" type="text" required placeholder="N'Djamena" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none" />
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label for="posPoolLevel" class="text-xs font-bold text-slate-500 uppercase">Niveau du poste *</label>
+                    <select id="posPoolLevel" required onchange="toggleProjectNameField(this.value)" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 bg-white outline-none">
+                        <option value="mission">Mission (Coordination)</option>
+                        <option value="project">Projet (Terrain)</option>
+                    </select>
+                </div>
+
+                <div id="posProjectNameContainer" class="hidden space-y-1.5">
+                    <label for="posProjectName" class="text-xs font-bold text-slate-500 uppercase">Nom du projet *</label>
+                    <input id="posProjectName" type="text" placeholder="Ex: Projet Nutrition" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none" />
+                </div>
+
+                <div class="space-y-1.5">
+                    <label for="posStatus" class="text-xs font-bold text-slate-500 uppercase">Statut initial *</label>
+                    <select id="posStatus" required class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 bg-white outline-none">
+                        <option value="vacant">Vacant</option>
+                        <option value="recruiting">En recrutement</option>
+                    </select>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
+                    <button type="button" onclick="closeAddPositionModal()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg text-xs font-bold">Annuler</button>
+                    <button type="submit" id="submitAddPosBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- ────────────────────────────────────────────────────────────────────────
          MODAL : DOUBLE-VERROU D'ÉVALUATION OBLIGATOIRE (Moteur Evaluations)
@@ -208,6 +287,11 @@
         // Éléments du modal d'évaluation bloquant
         const evaluationLockModal = document.getElementById('evaluationLockModal');
         const evalTalentName = document.getElementById('evalTalentName');
+
+        // Éléments du modal de création de poste
+        const addPositionModal = document.getElementById('addPositionModal');
+        const addPositionForm = document.getElementById('addPositionForm');
+        const submitAddPosBtn = document.getElementById('submitAddPosBtn');
 
         let currentPoolId = null;
         let userRole = 'visitor';
@@ -309,7 +393,7 @@
         // ============================================================================
         async function loadMissionsAndKPIs() {
             try {
-                // Requête avec jointures sur les occupants actuels et futurs
+                // Requête avec jointures sur les occupants actuels et futurs sur la table 'positions'
                 const { data: positions, error } = await supabaseClient
                     .from('positions')
                     .select(`
@@ -589,6 +673,92 @@
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = "Valider l'évaluation & libérer le poste";
+                }
+            }
+        }
+
+        // ============================================================================
+        // 5. AJOUT DE POSTE (MODAL CONTROLLERS)
+        // ============================================================================
+        const addPositionModal = document.getElementById('addPositionModal');
+        const posProjectNameContainer = document.getElementById('posProjectNameContainer');
+        const posProjectName = document.getElementById('posProjectName');
+
+        function openAddPositionModal() {
+            if (addPositionModal) {
+                document.getElementById('addPositionForm').reset();
+                if (posProjectNameContainer) posProjectNameContainer.classList.add('hidden');
+                if (posProjectName) posProjectName.removeAttribute('required');
+                addPositionModal.classList.remove('hidden');
+            }
+        }
+
+        function closeAddPositionModal() {
+            if (addPositionModal) {
+                addPositionModal.classList.add('hidden');
+            }
+        }
+
+        function toggleProjectNameField(val) {
+            if (!posProjectNameContainer || !posProjectName) return;
+
+            if (val === 'project') {
+                posProjectNameContainer.classList.remove('hidden');
+                posProjectName.setAttribute('required', 'true');
+            } else {
+                posProjectNameContainer.classList.add('hidden');
+                posProjectName.removeAttribute('required');
+                posProjectName.value = '';
+            }
+        }
+
+        async function submitAddPositionForm(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('posTitle').value.trim();
+            const desk = document.getElementById('posDesk').value;
+            const candidate_type = document.getElementById('posCandidateType').value;
+            const country = document.getElementById('posCountry').value.trim();
+            const location = document.getElementById('posLocation').value.trim();
+            const pool_level = document.getElementById('posPoolLevel').value;
+            const project_name = pool_level === 'project' ? document.getElementById('posProjectName').value.trim() : null;
+            const status = document.getElementById('posStatus').value;
+
+            const submitBtn = document.getElementById('submitAddPosBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Enregistrement...";
+            }
+
+            try {
+                // Insertion dans la table relationnelle positions
+                const { error } = await supabaseClient
+                    .from('positions')
+                    .insert([{
+                        title,
+                        pool: currentPoolId, // Raccordement universel automatique au pool courant de l'URL
+                        pool_level,
+                        country,
+                        location,
+                        project_name,
+                        candidate_type,
+                        desk,
+                        status
+                    }]);
+
+                if (error) throw error;
+
+                alert("Poste créé avec succès !");
+                closeAddPositionModal();
+                loadMissionsAndKPIs(); // Rafraîchit les KPI et le tableau à l'écran
+
+            } catch (err) {
+                console.error("[Creation Position Failed] :", err);
+                alert(`Erreur de création : ${err.message}`);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Enregistrer";
                 }
             }
         }
