@@ -62,12 +62,12 @@
                     </div>
                     <div>
                         <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight" id="poolTitleHeader">Suivi des Postes</h1>
-                        <p class="text-xs text-slate-400 font-medium" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
+                        <p class="text-xs text-slate-400 font-medium animate-pulse" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Action d'ajout (Bouton actif par défaut pour simplicité brute) -->
+            <!-- Action d'ajout (Totalement actif par défaut, sans verrous bloquants) -->
             <button id="addPositionBtn" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -206,7 +206,7 @@
 
                 <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
                     <button type="button" onclick="closeAddPositionModal()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg text-xs font-bold">Annuler</button>
-                    <button type="submit" id="submitAddPosBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md">Enregistrer</button>
+                    <button type="submit" id="submitAddPosBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md">Enregistrer</button>
                 </div>
             </form>
         </div>
@@ -336,7 +336,7 @@
                     if (poolTitleHeader) poolTitleHeader.textContent = "Suivi des Postes Terrain";
                     if (poolSubtitleHeader) poolSubtitleHeader.textContent = "Sélectionnez un pool depuis le tableau de bord pour afficher les détails";
                     if (appBody) appBody.style.display = 'flex';
-                    showTableMessage("Sélectionnez un pool depuis le tableau de bord pour afficher les postes correspondants.");
+                    showTableMessage("Veuillez sélectionner un pool depuis le tableau de bord");
                     resetKPIs();
                     return;
                 }
@@ -379,7 +379,7 @@
 
         checkSession();
 
-        // Écouteur direct d'ajout de poste sans verrous bloquants
+        // Écouteur d'événement simple d'ouverture de modal sans verrous de rôles artificiels
         if (addPositionBtn) {
             addPositionBtn.addEventListener('click', function() {
                 openAddPositionModal();
@@ -687,12 +687,8 @@
         }
 
         // ============================================================================
-        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SOUFFLET SANS FILTRES SÉCURITÉ)
+        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & EXÉCUTION DIRECTE SANS FILTRES)
         // ============================================================================
-        const addPositionModal = document.getElementById('addPositionModal');
-        const posProjectNameContainer = document.getElementById('posProjectNameContainer');
-        const posProjectName = document.getElementById('posProjectName');
-
         function openAddPositionModal() {
             if (addPositionModal) {
                 document.getElementById('addPositionForm').reset();
@@ -722,7 +718,7 @@
         }
 
         /**
-         * Enregistrement direct sans filtres ni verrous de rôles artificiels
+         * Enregistrement direct brut sans filtres de rôles locaux
          */
         async function submitAddPositionForm(e) {
             e.preventDefault();
@@ -746,23 +742,23 @@
             }
 
             try {
-                // Requête d'insertion Supabase directe et brute vers la table 'missions'
+                // Requête d'insertion Supabase directe vers la table 'missions'
                 const { error } = await supabaseClient
                     .from('missions')
                     .insert([{
                         title: title,
-                        pool_id: currentPoolId, // Raccordement universel direct au pool courant de l'URL
+                        pool_id: currentPoolId, // Raccordement universel direct
                         desk: desk,
                         country: country,
                         project_name: project_name,
-                        is_expat: is_expat, // Colonne mappée sur la valeur booléenne
+                        is_expat: is_expat, 
                         status: status,
                         location: location,
                         pool_level: pool_level
                     }]);
 
                 if (error) {
-                    throw error; // Lancer l'erreur brute pour la capturer
+                    throw error; // Lancer l'erreur brute pour l'affichage de secours
                 }
 
                 alert("Poste créé avec succès !");
@@ -770,9 +766,9 @@
                 loadMissionsAndKPIs(); // Rafraîchit les KPI et recharge le tableau
 
             } catch (err) {
-                // Affiche l'erreur réelle renvoyée directement par le serveur
+                // Affiche l'erreur Supabase brute renvoyée par le serveur de base de données
                 console.error("[Supabase Write Error] :", err);
-                alert(`Erreur de création : ${err.message}`);
+                alert('Erreur Supabase brute : ' + err.message);
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
