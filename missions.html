@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <!-- Action d'ajout (Totalement actif par défaut, sans verrous bloquants) -->
+            <!-- Action d'ajout -->
             <button id="addPositionBtn" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -82,7 +82,7 @@
          ──────────────────────────────────────────────────────────────────────── -->
     <main class="max-w-7xl w-full mx-auto px-6 py-6 flex-1 flex flex-col space-y-6 overflow-hidden">
         
-        <!-- Bandeau supérieur des 5 KPIs Hercules -->
+        <!-- Bandeau supérieur des 5 KPIs d'ALIMA -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 shrink-0">
             <div class="bg-white border p-4 rounded-xl shadow-xs">
                 <span class="text-[10px] font-bold text-slate-400 uppercase">Total Postes</span>
@@ -270,78 +270,64 @@
 
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Liaison des éléments du DOM
+        // Liaison des éléments de structure du DOM
         const appBody = document.getElementById('appBody');
-        const addPositionBtn = document.getElementById('addPositionBtn');
         const poolTitleHeader = document.getElementById('poolTitleHeader');
         const poolSubtitleHeader = document.getElementById('poolSubtitleHeader');
         const missionsTableBody = document.getElementById('missionsTableBody');
 
-        // Éléments du bandeau KPIs
+        // Liaison des éléments du bandeau des 5 KPIs
         const kpiTotal = document.getElementById('kpiTotal');
         const kpiOccupied = document.getElementById('kpiOccupied');
         const kpiRecruiting = document.getElementById('kpiRecruiting');
         const kpiVacant = document.getElementById('kpiVacant');
         const kpiExpiring = document.getElementById('kpiExpiring');
 
-        // Éléments du modal d'évaluation bloquant
-        const evaluationLockModal = document.getElementById('evaluationLockModal');
-        const evalTalentName = document.getElementById('evalTalentName');
-
-        // Éléments du modal de création de poste
+        // Liaison des modals
         const addPositionModal = document.getElementById('addPositionModal');
         const addPositionForm = document.getElementById('addPositionForm');
         const submitAddPosBtn = document.getElementById('submitAddPosBtn');
+        const posProjectNameContainer = document.getElementById('posProjectNameContainer');
+        const posProjectName = document.getElementById('posProjectName');
 
+        const evaluationLockModal = document.getElementById('evaluationLockModal');
+        const evalTalentName = document.getElementById('evalTalentName');
+
+        // Variables d'état globales
         let currentPoolId = null;
-        let userRole = 'visitor';
+        let pendingReleaseData = null; // Stocke la transaction de rotation en cours
 
-        // Variables de stockage de la transaction de libération en cours
-        let pendingReleaseData = null;
+        const DEVALIDATION_MAX_MONTHS = 24;
 
         // ============================================================================
-        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL (Expulsion relative stricte)
+        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL (RÉSILIENT - SANS REDIRECTION FOLLE)
         // ============================================================================
         async function checkSession() {
             try {
-                // A. Vérifie la session active de Supabase Auth
+                // A. Récupère la session du navigateur de manière classique sans module
                 const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
                 if (sessionError || !session) {
                     throw new Error("Session absente ou expirée.");
                 }
 
-                const user = session.user;
+                // Rendre l'interface visible
+                if (appBody) appBody.style.display = 'flex';
 
-                // B. Récupération des droits de l'utilisateur (table 'users')
-                const { data: profiles, error: profileError } = await supabaseClient
-                    .from('users')
-                    .select('role, is_active')
-                    .eq('id', user.id);
-
-                if (profileError || !profiles || profiles.length === 0) {
-                    userRole = 'user';
-                } else {
-                    const profile = profiles[0];
-                    if (profile.is_active === false) throw new Error("Compte désactivé.");
-                    userRole = profile.role;
-                }
-
-                // C. Extraction et validation souple du paramètre de Pool dans l'URL (?pool=COLOG)
+                // B. Récupération saine du paramètre 'pool' dans l'URL (?pool=COLOG)
                 const urlParams = new URLSearchParams(window.location.search);
                 currentPoolId = urlParams.get('pool');
 
-                // Si pas de pool en paramètre, on n'expulse pas, on affiche un état par défaut neutre
                 if (!currentPoolId) {
+                    // Si le paramètre est absent, on affiche l'état par défaut propre sans crash ni redirection
                     if (poolTitleHeader) poolTitleHeader.textContent = "Suivi des Postes Terrain";
-                    if (poolSubtitleHeader) poolSubtitleHeader.textContent = "Sélectionnez un pool depuis le tableau de bord pour afficher les détails";
-                    if (appBody) appBody.style.display = 'flex';
+                    if (poolSubtitleHeader) poolSubtitleHeader.textContent = "Sélectionnez un pool depuis le tableau de bord";
                     showTableMessage("Veuillez sélectionner un pool depuis le tableau de bord");
                     resetKPIs();
                     return;
                 }
 
-                // Chargement des métadonnées du Pool
+                // Récupération des métadonnées du Pool actif
                 const { data: poolMetadata, error: poolError } = await supabaseClient
                     .from('pools')
                     .select('name, full_name')
@@ -349,49 +335,120 @@
                     .single();
 
                 if (poolError || !poolMetadata) {
-                    alert("Le pool demandé n'existe pas.");
+                    alert("Le pool demandé n'existe pas ou a été archivé.");
                     window.location.href = 'dashboard.html';
                     return;
                 }
 
+                // Mise à jour de l'en-tête du pool
                 if (poolTitleHeader && poolSubtitleHeader) {
                     poolTitleHeader.textContent = `Suivi Terrain — Pool ${poolMetadata.name}`;
                     poolSubtitleHeader.textContent = `${poolMetadata.full_name}`;
                     poolSubtitleHeader.classList.remove('animate-pulse');
                 }
 
-                // Rendre le body visible
-                if (appBody) appBody.style.display = 'flex';
-
-                // Lancement du chargement de la table
+                // Lancement de la récupération asynchrone des données
                 await loadMissionsAndKPIs();
 
             } catch (error) {
-                console.warn("[Session Guard] Accès refusé, expulsion. Raison :", error.message);
-                try {
-                    await supabaseClient.auth.signOut();
-                } catch (logoutErr) {}
-                
-                // Redirection relative stricte conforme pour GitHub Pages
-                window.location.replace('login.html');
+                console.warn("[Session Guard] Accès refusé, redirection :", error.message);
+                window.location.replace('login.html'); // Expulsion relative propre
             }
         }
 
+        // Lancement automatique du cycle de vie de la page
         checkSession();
 
-        // Écouteur d'événement simple d'ouverture de modal
-        if (addPositionBtn) {
-            addPositionBtn.addEventListener('click', function() {
-                openAddPositionModal();
-            });
+        // Écouteur direct d'ajout de poste
+        document.getElementById('addPositionBtn').addEventListener('click', function() {
+            document.getElementById('addPositionModal').classList.remove('hidden');
+        });
+
+        // Bouton annuler / croix de fermeture du modal de création
+        function closeAddPositionModal() {
+            if (addPositionModal) {
+                addPositionModal.classList.add('hidden');
+            }
+        }
+
+        // Gestion dynamique du champ de projet selon le niveau sélectionné (Mission ou Projet)
+        function toggleProjectNameField(val) {
+            if (!posProjectNameContainer || !posProjectName) return;
+
+            if (val === 'project') {
+                posProjectNameContainer.classList.remove('hidden');
+                posProjectName.setAttribute('required', 'true');
+            } else {
+                posProjectNameContainer.classList.add('hidden');
+                posProjectName.removeAttribute('required');
+                posProjectName.value = '';
+            }
         }
 
         // ============================================================================
-        // 2. RÉCUPÉRATION DES DONNÉES ET CALCULS DES KPIS EN DIRECT
+        // 2. ENREGISTREMENT DIRECT SANS CONDITIONS DE SÉCURITÉ EN DUR
+        // ============================================================================
+        async function submitAddPositionForm(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('posTitle').value.trim();
+            const desk = document.getElementById('posDesk').value;
+            const candidate_type = document.getElementById('posCandidateType').value;
+            const country = document.getElementById('posCountry').value.trim();
+            const location = document.getElementById('posLocation').value.trim();
+            const pool_level = document.getElementById('posPoolLevel').value;
+            const project_name = pool_level === 'project' ? document.getElementById('posProjectName').value.trim() : null;
+            const status = document.getElementById('posStatus').value;
+            
+            // Mapping du type de candidat (Expat = true / National = false)
+            const is_expat = (candidate_type === 'expat');
+
+            const submitBtn = document.getElementById('submitAddPosBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Enregistrement...";
+            }
+
+            try {
+                // Requête d'insertion directe et brute Supabase (Table 'missions')
+                const { error } = await supabaseClient
+                    .from('missions')
+                    .insert([{
+                        title: title,
+                        pool_id: currentPoolId,
+                        desk: desk,
+                        country: country,
+                        project_name: project_name,
+                        is_expat: is_expat, 
+                        status: status,
+                        location: location,
+                        pool_level: pool_level
+                    }]);
+
+                if (error) {
+                    alert('Erreur Supabase brute : ' + error.message);
+                    return;
+                }
+
+                alert("Poste créé avec succès !");
+                closeAddPositionModal();
+                await loadMissionsAndKPIs(); // Rafraîchit les KPI et recharge le tableau
+
+            } catch (err) {
+                alert('Erreur Supabase brute : ' + err.message);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Enregistrer";
+                }
+            }
+        }
+
+        // ============================================================================
+        // 3. RÉCUPÉRATION DES DONNÉES ET CALCULS DES KPIS EN DIRECT
         // ============================================================================
         async function loadMissionsAndKPIs() {
             try {
-                // Requête avec jointures sur la table 'missions' synchronisée
                 const { data: positions, error } = await supabaseClient
                     .from('missions')
                     .select(`
@@ -399,7 +456,7 @@
                         occupant:talents!occupant_id(first_name, last_name, gender),
                         future_talent:talents!future_talent_id(first_name, last_name, gender)
                     `)
-                    .eq('pool_id', currentPoolId); // Filtrage dynamique conforme à la colonne 'pool_id'
+                    .eq('pool_id', currentPoolId);
 
                 if (error) throw error;
 
@@ -452,7 +509,7 @@
         }
 
         // ============================================================================
-        // 3. RENDU DU TABLEAU AVEC DOUBLE LIGNE DE ROTATION (Hercules Style & Alerte Rouge)
+        // 4. RENDU AVEC ALERTE COULEUR DE LIGNE ET CONCATENATION (Règle Hercules)
         // ============================================================================
         function renderMissionsTable(positions) {
             missionsTableBody.innerHTML = '';
@@ -465,7 +522,7 @@
             const deskLabels = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
 
             positions.forEach(pos => {
-                // MOTEUR D'ALERTE HERCULES : Règle conditionnelle de couleur de fond de la ligne
+                // RÈGLE DE COULEUR DE LIGNE EXPLICITE HERCULES
                 let rowClass = "hover:bg-slate-50 transition-colors duration-100 align-top";
                 
                 if (pos.status === 'vacant') {
@@ -477,36 +534,30 @@
                 const tr = document.createElement('tr');
                 tr.className = rowClass;
 
-                // Formations des données de l'occupant et du futur remplaçant
                 const hasFuture = !!pos.future_talent;
                 const occupantLabel = pos.occupant 
-                    ? `${pos.occupant.first_name} ${pos.occupant.last_name} ${hasFuture ? '<span class="text-orange-600 font-bold text-[10px] uppercase ml-1.5">(Sortant)</span>' : ''}`
+                    ? `${pos.occupant.first_name} ${pos.occupant.last_name} ${hasFuture ? ' <span class="text-orange-600 font-bold text-[10px] uppercase ml-1.5">(Sortant)</span>' : ''}`
                     : (pos.status === 'vacant' ? '<span class="text-red-600 font-bold text-xs">Vacant</span>' : 'En recrutement');
 
-                // Formatage des dates du contrat actif
                 const startStr = pos.contract_start_date ? new Date(pos.contract_start_date).toLocaleDateString('fr-FR') : 'N/A';
                 const endStr = pos.contract_end_date ? new Date(pos.contract_end_date).toLocaleDateString('fr-FR') : 'N/A';
 
-                // Rendu de la cellule d'action sans verrous de rôles artificiels
-                let actionsCell = '';
-                if (pos.status === 'occupied' && pos.occupant_id) {
+                let actionsCell = `<span class="text-xs text-slate-400 italic">Aucune action</span>`;
+                if (pos.status === 'occupied' && pos.occupant_id && pos.occupant) {
                     actionsCell = `
-                        <button onclick="triggerEvaluationLock('${pos.id}', '${pos.occupant_id}', '${pos.occupant.first_name} ${pos.occupant.last_name}')" class="bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all">
+                        <button onclick="triggerEvaluationLock('${pos.id}', '${pos.occupant_id}', '${pos.occupant.first_name} ${pos.occupant.last_name}')" class="bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs">
                             Fin de contrat
                         </button>
                     `;
-                } else {
-                    actionsCell = `<span class="text-xs text-slate-400 italic">Aucune action</span>`;
                 }
 
-                // Couleurs de badges d'origine conformes (Rouge, Orange, Vert)
-                let badgeColor = 'bg-red-100 text-red-800'; // Rouge pour vacant
+                let badgeColor = 'bg-red-100 text-red-800'; 
                 let badgeText = 'Vacant';
                 if (pos.status === 'occupied') { 
-                    badgeColor = 'bg-emerald-100 text-emerald-800'; // Vert pour occupé
+                    badgeColor = 'bg-emerald-100 text-emerald-800'; 
                     badgeText = 'Occupé'; 
                 } else if (pos.status === 'recruiting') { 
-                    badgeColor = 'bg-orange-100 text-orange-800'; // Orange pour recrutement
+                    badgeColor = 'bg-orange-100 text-orange-800'; 
                     badgeText = 'Recrutement'; 
                 }
 
@@ -514,6 +565,7 @@
                 const isExpatText = pos.is_expat ? 'Expatrié' : 'Staff National';
                 const projetText = pos.pool_level === 'mission' ? 'Coordination' : (pos.project_name || pos.location || 'N/A');
 
+                // Début de l'assemblage de la ligne (Ligne principal de l'occupant)
                 let tableRowContent = `
                     <td class="px-6 py-4 font-bold text-slate-800 text-xs">${deskText}</td>
                     <td class="px-6 py-4 font-medium text-slate-600 text-xs">${isExpatText}</td>
@@ -530,7 +582,7 @@
                             </div>
                 `;
 
-                // Ajout visuel de la double-ligne d'entrant si une rotation est configurée
+                // Ajout de la sous-ligne du futur remplaçant (Masse de rotation)
                 if (hasFuture && pos.future_talent) {
                     tableRowContent += `
                             <div class="flex items-center gap-1 text-xs text-slate-800 font-medium pt-2 border-t border-slate-100">
@@ -540,7 +592,7 @@
                     `;
                 }
 
-                // Concaténation de la fin de ligne propre sans écrasement (+=)
+                // Concaténation cumulative finale obligatoirement avec += pour fermer la structure
                 tableRowContent += `
                         </div>
                     </td>
@@ -574,14 +626,12 @@
         }
 
         // ============================================================================
-        // 4. PROTOCOLE D'ÉVALUATION OBLIGATOIRE (Moteur de Double-Verrou)
+        // 5. DOUBLE-VERROU D'ÉVALUATION DE FIN DE MISSION
         // ============================================================================
         
         function triggerEvaluationLock(positionId, occupantId, occupantName) {
             pendingReleaseData = { positionId, occupantId };
             evalTalentName.value = occupantName;
-            
-            // Réinitialisation du formulaire d'évaluation obligatoire
             document.getElementById('evalForm').reset();
 
             if (evaluationLockModal) {
@@ -596,9 +646,6 @@
             }
         }
 
-        /**
-         * Soumission de l'évaluation obligatoire de fin de mission
-         */
         async function submitRequiredEvaluation(e) {
             e.preventDefault();
 
@@ -615,11 +662,11 @@
             const submitBtn = document.getElementById('submitEvalBtn');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.textContent = "Archivage de l'évaluation...";
+                submitBtn.textContent = "Archivage...";
             }
 
             try {
-                // A. Injection de l'évaluation archivée (is_archived = true) pour le talent
+                // A. Écriture directe de l'évaluation archivée
                 const { error: evalError } = await supabaseClient
                     .from('evaluations')
                     .insert([{
@@ -629,12 +676,12 @@
                         positive_points,
                         negative_points,
                         rating,
-                        is_archived: true // Directement envoyé dans le CV historique
+                        is_archived: true
                     }]);
 
                 if (evalError) throw evalError;
 
-                // B. Libération du poste (ou basculement si remplaçant défini sur la table 'missions')
+                // B. Récupération du poste
                 const { data: mission, error: fetchErr } = await supabaseClient
                     .from('missions')
                     .select('*')
@@ -643,10 +690,9 @@
 
                 if (fetchErr) throw fetchErr;
 
+                // C. Mutation de rotation
                 if (mission.future_talent_id) {
-                    // Si remplaçant défini, il prend immédiatement la place
                     await Promise.all([
-                        // Le poste passe au nouvel occupant
                         supabaseClient.from('missions').update({
                             occupant_id: mission.future_talent_id,
                             contract_start_date: mission.future_contract_start_date,
@@ -656,7 +702,6 @@
                             future_contract_start_date: null,
                             future_contract_end_date: null
                         }).eq('id', mission.id),
-                        // Le nouveau talent passe "En poste"
                         supabaseClient.from('talents').update({
                             status: 'En poste ALIMA',
                             is_currently_on_mission: true,
@@ -664,7 +709,6 @@
                         }).eq('id', mission.future_talent_id)
                     ]);
                 } else {
-                    // Sinon le poste redevient vacant
                     await supabaseClient
                         .from('missions')
                         .update({
@@ -677,7 +721,7 @@
                         .eq('id', mission.id);
                 }
 
-                // C. L'ancien occupant repasse en "Disponible"
+                // D. L'ancien occupant repasse en "Disponible"
                 await supabaseClient
                     .from('talents')
                     .update({
@@ -688,112 +732,17 @@
                     })
                     .eq('id', pendingReleaseData.occupantId);
 
-                alert("Évaluation de fin de mission enregistrée et rotation effectuée !");
+                alert("Évaluation de fin de mission enregistrée et rotation de contrat validée !");
                 closeEvalModal();
-                await loadMissionsAndKPIs(); // Recharger le tableau en direct
+                await loadMissionsAndKPIs();
 
             } catch (err) {
-                console.error("[Evaluation lock failed] :", err);
-                alert(`Erreur technique : ${err.message}`);
+                console.error("[Rotation Exception] :", err);
+                alert(`Erreur de rotation : ${err.message}`);
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = "Valider l'évaluation & libérer le poste";
-                }
-            }
-        }
-
-        // ============================================================================
-        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & EXÉCUTION DIRECTE SANS FILTRES)
-        // ============================================================================
-        const addPositionModal = document.getElementById('addPositionModal');
-        const posProjectNameContainer = document.getElementById('posProjectNameContainer');
-        const posProjectName = document.getElementById('posProjectName');
-
-        function openAddPositionModal() {
-            if (addPositionModal) {
-                document.getElementById('addPositionForm').reset();
-                if (posProjectNameContainer) posProjectNameContainer.classList.add('hidden');
-                if (posProjectName) posProjectName.removeAttribute('required');
-                addPositionModal.classList.remove('hidden');
-            }
-        }
-
-        function closeAddPositionModal() {
-            if (addPositionModal) {
-                addPositionModal.classList.add('hidden');
-            }
-        }
-
-        function toggleProjectNameField(val) {
-            if (!posProjectNameContainer || !posProjectName) return;
-
-            if (val === 'project') {
-                posProjectNameContainer.classList.remove('hidden');
-                posProjectName.setAttribute('required', 'true');
-            } else {
-                posProjectNameContainer.classList.add('hidden');
-                posProjectName.removeAttribute('required');
-                posProjectName.value = '';
-            }
-        }
-
-        /**
-         * Enregistrement direct brut sans filtres de rôles locaux
-         */
-        async function submitAddPositionForm(e) {
-            e.preventDefault();
-
-            const title = document.getElementById('posTitle').value.trim();
-            const desk = document.getElementById('posDesk').value;
-            const candidate_type = document.getElementById('posCandidateType').value;
-            const country = document.getElementById('posCountry').value.trim();
-            const location = document.getElementById('posLocation').value.trim();
-            const pool_level = document.getElementById('posPoolLevel').value;
-            const project_name = pool_level === 'project' ? document.getElementById('posProjectName').value.trim() : null;
-            const status = document.getElementById('posStatus').value;
-
-            // Mapping du type de candidat (Expat = true / National = false)
-            const is_expat = (candidate_type === 'expat');
-
-            const submitBtn = document.getElementById('submitAddPosBtn');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = "Enregistrement...";
-            }
-
-            try {
-                // Requête d'insertion Supabase directe et brute vers la table 'missions'
-                const { error } = await supabaseClient
-                    .from('missions')
-                    .insert([{
-                        title: title,
-                        pool_id: currentPoolId, // Raccordement universel direct
-                        desk: desk,
-                        country: country,
-                        project_name: project_name,
-                        is_expat: is_expat, 
-                        status: status,
-                        location: location,
-                        pool_level: pool_level
-                    }]);
-
-                if (error) {
-                    throw error; // Lancer l'erreur brute pour l'affichage de secours
-                }
-
-                alert("Poste créé avec succès !");
-                closeAddPositionModal();
-                await loadMissionsAndKPIs(); // Rafraîchit les KPI et recharge le tableau
-
-            } catch (err) {
-                // Affiche l'erreur Supabase brute renvoyée par le serveur de base de données
-                console.error("[Supabase Write Error] :", err);
-                alert('Erreur Supabase brute : ' + err.message);
-            } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = "Enregistrer";
                 }
             }
         }
