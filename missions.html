@@ -62,13 +62,13 @@
                     </div>
                     <div>
                         <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight" id="poolTitleHeader">Suivi des Postes</h1>
-                        <p class="text-xs text-slate-400 font-medium animate-pulse" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
+                        <p class="text-xs text-slate-400 font-medium" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Action d'ajout -->
-            <button id="addPositionBtn" disabled onclick="openAddPositionModal()" class="opacity-50 cursor-not-allowed bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
+            <!-- Action d'ajout (Retrait du verrou désactivé par défaut) -->
+            <button id="addPositionBtn" onclick="openAddPositionModal()" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
@@ -300,7 +300,7 @@
         let pendingReleaseData = null;
 
         // ============================================================================
-        // 1. PROTECTION ZERO TRUST ET PARAMETRE D'URL (Expulsion relative stricte)
+        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL (Expulsion relative stricte)
         // ============================================================================
         async function checkSession() {
             try {
@@ -381,10 +381,16 @@
 
         checkSession();
 
+        // Sécurité et contrôle des rôles : le script gère l'activité de manière intelligente
         function unlockUIForRole(role) {
-            if (addPositionBtn && role !== 'visitor') {
-                addPositionBtn.disabled = false;
-                addPositionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            if (addPositionBtn) {
+                if (role === 'visitor') {
+                    addPositionBtn.disabled = true;
+                    addPositionBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    addPositionBtn.disabled = false;
+                    addPositionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
             }
         }
 
