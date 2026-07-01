@@ -41,7 +41,7 @@
         }
     </script>
 </head>
-<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody">
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
     <!-- ────────────────────────────────────────────────────────────────────────
          EN-TÊTE SUPÉRIEUR
@@ -67,8 +67,8 @@
                 </div>
             </div>
 
-            <!-- Action d'ajout (Retrait du verrou désactivé par défaut) -->
-            <button id="addPositionBtn" onclick="openAddPositionModal()" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
+            <!-- Action d'ajout (Retrait de l'attribut inline onclick pour écouteur direct de production) -->
+            <button id="addPositionBtn" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
@@ -300,7 +300,7 @@
         let pendingReleaseData = null;
 
         // ============================================================================
-        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL (Expulsion relative stricte)
+        // 1. PROTECTION ZERO TRUST ET PARAMETRE D'URL (Expulsion relative stricte)
         // ============================================================================
         async function checkSession() {
             try {
@@ -327,7 +327,7 @@
                     userRole = profile.role;
                 }
 
-                // Déblocage des droits d'écriture
+                // Déblocage ou masquage visuel du bouton d'ajout selon le rôle
                 unlockUIForRole(userRole);
 
                 // C. Extraction et validation souple du paramètre de Pool dans l'URL (?pool=COLOG)
@@ -392,6 +392,19 @@
                     addPositionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
             }
+        }
+
+        // ============================================================================
+        // ÉCOUTEUR D'ÉVÉNEMENT DIRECT EN JAVASCRIPT (Réparation de production)
+        // ============================================================================
+        if (addPositionBtn) {
+            addPositionBtn.addEventListener('click', () => {
+                if (userRole === 'visitor') {
+                    alert("Accès refusé : les visiteurs n'ont pas l'autorisation d'ajouter des postes.");
+                    return;
+                }
+                openAddPositionModal();
+            });
         }
 
         // ============================================================================
@@ -522,7 +535,7 @@
                     `;
                 }
 
-                // Correction de la faille de concaténation syntaxique (utilisation de +=)
+                // Concaténation de la fin de ligne
                 tableRowContent += `
                         </div>
                     </td>
@@ -684,7 +697,7 @@
         }
 
         // ============================================================================
-        // 5. AJOUT DE POSTE (MODAL CONTROLLERS)
+        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SECURITE ZERO TRUST D'ECRITURE)
         // ============================================================================
         const addPositionModal = document.getElementById('addPositionModal');
         const posProjectNameContainer = document.getElementById('posProjectNameContainer');
@@ -718,8 +731,30 @@
             }
         }
 
+        /**
+         * Enregistrement de poste sécurisé (Vérification dynamique double-verrou)
+         */
         async function submitAddPositionForm(e) {
             e.preventDefault();
+
+            // A. Sécurité Zero Trust dynamique lors de la soumission
+            const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+            if (sessionError || !session) {
+                alert("Session expirée. Veuillez vous reconnecter.");
+                window.location.replace('login.html');
+                return;
+            }
+
+            // B. Vérifie les droits réels en base avant l'écriture
+            const { data: profiles } = await supabaseClient
+                .from('users')
+                .select('role, is_active')
+                .eq('id', session.user.id);
+
+            if (!profiles || profiles.length === 0 || profiles[0].is_active === false || profiles[0].role === 'visitor') {
+                alert("Action refusée : Privilèges d'écriture insuffisants ou compte inactif.");
+                return;
+            }
 
             const title = document.getElementById('posTitle').value.trim();
             const desk = document.getElementById('posDesk').value;
@@ -730,10 +765,9 @@
             const project_name = pool_level === 'project' ? document.getElementById('posProjectName').value.trim() : null;
             const status = document.getElementById('posStatus').value;
 
-            const submitBtn = document.getElementById('submitAddPosBtn');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = "Enregistrement...";
+            if (submitAddPosBtn) {
+                submitAddPosBtn.disabled = true;
+                submitAddPosBtn.textContent = "Enregistrement...";
             }
 
             try {
@@ -762,9 +796,9 @@
                 console.error("[Creation Position Failed] :", err);
                 alert(`Erreur de création : ${err.message}`);
             } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = "Enregistrer";
+                if (submitAddPosBtn) {
+                    submitAddPosBtn.disabled = false;
+                    submitAddBtn.textContent = "Enregistrer";
                 }
             }
         }
