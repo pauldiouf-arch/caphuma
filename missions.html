@@ -134,7 +134,7 @@
     </main>
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         MODAL : CREATION DE POSTE (Mappe sur table 'positions')
+         MODAL : CREATION DE POSTE (Mappe sur table 'missions')
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="addPositionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
         <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -206,7 +206,7 @@
 
                 <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
                     <button type="button" onclick="closeAddPositionModal()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg text-xs font-bold">Annuler</button>
-                    <button type="submit" id="submitAddPosBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md">Enregistrer</button>
+                    <button type="submit" id="submitAddPosBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md">Enregistrer</button>
                 </div>
             </form>
         </div>
@@ -379,17 +379,9 @@
 
         checkSession();
 
-        // ============================================================================
-        // ÉCOUTEURS D'ÉVÉNEMENTS DIRECTS EN JAVASCRIPT (Simplicité brute)
-        // ============================================================================
-        
-        // Bouton d'ouverture du modal de création
+        // Écouteur direct d'ajout de poste sans verrous bloquants
         if (addPositionBtn) {
             addPositionBtn.addEventListener('click', function() {
-                if (userRole === 'visitor') {
-                    alert("Accès refusé : les visiteurs n'ont pas l'autorisation de créer des postes.");
-                    return;
-                }
                 openAddPositionModal();
             });
         }
@@ -399,15 +391,15 @@
         // ============================================================================
         async function loadMissionsAndKPIs() {
             try {
-                // Requête avec jointures sur les occupants actuels et futurs sur la table 'positions'
+                // Requête avec jointures sur la table 'missions' synchronisée
                 const { data: positions, error } = await supabaseClient
-                    .from('positions')
+                    .from('missions')
                     .select(`
                         *,
                         occupant:talents!occupant_id(first_name, last_name, gender),
                         future_talent:talents!future_talent_id(first_name, last_name, gender)
                     `)
-                    .eq('pool', currentPoolId);
+                    .eq('pool_id', currentPoolId); // Filtrage dynamique conforme à la colonne 'pool_id'
 
                 if (error) throw error;
 
@@ -486,14 +478,16 @@
                 const startStr = pos.contract_start_date ? new Date(pos.contract_start_date).toLocaleDateString('fr-FR') : 'N/A';
                 const endStr = pos.contract_end_date ? new Date(pos.contract_end_date).toLocaleDateString('fr-FR') : 'N/A';
 
-                // Rendu de la cellule d'action avec barrière de sécurité pour les visiteurs
-                let actionsCell = `<span class="text-xs text-slate-400 italic">Lecture seule</span>`;
-                if (userRole !== 'visitor' && pos.status === 'occupied' && pos.occupant_id) {
+                // Rendu de la cellule d'action sans verrous de rôles artificiels
+                let actionsCell = '';
+                if (pos.status === 'occupied' && pos.occupant_id) {
                     actionsCell = `
                         <button onclick="triggerEvaluationLock('${pos.id}', '${pos.occupant_id}', '${pos.occupant.first_name} ${pos.occupant.last_name}')" class="bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all">
                             Fin de contrat
                         </button>
                     `;
+                } else {
+                    actionsCell = `<span class="text-xs text-slate-400 italic">Aucune action</span>`;
                 }
 
                 let badgeColor = 'bg-slate-100 text-slate-800';
@@ -501,17 +495,16 @@
                 if (pos.status === 'occupied') { badgeColor = 'bg-emerald-100 text-emerald-800'; badgeText = 'Occupé'; }
                 else if (pos.status === 'recruiting') { badgeColor = 'bg-orange-100 text-orange-800'; badgeText = 'Recrutement'; }
 
-                const candidateMap = { expat: 'Expatrié', nat: 'Staff National' };
+                const deskText = deskLabels[pos.desk] || pos.desk || 'N/A';
+                const isExpatText = pos.is_expat ? 'Expatrié' : 'Staff National';
+                const projetText = pos.pool_level === 'mission' ? 'Coordination' : (pos.project_name || pos.location || 'N/A');
 
                 let tableRowContent = `
-                    <td class="px-6 py-4 font-bold text-slate-800 text-xs">${deskLabels[pos.desk] || pos.desk || 'N/A'}</td>
-                    <td class="px-6 py-4 flex flex-col">
-                        <span class="font-bold text-slate-800 text-sm">${pos.country}</span>
-                        <span class="text-xs text-slate-400">${pos.location}</span>
-                    </td>
+                    <td class="px-6 py-4 font-bold text-slate-800 text-xs">${deskText}</td>
+                    <td class="px-6 py-4 font-medium text-slate-600 text-xs">${isExpatText}</td>
                     <td class="px-6 py-4">
                         <div class="flex flex-col">
-                            <span class="font-bold text-slate-800 text-xs">${pos.pool_level === 'mission' ? 'Coordination' : pos.project_name || 'Projet'}</span>
+                            <span class="font-bold text-slate-800 text-xs">${projetText}</span>
                             <span class="text-[10px] text-slate-400 uppercase font-semibold">${pos.title}</span>
                         </div>
                     </td>
@@ -626,9 +619,9 @@
 
                 if (evalError) throw evalError;
 
-                // B. Libération du poste (ou basculement si remplaçant défini)
+                // B. Libération du poste (ou basculement si remplaçant défini sur la table 'missions')
                 const { data: mission } = await supabaseClient
-                    .from('positions')
+                    .from('missions')
                     .select('*')
                     .eq('id', pendingReleaseData.positionId)
                     .single();
@@ -637,7 +630,7 @@
                     // Si remplaçant défini, il prend immédiatement la place
                     await Promise.all([
                         // Le poste passe au nouvel occupant
-                        supabaseClient.from('positions').update({
+                        supabaseClient.from('missions').update({
                             occupant_id: mission.future_talent_id,
                             contract_start_date: mission.future_contract_start_date,
                             contract_end_date: mission.future_contract_end_date,
@@ -656,7 +649,7 @@
                 } else {
                     // Sinon le poste redevient vacant
                     await supabaseClient
-                        .from('positions')
+                        .from('missions')
                         .update({
                             status: 'vacant',
                             occupant_id: null,
@@ -694,8 +687,12 @@
         }
 
         // ============================================================================
-        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SÉCURISATION DU FORMULAIRE)
+        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SOUFFLET SANS FILTRES SÉCURITÉ)
         // ============================================================================
+        const addPositionModal = document.getElementById('addPositionModal');
+        const posProjectNameContainer = document.getElementById('posProjectNameContainer');
+        const posProjectName = document.getElementById('posProjectName');
+
         function openAddPositionModal() {
             if (addPositionModal) {
                 document.getElementById('addPositionForm').reset();
@@ -724,27 +721,11 @@
             }
         }
 
+        /**
+         * Enregistrement direct sans filtres ni verrous de rôles artificiels
+         */
         async function submitAddPositionForm(e) {
             e.preventDefault();
-
-            // Sécurité Zero Trust dynamique lors de la soumission d'écriture
-            const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-            if (sessionError || !session) {
-                alert("Session expirée. Veuillez vous reconnecter.");
-                window.location.replace('login.html');
-                return;
-            }
-
-            // Vérification stricte des droits
-            const { data: profiles } = await supabaseClient
-                .from('users')
-                .select('role, is_active')
-                .eq('id', session.user.id);
-
-            if (!profiles || profiles.length === 0 || profiles[0].is_active === false || profiles[0].role === 'visitor') {
-                alert("Action refusée : Privilèges d'écriture insuffisants.");
-                return;
-            }
 
             const title = document.getElementById('posTitle').value.trim();
             const desk = document.getElementById('posDesk').value;
@@ -755,40 +736,47 @@
             const project_name = pool_level === 'project' ? document.getElementById('posProjectName').value.trim() : null;
             const status = document.getElementById('posStatus').value;
 
-            if (submitAddPosBtn) {
-                submitAddPosBtn.disabled = true;
-                submitAddPosBtn.textContent = "Enregistrement...";
+            // Mapping du type de candidat (Expat = true / National = false)
+            const is_expat = (candidate_type === 'expat');
+
+            const submitBtn = document.getElementById('submitAddPosBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Enregistrement...";
             }
 
             try {
-                // Insertion dans la table relationnelle positions
+                // Requête d'insertion Supabase directe et brute vers la table 'missions'
                 const { error } = await supabaseClient
-                    .from('positions')
+                    .from('missions')
                     .insert([{
-                        title,
-                        pool: currentPoolId, // Raccordement universel automatique
-                        pool_level,
-                        country,
-                        location,
-                        project_name,
-                        candidate_type,
-                        desk,
-                        status
+                        title: title,
+                        pool_id: currentPoolId, // Raccordement universel direct au pool courant de l'URL
+                        desk: desk,
+                        country: country,
+                        project_name: project_name,
+                        is_expat: is_expat, // Colonne mappée sur la valeur booléenne
+                        status: status,
+                        location: location,
+                        pool_level: pool_level
                     }]);
 
-                if (error) throw error;
+                if (error) {
+                    throw error; // Lancer l'erreur brute pour la capturer
+                }
 
                 alert("Poste créé avec succès !");
                 closeAddPositionModal();
-                loadMissionsAndKPIs(); // Rafraîchit les KPI et le tableau
+                loadMissionsAndKPIs(); // Rafraîchit les KPI et recharge le tableau
 
             } catch (err) {
-                console.error("[Creation Position Failed] :", err);
+                // Affiche l'erreur réelle renvoyée directement par le serveur
+                console.error("[Supabase Write Error] :", err);
                 alert(`Erreur de création : ${err.message}`);
             } finally {
-                if (submitAddPosBtn) {
-                    submitAddPosBtn.disabled = false;
-                    submitAddPosBtn.textContent = "Enregistrer";
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Enregistrer";
                 }
             }
         }
