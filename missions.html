@@ -62,12 +62,12 @@
                     </div>
                     <div>
                         <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight" id="poolTitleHeader">Suivi des Postes</h1>
-                        <p class="text-xs text-slate-400 font-medium animate-pulse" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
+                        <p class="text-xs text-slate-400 font-medium font-semibold" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Action d'ajout (Totalement actif par défaut, sans verrous bloquants) -->
+            <!-- Action d'ajout -->
             <button id="addPositionBtn" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -206,7 +206,7 @@
 
                 <div class="pt-4 border-t border-slate-100 flex justify-end gap-2">
                     <button type="button" onclick="closeAddPositionModal()" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 py-2 rounded-lg text-xs font-bold">Annuler</button>
-                    <button type="submit" id="submitAddPosBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md">Enregistrer</button>
+                    <button type="submit" id="submitAddPosBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md">Enregistrer</button>
                 </div>
             </form>
         </div>
@@ -336,7 +336,7 @@
                     if (poolTitleHeader) poolTitleHeader.textContent = "Suivi des Postes Terrain";
                     if (poolSubtitleHeader) poolSubtitleHeader.textContent = "Sélectionnez un pool depuis le tableau de bord pour afficher les détails";
                     if (appBody) appBody.style.display = 'flex';
-                    showTableMessage("Veuillez sélectionner un pool depuis le tableau de bord");
+                    showTableMessage("Sélectionnez un pool depuis le tableau de bord pour afficher les postes correspondants.");
                     resetKPIs();
                     return;
                 }
@@ -379,7 +379,7 @@
 
         checkSession();
 
-        // Écouteur d'événement simple d'ouverture de modal sans verrous de rôles artificiels
+        // Écouteur d'événement simple d'ouverture de modal
         if (addPositionBtn) {
             addPositionBtn.addEventListener('click', function() {
                 openAddPositionModal();
@@ -465,14 +465,21 @@
             const deskLabels = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
 
             positions.forEach(pos => {
+                const isVacant = (pos.status === 'vacant');
+                
+                // MOTEUR D'ALERTE HERCULES : Si le poste est vacant, on applique une bordure gauche rouge vif et fond rouge très clair
+                const rowClass = isVacant
+                    ? "bg-red-50/50 border-l-4 border-red-500 hover:bg-red-100/40 align-top transition-colors duration-100"
+                    : "hover:bg-slate-50 transition-colors duration-100 align-top border-l-4 border-transparent";
+
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition-colors duration-100 align-top";
+                tr.className = rowClass;
 
                 // Formations des données de l'occupant et du futur remplaçant
                 const hasFuture = !!pos.future_talent;
                 const occupantLabel = pos.occupant 
-                    ? `${pos.occupant.first_name} ${pos.occupant.last_name} ${hasFuture ? ' (Sortant)' : ''}`
-                    : (pos.status === 'vacant' ? 'Vacant' : 'En recrutement');
+                    ? `${pos.occupant.first_name} ${pos.occupant.last_name} ${hasFuture ? '<span class="text-orange-600 font-bold text-[10px] uppercase ml-1.5">(Sortant)</span>' : ''}`
+                    : (isVacant ? '<span class="text-red-600 font-bold text-xs">Vacant</span>' : 'En recrutement');
 
                 // Formatage des dates du contrat actif
                 const startStr = pos.contract_start_date ? new Date(pos.contract_start_date).toLocaleDateString('fr-FR') : 'N/A';
@@ -490,10 +497,16 @@
                     actionsCell = `<span class="text-xs text-slate-400 italic">Aucune action</span>`;
                 }
 
-                let badgeColor = 'bg-slate-100 text-slate-800';
+                // Couleurs de badges d'origine conformes
+                let badgeColor = 'bg-red-100 text-red-800'; // Rouge pour vacant
                 let badgeText = 'Vacant';
-                if (pos.status === 'occupied') { badgeColor = 'bg-emerald-100 text-emerald-800'; badgeText = 'Occupé'; }
-                else if (pos.status === 'recruiting') { badgeColor = 'bg-orange-100 text-orange-800'; badgeText = 'Recrutement'; }
+                if (pos.status === 'occupied') { 
+                    badgeColor = 'bg-emerald-100 text-emerald-800'; // Vert pour occupé
+                    badgeText = 'Occupé'; 
+                } else if (pos.status === 'recruiting') { 
+                    badgeColor = 'bg-orange-100 text-orange-800'; // Orange pour recrutement
+                    badgeText = 'Recrutement'; 
+                }
 
                 const deskText = deskLabels[pos.desk] || pos.desk || 'N/A';
                 const isExpatText = pos.is_expat ? 'Expatrié' : 'Staff National';
@@ -687,8 +700,12 @@
         }
 
         // ============================================================================
-        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & EXÉCUTION DIRECTE SANS FILTRES)
+        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SOUFFLET SANS FILTRES SÉCURITÉ)
         // ============================================================================
+        const addPositionModal = document.getElementById('addPositionModal');
+        const posProjectNameContainer = document.getElementById('posProjectNameContainer');
+        const posProjectName = document.getElementById('posProjectName');
+
         function openAddPositionModal() {
             if (addPositionModal) {
                 document.getElementById('addPositionForm').reset();
@@ -768,7 +785,7 @@
             } catch (err) {
                 // Affiche l'erreur Supabase brute renvoyée par le serveur de base de données
                 console.error("[Supabase Write Error] :", err);
-                alert('Erreur Supabase brute : ' + err.message);
+                alert(`Erreur de création : ${err.message}`);
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
