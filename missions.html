@@ -67,12 +67,12 @@
                 </div>
             </div>
 
-            <!-- Action d'ajout (Retrait de l'attribut inline onclick pour écouteur direct de production) -->
+            <!-- Action d'ajout (Bouton actif par défaut pour simplicité brute) -->
             <button id="addPositionBtn" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
-                Ajouter un Poste
+                + Ajouter un Poste
             </button>
         </div>
     </header>
@@ -134,7 +134,7 @@
     </main>
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         MODAL : CREATION DE POSTE (Mappe sur table Supabase 'positions')
+         MODAL : CREATION DE POSTE (Mappe sur table 'positions')
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="addPositionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
         <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -300,7 +300,7 @@
         let pendingReleaseData = null;
 
         // ============================================================================
-        // 1. PROTECTION ZERO TRUST ET PARAMETRE D'URL (Expulsion relative stricte)
+        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL (Expulsion relative stricte)
         // ============================================================================
         async function checkSession() {
             try {
@@ -327,9 +327,6 @@
                     userRole = profile.role;
                 }
 
-                // Déblocage ou masquage visuel du bouton d'ajout selon le rôle
-                unlockUIForRole(userRole);
-
                 // C. Extraction et validation souple du paramètre de Pool dans l'URL (?pool=COLOG)
                 const urlParams = new URLSearchParams(window.location.search);
                 currentPoolId = urlParams.get('pool');
@@ -340,6 +337,7 @@
                     if (poolSubtitleHeader) poolSubtitleHeader.textContent = "Sélectionnez un pool depuis le tableau de bord pour afficher les détails";
                     if (appBody) appBody.style.display = 'flex';
                     showTableMessage("Sélectionnez un pool depuis le tableau de bord pour afficher les postes correspondants.");
+                    resetKPIs();
                     return;
                 }
 
@@ -381,26 +379,15 @@
 
         checkSession();
 
-        // Sécurité et contrôle des rôles : le script gère l'activité de manière intelligente
-        function unlockUIForRole(role) {
-            if (addPositionBtn) {
-                if (role === 'visitor') {
-                    addPositionBtn.disabled = true;
-                    addPositionBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    addPositionBtn.disabled = false;
-                    addPositionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-            }
-        }
-
         // ============================================================================
-        // ÉCOUTEUR D'ÉVÉNEMENT DIRECT EN JAVASCRIPT (Réparation de production)
+        // ÉCOUTEURS D'ÉVÉNEMENTS DIRECTS EN JAVASCRIPT (Simplicité brute)
         // ============================================================================
+        
+        // Bouton d'ouverture du modal de création
         if (addPositionBtn) {
-            addPositionBtn.addEventListener('click', () => {
+            addPositionBtn.addEventListener('click', function() {
                 if (userRole === 'visitor') {
-                    alert("Accès refusé : les visiteurs n'ont pas l'autorisation d'ajouter des postes.");
+                    alert("Accès refusé : les visiteurs n'ont pas l'autorisation de créer des postes.");
                     return;
                 }
                 openAddPositionModal();
@@ -464,6 +451,14 @@
             kpiExpiring.textContent = expiring;
         }
 
+        function resetKPIs() {
+            kpiTotal.textContent = '0';
+            kpiOccupied.textContent = '0';
+            kpiRecruiting.textContent = '0';
+            kpiVacant.textContent = '0';
+            kpiExpiring.textContent = '0';
+        }
+
         // ============================================================================
         // 3. RENDU DU TABLEAU AVEC DOUBLE LIGNE DE ROTATION (Hercules Style)
         // ============================================================================
@@ -484,8 +479,8 @@
                 // Formations des données de l'occupant et du futur remplaçant
                 const hasFuture = !!pos.future_talent;
                 const occupantLabel = pos.occupant 
-                    ? `${pos.occupant.first_name} ${pos.occupant.last_name} ${hasFuture ? '<span class="text-orange-600 font-bold text-[10px] uppercase ml-1.5">(Sortant)</span>' : ''}`
-                    : '<span class="text-slate-400 italic">Aucun occupant</span>';
+                    ? `${pos.occupant.first_name} ${pos.occupant.last_name} ${hasFuture ? ' (Sortant)' : ''}`
+                    : (pos.status === 'vacant' ? 'Vacant' : 'En recrutement');
 
                 // Formatage des dates du contrat actif
                 const startStr = pos.contract_start_date ? new Date(pos.contract_start_date).toLocaleDateString('fr-FR') : 'N/A';
@@ -505,6 +500,8 @@
                 let badgeText = 'Vacant';
                 if (pos.status === 'occupied') { badgeColor = 'bg-emerald-100 text-emerald-800'; badgeText = 'Occupé'; }
                 else if (pos.status === 'recruiting') { badgeColor = 'bg-orange-100 text-orange-800'; badgeText = 'Recrutement'; }
+
+                const candidateMap = { expat: 'Expatrié', nat: 'Staff National' };
 
                 let tableRowContent = `
                     <td class="px-6 py-4 font-bold text-slate-800 text-xs">${deskLabels[pos.desk] || pos.desk || 'N/A'}</td>
@@ -535,7 +532,7 @@
                     `;
                 }
 
-                // Concaténation de la fin de ligne
+                // Concaténation de la fin de ligne propre sans écrasement (+=)
                 tableRowContent += `
                         </div>
                     </td>
@@ -697,12 +694,8 @@
         }
 
         // ============================================================================
-        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SECURITE ZERO TRUST D'ECRITURE)
+        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SÉCURISATION DU FORMULAIRE)
         // ============================================================================
-        const addPositionModal = document.getElementById('addPositionModal');
-        const posProjectNameContainer = document.getElementById('posProjectNameContainer');
-        const posProjectName = document.getElementById('posProjectName');
-
         function openAddPositionModal() {
             if (addPositionModal) {
                 document.getElementById('addPositionForm').reset();
@@ -731,13 +724,10 @@
             }
         }
 
-        /**
-         * Enregistrement de poste sécurisé (Vérification dynamique double-verrou)
-         */
         async function submitAddPositionForm(e) {
             e.preventDefault();
 
-            // A. Sécurité Zero Trust dynamique lors de la soumission
+            // Sécurité Zero Trust dynamique lors de la soumission d'écriture
             const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
             if (sessionError || !session) {
                 alert("Session expirée. Veuillez vous reconnecter.");
@@ -745,14 +735,14 @@
                 return;
             }
 
-            // B. Vérifie les droits réels en base avant l'écriture
+            // Vérification stricte des droits
             const { data: profiles } = await supabaseClient
                 .from('users')
                 .select('role, is_active')
                 .eq('id', session.user.id);
 
             if (!profiles || profiles.length === 0 || profiles[0].is_active === false || profiles[0].role === 'visitor') {
-                alert("Action refusée : Privilèges d'écriture insuffisants ou compte inactif.");
+                alert("Action refusée : Privilèges d'écriture insuffisants.");
                 return;
             }
 
@@ -776,7 +766,7 @@
                     .from('positions')
                     .insert([{
                         title,
-                        pool: currentPoolId, // Raccordement universel automatique au pool courant de l'URL
+                        pool: currentPoolId, // Raccordement universel automatique
                         pool_level,
                         country,
                         location,
@@ -790,7 +780,7 @@
 
                 alert("Poste créé avec succès !");
                 closeAddPositionModal();
-                loadMissionsAndKPIs(); // Rafraîchit les KPI et le tableau à l'écran
+                loadMissionsAndKPIs(); // Rafraîchit les KPI et le tableau
 
             } catch (err) {
                 console.error("[Creation Position Failed] :", err);
@@ -798,7 +788,7 @@
             } finally {
                 if (submitAddPosBtn) {
                     submitAddPosBtn.disabled = false;
-                    submitAddBtn.textContent = "Enregistrer";
+                    submitAddPosBtn.textContent = "Enregistrer";
                 }
             }
         }
