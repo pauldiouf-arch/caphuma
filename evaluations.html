@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modération & Évaluations - Cap Huma</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Configuration de la charte graphique d'origine (ALIMA / Cap Huma) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1d4ed8', // Bleu ALIMA d'origine
+                            dark: '#1e3a8a',
+                            light: '#eff6ff',
+                        },
+                        accent: {
+                            DEFAULT: '#ea580c', // Orange humanitaire d'origine
+                            dark: '#c2410c',
+                            light: '#fff7ed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         EN-TÊTE SUPÉRIEUR
+         ──────────────────────────────────────────────────────────────────────── -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <a href="dashboard.html" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all" title="Retour au tableau de bord">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                </a>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499c-.105-.3-.423-.5-.747-.5H4.125C3.504 3 3 3.504 3 4.125v15.75c0 .621.504 1.125 1.125 1.125h15.75c.621 0 1.125-.504 1.125-1.125V11.48c0-.324-.2-.642-.5-.747L11.48 3.499Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 9.75 11.25 13.5m0 0L9.75 12m1.5 1.5V6" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Modération & Évaluations</h1>
+                        <p class="text-xs text-slate-400 font-semibold mt-1">Gérer les avis internes et la conformité RH d'ALIMA</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         TABLEAU DE MODERATION RH
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="max-w-7xl w-full mx-auto px-6 py-6 flex-1 flex flex-col space-y-6 overflow-hidden">
+        
+        <div class="flex-1 bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col overflow-hidden">
+            <div class="flex-1 overflow-auto">
+                <table class="w-full border-collapse text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                        <tr>
+                            <th class="px-6 py-4">Talent</th>
+                            <th class="px-6 py-4">Note / Étoiles</th>
+                            <th class="px-6 py-4">Évaluation / Commentaire</th>
+                            <th class="px-6 py-4">Modération</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="evaluationsTableBody" class="divide-y divide-slate-100">
+                        <tr class="animate-pulse">
+                            <td class="px-6 py-6" colspan="5"><div class="h-4 bg-slate-200 rounded w-full"></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Script de Connexion Supabase en mode Client Direct -->
+    <script>
+        const { createClient } = supabase;
+
+        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
+
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Liaison des éléments du DOM
+        const appBody = document.getElementById('appBody');
+        const evaluationsTableBody = document.getElementById('evaluationsTableBody');
+
+        let userRole = 'visitor';
+
+        // ============================================================================
+        // 1. PROTECTION ZERO TRUST ET PARMETRE D'URL (Expulsion relative stricte)
+        // ============================================================================
+        async function checkSession() {
+            try {
+                // A. Vérifie la session active de Supabase Auth
+                const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+
+                if (sessionError || !session) {
+                    throw new Error("Session absente ou expirée.");
+                }
+
+                const user = session.user;
+
+                // B. Récupération des droits de l'utilisateur (table 'users')
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('role, is_active')
+                    .eq('id', user.id);
+
+                if (profileError || !profiles || profiles.length === 0) {
+                    userRole = 'user';
+                } else {
+                    const profile = profiles[0];
+                    if (profile.is_active === false) throw new Error("Compte désactivé.");
+                    userRole = profile.role;
+                }
+
+                // Rendre l'interface visible
+                if (appBody) appBody.style.display = 'flex';
+
+                // Lancement du chargement de la table
+                await loadEvaluations();
+
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion. Raison :", error.message);
+                try {
+                    await supabaseClient.auth.signOut();
+                } catch (logoutErr) {}
+                
+                window.location.replace('login.html');
+            }
+        }
+
+        checkSession();
+
+        // ============================================================================
+        // 2. RÉCUPÉRATION EN DIRECT ET CHARGEMENT DU TABLEAU
+        // ============================================================================
+        async function loadEvaluations() {
+            try {
+                // Requête avec jointure sur la table 'talents' pour récupérer le nom/prénom
+                const { data: evaluations, error } = await supabaseClient
+                    .from('evaluations')
+                    .select(`
+                        *,
+                        talent:talents!talent_id(id, first_name, last_name, is_red_listed)
+                    `)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                renderEvaluationsTable(evaluations || []);
+
+            } catch (error) {
+                console.error("Erreur de récupération des évaluations :", error);
+                showTableMessage("Erreur lors de la récupération des évaluations.");
+            }
+        }
+
+        /**
+         * Rendu du tableau HTML
+         */
+        function renderEvaluationsTable(evaluations) {
+            evaluationsTableBody.innerHTML = '';
+
+            if (evaluations.length === 0) {
+                showTableMessage("Aucune évaluation en attente de modération.");
+                return;
+            }
+
+            evaluations.forEach(ev => {
+                const tr = document.createElement('tr');
+                
+                // Si l'évaluation a déclenché une alerte liste rouge, on applique un style visuel fort d'origine
+                let rowClass = "hover:bg-slate-50 transition-colors duration-100 align-middle";
+                if (ev.is_red_list_trigger) {
+                    rowClass = "bg-red-50/40 border-l-4 border-red-600 hover:bg-red-100/30 align-middle transition-colors duration-100";
+                }
+                tr.className = rowClass;
+
+                // Construction de la jauge d'étoiles jaunes d'origine (sur 5 étoiles basées sur la note sur 10)
+                const starCount = ev.rating !== null ? Math.round(ev.rating / 2) : 0;
+                let starsHTML = '';
+                for (let i = 0; i < 5; i++) {
+                    if (i < starCount) {
+                        starsHTML += `<span class="text-yellow-400 text-lg">★</span>`;
+                    } else {
+                        starsHTML += `<span class="text-slate-200 text-lg">★</span>`;
+                    }
+                }
+
+                // Statut de modération
+                const moderationBadge = ev.is_moderated 
+                    ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">Masqué</span>`
+                    : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Approuvé (Visible)</span>`;
+
+                // Actions de modération
+                let actionButtons = '';
+                if (userRole !== 'visitor') {
+                    const moderationLabel = ev.is_moderated ? 'Approuver' : 'Masquer';
+                    actionButtons = `
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="toggleModeration('${ev.id}', ${ev.is_moderated})" class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs">
+                                ${moderationLabel}
+                            </button>
+                            ${!ev.is_red_list_trigger && ev.talent && !ev.talent.is_red_listed ? `
+                                <button onclick="triggerRedList('${ev.id}', '${ev.talent_id}', \`${ev.context.replace(/'/g, "\\'")}\`)" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                                    </svg>
+                                    Activer Liste Rouge
+                                </button>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    actionsCell = `<span class="text-xs text-slate-400 italic">Lecture seule</span>`;
+                }
+
+                const talentName = ev.talent 
+                    ? `${ev.talent.first_name} ${ev.talent.last_name}`
+                    : '<span class="text-slate-400 italic">Talent inconnu</span>';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-bold text-slate-800 text-sm">
+                        <div class="flex flex-col">
+                            <span>${talentName}</span>
+                            ${ev.is_red_list_trigger ? '<span class="text-red-600 font-extrabold text-[9px] uppercase tracking-wider animate-pulse mt-1">⚠️ Alerte Liste Rouge</span>' : ''}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col gap-0.5">
+                            <div class="flex gap-0.5">${starsHTML}</div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase">${ev.rating !== null ? `${ev.rating}/10` : '—'}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 max-w-md">
+                        <div class="space-y-1">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Contexte d'évaluation</span>
+                            <p class="text-xs text-slate-600 leading-relaxed line-clamp-3">${ev.context}</p>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">${moderationBadge}</td>
+                    <td class="px-6 py-4 text-right">${actionButtons}</td>
+                `;
+
+                evaluationsTableBody.appendChild(tr);
+            });
+        }
+
+        function showTableMessage(message) {
+            evaluationsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-400 font-medium">
+                        ${message}
+                    </td>
+                </tr>
+            `;
+        }
+
+        // ============================================================================
+        // 3. LOGIQUE ACTION : BASULER LA MODERATION (Approuver / Masquer)
+        // ============================================================================
+        window.toggleModeration = async function(evaluationId, currentStatus) {
+            try {
+                const { error } = await supabaseClient
+                    .from('evaluations')
+                    .update({ is_moderated: !currentStatus })
+                    .eq('id', evaluationId);
+
+                if (error) throw error;
+
+                alert(`L'évaluation a été ${!currentStatus ? 'masquée avec succès' : 'approuvée et rendue visible'}.`);
+                await loadEvaluations(); // Recharge le tableau en direct
+
+            } catch (err) {
+                console.error("[Moderation Toggle Failed] :", err);
+                alert("Erreur lors de la mise à jour de la modération.");
+            }
+        }
+
+        // ============================================================================
+        // 4. LOGIQUE ACTION : DECLENCHER ET BASCULER SUR LISTE ROUGE (SecOps d'origine)
+        // ============================================================================
+        window.triggerRedList = async function(evaluationId, talentId, reason) {
+            if (!talentId || talentId === 'null') {
+                alert("Erreur : Aucun talent valide associé à cette évaluation.");
+                return;
+            }
+
+            const confirmAction = confirm("ATTENTION : Cette action va inscrire immédiatement et définitivement ce talent sur la LISTE ROUGE ALIMA pour faute grave. Confirmez-vous ?");
+            if (!confirmAction) return;
+
+            try {
+                // A. Marquer l'évaluation comme déclencheur de liste rouge
+                const { error: evalError } = await supabaseClient
+                    .from('evaluations')
+                    .update({ is_red_list_trigger: true })
+                    .eq('id', evaluationId);
+
+                if (evalError) throw evalError;
+
+                // B. Inscrire le talent sur Liste Rouge dans Supabase (table 'talents')
+                const { error: talentError } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        is_red_listed: true,
+                        red_list_date: new Date().toISOString(),
+                        red_list_reason: `Déclenché via modération d'évaluation : ${reason}`
+                    })
+                    .eq('id', talentId);
+
+                if (talentError) throw talentError;
+
+                alert("Le talent a été placé sur Liste Rouge d'ALIMA de manière définitive.");
+                await loadEvaluations(); // Recharge en direct
+
+            } catch (err) {
+                console.error("[Redlist Trigger Failed] :", err);
+                alert(`Erreur d'activation de la liste rouge : ${err.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
