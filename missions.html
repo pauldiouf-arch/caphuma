@@ -62,12 +62,12 @@
                     </div>
                     <div>
                         <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight" id="poolTitleHeader">Suivi des Postes</h1>
-                        <p class="text-xs text-slate-400 font-medium font-semibold" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
+                        <p class="text-xs text-slate-400 font-semibold mt-1" id="poolSubtitleHeader">Sélectionnez un pool depuis le tableau de bord</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Action d'ajout -->
+            <!-- Action d'ajout (Totalement actif par défaut, sans verrous bloquants) -->
             <button id="addPositionBtn" class="bg-accent hover:bg-accent-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -336,7 +336,7 @@
                     if (poolTitleHeader) poolTitleHeader.textContent = "Suivi des Postes Terrain";
                     if (poolSubtitleHeader) poolSubtitleHeader.textContent = "Sélectionnez un pool depuis le tableau de bord pour afficher les détails";
                     if (appBody) appBody.style.display = 'flex';
-                    showTableMessage("Sélectionnez un pool depuis le tableau de bord pour afficher les postes correspondants.");
+                    showTableMessage("Veuillez sélectionner un pool depuis le tableau de bord");
                     resetKPIs();
                     return;
                 }
@@ -452,7 +452,7 @@
         }
 
         // ============================================================================
-        // 3. RENDU DU TABLEAU AVEC DOUBLE LIGNE DE ROTATION (Hercules Style)
+        // 3. RENDU DU TABLEAU AVEC DOUBLE LIGNE DE ROTATION (Hercules Style & Alerte Rouge)
         // ============================================================================
         function renderMissionsTable(positions) {
             missionsTableBody.innerHTML = '';
@@ -465,12 +465,14 @@
             const deskLabels = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
 
             positions.forEach(pos => {
-                const isVacant = (pos.status === 'vacant');
+                // MOTEUR D'ALERTE HERCULES : Règle conditionnelle de couleur de fond de la ligne
+                let rowClass = "hover:bg-slate-50 transition-colors duration-100 align-top";
                 
-                // MOTEUR D'ALERTE HERCULES : Si le poste est vacant, on applique une bordure gauche rouge vif et fond rouge très clair
-                const rowClass = isVacant
-                    ? "bg-red-50/50 border-l-4 border-red-500 hover:bg-red-100/40 align-top transition-colors duration-100"
-                    : "hover:bg-slate-50 transition-colors duration-100 align-top border-l-4 border-transparent";
+                if (pos.status === 'vacant') {
+                    rowClass = "bg-red-50/70 border-l-4 border-red-500 hover:bg-red-100/50 align-top transition-colors duration-100";
+                } else if (pos.status === 'recruiting') {
+                    rowClass = "bg-orange-50/50 hover:bg-orange-100/30 align-top transition-colors duration-100";
+                }
 
                 const tr = document.createElement('tr');
                 tr.className = rowClass;
@@ -479,7 +481,7 @@
                 const hasFuture = !!pos.future_talent;
                 const occupantLabel = pos.occupant 
                     ? `${pos.occupant.first_name} ${pos.occupant.last_name} ${hasFuture ? '<span class="text-orange-600 font-bold text-[10px] uppercase ml-1.5">(Sortant)</span>' : ''}`
-                    : (isVacant ? '<span class="text-red-600 font-bold text-xs">Vacant</span>' : 'En recrutement');
+                    : (pos.status === 'vacant' ? '<span class="text-red-600 font-bold text-xs">Vacant</span>' : 'En recrutement');
 
                 // Formatage des dates du contrat actif
                 const startStr = pos.contract_start_date ? new Date(pos.contract_start_date).toLocaleDateString('fr-FR') : 'N/A';
@@ -497,7 +499,7 @@
                     actionsCell = `<span class="text-xs text-slate-400 italic">Aucune action</span>`;
                 }
 
-                // Couleurs de badges d'origine conformes
+                // Couleurs de badges d'origine conformes (Rouge, Orange, Vert)
                 let badgeColor = 'bg-red-100 text-red-800'; // Rouge pour vacant
                 let badgeText = 'Vacant';
                 if (pos.status === 'occupied') { 
@@ -633,11 +635,13 @@
                 if (evalError) throw evalError;
 
                 // B. Libération du poste (ou basculement si remplaçant défini sur la table 'missions')
-                const { data: mission } = await supabaseClient
+                const { data: mission, error: fetchErr } = await supabaseClient
                     .from('missions')
                     .select('*')
                     .eq('id', pendingReleaseData.positionId)
                     .single();
+
+                if (fetchErr) throw fetchErr;
 
                 if (mission.future_talent_id) {
                     // Si remplaçant défini, il prend immédiatement la place
@@ -686,7 +690,7 @@
 
                 alert("Évaluation de fin de mission enregistrée et rotation effectuée !");
                 closeEvalModal();
-                loadMissionsAndKPIs(); // Recharger le tableau en direct
+                await loadMissionsAndKPIs(); // Recharger le tableau en direct
 
             } catch (err) {
                 console.error("[Evaluation lock failed] :", err);
@@ -700,7 +704,7 @@
         }
 
         // ============================================================================
-        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & SOUFFLET SANS FILTRES SÉCURITÉ)
+        // 5. AJOUT DE POSTE (MODAL CONTROLLERS & EXÉCUTION DIRECTE SANS FILTRES)
         // ============================================================================
         const addPositionModal = document.getElementById('addPositionModal');
         const posProjectNameContainer = document.getElementById('posProjectNameContainer');
@@ -759,7 +763,7 @@
             }
 
             try {
-                // Requête d'insertion Supabase directe vers la table 'missions'
+                // Requête d'insertion Supabase directe et brute vers la table 'missions'
                 const { error } = await supabaseClient
                     .from('missions')
                     .insert([{
@@ -780,12 +784,12 @@
 
                 alert("Poste créé avec succès !");
                 closeAddPositionModal();
-                loadMissionsAndKPIs(); // Rafraîchit les KPI et recharge le tableau
+                await loadMissionsAndKPIs(); // Rafraîchit les KPI et recharge le tableau
 
             } catch (err) {
                 // Affiche l'erreur Supabase brute renvoyée par le serveur de base de données
                 console.error("[Supabase Write Error] :", err);
-                alert(`Erreur de création : ${err.message}`);
+                alert('Erreur Supabase brute : ' + err.message);
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
