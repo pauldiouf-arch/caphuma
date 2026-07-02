@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord - Cap Huma</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Charte graphique ALIMA / Cap Huma (identique à missions.html) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1d4ed8',
+                            dark: '#1e3a8a',
+                            light: '#eff6ff',
+                        },
+                        accent: {
+                            DEFAULT: '#ea580c',
+                            dark: '#c2410c',
+                            light: '#fff7ed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         EN-TÊTE SUPÉRIEUR (identique structure à missions.html)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.45.258-.717.258H3.571a.8.8 0 0 1-.717-.258m17.5 0a2.18 2.18 0 0 1-.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m0 0a48.58 48.58 0 0 0-6.177 0m6.177 0v1.502a2.25 2.25 0 0 1-2.25 2.25H9.75a2.25 2.25 0 0 1-2.25-2.25V6.144m6.177 0a48.114 48.114 0 0 0-3.413.387m0 0a48.58 48.58 0 0 1-6.177 0" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Cap Huma</h1>
+                    <p class="text-xs text-slate-400 font-semibold mt-1" id="userSubtitle">Tableau de bord</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="statistics.html" class="bg-primary-light hover:bg-blue-100 text-primary px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all">
+                    📊 Hub Statistique &amp; IA
+                </a>
+                <button id="logoutBtn" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all" title="Déconnexion">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE : CARTES DE POOLS
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="max-w-7xl w-full mx-auto px-6 py-8 flex-1 overflow-auto">
+
+        <div class="mb-6">
+            <h2 class="text-xl font-extrabold text-slate-800">Sélectionnez un pool</h2>
+            <p class="text-sm text-slate-400 mt-1">Accédez à la gestion terrain ou aux statistiques de chaque vivier métier.</p>
+        </div>
+
+        <div id="poolsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <!-- Squelettes de chargement -->
+            <div class="animate-pulse bg-white border border-slate-200 rounded-3xl h-48"></div>
+            <div class="animate-pulse bg-white border border-slate-200 rounded-3xl h-48"></div>
+            <div class="animate-pulse bg-white border border-slate-200 rounded-3xl h-48"></div>
+        </div>
+
+        <p id="poolsError" class="hidden mt-6 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
+
+    </main>
+
+    <script>
+        // ============================================================================
+        // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
+        // ============================================================================
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            window.location.replace('index.html');
+        }
+
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const appBody = document.getElementById('appBody');
+        const poolsGrid = document.getElementById('poolsGrid');
+        const poolsError = document.getElementById('poolsError');
+        const userSubtitle = document.getElementById('userSubtitle');
+
+        // Pools de secours si la table Supabase est vide ou inaccessible
+        const FALLBACK_POOLS = [
+            { pool_id: 'COLOG', name: 'COLOG', full_name: 'Pool Logistique' },
+            { pool_id: 'COMED', name: 'COMED', full_name: 'Pool Médical' },
+            { pool_id: 'ADMIN', name: 'ADMIN', full_name: 'Pool Administration' }
+        ];
+
+        // ============================================================================
+        // 2. GARDE DE SESSION (identique au pattern de missions.html)
+        // ============================================================================
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+
+                if (!session) {
+                    throw new Error("Session absente ou expirée.");
+                }
+
+                const user = session.user;
+
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('role, is_active')
+                    .eq('id', user.id);
+
+                if (!profileError && profiles && profiles.length > 0) {
+                    const profile = profiles[0];
+                    if (profile.is_active === false) throw new Error("Compte désactivé.");
+                    userSubtitle.textContent = `Connecté en tant que ${profile.role || 'utilisateur'}`;
+                } else {
+                    userSubtitle.textContent = 'Tableau de bord';
+                }
+
+                appBody.style.display = 'flex';
+                await loadPools();
+
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
+                try {
+                    await supabaseClient.auth.signOut();
+                } catch (logoutErr) {}
+                window.location.replace('login.html');
+            }
+        }
+
+        checkSession();
+
+        document.getElementById('logoutBtn').addEventListener('click', async function () {
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+
+        // ============================================================================
+        // 3. CHARGEMENT DES POOLS ET RENDU DES CARTES
+        // ============================================================================
+        async function loadPools() {
+            try {
+                const { data: pools, error } = await supabaseClient
+                    .from('pools')
+                    .select('pool_id, name, full_name')
+                    .order('name', { ascending: true });
+
+                if (error) throw error;
+
+                renderPools(pools && pools.length > 0 ? pools : FALLBACK_POOLS);
+
+            } catch (error) {
+                console.error("Erreur de récupération des pools :", error);
+                renderPools(FALLBACK_POOLS);
+                poolsError.textContent = "Impossible de charger les pools depuis Supabase — affichage des pools par défaut.";
+                poolsError.classList.remove('hidden');
+            }
+        }
+
+        function poolIcon(poolId) {
+            const icons = {
+                COLOG: '🚚',
+                COMED: '🩺',
+                ADMIN: '📁'
+            };
+            return icons[poolId] || '🌍';
+        }
+
+        function renderPools(pools) {
+            poolsGrid.innerHTML = '';
+
+            pools.forEach(pool => {
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 rounded-3xl shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition-all";
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-light text-2xl mb-4">
+                            ${poolIcon(pool.pool_id)}
+                        </div>
+                        <h3 class="text-lg font-extrabold text-slate-800">${pool.name || pool.pool_id}</h3>
+                        <p class="text-xs text-slate-400 font-semibold mt-1">${pool.full_name || ''}</p>
+                    </div>
+                    <div class="flex flex-col gap-2 mt-6">
+                        <div class="grid grid-cols-2 gap-2">
+                            <a href="talents.html?pool=${encodeURIComponent(pool.pool_id)}" class="bg-primary hover:bg-primary-dark text-white px-3 py-2.5 rounded-lg text-xs font-bold text-center transition-all shadow-xs">
+                                👤 Professionnels
+                            </a>
+                            <a href="missions.html?pool=${encodeURIComponent(pool.pool_id)}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-2.5 rounded-lg text-xs font-bold text-center transition-all">
+                                Postes
+                            </a>
+                        </div>
+                        <a href="statistics.html?pool=${encodeURIComponent(pool.pool_id)}" class="bg-accent-light hover:bg-orange-100 text-accent-dark px-4 py-2.5 rounded-lg text-xs font-bold text-center transition-all">
+                            📊 Statistiques du Pool
+                        </a>
+                    </div>
+                `;
+
+                poolsGrid.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
