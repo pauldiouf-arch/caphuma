@@ -112,16 +112,15 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div><label class="text-xs font-bold text-slate-500 uppercase">Email</label>
                                 <input name="email" type="email" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Téléphone</label>
-                                <input name="phone" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
                             <div><label class="text-xs font-bold text-slate-500 uppercase">Genre</label>
                                 <select name="gender" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                                     <option value="">—</option><option value="H">Homme</option><option value="F">Femme</option>
                                 </select></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
                             <div><label class="text-xs font-bold text-slate-500 uppercase">Fonction actuelle</label>
                                 <input name="current_function" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div><label class="text-xs font-bold text-slate-500 uppercase">Nationalité</label>
@@ -325,7 +324,7 @@
             const errorEl = document.getElementById('listError');
             try {
                 let query = supabaseClient.from('talents').select('*').order('last_name', { ascending: true });
-                if (currentPoolId) query = query.eq('pool_id', currentPoolId);
+                if (currentPoolId) query = query.eq('pool', currentPoolId);
                 const { data, error } = await query;
                 if (error) throw error;
                 allTalents = data || [];
@@ -643,7 +642,7 @@
                     const { error } = await supabaseClient.from('talents').update(payload).eq('id', editingTalentId);
                     if (error) throw error;
                 } else {
-                    payload.pool_id = currentPoolId;
+                    payload.pool = currentPoolId;
                     payload.created_by = currentUserId;
                     payload.is_valid = true;
                     const { error } = await supabaseClient.from('talents').insert(payload);
