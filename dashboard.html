@@ -161,11 +161,6 @@
                     .select('role, is_active')
                     .eq('id', user.id);
 
-                // 🔍 LOG DE DÉBUG TEMPORAIRE — à retirer une fois le problème résolu
-                console.log('[DEBUG] auth.uid() =', user.id, '| email =', user.email);
-                console.log('[DEBUG] profiles renvoyés par Supabase =', profiles);
-                console.log('[DEBUG] erreur éventuelle =', profileError);
-
                 if (!profileError && profiles && profiles.length > 0) {
                     const profile = profiles[0];
                     if (profile.is_active === false) throw new Error("Compte désactivé.");
