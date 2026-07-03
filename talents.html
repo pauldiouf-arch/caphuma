@@ -284,6 +284,7 @@
         const currentPoolId = urlParams.get('pool');
 
         const appBody = document.getElementById('appBody');
+        const talentForm = document.getElementById('talentForm');
         let currentUserId = null;
 
         async function checkSession() {
@@ -580,7 +581,6 @@
         // 8. OUVERTURE / FERMETURE DE LA MODALE
         // ============================================================================
         const talentModal = document.getElementById('talentModal');
-        const talentForm = document.getElementById('talentForm');
         const formError = document.getElementById('formError');
         let editingTalentId = null;
 
