@@ -160,21 +160,30 @@
                         <div id="availabilityDateWrap" class="hidden"><label class="text-xs font-bold text-slate-500 uppercase">Date de disponibilité</label>
                             <input name="availability_date" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
 
-                        <div><label class="text-xs font-bold text-slate-500 uppercase">Statut projet</label>
-                            <select name="project_status" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
-                                <option value="none">Néant</option><option value="opening">Ouverture de mission</option>
-                                <option value="emergency">Mission d'urgence</option><option value="closure">Fermeture de projet</option>
-                            </select></div>
-
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="pt-2 border-t border-slate-100">
                             <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                <input name="had_alima_mission" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-primary" /> A déjà effectué une mission ALIMA
+                                <input name="had_alima_mission" id="hadAlimaMissionCb" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-primary" /> A déjà effectué une mission ALIMA
                             </label>
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Nombre de missions ALIMA</label>
-                                <select name="number_of_alima_missions" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+
+                            <div id="lastMissionEndDateWrap" class="hidden mt-3">
+                                <label class="text-xs font-bold text-slate-500 uppercase">Date de fin de dernière mission ALIMA *</label>
+                                <input name="last_mission_end_date" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" />
+                                <p class="text-[11px] text-slate-400 mt-1">Sert de point de départ au calcul des 24 mois de validité dans le pool.</p>
+                            </div>
+
+                            <div class="mt-3"><label class="text-xs font-bold text-slate-500 uppercase">Nombre de missions ALIMA</label>
+                                <select name="number_of_alima_missions" id="numberOfMissionsSelect" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                                     <option value="none">Néant</option><option value="one">1 mission</option>
                                     <option value="two">2 missions</option><option value="three_plus">3 missions et +</option>
                                 </select></div>
+                        </div>
+
+                        <div id="validityIndicator" class="hidden bg-primary-light border border-blue-100 rounded-xl p-4">
+                            <p class="text-xs font-bold text-primary uppercase mb-1">Validité dans le pool</p>
+                            <p id="validityText" class="text-sm text-slate-700"></p>
+                            <div class="w-full bg-white rounded-full h-2 mt-2 overflow-hidden">
+                                <div id="validityBar" class="h-full bg-primary rounded-full" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -465,6 +474,72 @@
             document.getElementById('availabilityDateWrap').classList.toggle('hidden', this.value !== 'date');
         });
 
+        // ── Cohérence "A effectué une mission ALIMA" / "Nombre de missions" / "Date de fin de dernière mission" ──
+        const hadAlimaMissionCb = document.getElementById('hadAlimaMissionCb');
+        const numberOfMissionsSelect = document.getElementById('numberOfMissionsSelect');
+        const lastMissionEndDateWrap = document.getElementById('lastMissionEndDateWrap');
+        const lastMissionEndDateInput = talentForm.querySelector('[name="last_mission_end_date"]');
+
+        function syncMissionFields() {
+            if (hadAlimaMissionCb.checked) {
+                lastMissionEndDateWrap.classList.remove('hidden');
+                lastMissionEndDateInput.required = true;
+                // "Néant" n'a plus de sens si une mission a été effectuée
+                numberOfMissionsSelect.querySelector('option[value="none"]').disabled = true;
+                if (numberOfMissionsSelect.value === 'none') numberOfMissionsSelect.value = 'one';
+            } else {
+                lastMissionEndDateWrap.classList.add('hidden');
+                lastMissionEndDateInput.required = false;
+                lastMissionEndDateInput.value = '';
+                numberOfMissionsSelect.querySelector('option[value="none"]').disabled = false;
+                numberOfMissionsSelect.value = 'none';
+            }
+        }
+        hadAlimaMissionCb.addEventListener('change', syncMissionFields);
+
+        // ── Calcul de la validité dans le pool (porté fidèlement de calculateMonthsWithoutMission) ──
+        const DEVALIDATION_MAX_MONTHS = 24;
+
+        function calculateMonthsWithoutMission(talent) {
+            const now = Date.now();
+            if (talent.is_currently_on_mission || talent.status === 'En poste ALIMA') {
+                return talent.months_without_alima_mission || 0;
+            }
+            if (talent.last_mission_end_date) {
+                return Math.max(0, Math.floor((now - new Date(talent.last_mission_end_date).getTime()) / (1000 * 60 * 60 * 24 * 30)));
+            }
+            if (talent.pool_integration_date) {
+                return Math.max(0, Math.floor((now - new Date(talent.pool_integration_date).getTime()) / (1000 * 60 * 60 * 24 * 30)));
+            }
+            return 0;
+        }
+
+        function renderValidityIndicator(talent) {
+            const box = document.getElementById('validityIndicator');
+            const text = document.getElementById('validityText');
+            const bar = document.getElementById('validityBar');
+
+            const frozen = talent.is_currently_on_mission || talent.status === 'En poste ALIMA';
+            const totalMonths = frozen ? 0 : calculateMonthsWithoutMission(talent);
+            const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
+            const remainingMonths = Math.max(0, DEVALIDATION_MAX_MONTHS - totalMonths);
+            const progressPercent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
+
+            box.classList.remove('hidden');
+            bar.style.width = progressPercent + '%';
+
+            if (frozen) {
+                text.textContent = "Compteur gelé (en poste ALIMA) — 24 mois restants.";
+                bar.className = 'h-full bg-emerald-500 rounded-full';
+            } else if (remainingMonths === 0) {
+                text.textContent = "0 mois restant — dévalidation du pool imminente ou déjà effective.";
+                bar.className = 'h-full bg-red-500 rounded-full';
+            } else {
+                text.textContent = `${remainingMonths} mois restant${remainingMonths > 1 ? 's' : ''} avant éjection du pool (${totalMonths}/${DEVALIDATION_MAX_MONTHS} mois écoulés).`;
+                bar.className = remainingMonths <= 6 ? 'h-full bg-amber-500 rounded-full' : 'h-full bg-primary rounded-full';
+            }
+        }
+
         document.querySelectorAll('.mission-checkbox').forEach(cb => {
             cb.addEventListener('change', function () {
                 const target = document.querySelector(`textarea[name="${this.dataset.target}"]`);
@@ -522,6 +597,8 @@
             });
             document.getElementById('redListReadonly').innerHTML = "Ces informations apparaîtront ici une fois le profil créé. La gestion de la Liste Rouge se fait exclusivement depuis <strong>Admin</strong>.";
             document.getElementById('historyReadonly').innerHTML = "L'historique se construit automatiquement au fil du temps. Aucun historique pour un nouveau profil.";
+            document.getElementById('validityIndicator').classList.add('hidden');
+            syncMissionFields();
             formError.classList.add('hidden');
             resetTabsToFirst();
             talentModal.classList.remove('hidden');
@@ -551,6 +628,13 @@
 
             document.getElementById('availabilityMonthsWrap').classList.toggle('hidden', talent.availability_type !== 'notice');
             document.getElementById('availabilityDateWrap').classList.toggle('hidden', talent.availability_type !== 'date');
+
+            hadAlimaMissionCb.checked = !!talent.had_alima_mission;
+            syncMissionFields();
+            if (talent.last_mission_end_date) lastMissionEndDateInput.value = talent.last_mission_end_date.substring(0, 10);
+            if (talent.number_of_alima_missions) numberOfMissionsSelect.value = talent.number_of_alima_missions;
+
+            renderValidityIndicator(talent);
 
             document.querySelectorAll('.mission-checkbox').forEach(cb => {
                 document.querySelector(`textarea[name="${cb.dataset.target}"]`).classList.toggle('hidden', !cb.checked);
