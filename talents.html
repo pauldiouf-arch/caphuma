@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professionnels - Cap Huma</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
+                        accent: { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .tag-chip { display: inline-flex; align-items: center; gap: 4px; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+        .tag-chip button { color: #1d4ed8; opacity: 0.6; }
+        .tag-chip button:hover { opacity: 1; }
+        .tab-btn.active { color: #1d4ed8; border-color: #1d4ed8; background: #eff6ff; }
+    </style>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ═══════════════════════════════════ HEADER ═══════════════════════════════════ -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-3">
+                <a href="dashboard.html" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Retour au tableau de bord">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-xl font-extrabold text-slate-800 tracking-tight">👤 Professionnels</h1>
+                    <p class="text-xs text-slate-400 font-semibold mt-1" id="poolSubtitle">Chargement du pool...</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="newTalentBtn" class="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2">
+                    ＋ Nouveau talent
+                </button>
+                <button id="logoutBtn" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all" title="Déconnexion">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════════════════════════════════ RECHERCHE ═══════════════════════════════════ -->
+    <div class="bg-white border-b shrink-0">
+        <div class="container mx-auto px-6 py-3">
+            <input id="searchInput" type="text" placeholder="🔎 Rechercher un talent (nom, prénom, fonction, email...)"
+                class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none focus:border-primary" />
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ LISTE ═══════════════════════════════════ -->
+    <main class="max-w-6xl w-full mx-auto px-6 py-6 flex-1 overflow-auto">
+        <div id="talentsList" class="space-y-3">
+            <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-20"></div>
+            <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-20"></div>
+        </div>
+        <p id="emptyState" class="hidden text-center text-sm text-slate-400 font-semibold py-12">Aucun talent ne correspond à ta recherche.</p>
+        <p id="listError" class="hidden mt-4 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
+    </main>
+
+    <!-- ═══════════════════════════════════ MODAL FORMULAIRE (6 ONGLETS) ═══════════════════════════════════ -->
+    <div id="talentModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+
+            <div class="flex items-center justify-between p-5 border-b shrink-0">
+                <h2 id="modalTitle" class="text-lg font-extrabold text-slate-800">Nouveau talent</h2>
+                <button id="closeModalBtn" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+            </div>
+
+            <!-- Onglets -->
+            <div class="flex border-b overflow-x-auto shrink-0 px-2">
+                <button class="tab-btn active shrink-0 px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500" data-tab="1">1. Identité</button>
+                <button class="tab-btn shrink-0 px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500" data-tab="2">2. Statut & Dispo.</button>
+                <button class="tab-btn shrink-0 px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500" data-tab="3">3. Formation</button>
+                <button class="tab-btn shrink-0 px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500" data-tab="4">4. Compétences</button>
+                <button class="tab-btn shrink-0 px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500" data-tab="5">5. Liste Rouge</button>
+                <button class="tab-btn shrink-0 px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500" data-tab="6">6. Historique</button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <form id="talentForm">
+
+                    <!-- TAB 1 : IDENTITÉ -->
+                    <div class="tab-panel space-y-4" data-panel="1">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Prénom *</label>
+                                <input name="first_name" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Nom *</label>
+                                <input name="last_name" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Email</label>
+                                <input name="email" type="email" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Téléphone</label>
+                                <input name="phone" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Genre</label>
+                                <select name="gender" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                                    <option value="">—</option><option value="H">Homme</option><option value="F">Femme</option>
+                                </select></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Fonction actuelle</label>
+                                <input name="current_function" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Nationalité</label>
+                                <input name="nationality" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Pays de résidence</label>
+                                <input name="country_of_residence" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 items-end">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Date d'intégration au pool</label>
+                                <input name="pool_integration_date" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 pb-2.5">
+                                <input name="has_visa" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-primary" /> Possède un visa valide
+                            </label>
+                        </div>
+                        <p class="text-xs text-slate-400">Pool : <span id="modalPoolBadge" class="font-bold text-primary"></span> (défini par la page depuis laquelle tu as créé le talent)</p>
+                    </div>
+
+                    <!-- TAB 2 : STATUT & DISPONIBILITÉ -->
+                    <div class="tab-panel hidden space-y-4" data-panel="2">
+                        <div><label class="text-xs font-bold text-slate-500 uppercase">Statut *</label>
+                            <select name="status" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                                <option value="En attente de poste">En attente de poste</option>
+                                <option value="En poste ALIMA">En poste ALIMA</option>
+                                <option value="En poste autre ONG">En poste autre ONG</option>
+                                <option value="En poste hors humanitaire">En poste hors humanitaire</option>
+                            </select></div>
+
+                        <div><label class="text-xs font-bold text-slate-500 uppercase">Disponibilité</label>
+                            <select name="availability_type" id="availabilityType" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                                <option value="none">Néant</option>
+                                <option value="asap">ASAP — Disponible immédiatement</option>
+                                <option value="notice">Avec préavis</option>
+                                <option value="date">Date précise</option>
+                            </select></div>
+                        <div id="availabilityMonthsWrap" class="hidden"><label class="text-xs font-bold text-slate-500 uppercase">Préavis (mois)</label>
+                            <input name="availability_months" type="number" min="1" max="6" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        <div id="availabilityDateWrap" class="hidden"><label class="text-xs font-bold text-slate-500 uppercase">Date de disponibilité</label>
+                            <input name="availability_date" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+
+                        <div><label class="text-xs font-bold text-slate-500 uppercase">Statut projet</label>
+                            <select name="project_status" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                                <option value="none">Néant</option><option value="opening">Ouverture de mission</option>
+                                <option value="emergency">Mission d'urgence</option><option value="closure">Fermeture de projet</option>
+                            </select></div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                <input name="had_alima_mission" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-primary" /> A déjà effectué une mission ALIMA
+                            </label>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Nombre de missions ALIMA</label>
+                                <select name="number_of_alima_missions" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                                    <option value="none">Néant</option><option value="one">1 mission</option>
+                                    <option value="two">2 missions</option><option value="three_plus">3 missions et +</option>
+                                </select></div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3 : FORMATION & EXPÉRIENCE -->
+                    <div class="tab-panel hidden space-y-4" data-panel="3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Niveau d'étude</label>
+                                <select name="education_level" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                                    <option value="none">Néant</option><option value="bac">Bac</option>
+                                    <option value="bac+1">Bac+1</option><option value="bac+2">Bac+2</option>
+                                    <option value="bac+3">Bac+3 (Licence)</option><option value="bac+4">Bac+4</option>
+                                    <option value="bac+5">Bac+5 (Master)</option><option value="bac+6">Bac+6</option>
+                                    <option value="bac+7">Bac+7</option><option value="bac+8+">Bac+8 et plus</option>
+                                </select></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Spécialité</label>
+                                <input name="education_specialty" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Expérience ALIMA (mois)</label>
+                                <input name="experience_months_alima" type="number" min="0" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Expérience humanitaire totale (mois)</label>
+                                <input name="experience_months_humanitarian" type="number" min="0" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        </div>
+                        <div id="tagfield_languages"></div>
+                        <div id="tagfield_other_languages"></div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs font-bold text-slate-500 uppercase">Formations ALIMA suivies</label>
+                                <button type="button" id="addTrainingBtn" class="text-xs font-bold text-primary">＋ Ajouter</button>
+                            </div>
+                            <div id="trainingsList" class="space-y-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4 : COMPÉTENCES & CONTEXTES -->
+                    <div class="tab-panel hidden space-y-4" data-panel="4">
+                        <div class="space-y-3">
+                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                <input name="has_mission_opening" type="checkbox" class="mission-checkbox h-4 w-4 rounded border-slate-300 text-primary" data-target="mission_opening_comments" /> A fait des ouvertures de mission
+                            </label>
+                            <textarea name="mission_opening_comments" placeholder="Commentaires..." class="hidden w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" rows="2"></textarea>
+
+                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                <input name="has_emergency_mission" type="checkbox" class="mission-checkbox h-4 w-4 rounded border-slate-300 text-primary" data-target="emergency_mission_comments" /> A fait des missions d'urgence
+                            </label>
+                            <textarea name="emergency_mission_comments" placeholder="Commentaires..." class="hidden w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" rows="2"></textarea>
+
+                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                <input name="has_mission_closure" type="checkbox" class="mission-checkbox h-4 w-4 rounded border-slate-300 text-primary" data-target="closure_mission_comments" /> A fait des fermetures de projet
+                            </label>
+                            <textarea name="closure_mission_comments" placeholder="Commentaires..." class="hidden w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" rows="2"></textarea>
+                        </div>
+
+                        <div id="tagfield_intervention_contexts"></div>
+                        <div id="tagfield_intervention_zones"></div>
+                        <div id="tagfield_key_skills"></div>
+                        <p class="text-[11px] text-slate-400">Compétences clés : 5 maximum.</p>
+                    </div>
+
+                    <!-- TAB 5 : LISTE ROUGE (lecture seule) -->
+                    <div class="tab-panel hidden" data-panel="5">
+                        <div id="redListReadonly" class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm text-slate-500">
+                            Ces informations apparaîtront ici une fois le profil créé. La gestion de la Liste Rouge (ajout, réhabilitation, documents justificatifs) se fait exclusivement depuis <strong>Admin</strong>.
+                        </div>
+                    </div>
+
+                    <!-- TAB 6 : HISTORIQUE (lecture seule) -->
+                    <div class="tab-panel hidden" data-panel="6">
+                        <div id="historyReadonly" class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm text-slate-500">
+                            L'historique des missions et des changements de statut se construit automatiquement au fil du temps. Aucun historique pour un nouveau profil.
+                        </div>
+                    </div>
+
+                    <p id="formError" class="hidden mt-4 text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+                </form>
+            </div>
+
+            <div class="p-5 border-t shrink-0 flex justify-end gap-3">
+                <button type="button" id="cancelBtn" class="px-5 py-2.5 rounded-lg text-sm font-bold text-slate-500 hover:bg-slate-50">Annuler</button>
+                <button type="button" id="saveTalentBtn" class="bg-primary hover:bg-primary-dark text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // 1. INIT SUPABASE + GARDE DE SESSION
+        // ============================================================================
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) window.location.replace('index.html');
+
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPoolId = urlParams.get('pool');
+
+        const appBody = document.getElementById('appBody');
+        let currentUserId = null;
+
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error("Session absente.");
+                currentUserId = session.user.id;
+                appBody.style.display = 'flex';
+                await loadPoolInfo();
+                await loadTalents();
+            } catch (err) {
+                console.warn("[Session Guard]", err.message);
+                window.location.replace('login.html');
+            }
+        }
+        checkSession();
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+
+        // ============================================================================
+        // 2. INFO POOL (titre de page)
+        // ============================================================================
+        async function loadPoolInfo() {
+            const subtitle = document.getElementById('poolSubtitle');
+            if (!currentPoolId) { subtitle.textContent = 'Tous les pools'; return; }
+            try {
+                const { data } = await supabaseClient.from('pools').select('name, full_name').eq('pool_id', currentPoolId);
+                if (data && data.length > 0) {
+                    subtitle.textContent = `${data[0].full_name || data[0].name} (${currentPoolId})`;
+                } else {
+                    subtitle.textContent = currentPoolId;
+                }
+            } catch (e) { subtitle.textContent = currentPoolId; }
+            document.getElementById('modalPoolBadge').textContent = currentPoolId || '—';
+        }
+
+        // ============================================================================
+        // 3. CHARGEMENT + RENDU DE LA LISTE
+        // ============================================================================
+        let allTalents = [];
+
+        async function loadTalents() {
+            const listEl = document.getElementById('talentsList');
+            const errorEl = document.getElementById('listError');
+            try {
+                let query = supabaseClient.from('talents').select('*').order('last_name', { ascending: true });
+                if (currentPoolId) query = query.eq('pool_id', currentPoolId);
+                const { data, error } = await query;
+                if (error) throw error;
+                allTalents = data || [];
+                renderTalents(allTalents);
+            } catch (err) {
+                console.error(err);
+                listEl.innerHTML = '';
+                errorEl.textContent = "Impossible de charger les talents : " + err.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function statusBadge(status) {
+            const map = {
+                'En poste ALIMA': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'En attente de poste': 'bg-blue-50 text-blue-700 border-blue-200',
+                'En poste autre ONG': 'bg-amber-50 text-amber-700 border-amber-200',
+                'En poste hors humanitaire': 'bg-slate-100 text-slate-500 border-slate-200'
+            };
+            return map[status] || 'bg-slate-100 text-slate-500 border-slate-200';
+        }
+
+        function renderTalents(talents) {
+            const listEl = document.getElementById('talentsList');
+            const emptyEl = document.getElementById('emptyState');
+            listEl.innerHTML = '';
+
+            if (!talents.length) {
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+            emptyEl.classList.add('hidden');
+
+            talents.forEach(t => {
+                const row = document.createElement('div');
+                row.className = "bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-sm transition-all cursor-pointer";
+                row.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="h-10 w-10 rounded-full bg-primary-light text-primary font-extrabold flex items-center justify-center shrink-0">
+                            ${(t.first_name || '?')[0]}${(t.last_name || '?')[0]}
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-bold text-slate-800 truncate">${t.first_name || ''} ${t.last_name || ''} ${t.is_red_listed ? '🚩' : ''}</p>
+                            <p class="text-xs text-slate-400 truncate">${t.current_function || t.email || ''}</p>
+                        </div>
+                    </div>
+                    <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${t.status || '—'}</span>
+                `;
+                row.addEventListener('click', () => openEditModal(t));
+                listEl.appendChild(row);
+            });
+        }
+
+        document.getElementById('searchInput').addEventListener('input', function (e) {
+            const q = e.target.value.trim().toLowerCase();
+            if (!q) { renderTalents(allTalents); return; }
+            const filtered = allTalents.filter(t =>
+                `${t.first_name} ${t.last_name} ${t.current_function || ''} ${t.email || ''}`.toLowerCase().includes(q)
+            );
+            renderTalents(filtered);
+        });
+
+        // ============================================================================
+        // 4. GESTION DES ONGLETS DE LA MODALE
+        // ============================================================================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const tabId = btn.dataset.tab;
+                document.querySelectorAll('.tab-panel').forEach(p => {
+                    p.classList.toggle('hidden', p.dataset.panel !== tabId);
+                });
+            });
+        });
+
+        function resetTabsToFirst() {
+            document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== '1'));
+        }
+
+        // ============================================================================
+        // 5. CHAMPS "TAGS" RÉUTILISABLES (langues, contextes, zones, compétences)
+        // ============================================================================
+        function createTagField(containerId, fieldName, label, maxTags) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <label class="text-xs font-bold text-slate-500 uppercase">${label}</label>
+                <div class="tags-wrap flex flex-wrap gap-1.5 mt-1 mb-1.5" data-field="${fieldName}"></div>
+                <input type="text" class="tag-input w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" placeholder="Tape puis Entrée pour ajouter" data-field="${fieldName}" />
+            `;
+            const input = container.querySelector('.tag-input');
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = input.value.trim();
+                    const wrap = container.querySelector('.tags-wrap');
+                    const current = wrap.querySelectorAll('.tag-chip').length;
+                    if (val && (!maxTags || current < maxTags)) {
+                        addTagChip(wrap, val);
+                        input.value = '';
+                    }
+                }
+            });
+        }
+
+        function addTagChip(wrap, value) {
+            const chip = document.createElement('span');
+            chip.className = 'tag-chip';
+            chip.dataset.value = value;
+            chip.innerHTML = `${value} <button type="button">&times;</button>`;
+            chip.querySelector('button').addEventListener('click', () => chip.remove());
+            wrap.appendChild(chip);
+        }
+
+        function getTagValues(fieldName) {
+            const wrap = document.querySelector(`.tags-wrap[data-field="${fieldName}"]`);
+            return Array.from(wrap.querySelectorAll('.tag-chip')).map(c => c.dataset.value);
+        }
+
+        function setTagValues(fieldName, values) {
+            const wrap = document.querySelector(`.tags-wrap[data-field="${fieldName}"]`);
+            wrap.innerHTML = '';
+            (values || []).forEach(v => addTagChip(wrap, v));
+        }
+
+        createTagField('tagfield_languages', 'languages', 'Langues parlées', null);
+        createTagField('tagfield_other_languages', 'other_languages', 'Autres langues (non répertoriées)', null);
+        createTagField('tagfield_intervention_contexts', 'intervention_contexts', 'Contextes d\\'intervention', null);
+        createTagField('tagfield_intervention_zones', 'intervention_zones', 'Zones géographiques', null);
+        createTagField('tagfield_key_skills', 'key_skills', 'Compétences clés', 5);
+
+        // ============================================================================
+        // 6. AFFICHAGE CONDITIONNEL (disponibilité, commentaires missions)
+        // ============================================================================
+        document.getElementById('availabilityType').addEventListener('change', function () {
+            document.getElementById('availabilityMonthsWrap').classList.toggle('hidden', this.value !== 'notice');
+            document.getElementById('availabilityDateWrap').classList.toggle('hidden', this.value !== 'date');
+        });
+
+        document.querySelectorAll('.mission-checkbox').forEach(cb => {
+            cb.addEventListener('change', function () {
+                const target = document.querySelector(`textarea[name="${this.dataset.target}"]`);
+                target.classList.toggle('hidden', !this.checked);
+            });
+        });
+
+        // ============================================================================
+        // 7. FORMATIONS ALIMA — LIGNES DYNAMIQUES
+        // ============================================================================
+        function addTrainingRow(training) {
+            training = training || {};
+            const row = document.createElement('div');
+            row.className = 'training-row grid grid-cols-12 gap-2 items-center bg-slate-50 border border-slate-200 rounded-lg p-2';
+            row.innerHTML = `
+                <input class="training-name col-span-4 rounded border border-slate-200 p-1.5 text-xs" placeholder="Nom formation" value="${training.name || ''}" />
+                <input class="training-date col-span-3 rounded border border-slate-200 p-1.5 text-xs" type="date" value="${training.date ? training.date.substring(0,10) : ''}" />
+                <input class="training-duration col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Durée" value="${training.duration || ''}" />
+                <input class="training-desc col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Description" value="${training.description || ''}" />
+                <button type="button" class="removeTrainingBtn col-span-1 text-red-500 text-lg">&times;</button>
+            `;
+            row.querySelector('.removeTrainingBtn').addEventListener('click', () => row.remove());
+            document.getElementById('trainingsList').appendChild(row);
+        }
+
+        document.getElementById('addTrainingBtn').addEventListener('click', () => addTrainingRow());
+
+        function getTrainingsValues() {
+            return Array.from(document.querySelectorAll('.training-row')).map(row => ({
+                name: row.querySelector('.training-name').value,
+                date: row.querySelector('.training-date').value ? new Date(row.querySelector('.training-date').value).toISOString() : null,
+                duration: row.querySelector('.training-duration').value,
+                description: row.querySelector('.training-desc').value
+            })).filter(t => t.name);
+        }
+
+        // ============================================================================
+        // 8. OUVERTURE / FERMETURE DE LA MODALE
+        // ============================================================================
+        const talentModal = document.getElementById('talentModal');
+        const talentForm = document.getElementById('talentForm');
+        const formError = document.getElementById('formError');
+        let editingTalentId = null;
+
+        function openCreateModal() {
+            editingTalentId = null;
+            talentForm.reset();
+            document.getElementById('modalTitle').textContent = 'Nouveau talent';
+            document.querySelectorAll('.tags-wrap').forEach(w => w.innerHTML = '');
+            document.getElementById('trainingsList').innerHTML = '';
+            document.getElementById('availabilityMonthsWrap').classList.add('hidden');
+            document.getElementById('availabilityDateWrap').classList.add('hidden');
+            document.querySelectorAll('.mission-checkbox').forEach(cb => {
+                document.querySelector(`textarea[name="${cb.dataset.target}"]`).classList.add('hidden');
+            });
+            document.getElementById('redListReadonly').innerHTML = "Ces informations apparaîtront ici une fois le profil créé. La gestion de la Liste Rouge se fait exclusivement depuis <strong>Admin</strong>.";
+            document.getElementById('historyReadonly').innerHTML = "L'historique se construit automatiquement au fil du temps. Aucun historique pour un nouveau profil.";
+            formError.classList.add('hidden');
+            resetTabsToFirst();
+            talentModal.classList.remove('hidden');
+        }
+
+        function openEditModal(talent) {
+            editingTalentId = talent.id;
+            talentForm.reset();
+            document.getElementById('modalTitle').textContent = `${talent.first_name} ${talent.last_name}`;
+
+            Object.keys(talent).forEach(key => {
+                const field = talentForm.querySelector(`[name="${key}"]`);
+                if (!field) return;
+                if (field.type === 'checkbox') field.checked = !!talent[key];
+                else if (field.type === 'date' && talent[key]) field.value = talent[key].substring(0, 10);
+                else if (talent[key] !== null && talent[key] !== undefined) field.value = talent[key];
+            });
+
+            setTagValues('languages', talent.languages);
+            setTagValues('other_languages', talent.other_languages);
+            setTagValues('intervention_contexts', talent.intervention_contexts);
+            setTagValues('intervention_zones', talent.intervention_zones);
+            setTagValues('key_skills', talent.key_skills);
+
+            document.getElementById('trainingsList').innerHTML = '';
+            (talent.alima_trainings || []).forEach(tr => addTrainingRow(tr));
+
+            document.getElementById('availabilityMonthsWrap').classList.toggle('hidden', talent.availability_type !== 'notice');
+            document.getElementById('availabilityDateWrap').classList.toggle('hidden', talent.availability_type !== 'date');
+
+            document.querySelectorAll('.mission-checkbox').forEach(cb => {
+                document.querySelector(`textarea[name="${cb.dataset.target}"]`).classList.toggle('hidden', !cb.checked);
+            });
+
+            // Onglet 5 — Liste Rouge (lecture seule)
+            if (talent.is_red_listed) {
+                document.getElementById('redListReadonly').innerHTML = `
+                    <p class="font-bold text-red-600">🚩 Talent en Liste Rouge</p>
+                    <p class="mt-2"><strong>Date :</strong> ${talent.red_list_date || '—'}</p>
+                    <p><strong>Raison :</strong> ${talent.red_list_reason || '—'}</p>
+                    <p><strong>Ajouté par :</strong> ${talent.red_list_added_by_name || '—'}</p>
+                    <p class="mt-2 text-xs">La réhabilitation se fait exclusivement depuis <strong>Admin</strong>.</p>
+                `;
+            } else {
+                document.getElementById('redListReadonly').innerHTML = "Ce talent n'est pas en Liste Rouge.";
+            }
+
+            // Onglet 6 — Historique (lecture seule)
+            const passages = talent.archived_position_passages || [];
+            const history = talent.status_history || [];
+            if (passages.length === 0 && history.length === 0) {
+                document.getElementById('historyReadonly').innerHTML = "Aucun historique enregistré pour ce talent.";
+            } else {
+                let html = '';
+                if (passages.length) {
+                    html += '<p class="font-bold text-slate-700 mb-2">Missions passées</p>';
+                    passages.forEach(p => {
+                        html += `<div class="mb-2 pb-2 border-b border-slate-200"><p class="font-semibold">${p.positionTitle || ''} — ${p.country || ''}</p></div>`;
+                    });
+                }
+                if (history.length) {
+                    html += '<p class="font-bold text-slate-700 mt-3 mb-2">Changements</p>';
+                    history.forEach(h => {
+                        html += `<p class="text-xs">${h.previousValue} → ${h.newValue} <span class="text-slate-400">(${h.changedByName || ''})</span></p>`;
+                    });
+                }
+                document.getElementById('historyReadonly').innerHTML = html;
+            }
+
+            formError.classList.add('hidden');
+            resetTabsToFirst();
+            talentModal.classList.remove('hidden');
+        }
+
+        document.getElementById('newTalentBtn').addEventListener('click', openCreateModal);
+        document.getElementById('closeModalBtn').addEventListener('click', () => talentModal.classList.add('hidden'));
+        document.getElementById('cancelBtn').addEventListener('click', () => talentModal.classList.add('hidden'));
+
+        // ============================================================================
+        // 9. ENREGISTREMENT (création ou mise à jour)
+        // ============================================================================
+        document.getElementById('saveTalentBtn').addEventListener('click', async function () {
+            formError.classList.add('hidden');
+
+            const formData = new FormData(talentForm);
+            const payload = {};
+            for (const [key, value] of formData.entries()) {
+                const field = talentForm.querySelector(`[name="${key}"]`);
+                if (field.type === 'checkbox') continue; // géré séparément ci-dessous
+                if (field.type === 'number') payload[key] = value ? Number(value) : null;
+                else payload[key] = value || null;
+            }
+            // Checkboxes (non inclus dans FormData si décochés)
+            ['has_visa', 'had_alima_mission', 'has_mission_opening', 'has_emergency_mission', 'has_mission_closure'].forEach(name => {
+                const field = talentForm.querySelector(`[name="${name}"]`);
+                if (field) payload[name] = field.checked;
+            });
+
+            payload.languages = getTagValues('languages');
+            payload.other_languages = getTagValues('other_languages');
+            payload.intervention_contexts = getTagValues('intervention_contexts');
+            payload.intervention_zones = getTagValues('intervention_zones');
+            payload.key_skills = getTagValues('key_skills');
+            payload.alima_trainings = getTrainingsValues();
+
+            if (!payload.first_name || !payload.last_name || !payload.status) {
+                formError.textContent = "Merci de remplir au minimum Prénom, Nom et Statut (onglets 1 et 2).";
+                formError.classList.remove('hidden');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveTalentBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Enregistrement...';
+
+            try {
+                if (editingTalentId) {
+                    const { error } = await supabaseClient.from('talents').update(payload).eq('id', editingTalentId);
+                    if (error) throw error;
+                } else {
+                    payload.pool_id = currentPoolId;
+                    payload.created_by = currentUserId;
+                    payload.is_valid = true;
+                    const { error } = await supabaseClient.from('talents').insert(payload);
+                    if (error) throw error;
+                }
+                talentModal.classList.add('hidden');
+                await loadTalents();
+            } catch (err) {
+                console.error(err);
+                formError.textContent = "Erreur lors de l'enregistrement : " + err.message;
+                formError.classList.remove('hidden');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Enregistrer';
+            }
+        });
+    </script>
+</body>
+</html>
