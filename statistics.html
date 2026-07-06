@@ -160,6 +160,11 @@
                 </h3>
                 <div class="h-64 flex items-center justify-center relative">
                     <canvas id="expatChart"></canvas>
+                    <div id="expatChartEmptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center px-6 gap-2">
+                        <span class="text-3xl">🗂️</span>
+                        <p class="text-sm font-semibold text-slate-500">Donnée indisponible</p>
+                        <p class="text-xs text-slate-400">La colonne <code class="bg-slate-100 px-1 rounded">candidate_type</code> n'existe pas (ou n'est pas encore renseignée) dans la table <code class="bg-slate-100 px-1 rounded">missions</code>.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -292,7 +297,7 @@
                     const pCode = p.pool_id || p.poolId; // pool_id selon le schéma réel de la section 5
                     const opt = document.createElement('option');
                     opt.value = pCode;
-                    opt.textContent = `${pCode} - ${p.fullName || p.name}`;
+                    opt.textContent = `${pCode} - ${p.full_name || p.fullName || p.name}`;
                     selector.appendChild(opt);
                 });
 
@@ -401,11 +406,29 @@
 
             // Rendu graphiques
             renderStatusChart([occupiedPositions, recruitingPositions, vacantPositions]);
-            
-            const expatCount = mData.filter(m => (m.candidateType || m.candidate_type) === 'expat').length;
-            const nationalCount = mData.filter(m => (m.candidateType || m.candidate_type) === 'nat').length;
-            const unclassifiedCount = totalPositions - (expatCount + nationalCount);
-            renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
+
+            // La colonne candidate_type n'est pas confirmée dans le schéma réel de
+            // `missions` (section 5 du Master Context). On distingue donc "colonne
+            // absente" (aucun poste n'a la clé, quelle que soit sa casse) de
+            // "colonne présente mais vide", pour ne jamais afficher un graphique
+            // silencieusement faux (100% "Non défini" sans avertissement).
+            const hasCandidateTypeColumn = mData.some(m => 'candidate_type' in m || 'candidateType' in m);
+
+            if (!hasCandidateTypeColumn) {
+                document.getElementById('expatChart').classList.add('hidden');
+                document.getElementById('expatChartEmptyState').classList.remove('hidden');
+                if (expatChartInstance) {
+                    expatChartInstance.destroy();
+                    expatChartInstance = null;
+                }
+            } else {
+                document.getElementById('expatChart').classList.remove('hidden');
+                document.getElementById('expatChartEmptyState').classList.add('hidden');
+                const expatCount = mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length;
+                const nationalCount = mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length;
+                const unclassifiedCount = totalPositions - (expatCount + nationalCount);
+                renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
+            }
         }
 
         function renderStatusChart(dataValues) {
@@ -484,8 +507,8 @@
                 missionsOccupees: mData.filter(m => m.status === 'occupied').length,
                 missionsEnRecrutement: mData.filter(m => m.status === 'recruiting').length,
                 missionsVacantes: mData.filter(m => m.status === 'vacant').length,
-                proportionExpat: mData.filter(m => (m.candidateType || m.candidate_type) === 'expat').length,
-                proportionNational: mData.filter(m => (m.candidateType || m.candidate_type) === 'nat').length
+                proportionExpat: mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length,
+                proportionNational: mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length
             };
         }
 
