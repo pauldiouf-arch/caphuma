@@ -488,7 +488,7 @@
                 return talent.months_without_alima_mission || talent.monthsWithoutAlimaMission || 0;
             }
 
-            const refDateStr = talent.last_mission_end_date || talent.pool_integration_date || talent.poolIntegrationDate;
+            const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
             if (!refDateStr) return 0;
             
             const refDate = new Date(refDateStr);
@@ -609,7 +609,7 @@
             const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
             document.getElementById('info-alima-missions').textContent = missionCountLabels[nbMissions] || "0";
 
-            // Rendu défensif des listes (badges)
+            // Rendu défensif de type liste
             renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
             renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
             renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
@@ -637,7 +637,7 @@
                 `;
             }
 
-            // Décodage et parsing JSON défensif de l'historique de missions
+            // Parsing sécurisé de l'historique
             let passages = [];
             try {
                 const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
@@ -696,7 +696,7 @@
             }
 
             setupAdminActions(isInvalid);
-            bindButtonListeners(); // Liaison asynchrone des boutons après rendu réussi
+            bindButtonListeners(); // Étape clé : lier les événements APRÈS le rendu réussi du profil
         }
 
         function renderBadges(containerId, list, colorClass) {
@@ -708,7 +708,6 @@
             if (Array.isArray(list)) {
                 items = list;
             } else if (typeof list === 'string' && list.trim()) {
-                // Décodage si stocké en format texte séparé par des virgules
                 items = list.split(',').map(s => s.trim()).filter(Boolean);
             }
 
@@ -772,16 +771,17 @@
 
                     const shareUrl = `${window.location.origin}/shared-talent.html?token=${token}`;
                     await navigator.clipboard.writeText(shareUrl);
-                    toastMessage("Lien de partage généré et copié !", "success");
+                    toastMessage("Lien de partage généré et copié dans le presse-papiers !", "success");
                 } catch (err) {
                     console.error(err);
-                    toastMessage("Échec de l'action de partage.", "error");
+                    toastMessage("Échec de la génération du lien de partage.", "error");
                 }
             };
 
-            // 📄 Fiche PDF (Correction de parsing in-line intégrée)
+            // 📄 Fiche PDF
             document.getElementById('pdf-btn').onclick = () => {
                 exportTalentCardPDF(talent, activeMission);
+                toastMessage("Document PDF généré et téléchargé.", "success");
             };
 
             // 🖨️ Imprimer
@@ -863,7 +863,7 @@
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
-                    toastMessage("Échec du démarrage de mission.", "error");
+                    toastMessage("Échec de l'action.", "error");
                 }
             };
 
@@ -942,20 +942,20 @@
                     }
 
                     endModal.classList.add('hidden');
-                    toastMessage("Mission clôturée et évaluée.", "success");
+                    toastMessage("Mission clôturée et bilan d'évaluation archivé.", "success");
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de la clôture de la mission.", "error");
                 }
-            });
+            };
 
             // 🚨 Inscrire en Liste Rouge
             const redlistModal = document.getElementById('redlist-modal');
-            document.getElementById('btn-redlist').addEventListener('click', () => {
+            document.getElementById('btn-redlist').onclick = () => {
                 document.getElementById('modal-redlist-reason').value = "";
                 redlistModal.classList.remove('hidden');
-            });
+            };
 
             document.getElementById('modal-redlist-cancel').onclick = () => redlistModal.classList.add('hidden');
 
@@ -987,127 +987,6 @@
                     toastMessage("Échec de l'inscription.", "error");
                 }
             };
-        }
-
-        // --- EXPORT PDF DE QUALITÉ NATIVE (jsPDF & AutoTable intégrés) ---
-        function exportTalentCardPDF(talent, activeMission) {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                const primaryColor = [29, 78, 216]; // #1d4ed8
-                
-                // Header Banner
-                doc.setFillColor(...primaryColor);
-                doc.rect(0, 0, 210, 40, 'F');
-                
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(22);
-                doc.setFont("helvetica", "bold");
-                const fName = talent.first_name || talent.firstName || "";
-                const lName = talent.last_name || talent.lastName || "";
-                doc.text(`${fName} ${lName}`, 15, 20);
-                
-                doc.setFontSize(12);
-                doc.setFont("helvetica", "normal");
-                doc.text(talent.current_function || talent.currentFunction || "Profil Professionnel", 15, 28);
-                doc.text(`Pool : ${talent.pool}`, 155, 20);
-                
-                // Section 1
-                doc.setTextColor(30, 41, 59); // slate-800
-                doc.setFontSize(14);
-                doc.setFont("helvetica", "bold");
-                doc.text("Informations Générales", 15, 55);
-                
-                doc.setDrawColor(226, 232, 240); // slate-200
-                doc.line(15, 58, 195, 58);
-                
-                // Details de la grille
-                doc.setFontSize(10);
-                doc.setFont("helvetica", "normal");
-                let y = 65;
-                doc.text(`Email : ${talent.email || 'N/A'}`, 15, y);
-                const genderVal = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
-                doc.text(`Genre : ${genderVal}`, 110, y);
-                
-                y += 8;
-                doc.text(`Nationalité : ${talent.nationality || 'N/A'}`, 15, y);
-                const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
-                doc.text(`Pays de résidence : ${cRes}`, 110, y);
-                
-                y += 8;
-                doc.text(`Visa Schengen : ${talent.has_visa || talent.hasVisa ? 'Valide' : 'Non'}`, 15, y);
-                const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
-                doc.text(`Langues : ${langs}`, 110, y);
-                
-                y += 12;
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(14);
-                doc.text("Parcours & Expérience ALIMA", 15, y);
-                doc.line(15, y + 3, 195, y + 3);
-                
-                y += 10;
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(10);
-                const expAlimaVal = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
-                const expHumVal = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
-                doc.text(`Expérience ALIMA : ${expAlimaVal} mois`, 15, y);
-                doc.text(`Expérience Humanitaire : ${expHumVal} mois`, 110, y);
-                
-                // Parsing défensif de l'historique de missions pour l'injecter proprement dans le PDF
-                let passages = [];
-                try {
-                    const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
-                    if (Array.isArray(rawPassages)) {
-                        passages = rawPassages;
-                    } else if (typeof rawPassages === 'string' && rawPassages.trim()) {
-                        passages = JSON.parse(rawPassages);
-                    }
-                } catch (e) {
-                    console.error("Erreur de parsing des passages pour le PDF :", e);
-                }
-
-                const rows = [];
-                
-                if (activeMission) {
-                    rows.push([
-                        "En cours",
-                        activeMission.title,
-                        activeMission.country,
-                        "—"
-                    ]);
-                }
-                
-                passages.forEach(p => {
-                    const startStr = p.startDate ? new Date(p.startDate).toLocaleDateString('fr-FR') : "N/A";
-                    const endStr = p.endDate ? new Date(p.endDate).toLocaleDateString('fr-FR') : "N/A";
-                    let ratingText = p.comments && p.comments[0] && p.comments[0].rating ? `★ ${p.comments[0].rating}/10` : 'N/A';
-                    rows.push([
-                        `${startStr} - ${endStr}`,
-                        p.positionTitle || "Mission ALIMA",
-                        p.country || "ALIMA",
-                        ratingText
-                    ]);
-                });
-                
-                if (rows.length > 0) {
-                    doc.autoTable({
-                        startY: y + 8,
-                        head: [['Période', 'Poste / Mission', 'Pays', 'Évaluation']],
-                        body: rows,
-                        theme: 'striped',
-                        headStyles: { fillColor: primaryColor }
-                    });
-                } else {
-                    doc.text("Aucun historique de mission enregistré.", 15, y + 10);
-                }
-                
-                doc.save(`Fiche_${talent.first_name || talent.firstName || "Talent"}.pdf`);
-                toastMessage("Document PDF généré et téléchargé.", "success");
-            } catch (pdfErr) {
-                console.error("Échec de la génération du PDF :", pdfErr);
-                toastMessage("Erreur d'écriture du document PDF.", "error");
-            }
         }
 
         function toastMessage(msg, type = "success") {
