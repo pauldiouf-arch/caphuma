@@ -498,7 +498,7 @@
         }
 
         function renderTalentCard() {
-            // Lecture robuste et hautement sécurisée des deux nommages
+            // Lecture robuste et sécurisée des propriétés en snake_case et camelCase
             const fName = talent.first_name || talent.firstName || "";
             const lName = talent.last_name || talent.lastName || "";
             const fFunction = talent.current_function || talent.currentFunction || "N/A";
@@ -584,7 +584,7 @@
                 vSub.textContent = `Date de référence du calcul : ${refDate ? new Date(refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
             }
 
-            // Infos personnelles
+            // Remplissage infos
             document.getElementById('info-email').textContent = talent.email || "N/A";
             document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
             document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
@@ -609,7 +609,7 @@
             const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
             document.getElementById('info-alima-missions').textContent = missionCountLabels[nbMissions] || "0";
 
-            // Rendu sécurisé des listes dynamiques (badges) pour prévenir tout plantage lié aux chaînes JSON
+            // Rendu défensif de type liste
             renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
             renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
             renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
@@ -637,7 +637,7 @@
                 `;
             }
 
-            // Récupération sécurisée et parsing défensif de la liste des passages de missions passés
+            // Parsing sécurisé de l'historique
             let passages = [];
             try {
                 const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
@@ -696,6 +696,7 @@
             }
 
             setupAdminActions(isInvalid);
+            bindButtonListeners(); // Étape clé : lier les événements APRÈS le rendu réussi du profil
         }
 
         function renderBadges(containerId, list, colorClass) {
@@ -707,7 +708,6 @@
             if (Array.isArray(list)) {
                 items = list;
             } else if (typeof list === 'string' && list.trim()) {
-                // Parsing de secours si les badges sont stockés en chaîne séparée par des virgules
                 items = list.split(',').map(s => s.trim()).filter(Boolean);
             }
 
@@ -749,338 +749,260 @@
         }
 
         // ============================================================================
-        // ACTIONS ADMINISTRATIVES INTERACTIVES
+        // LIAISON ET ACTIONNABILITÉ DES BOUTONS (Événements)
         // ============================================================================
-        
-        // 🔗 Partager
-        document.getElementById('share-btn').addEventListener('click', async () => {
-            try {
-                const token = 'st_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                const { error } = await supabaseClient.from('share_tokens').insert({
-                    token,
-                    talent_id: talentId,
-                    created_by: currentUserId,
-                    created_by_name: document.getElementById('user-display-name').textContent,
-                    created_at: Date.now(),
-                    expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
-                    is_revoked: false,
-                    view_count: 0
-                });
-
-                if (error) throw error;
-
-                const shareUrl = `${window.location.origin}/shared-talent.html?token=${token}`;
-                await navigator.clipboard.writeText(shareUrl);
-                toastMessage("Lien de partage généré et copié dans le presse-papiers !", "success");
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec de la génération du lien de partage.", "error");
-            }
-        });
-
-        // 🖨️ Imprimer
-        document.getElementById('print-btn').addEventListener('click', () => window.print());
-
-        // ⛔ Dévalider le talent
-        document.getElementById('btn-devalidate').addEventListener('click', async () => {
-            if (!confirm("Voulez-vous vraiment dévalider ce talent ? Son compteur de validité expirera immédiatement.")) return;
-            try {
-                const { error } = await supabaseClient
-                    .from('talents')
-                    .update({ is_valid: false, devalidation_date: new Date().toISOString() })
-                    .eq('id', talentId);
-                
-                if (error) throw error;
-                toastMessage("Le talent a été dévalidé.", "success");
-                await loadTalentData();
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec de l'action de dévalidation.", "error");
-            }
-        });
-
-        // 🔄 Réintégrer le talent
-        document.getElementById('btn-revalidate').addEventListener('click', async () => {
-            try {
-                const { error } = await supabaseClient
-                    .from('talents')
-                    .update({ is_valid: true, devalidation_date: null, months_without_alima_mission: 0 })
-                    .eq('id', talentId);
-                
-                if (error) throw error;
-                toastMessage("Le talent a été réintégré avec succès dans son pool.", "success");
-                await loadTalentData();
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec de l'action de réintégration.", "error");
-            }
-        });
-
-        // 🚀 Démarrer une mission ALIMA (Modal simplifiée)
-        document.getElementById('btn-start-mission').addEventListener('click', async () => {
-            const endDateStr = prompt("Saisissez la date de fin de contrat prévue (Format: AAAA-MM-JJ) :", "");
-            if (!endDateStr) return;
-            const endTimestamp = new Date(endDateStr).getTime();
-            if (isNaN(endTimestamp) || endTimestamp <= Date.now()) {
-                alert("Date de fin de contrat invalide ou passée.");
-                return;
-            }
-
-            try {
-                const { error: et } = await supabaseClient
-                    .from('talents')
-                    .update({ status: 'En poste ALIMA', is_currently_on_mission: true })
-                    .eq('id', talentId);
-                
-                if (et) throw et;
-
-                const { error: em } = await supabaseClient
-                    .from('missions')
-                    .insert({
-                        title: `Mission ${talent.currentFunction || talent.current_function || "Coordinateur"}`,
-                        pool_id: talent.pool,
-                        occupant_id: talentId,
-                        contract_start_date: new Date().toISOString(),
-                        contract_end_date: new Date(endDateStr).toISOString(),
-                        status: 'occupied'
+        function bindButtonListeners() {
+            // 🔗 Partager
+            document.getElementById('share-btn').onclick = async () => {
+                try {
+                    const token = 'st_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                    const { error } = await supabaseClient.from('share_tokens').insert({
+                        token,
+                        talent_id: talentId,
+                        created_by: currentUserId,
+                        created_by_name: document.getElementById('user-display-name').textContent,
+                        created_at: Date.now(),
+                        expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
+                        is_revoked: false,
+                        view_count: 0
                     });
 
-                if (em) throw em;
+                    if (error) throw error;
 
-                toastMessage("Mission ALIMA démarrée avec succès.", "success");
-                await loadTalentData();
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec du démarrage de la mission.", "error");
-            }
-        });
+                    const shareUrl = `${window.location.origin}/shared-talent.html?token=${token}`;
+                    await navigator.clipboard.writeText(shareUrl);
+                    toastMessage("Lien de partage généré et copié dans le presse-papiers !", "success");
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la génération du lien de partage.", "error");
+                }
+            };
 
-        // 🏁 Terminer la mission
-        const endModal = document.getElementById('end-mission-modal');
-        const rangeRating = document.getElementById('modal-end-rating');
-        const rangeVal = document.getElementById('modal-rating-val');
+            // 📄 Fiche PDF
+            document.getElementById('pdf-btn').onclick = () => {
+                exportTalentCardPDF(talent, activeMission);
+                toastMessage("Document PDF généré et téléchargé.", "success");
+            };
 
-        rangeRating.addEventListener('input', () => {
-            rangeVal.textContent = rangeRating.value;
-        });
+            // 🖨️ Imprimer
+            document.getElementById('print-btn').onclick = () => window.print();
 
-        document.getElementById('btn-end-mission').addEventListener('click', () => {
-            document.getElementById('modal-end-date').value = new Date().toISOString().substring(0, 10);
-            document.getElementById('modal-end-context').value = "";
-            document.getElementById('modal-end-positive').value = "";
-            document.getElementById('modal-end-negative').value = "";
-            rangeRating.value = "5";
-            rangeVal.textContent = "5";
-            endModal.classList.remove('hidden');
-        });
+            // ⛔ Dévalider le talent
+            document.getElementById('btn-devalidate').onclick = async () => {
+                if (!confirm("Voulez-vous vraiment dévalider ce talent ?")) return;
+                try {
+                    const { error } = await supabaseClient
+                        .from('talents')
+                        .update({ is_valid: false, devalidation_date: new Date().toISOString() })
+                        .eq('id', talentId);
+                    
+                    if (error) throw error;
+                    toastMessage("Le talent a été dévalidé.", "success");
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la dévalidation.", "error");
+                }
+            };
 
-        document.getElementById('modal-end-cancel').addEventListener('click', () => endModal.classList.add('hidden'));
+            // 🔄 Réintégrer le talent
+            document.getElementById('btn-revalidate').onclick = async () => {
+                try {
+                    const { error } = await supabaseClient
+                        .from('talents')
+                        .update({ is_valid: true, devalidation_date: null, months_without_alima_mission: 0 })
+                        .eq('id', talentId);
+                    
+                    if (error) throw error;
+                    toastMessage("Le talent a été réintégré dans le pool.", "success");
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la réintégration.", "error");
+                }
+            };
 
-        document.getElementById('modal-end-confirm').addEventListener('click', async () => {
-            const endDateVal = document.getElementById('modal-end-date').value;
-            const contextVal = document.getElementById('modal-end-context').value.trim();
-            const positiveVal = document.getElementById('modal-end-positive').value.trim();
-            const negativeVal = document.getElementById('modal-end-negative').value.trim();
-            const ratingVal = Number(rangeRating.value);
+            // 🚀 Démarrer une mission ALIMA (Modal)
+            const startModal = document.getElementById('start-mission-modal');
+            document.getElementById('btn-start-mission').onclick = () => {
+                document.getElementById('modal-start-date').value = new Date().toISOString().substring(0, 10);
+                startModal.classList.remove('hidden');
+            };
+            
+            document.getElementById('modal-start-cancel').onclick = () => startModal.classList.add('hidden');
+            
+            document.getElementById('modal-start-confirm').onclick = async () => {
+                const endDateStr = document.getElementById('modal-start-date').value;
+                if (!endDateStr) {
+                    alert("Date requise.");
+                    return;
+                }
+                try {
+                    const { error: et } = await supabaseClient
+                        .from('talents')
+                        .update({ status: 'En poste ALIMA', is_currently_on_mission: true })
+                        .eq('id', talentId);
+                    
+                    if (et) throw et;
 
-            if (!endDateVal || !contextVal || !positiveVal || !negativeVal) {
-                alert("Veuillez remplir tous les champs obligatoires (*) d'évaluation.");
-                return;
-            }
-
-            try {
-                const newPassage = {
-                    positionTitle: activeMission ? activeMission.title : `Mission ${talent.currentFunction || talent.current_function || "Intervenant"}`,
-                    country: activeMission ? activeMission.country : (talent.country_of_residence || talent.countryOfResidence || "Mission ALIMA"),
-                    startDate: activeMission && (activeMission.contract_start_date || activeMission.contractStartDate)
-                        ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).getTime()
-                        : Date.now() - 3 * 30 * 24 * 60 * 60 * 1000,
-                    endDate: new Date(endDateVal).getTime(),
-                    comments: [{
-                        context: contextVal,
-                        positivePoints: positiveVal,
-                        negativePoints: negativeVal,
-                        rating: ratingVal,
-                        createdAt: Date.now(),
-                        createdByName: document.getElementById('user-display-name').textContent
-                    }]
-                };
-
-                const currentPassages = talent.archived_position_passages || talent.archivedPositionPassages || [];
-                const updatedPassages = [...currentPassages, newPassage];
-
-                const { error: ut } = await supabaseClient
-                    .from('talents')
-                    .update({
-                        status: 'En attente de poste',
-                        is_currently_on_mission: false,
-                        last_mission_end_date: new Date(endDateVal).toISOString(),
-                        archived_position_passages: updatedPassages,
-                        months_without_alima_mission: 0
-                    })
-                    .eq('id', talentId);
-                
-                if (ut) throw ut;
-
-                if (activeMission) {
-                    await supabaseClient
+                    const { error: em } = await supabaseClient
                         .from('missions')
-                        .update({ status: 'vacant', occupant_id: null })
-                        .eq('id', activeMission.id);
+                        .insert({
+                            title: `Mission ${talent.currentFunction || talent.current_function || "Coordinateur"}`,
+                            pool_id: talent.pool,
+                            occupant_id: talentId,
+                            contract_start_date: new Date().toISOString(),
+                            contract_end_date: new Date(endDateStr).toISOString(),
+                            status: 'occupied'
+                        });
+
+                    if (em) throw em;
+
+                    startModal.classList.add('hidden');
+                    toastMessage("Mission ALIMA démarrée.", "success");
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de l'action.", "error");
+                }
+            };
+
+            // 🏁 Terminer la mission
+            const endModal = document.getElementById('end-mission-modal');
+            const rangeRating = document.getElementById('modal-end-rating');
+            const rangeVal = document.getElementById('modal-rating-val');
+
+            rangeRating.oninput = () => {
+                rangeVal.textContent = rangeRating.value;
+            };
+
+            document.getElementById('btn-end-mission').onclick = () => {
+                document.getElementById('modal-end-date').value = new Date().toISOString().substring(0, 10);
+                document.getElementById('modal-end-context').value = "";
+                document.getElementById('modal-end-positive').value = "";
+                document.getElementById('modal-end-negative').value = "";
+                rangeRating.value = "5";
+                rangeVal.textContent = "5";
+                endModal.classList.remove('hidden');
+            };
+
+            document.getElementById('modal-end-cancel').onclick = () => endModal.classList.add('hidden');
+
+            document.getElementById('modal-end-confirm').onclick = async () => {
+                const endDateVal = document.getElementById('modal-end-date').value;
+                const contextVal = document.getElementById('modal-end-context').value.trim();
+                const positiveVal = document.getElementById('modal-end-positive').value.trim();
+                const negativeVal = document.getElementById('modal-end-negative').value.trim();
+                const ratingVal = Number(rangeRating.value);
+
+                if (!endDateVal || !contextVal || !positiveVal || !negativeVal) {
+                    alert("Veuillez remplir l'évaluation complète.");
+                    return;
                 }
 
-                endModal.classList.add('hidden');
-                toastMessage("Mission clôturée et bilan d'évaluation archivé avec succès.", "success");
-                await loadTalentData();
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec de la clôture de la mission.", "error");
-            }
-        });
+                try {
+                    const newPassage = {
+                        positionTitle: activeMission ? activeMission.title : `Mission ${talent.currentFunction || talent.current_function || "Intervenant"}`,
+                        country: activeMission ? activeMission.country : (talent.country_of_residence || talent.countryOfResidence || "Mission ALIMA"),
+                        startDate: activeMission && (activeMission.contract_start_date || activeMission.contractStartDate)
+                            ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).getTime()
+                            : Date.now() - 3 * 30 * 24 * 60 * 60 * 1000,
+                        endDate: new Date(endDateVal).getTime(),
+                        comments: [{
+                            context: contextVal,
+                            positivePoints: positiveVal,
+                            negativePoints: negativeVal,
+                            rating: ratingVal,
+                            createdAt: Date.now(),
+                            createdByName: document.getElementById('user-display-name').textContent
+                        }]
+                    };
 
-        // 🚨 Inscrire en Liste Rouge
-        const redlistModal = document.getElementById('redlist-modal');
-        document.getElementById('btn-redlist').addEventListener('click', () => {
-            document.getElementById('modal-redlist-reason').value = "";
-            redlistModal.classList.remove('hidden');
-        });
+                    const currentPassages = talent.archived_position_passages || talent.archivedPositionPassages || [];
+                    const updatedPassages = [...currentPassages, newPassage];
 
-        document.getElementById('modal-redlist-cancel').addEventListener('click', () => redlistModal.classList.add('hidden'));
+                    const { error: ut } = await supabaseClient
+                        .from('talents')
+                        .update({
+                            status: 'En attente de poste',
+                            is_currently_on_mission: false,
+                            last_mission_end_date: new Date(endDateVal).toISOString(),
+                            archived_position_passages: updatedPassages,
+                            months_without_alima_mission: 0
+                        })
+                        .eq('id', talentId);
+                    
+                    if (ut) throw ut;
 
-        document.getElementById('modal-redlist-confirm').addEventListener('click', async () => {
-            const reasonVal = document.getElementById('modal-redlist-reason').value.trim();
-            if (!reasonVal) {
-                alert("Veuillez indiquer la raison d'inscription.");
-                return;
-            }
+                    if (activeMission) {
+                        await supabaseClient
+                            .from('missions')
+                            .update({ status: 'vacant', occupant_id: null })
+                            .eq('id', activeMission.id);
+                    }
 
-            try {
-                const { error } = await supabaseClient
-                    .from('talents')
-                    .update({
-                        is_red_listed: true,
-                        red_list_date: new Date().toLocaleDateString('fr-FR'),
-                        red_list_reason: reasonVal,
-                        red_list_added_by_name: document.getElementById('user-display-name').textContent
-                    })
-                    .eq('id', talentId);
-                
-                if (error) throw error;
+                    endModal.classList.add('hidden');
+                    toastMessage("Mission clôturée et bilan d'évaluation archivé.", "success");
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la clôture de la mission.", "error");
+                }
+            };
 
-                redlistModal.classList.add('hidden');
-                toastMessage("Le talent est désormais inscrit en Liste Rouge.", "success");
-                await loadTalentData();
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec de l'inscription.", "error");
-            }
-        });
+            // 🚨 Inscrire en Liste Rouge
+            const redlistModal = document.getElementById('redlist-modal');
+            document.getElementById('btn-redlist').onclick = () => {
+                document.getElementById('modal-redlist-reason').value = "";
+                redlistModal.classList.remove('hidden');
+            };
 
-        // --- EXPORT PDF DE QUALITÉ NATIVE (jsPDF) ---
-        function exportTalentCardPDF(talent, activeMission) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            const primaryColor = [29, 78, 216]; // #1d4ed8
-            
-            // Header Banner
-            doc.setFillColor(...primaryColor);
-            doc.rect(0, 0, 210, 40, 'F');
-            
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(22);
-            doc.setFont("helvetica", "bold");
-            const fName = talent.first_name || talent.firstName || "";
-            const lName = talent.last_name || talent.lastName || "";
-            doc.text(`${fName} ${lName}`, 15, 20);
-            
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "normal");
-            doc.text(talent.current_function || talent.currentFunction || "Profil Professionnel", 15, 28);
-            doc.text(`Pool : ${talent.pool}`, 155, 20);
-            
-            // Sections
-            doc.setTextColor(30, 41, 59); // slate-800
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            doc.text("Informations Générales", 15, 55);
-            
-            doc.setDrawColor(226, 232, 240); // slate-200
-            doc.line(15, 58, 195, 58);
-            
-            // Grid details
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            let y = 65;
-            doc.text(`Email : ${talent.email || 'N/A'}`, 15, y);
-            const genderVal = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
-            doc.text(`Genre : ${genderVal}`, 110, y);
-            
-            y += 8;
-            doc.text(`Nationalité : ${talent.nationality || 'N/A'}`, 15, y);
-            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
-            doc.text(`Pays de résidence : ${cRes}`, 110, y);
-            
-            y += 8;
-            doc.text(`Visa Schengen : ${talent.has_visa || talent.hasVisa ? 'Valide' : 'Non'}`, 15, y);
-            const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
-            doc.text(`Langues : ${langs}`, 110, y);
-            
-            y += 12;
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.text("Parcours & Expérience ALIMA", 15, y);
-            doc.line(15, y + 3, 195, y + 3);
-            
-            y += 10;
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            const expAlimaVal = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
-            const expHumVal = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
-            doc.text(`Expérience ALIMA : ${expAlimaVal} mois`, 15, y);
-            doc.text(`Expérience Humanitaire : ${expHumVal} mois`, 110, y);
-            
-            // Table of passages
-            const passages = talent.archived_position_passages || talent.archivedPositionPassages || [];
-            const rows = [];
-            
-            if (activeMission) {
-                rows.push([
-                    "En cours",
-                    activeMission.title,
-                    activeMission.country,
-                    "—"
-                ]);
-            }
-            
-            passages.forEach(p => {
-                const startStr = new Date(p.startDate).toLocaleDateString('fr-FR');
-                const endStr = new Date(p.endDate).toLocaleDateString('fr-FR');
-                let ratingText = p.comments && p.comments[0] && p.comments[0].rating ? `★ ${p.comments[0].rating}/10` : 'N/A';
-                rows.push([
-                    `${startStr} - ${endStr}`,
-                    p.positionTitle,
-                    p.country || "ALIMA",
-                    ratingText
-                ]);
-            });
-            
-            if (rows.length > 0) {
-                doc.autoTable({
-                    startY: y + 8,
-                    head: [['Période', 'Poste / Mission', 'Pays', 'Évaluation']],
-                    body: rows,
-                    theme: 'striped',
-                    headStyles: { fillColor: primaryColor }
-                });
-            } else {
-                doc.text("Aucun historique enregistré.", 15, y + 10);
-            }
-            
-            doc.save(`Fiche_${talent.first_name || talent.firstName}_${talent.last_name || talent.lastName}.pdf`);
+            document.getElementById('modal-redlist-cancel').onclick = () => redlistModal.classList.add('hidden');
+
+            document.getElementById('modal-redlist-confirm').onclick = async () => {
+                const reasonVal = document.getElementById('modal-redlist-reason').value.trim();
+                if (!reasonVal) {
+                    alert("Veuillez indiquer la raison d'inscription.");
+                    return;
+                }
+
+                try {
+                    const { error } = await supabaseClient
+                        .from('talents')
+                        .update({
+                            is_red_listed: true,
+                            red_list_date: new Date().toLocaleDateString('fr-FR'),
+                            red_list_reason: reasonVal,
+                            red_list_added_by_name: document.getElementById('user-display-name').textContent
+                        })
+                        .eq('id', talentId);
+                    
+                    if (error) throw error;
+
+                    redlistModal.classList.add('hidden');
+                    toastMessage("Le talent est inscrit en Liste Rouge.", "success");
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de l'inscription.", "error");
+                }
+            };
         }
 
-        toastMessage("Initialisation réussie.", "success");
+        function toastMessage(msg, type = "success") {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-50 transform translate-y-10 opacity-0 duration-300 ${
+                type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         window.addEventListener('DOMContentLoaded', () => checkSession());
     </script>
 </body>
