@@ -33,19 +33,19 @@
         @media print {
             .no-print { display: none !important; }
             body { background-color: white !important; }
-            @page { margin: 1.2cm; }
+            .print-card { border: none !important; box-shadow: none !important; }
         }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800">
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
 
     <!-- En-tête pleine largeur (Navbar commune sans sidebar) -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 no-print">
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 no-print shrink-0">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center gap-3">
                     <a href="dashboard.html" class="flex items-center gap-3">
-                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
                             <span class="text-xl">🧭</span>
                         </div>
                         <div>
@@ -75,7 +75,7 @@
     </header>
 
     <!-- Conteneur Principal -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <main class="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 flex-1 overflow-y-auto">
 
         <!-- Bouton retour et actions rapides (no-print) -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
@@ -283,6 +283,81 @@
         </div>
     </main>
 
+    <!-- ═══════════════════════════════════ MODALS INTERACTIFS (no-print) ═══════════════════════════════════ -->
+    
+    <!-- Modal Démarrer Mission -->
+    <div id="start-mission-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🚀 Démarrer une mission</h3>
+            <p class="text-sm text-slate-500">Définissez la date de fin de contrat prévue pour cette nouvelle mission ALIMA.</p>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Date de fin prévue</label>
+                <input id="modal-start-date" type="date" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" required>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="modal-start-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="modal-start-confirm" class="bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-4 py-2 rounded-xl">Démarrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Terminer Mission -->
+    <div id="end-mission-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🏁 Évaluer &amp; Terminer la mission</h3>
+            <p class="text-sm text-slate-500">Veuillez consigner le bilan d'évaluation de fin de mission avant de libérer le talent.</p>
+            
+            <div class="space-y-4">
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Date de fin effective *</label>
+                    <input id="modal-end-date" type="date" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" required>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Contexte d'intervention *</label>
+                    <input id="modal-end-context" type="text" placeholder="Mission d'urgence, contexte d'insécurité, etc." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" required>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Points forts / Compétences clés démontrées *</label>
+                    <textarea id="modal-end-positive" placeholder="Excellent leadership, résilience terrain, etc." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="3" required></textarea>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Axes d'amélioration / Objectifs de développement *</label>
+                    <textarea id="modal-end-negative" placeholder="Communication à polir, reporting plus rigoureux..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="3" required></textarea>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Note générale (sur 10) : <span id="modal-rating-val" class="font-bold text-primary">5</span></label>
+                    <input id="modal-end-rating" type="range" min="0" max="10" step="1" value="5" class="w-full accent-primary">
+                    <div class="flex justify-between text-[10px] text-slate-400">
+                        <span>0 - Insuffisant</span>
+                        <span>5 - Satisfaisant</span>
+                        <span>10 - Excellent</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="modal-end-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="modal-end-confirm" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-4 py-2 rounded-xl">Enregistrer &amp; Clôturer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Liste Rouge -->
+    <div id="redlist-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Signalement Liste Rouge</h3>
+            <p class="text-sm text-slate-500">Indiquez le motif précis et sécuritaire justifiant la mise en Liste Rouge du talent.</p>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Motif / Justification *</label>
+                <textarea id="modal-redlist-reason" placeholder="Veuillez consigner les faits de manière précise..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="4" required></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="modal-redlist-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="modal-redlist-confirm" class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-4 py-2 rounded-xl">Inscrire</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JS de logique et SDK Supabase -->
     <script>
         let supabaseClient = null;
@@ -312,7 +387,6 @@
                 document.getElementById('user-display-name').textContent = session.user.email;
                 await checkUserRole(session.user.id);
                 
-                // Récupérer l'ID du talent dans l'URL
                 const urlParams = new URLSearchParams(window.location.search);
                 talentId = urlParams.get('id');
                 if (!talentId || talentId === 'undefined' || talentId === 'null') {
@@ -360,7 +434,7 @@
 
         async function loadTalentData() {
             try {
-                // Double vérification défensive sur l'ID (cherche sur la colonne standard 'id')
+                // Recherche croisée id ou _id pour robustesse absolue
                 const { data: t, error: et } = await supabaseClient
                     .from('talents')
                     .select('*')
@@ -368,12 +442,11 @@
                     .maybeSingle();
                 
                 if (et) {
-                    console.error("Détails de l'échec Supabase :", et);
-                    throw new Error(`Erreur Supabase : ${et.message}`);
+                    console.error("Échec Supabase :", et);
+                    throw et;
                 }
 
                 if (!t) {
-                    // Fallback alternatif au cas où l'identifiant PostgreSQL ait été stocké sous '_id'
                     const { data: tAlt, error: etAlt } = await supabaseClient
                         .from('talents')
                         .select('*')
@@ -381,28 +454,26 @@
                         .maybeSingle();
                     
                     if (etAlt || !tAlt) {
-                        throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
+                        throw new Error("Le professionnel demandé n'existe pas.");
                     }
                     talent = tAlt;
                 } else {
                     talent = t;
                 }
 
-                // Charger s'il y a un poste actuellement occupé par ce talent
-                const { data: mission, error: em } = await supabaseClient
+                // Récupérer le poste actuellement occupé
+                const { data: mission } = await supabaseClient
                     .from('missions')
                     .select('*')
                     .eq('occupant_id', talentId)
                     .eq('status', 'occupied')
                     .maybeSingle();
                 
-                if (!em) {
-                    activeMission = mission;
-                }
+                activeMission = mission;
 
                 renderTalentCard();
             } catch (err) {
-                console.error("Erreur complète :", err);
+                console.error(err);
                 showError(err.message || "Erreur lors du chargement des données.");
             }
         }
@@ -415,7 +486,7 @@
                 return talent.months_without_alima_mission || 0;
             }
 
-            const refDateStr = talent.last_mission_end_date || talent.pool_integration_date;
+            const refDateStr = talent.last_mission_end_date || talent.pool_integration_date || talent.poolIntegrationDate;
             if (!refDateStr) return 0;
             
             const refDate = new Date(refDateStr);
@@ -430,11 +501,11 @@
                 window.location.href = `talents.html?pool=${talent.pool}`;
             };
 
-            document.getElementById('talent-fullname').textContent = `${talent.first_name} ${talent.last_name}`;
-            document.getElementById('talent-function').textContent = talent.current_function || "N/A";
+            document.getElementById('talent-fullname').textContent = `${talent.firstName} ${talent.lastName}`;
+            document.getElementById('talent-function').textContent = talent.currentFunction || "N/A";
             document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool}`;
             
-            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
+            const expAlima = talent.experienceMonthsAlima || talent.experience_months_alima || 0;
             const expAlimaYears = Math.floor(expAlima / 12);
             const expAlimaRem = expAlima % 12;
             document.getElementById('talent-experience-alima').textContent = `${expAlimaYears}a ${expAlimaRem}m`;
@@ -642,20 +713,344 @@
             }
         }
 
-        function toastMessage(msg, type = "success") {
-            const toast = document.createElement('div');
-            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-50 transform translate-y-10 opacity-0 duration-300 ${
-                type === 'success' ? 'bg-green-600' : 'bg-red-600'
-            }`;
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
-            setTimeout(() => {
-                toast.classList.add('translate-y-10', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+        // ============================================================================
+        // ACTIONS ADMINISTRATIVES INTERACTIVES
+        // ============================================================================
+        
+        // 🔗 Partager
+        document.getElementById('share-btn').addEventListener('click', async () => {
+            try {
+                // Génération d'un token sécurisé
+                const token = 'st_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                const { error } = await supabaseClient.from('share_tokens').insert({
+                    token,
+                    talent_id: talentId,
+                    created_by: currentUserId,
+                    created_by_name: document.getElementById('user-display-name').textContent,
+                    created_at: Date.now(),
+                    expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 jours
+                    is_revoked: false,
+                    view_count: 0
+                });
+
+                if (error) throw error;
+
+                const shareUrl = `${window.location.origin}/shared-talent.html?token=${token}`;
+                await navigator.clipboard.writeText(shareUrl);
+                toastMessage("Lien de partage généré et copié dans le presse-papiers !", "success");
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de la génération du lien de partage.", "error");
+            }
+        });
+
+        // 🖨️ Imprimer
+        document.getElementById('print-btn').addEventListener('click', () => window.print());
+
+        // ⛔ Dévalider le talent
+        document.getElementById('btn-devalidate').addEventListener('click', async () => {
+            if (!confirm("Voulez-vous vraiment dévalider ce talent ? Son compteur de validité expirera immédiatement.")) return;
+            try {
+                const { error } = await supabaseClient
+                    .from('talents')
+                    .update({ is_valid: false, devalidation_date: new Date().toISOString() })
+                    .eq('id', talentId);
+                
+                if (error) throw error;
+                toastMessage("Le talent a été dévalidé.", "success");
+                await loadTalentData();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de l'action de dévalidation.", "error");
+            }
+        });
+
+        // 🔄 Réintégrer le talent
+        document.getElementById('btn-revalidate').addEventListener('click', async () => {
+            try {
+                const { error } = await supabaseClient
+                    .from('talents')
+                    .update({ is_valid: true, devalidation_date: null, months_without_alima_mission: 0 })
+                    .eq('id', talentId);
+                
+                if (error) throw error;
+                toastMessage("Le talent a été réintégré avec succès dans son pool.", "success");
+                await loadTalentData();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de l'action de réintégration.", "error");
+            }
+        });
+
+        // 🚀 Démarrer une mission ALIMA (Modal simplifiée pour l'enregistrement)
+        document.getElementById('btn-start-mission').addEventListener('click', async () => {
+            const endDateStr = prompt("Saisissez la date de fin de contrat prévue (Format: AAAA-MM-JJ) :", "");
+            if (!endDateStr) return;
+            const endTimestamp = new Date(endDateStr).getTime();
+            if (isNaN(endTimestamp) || endTimestamp <= Date.now()) {
+                alert("Date de fin de contrat invalide ou passée.");
+                return;
+            }
+
+            try {
+                // Mettre à jour le statut du talent
+                const { error: et } = await supabaseClient
+                    .from('talents')
+                    .update({ status: 'En poste ALIMA', is_currently_on_mission: true })
+                    .eq('id', talentId);
+                
+                if (et) throw et;
+
+                // Créer une mission fictive active si nécessaire dans la table missions
+                const { error: em } = await supabaseClient
+                    .from('missions')
+                    .insert({
+                        title: `Mission ${talent.currentFunction || "Coordinateur"}`,
+                        pool_id: talent.pool,
+                        occupant_id: talentId,
+                        contract_start_date: new Date().toISOString(),
+                        contract_end_date: new Date(endDateStr).toISOString(),
+                        status: 'occupied'
+                    });
+
+                if (em) throw em;
+
+                toastMessage("Mission ALIMA démarrée avec succès.", "success");
+                await loadTalentData();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec du démarrage de la mission.", "error");
+            }
+        });
+
+        // 🏁 Terminer la mission (Ouverture du modal d'évaluation)
+        const endModal = document.getElementById('end-mission-modal');
+        const rangeRating = document.getElementById('modal-end-rating');
+        const rangeVal = document.getElementById('modal-rating-val');
+
+        rangeRating.addEventListener('input', () => {
+            rangeVal.textContent = rangeRating.value;
+        });
+
+        document.getElementById('btn-end-mission').addEventListener('click', () => {
+            document.getElementById('modal-end-date').value = new Date().toISOString().substring(0, 10);
+            document.getElementById('modal-end-context').value = "";
+            document.getElementById('modal-end-positive').value = "";
+            document.getElementById('modal-end-negative').value = "";
+            rangeRating.value = "5";
+            rangeVal.textContent = "5";
+            endModal.classList.remove('hidden');
+        });
+
+        document.getElementById('modal-end-cancel').addEventListener('click', () => endModal.classList.add('hidden'));
+
+        document.getElementById('modal-end-confirm').addEventListener('click', async () => {
+            const endDateVal = document.getElementById('modal-end-date').value;
+            const contextVal = document.getElementById('modal-end-context').value.trim();
+            const positiveVal = document.getElementById('modal-end-positive').value.trim();
+            const negativeVal = document.getElementById('modal-end-negative').value.trim();
+            const ratingVal = Number(rangeRating.value);
+
+            if (!endDateVal || !contextVal || !positiveVal || !negativeVal) {
+                alert("Veuillez remplir tous les champs obligatoires (*) d'évaluation.");
+                return;
+            }
+
+            try {
+                // Créer le passage de mission à archiver
+                const newPassage = {
+                    positionTitle: activeMission ? activeMission.title : `Mission ${talent.currentFunction || "Intervenant"}`,
+                    country: activeMission ? activeMission.country : (talent.country_of_residence || "Mission ALIMA"),
+                    startDate: activeMission && (activeMission.contract_start_date || activeMission.contractStartDate)
+                        ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).getTime()
+                        : Date.now() - 3 * 30 * 24 * 60 * 60 * 1000, // 3 mois par défaut si pas de contrat
+                    endDate: new Date(endDateVal).getTime(),
+                    comments: [{
+                        context: contextVal,
+                        positivePoints: positiveVal,
+                        negativePoints: negativeVal,
+                        rating: ratingVal,
+                        createdAt: Date.now(),
+                        createdByName: document.getElementById('user-display-name').textContent
+                    }]
+                };
+
+                const currentPassages = talent.archived_position_passages || talent.archivedPositionPassages || [];
+                const updatedPassages = [...currentPassages, newPassage];
+
+                // Mettre à jour le talent (archiver et remettre à l'état disponible)
+                const { error: et } = await supabaseClient
+                    .from('talents')
+                    .select('*')
+                    .eq('id', talentId); // charger dernier état
+
+                const { error: ut } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        status: 'En attente de poste',
+                        is_currently_on_mission: false,
+                        last_mission_end_date: new Date(endDateVal).toISOString(),
+                        archived_position_passages: updatedPassages,
+                        months_without_alima_mission: 0 // Remise à 0 du compteur à la fin de la mission
+                    })
+                    .eq('id', talentId);
+                
+                if (ut) throw ut;
+
+                // Clôturer la mission dans la table missions
+                if (activeMission) {
+                    await supabaseClient
+                        .from('missions')
+                        .update({ status: 'vacant', occupant_id: null })
+                        .eq('id', activeMission.id);
+                }
+
+                endModal.classList.add('hidden');
+                toastMessage("Mission clôturée et bilan d'évaluation archivé avec succès.", "success");
+                await loadTalentData();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de la clôture de la mission.", "error");
+            }
+        });
+
+        // 🚨 Inscrire en Liste Rouge (Ouverture du modal de Liste Rouge)
+        const redlistModal = document.getElementById('redlist-modal');
+        document.getElementById('btn-redlist').addEventListener('click', () => {
+            document.getElementById('modal-redlist-reason').value = "";
+            redlistModal.classList.remove('hidden');
+        });
+
+        document.getElementById('modal-redlist-cancel').addEventListener('click', () => redlistModal.classList.add('hidden'));
+
+        document.getElementById('modal-redlist-confirm').addEventListener('click', async () => {
+            const reasonVal = document.getElementById('modal-redlist-reason').value.trim();
+            if (!reasonVal) {
+                alert("Veuillez indiquer la raison d'inscription.");
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        is_red_listed: true,
+                        red_list_date: new Date().toLocaleDateString('fr-FR'),
+                        red_list_reason: reasonVal,
+                        red_list_added_by_name: document.getElementById('user-display-name').textContent
+                    })
+                    .eq('id', talentId);
+                
+                if (error) throw error;
+
+                redlistModal.classList.add('hidden');
+                toastMessage("Le talent est désormais inscrit en Liste Rouge.", "success");
+                await loadTalentData();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de l'inscription.", "error");
+            }
+        });
+
+        // --- EXPORT PDF DE QUALITÉ NATIVE (jsPDF) ---
+        function exportTalentCardPDF(talent, activeMission) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const primaryColor = [29, 78, 216]; // #1d4ed8
+            
+            // Header Banner
+            doc.setFillColor(...primaryColor);
+            doc.rect(0, 0, 210, 40, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.setFont("helvetica", "bold");
+            doc.text(`${talent.first_name} ${talent.last_name}`, 15, 20);
+            
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(talent.current_function || "Profil Professionnel", 15, 28);
+            doc.text(`Pool : ${talent.pool}`, 155, 20);
+            
+            // Sections
+            doc.setTextColor(30, 41, 59); // slate-800
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("Informations Générales", 15, 55);
+            
+            doc.setDrawColor(226, 232, 240); // slate-200
+            doc.line(15, 58, 195, 58);
+            
+            // Grid details
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            let y = 65;
+            doc.text(`Email : ${talent.email || 'N/A'}`, 15, y);
+            doc.text(`Genre : ${talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A"}`, 110, y);
+            
+            y += 8;
+            doc.text(`Nationalité : ${talent.nationality || 'N/A'}`, 15, y);
+            doc.text(`Pays de résidence : ${talent.country_of_residence || talent.countryOfResidence || 'N/A'}`, 110, y);
+            
+            y += 8;
+            doc.text(`Visa Schengen : ${talent.has_visa || talent.hasVisa ? 'Valide' : 'Non'}`, 15, y);
+            const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
+            doc.text(`Langues : ${langs}`, 110, y);
+            
+            y += 12;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text("Parcours & Expérience ALIMA", 15, y);
+            doc.line(15, y + 3, 195, y + 3);
+            
+            y += 10;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.text(`Expérience ALIMA : ${talent.experience_months_alima || talent.experienceMonthsAlima || 0} mois`, 15, y);
+            doc.text(`Expérience Humanitaire : ${talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0} mois`, 110, y);
+            
+            // Table of passages
+            const passages = talent.archived_position_passages || talent.archivedPositionPassages || [];
+            const rows = [];
+            
+            if (activeMission) {
+                rows.push([
+                    "En cours",
+                    activeMission.title,
+                    activeMission.country,
+                    "—"
+                ]);
+            }
+            
+            passages.forEach(p => {
+                const startStr = new Date(p.startDate).toLocaleDateString('fr-FR');
+                const endStr = new Date(p.endDate).toLocaleDateString('fr-FR');
+                let ratingText = p.comments && p.comments[0] && p.comments[0].rating ? `★ ${p.comments[0].rating}/10` : 'N/A';
+                rows.push([
+                    `${startStr} - ${endStr}`,
+                    p.positionTitle,
+                    p.country || "ALIMA",
+                    ratingText
+                ]);
+            });
+            
+            if (rows.length > 0) {
+                doc.autoTable({
+                    startY: y + 8,
+                    head: [['Période', 'Poste / Mission', 'Pays', 'Évaluation']],
+                    body: rows,
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor }
+                });
+            } else {
+                doc.text("Aucun historique enregistré.", 15, y + 10);
+            }
+            
+            doc.save(`Fiche_${talent.first_name}_${talent.last_name}.pdf`);
         }
 
+        toastMessage("Initialisation réussie.", "success");
         window.addEventListener('DOMContentLoaded', () => checkSession());
     </script>
 </body>
