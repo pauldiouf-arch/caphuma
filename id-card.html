@@ -498,7 +498,7 @@
         }
 
         function renderTalentCard() {
-            // Lecture robuste et sécurisée des propriétés en snake_case et camelCase
+            // Lecture robuste et hautement sécurisée des deux nommages
             const fName = talent.first_name || talent.firstName || "";
             const lName = talent.last_name || talent.lastName || "";
             const fFunction = talent.current_function || talent.currentFunction || "N/A";
@@ -516,7 +516,7 @@
                 window.location.href = `talents.html?pool=${talent.pool}`;
             };
 
-            document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "Chargement...";
+            document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "N/A";
             document.getElementById('talent-function').textContent = fFunction;
             document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool || '—'}`;
             
@@ -584,7 +584,7 @@
                 vSub.textContent = `Date de référence du calcul : ${refDate ? new Date(refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
             }
 
-            // Remplissage infos
+            // Infos personnelles
             document.getElementById('info-email').textContent = talent.email || "N/A";
             document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
             document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
@@ -609,6 +609,7 @@
             const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
             document.getElementById('info-alima-missions').textContent = missionCountLabels[nbMissions] || "0";
 
+            // Rendu sécurisé des listes dynamiques (badges) pour prévenir tout plantage lié aux chaînes JSON
             renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
             renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
             renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
@@ -636,7 +637,19 @@
                 `;
             }
 
-            const passages = talent.archived_position_passages || talent.archivedPositionPassages || [];
+            // Récupération sécurisée et parsing défensif de la liste des passages de missions passés
+            let passages = [];
+            try {
+                const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
+                if (Array.isArray(rawPassages)) {
+                    passages = rawPassages;
+                } else if (typeof rawPassages === 'string' && rawPassages.trim()) {
+                    passages = JSON.parse(rawPassages);
+                }
+            } catch (e) {
+                console.error("Erreur de parsing des passages :", e);
+            }
+
             if (passages.length > 0) {
                 hasTimelineElements = true;
                 const sortedPassages = [...passages].sort((a, b) => b.startDate - a.startDate);
@@ -687,8 +700,17 @@
 
         function renderBadges(containerId, list, colorClass) {
             const container = document.getElementById(containerId);
+            if (!container) return;
             container.innerHTML = "";
-            const items = list || [];
+            
+            let items = [];
+            if (Array.isArray(list)) {
+                items = list;
+            } else if (typeof list === 'string' && list.trim()) {
+                // Parsing de secours si les badges sont stockés en chaîne séparée par des virgules
+                items = list.split(',').map(s => s.trim()).filter(Boolean);
+            }
+
             if (items.length === 0) {
                 container.innerHTML = `<span class="text-xs text-slate-400 italic">Non spécifié</span>`;
                 return;
@@ -968,7 +990,9 @@
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(22);
             doc.setFont("helvetica", "bold");
-            doc.text(`${talent.first_name || talent.firstName} ${talent.last_name || talent.lastName}`, 15, 20);
+            const fName = talent.first_name || talent.firstName || "";
+            const lName = talent.last_name || talent.lastName || "";
+            doc.text(`${fName} ${lName}`, 15, 20);
             
             doc.setFontSize(12);
             doc.setFont("helvetica", "normal");
@@ -994,7 +1018,8 @@
             
             y += 8;
             doc.text(`Nationalité : ${talent.nationality || 'N/A'}`, 15, y);
-            doc.text(`Pays de résidence : ${talent.country_of_residence || talent.countryOfResidence || 'N/A'}`, 110, y);
+            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
+            doc.text(`Pays de résidence : ${cRes}`, 110, y);
             
             y += 8;
             doc.text(`Visa Schengen : ${talent.has_visa || talent.hasVisa ? 'Valide' : 'Non'}`, 15, y);
