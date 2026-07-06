@@ -75,7 +75,7 @@
     </header>
 
     <!-- Conteneur Principal -->
-    <main class="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 flex-1 overflow-y-auto">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 flex-1 overflow-y-auto">
 
         <!-- Bouton retour et actions rapides (no-print) -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
@@ -100,7 +100,7 @@
             <div class="flex items-start gap-3">
                 <span class="text-red-500 font-bold text-xl">⚠️</span>
                 <div>
-                    <h3 class="font-bold text-red-900">Erreur de chargement</h3>
+                    <h3 class="font-bold text-red-900">Erreur système</h3>
                     <p class="text-sm text-red-700 mt-1" id="error-message">Impossible de charger le profil.</p>
                 </div>
             </div>
@@ -387,6 +387,7 @@
                 document.getElementById('user-display-name').textContent = session.user.email;
                 await checkUserRole(session.user.id);
                 
+                // Récupérer l'ID du talent dans l'URL
                 const urlParams = new URLSearchParams(window.location.search);
                 talentId = urlParams.get('id');
                 if (!talentId || talentId === 'undefined' || talentId === 'null') {
@@ -454,7 +455,7 @@
                         .maybeSingle();
                     
                     if (etAlt || !tAlt) {
-                        throw new Error("Le professionnel demandé n'existe pas.");
+                        throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
                     }
                     talent = tAlt;
                 } else {
@@ -473,20 +474,21 @@
 
                 renderTalentCard();
             } catch (err) {
-                console.error(err);
+                console.error("Erreur complète :", err);
                 showError(err.message || "Erreur lors du chargement des données.");
             }
         }
 
         function calculateMonthsWithoutMission(talent) {
+            // Lecture robuste des deux nommages (snake_case et camelCase)
             const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
             const status = talent.status;
             
             if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
-                return talent.months_without_alima_mission || 0;
+                return talent.months_without_alima_mission || talent.monthsWithoutAlimaMission || 0;
             }
 
-            const refDateStr = talent.last_mission_end_date || talent.pool_integration_date || talent.poolIntegrationDate;
+            const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
             if (!refDateStr) return 0;
             
             const refDate = new Date(refDateStr);
@@ -496,22 +498,34 @@
         }
 
         function renderTalentCard() {
+            // Lecture robuste et sécurisée des propriétés en snake_case et camelCase
+            const fName = talent.first_name || talent.firstName || "";
+            const lName = talent.last_name || talent.lastName || "";
+            const fFunction = talent.current_function || talent.currentFunction || "N/A";
+            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
+            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
+            const eduLvl = talent.education_level || talent.educationLevel || "none";
+            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
+            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
+            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
+            const visaValid = talent.has_visa || talent.hasVisa;
+            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
+
             document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
             document.getElementById('back-btn').onclick = () => {
                 window.location.href = `talents.html?pool=${talent.pool}`;
             };
 
-            document.getElementById('talent-fullname').textContent = `${talent.firstName} ${talent.lastName}`;
-            document.getElementById('talent-function').textContent = talent.currentFunction || "N/A";
-            document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool}`;
+            document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "Chargement...";
+            document.getElementById('talent-function').textContent = fFunction;
+            document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool || '—'}`;
             
-            const expAlima = talent.experienceMonthsAlima || talent.experience_months_alima || 0;
             const expAlimaYears = Math.floor(expAlima / 12);
             const expAlimaRem = expAlima % 12;
             document.getElementById('talent-experience-alima').textContent = `${expAlimaYears}a ${expAlimaRem}m`;
 
             const statusBadge = document.getElementById('talent-status-badge');
-            statusBadge.textContent = talent.status;
+            statusBadge.textContent = talent.status || "N/A";
             statusBadge.className = "bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider";
             if (talent.status === 'En poste ALIMA') {
                 statusBadge.classList.add('bg-green-600');
@@ -570,12 +584,12 @@
                 vSub.textContent = `Date de référence du calcul : ${refDate ? new Date(refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
             }
 
-            // Infos personnelles
+            // Remplissage infos
             document.getElementById('info-email').textContent = talent.email || "N/A";
             document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
             document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
-            document.getElementById('info-residence').textContent = talent.country_of_residence || talent.countryOfResidence || "N/A";
-            document.getElementById('info-visa').textContent = talent.has_visa || talent.hasVisa ? "Valide" : "Non valide / N/A";
+            document.getElementById('info-residence').textContent = cRes;
+            document.getElementById('info-visa').textContent = visaValid ? "Valide" : "Non valide / N/A";
             
             const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
             document.getElementById('info-languages').textContent = langs;
@@ -586,15 +600,14 @@
                 "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
                 "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
             };
-            document.getElementById('info-edu-level').textContent = eduLevels[talent.education_level || talent.educationLevel] || "N/A";
-            document.getElementById('info-edu-specialty').textContent = talent.education_specialty || talent.educationSpecialty || "N/A";
-            document.getElementById('info-integration-date').textContent = new Date(talent.pool_integration_date || talent.poolIntegrationDate).toLocaleDateString('fr-FR');
+            document.getElementById('info-edu-level').textContent = eduLevels[eduLvl] || "N/A";
+            document.getElementById('info-edu-specialty').textContent = eduSpec;
+            document.getElementById('info-integration-date').textContent = intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A";
             
-            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
             document.getElementById('info-exp-humanitarian').textContent = `${Math.floor(expHum / 12)}a ${expHum % 12}m`;
             
             const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
-            document.getElementById('info-alima-missions').textContent = missionCountLabels[talent.number_of_alima_missions || talent.numberOfAlimaMissions] || "0";
+            document.getElementById('info-alima-missions').textContent = missionCountLabels[nbMissions] || "0";
 
             renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
             renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
@@ -720,7 +733,6 @@
         // 🔗 Partager
         document.getElementById('share-btn').addEventListener('click', async () => {
             try {
-                // Génération d'un token sécurisé
                 const token = 'st_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
                 const { error } = await supabaseClient.from('share_tokens').insert({
                     token,
@@ -728,7 +740,7 @@
                     created_by: currentUserId,
                     created_by_name: document.getElementById('user-display-name').textContent,
                     created_at: Date.now(),
-                    expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 jours
+                    expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
                     is_revoked: false,
                     view_count: 0
                 });
@@ -782,7 +794,7 @@
             }
         });
 
-        // 🚀 Démarrer une mission ALIMA (Modal simplifiée pour l'enregistrement)
+        // 🚀 Démarrer une mission ALIMA (Modal simplifiée)
         document.getElementById('btn-start-mission').addEventListener('click', async () => {
             const endDateStr = prompt("Saisissez la date de fin de contrat prévue (Format: AAAA-MM-JJ) :", "");
             if (!endDateStr) return;
@@ -793,7 +805,6 @@
             }
 
             try {
-                // Mettre à jour le statut du talent
                 const { error: et } = await supabaseClient
                     .from('talents')
                     .update({ status: 'En poste ALIMA', is_currently_on_mission: true })
@@ -801,11 +812,10 @@
                 
                 if (et) throw et;
 
-                // Créer une mission fictive active si nécessaire dans la table missions
                 const { error: em } = await supabaseClient
                     .from('missions')
                     .insert({
-                        title: `Mission ${talent.currentFunction || "Coordinateur"}`,
+                        title: `Mission ${talent.currentFunction || talent.current_function || "Coordinateur"}`,
                         pool_id: talent.pool,
                         occupant_id: talentId,
                         contract_start_date: new Date().toISOString(),
@@ -823,7 +833,7 @@
             }
         });
 
-        // 🏁 Terminer la mission (Ouverture du modal d'évaluation)
+        // 🏁 Terminer la mission
         const endModal = document.getElementById('end-mission-modal');
         const rangeRating = document.getElementById('modal-end-rating');
         const rangeVal = document.getElementById('modal-rating-val');
@@ -857,13 +867,12 @@
             }
 
             try {
-                // Créer le passage de mission à archiver
                 const newPassage = {
-                    positionTitle: activeMission ? activeMission.title : `Mission ${talent.currentFunction || "Intervenant"}`,
-                    country: activeMission ? activeMission.country : (talent.country_of_residence || "Mission ALIMA"),
+                    positionTitle: activeMission ? activeMission.title : `Mission ${talent.currentFunction || talent.current_function || "Intervenant"}`,
+                    country: activeMission ? activeMission.country : (talent.country_of_residence || talent.countryOfResidence || "Mission ALIMA"),
                     startDate: activeMission && (activeMission.contract_start_date || activeMission.contractStartDate)
                         ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).getTime()
-                        : Date.now() - 3 * 30 * 24 * 60 * 60 * 1000, // 3 mois par défaut si pas de contrat
+                        : Date.now() - 3 * 30 * 24 * 60 * 60 * 1000,
                     endDate: new Date(endDateVal).getTime(),
                     comments: [{
                         context: contextVal,
@@ -878,12 +887,6 @@
                 const currentPassages = talent.archived_position_passages || talent.archivedPositionPassages || [];
                 const updatedPassages = [...currentPassages, newPassage];
 
-                // Mettre à jour le talent (archiver et remettre à l'état disponible)
-                const { error: et } = await supabaseClient
-                    .from('talents')
-                    .select('*')
-                    .eq('id', talentId); // charger dernier état
-
                 const { error: ut } = await supabaseClient
                     .from('talents')
                     .update({
@@ -891,13 +894,12 @@
                         is_currently_on_mission: false,
                         last_mission_end_date: new Date(endDateVal).toISOString(),
                         archived_position_passages: updatedPassages,
-                        months_without_alima_mission: 0 // Remise à 0 du compteur à la fin de la mission
+                        months_without_alima_mission: 0
                     })
                     .eq('id', talentId);
                 
                 if (ut) throw ut;
 
-                // Clôturer la mission dans la table missions
                 if (activeMission) {
                     await supabaseClient
                         .from('missions')
@@ -914,7 +916,7 @@
             }
         });
 
-        // 🚨 Inscrire en Liste Rouge (Ouverture du modal de Liste Rouge)
+        // 🚨 Inscrire en Liste Rouge
         const redlistModal = document.getElementById('redlist-modal');
         document.getElementById('btn-redlist').addEventListener('click', () => {
             document.getElementById('modal-redlist-reason').value = "";
@@ -966,11 +968,11 @@
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(22);
             doc.setFont("helvetica", "bold");
-            doc.text(`${talent.first_name} ${talent.last_name}`, 15, 20);
+            doc.text(`${talent.first_name || talent.firstName} ${talent.last_name || talent.lastName}`, 15, 20);
             
             doc.setFontSize(12);
             doc.setFont("helvetica", "normal");
-            doc.text(talent.current_function || "Profil Professionnel", 15, 28);
+            doc.text(talent.current_function || talent.currentFunction || "Profil Professionnel", 15, 28);
             doc.text(`Pool : ${talent.pool}`, 155, 20);
             
             // Sections
@@ -987,7 +989,8 @@
             doc.setFont("helvetica", "normal");
             let y = 65;
             doc.text(`Email : ${talent.email || 'N/A'}`, 15, y);
-            doc.text(`Genre : ${talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A"}`, 110, y);
+            const genderVal = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
+            doc.text(`Genre : ${genderVal}`, 110, y);
             
             y += 8;
             doc.text(`Nationalité : ${talent.nationality || 'N/A'}`, 15, y);
@@ -1007,8 +1010,10 @@
             y += 10;
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
-            doc.text(`Expérience ALIMA : ${talent.experience_months_alima || talent.experienceMonthsAlima || 0} mois`, 15, y);
-            doc.text(`Expérience Humanitaire : ${talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0} mois`, 110, y);
+            const expAlimaVal = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
+            const expHumVal = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
+            doc.text(`Expérience ALIMA : ${expAlimaVal} mois`, 15, y);
+            doc.text(`Expérience Humanitaire : ${expHumVal} mois`, 110, y);
             
             // Table of passages
             const passages = talent.archived_position_passages || talent.archivedPositionPassages || [];
@@ -1047,7 +1052,7 @@
                 doc.text("Aucun historique enregistré.", 15, y + 10);
             }
             
-            doc.save(`Fiche_${talent.first_name}_${talent.last_name}.pdf`);
+            doc.save(`Fiche_${talent.first_name || talent.firstName}_${talent.last_name || talent.lastName}.pdf`);
         }
 
         toastMessage("Initialisation réussie.", "success");
