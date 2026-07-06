@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub Statistique & IA - Cap Huma</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS Client via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
+                        accent:  { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <!-- En-tête pleine largeur (Navbar commune sans sidebar) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
+                        <span class="text-xl">🧭</span>
+                    </div>
+                    <div>
+                        <span class="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Cap Huma</span>
+                        <span class="text-xs block text-slate-400">ALIMA</span>
+                    </div>
+                </div>
+                
+                <!-- Liens de navigation -->
+                <nav class="hidden md:flex items-center gap-4 text-sm font-medium">
+                    <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
+                    <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
+                    <a href="extraction.html" id="nav-extraction" class="text-slate-600 hover:text-primary transition-colors hidden">📤 Extraction</a>
+                    <a href="admin.html#red-list" class="text-slate-600 hover:text-primary transition-colors">⚠️ Liste Rouge</a>
+                    <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
+                    <a href="statistics.html" class="text-primary border-b-2 border-primary px-1 py-4">📊 Hub Statistique & IA</a>
+                    <a href="admin.html" id="nav-admin" class="text-slate-600 hover:text-primary transition-colors hidden">🛡️ Admin</a>
+                    <a href="audit.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
+                </nav>
+
+                <div class="flex items-center gap-3">
+                    <span id="user-display-name" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                    <button id="logout-btn" class="text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all">Déconnexion</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteneur Principal -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Bannière d'alerte ou message d'erreur si config manquante -->
+        <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
+            <div class="flex items-start gap-3">
+                <span class="text-red-500 font-bold text-xl">⚠️</span>
+                <div>
+                    <h3 class="font-semibold text-red-800">Configuration requise</h3>
+                    <p class="text-sm text-red-700 mt-1" id="error-message">Veuillez configurer Supabase et l'IA dans l'index avant d'accéder aux statistiques.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Titre et Sélecteur de portée -->
+        <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Hub Statistique & IA</h1>
+                <p class="text-sm text-slate-500 mt-1">Analyses quantitatives, indicateurs de santé du pool et diagnostic prédictif ALIMA</p>
+            </div>
+            
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <label for="pool-selector" class="text-sm font-semibold text-slate-600 shrink-0">Portée :</label>
+                <select id="pool-selector" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="global">Vue globale (Tous les pools)</option>
+                    <!-- Options de pool générées par JS -->
+                </select>
+            </div>
+        </div>
+
+        <!-- Section des KPIs (Cartes de statistiques) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI 1 -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Taux d'occupation</p>
+                  <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-occupancy-rate">0%</p>
+                  <p class="text-xs text-slate-400 mt-1" id="kpi-occupancy-sub">0 postes occupés</p>
+                </div>
+                <div class="text-3xl p-3 bg-blue-50 rounded-2xl text-blue-600">📊</div>
+            </div>
+            <!-- KPI 2 -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Postes vacants</p>
+                  <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-vacancies">0</p>
+                  <p class="text-xs text-slate-400 mt-1" id="kpi-vacancies-sub">Recrutements en cours : 0</p>
+                </div>
+                <div class="text-3xl p-3 bg-red-50 rounded-2xl text-red-600">⚠️</div>
+            </div>
+            <!-- KPI 3 -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Vivier de talents actifs</p>
+                  <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-talents-active">0</p>
+                  <p class="text-xs text-slate-400 mt-1" id="kpi-talents-sub">Disponibles immédiatement : 0</p>
+                </div>
+                <div class="text-3xl p-3 bg-green-50 rounded-2xl text-green-600">👤</div>
+            </div>
+            <!-- KPI 4 -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Profils à risque (≥20 mois)</p>
+                  <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-talents-risk">0</p>
+                  <p class="text-xs text-slate-400 mt-1 text-slate-400" id="kpi-risk-sub">Menace de dévalidation</p>
+                </div>
+                <div class="text-3xl p-3 bg-amber-50 rounded-2xl text-amber-600">⏱️</div>
+            </div>
+        </div>
+
+        <!-- Section des Graphiques (Chart.js) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Graphique 1 : Statuts des postes -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span>📈</span> Répartition des Postes
+                </h3>
+                <div class="h-64 flex items-center justify-center relative">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Graphique 2 : Typologie des candidats -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span>🌍</span> Proportion de Profils Expatriés vs Nationaux
+                </h3>
+                <div class="h-64 flex items-center justify-center relative">
+                    <canvas id="expatChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hub Assistant IA Stratégique -->
+        <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center gap-3">
+                <div class="flex size-10 items-center justify-center rounded-xl bg-orange-100 text-accent font-bold">
+                    ✨
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Analyste Stratégique Intelligent</h3>
+                    <p class="text-xs text-slate-500">Générez des comptes rendus prédictifs conformes au RGPD basés sur l'état actuel du pool</p>
+                </div>
+            </div>
+
+            <!-- Boutons de questions rapides de l'assistant Hercules original -->
+            <div class="flex flex-wrap gap-2 py-2">
+                <button type="button" class="ai-quick-btn text-xs bg-slate-100 hover:bg-primary hover:text-white px-3 py-1.5 rounded-full transition-all">Quelle est la situation de santé globale du pool ?</button>
+                <button type="button" class="ai-quick-btn text-xs bg-slate-100 hover:bg-primary hover:text-white px-3 py-1.5 rounded-full transition-all">Quels pools de talents présentent un risque de pénurie ?</button>
+                <button type="button" class="ai-quick-btn text-xs bg-slate-100 hover:bg-primary hover:text-white px-3 py-1.5 rounded-full transition-all">Analyse la validité du pool et suggère des plans de relance</button>
+            </div>
+
+            <!-- Formulaire de prompt -->
+            <div class="space-y-3">
+                <textarea id="ai-prompt-input" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none placeholder-slate-400" placeholder="Saisissez une question personnalisée ou cliquez sur l'une des requêtes recommandées ci-dessus..."></textarea>
+                
+                <div class="flex justify-between items-center">
+                    <div class="text-xs text-slate-400 flex items-center gap-1">
+                        🔒 Anonymisation RGPD active (aucun nom ni e-mail n'est envoyé à l'IA)
+                    </div>
+                    <button id="ai-generate-btn" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-6 py-2.5 rounded-2xl transition-all flex items-center gap-2">
+                        <span>Lancer l'analyse IA</span>
+                        <div id="ai-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sortie d'analyse IA -->
+            <div id="ai-result-box" class="hidden rounded-2xl bg-slate-50 border border-slate-200 p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-200 pb-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="animate-pulse">🟢</span> Rapport Stratégique IA Généré
+                    </span>
+                    <button id="ai-clear-btn" class="text-xs text-slate-400 hover:text-slate-600">Effacer</button>
+                </div>
+                <div id="ai-result-content" class="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JS logique et intégration SDK Supabase -->
+    <script>
+        // Lecture de la configuration d'environnement et garde de session standard
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+        const AI_API_URL = localStorage.getItem('ai_api_url');
+        const AI_API_KEY = localStorage.getItem('ai_api_key');
+
+        let supabase = null;
+        let chartStatus = null;
+        let chartExpat = null;
+        let poolList = [];
+        let rawTalents = [];
+        let rawMissions = [];
+
+        // Protection de session stricte
+        async function checkSession() {
+            if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+                showError("Identifiants Supabase manquants. Veuillez retourner à l'index de configuration.");
+                setTimeout(() => window.location.replace('index.html'), 3000);
+                return;
+            }
+
+            try {
+                supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error || !session) {
+                    window.location.replace('login.html');
+                    return;
+                }
+                
+                // Affichage nom d'utilisateur
+                document.getElementById('user-display-name').textContent = session.user.email;
+                
+                // Vérifier les permissions et masquer/afficher les éléments nav
+                await checkUserRole(session.user.id);
+                
+                // Charger les données de la page
+                await initHub();
+            } catch (e) {
+                console.error(e);
+                showError("Erreur de connexion à l'infrastructure. Veuillez réactiver votre session.");
+            }
+        }
+
+        // Vérification des droits utilisateur
+        async function checkUserRole(userId) {
+            try {
+                const { data: user, error } = await supabase
+                    .from('users')
+                    .select('role')
+                    .eq('tokenIdentifier', userId) // ou auth.uid() selon RLS hercules
+                    .maybeSingle();
+                
+                if (user) {
+                    const role = user.role;
+                    if (role === 'admin') {
+                        document.getElementById('nav-extraction').classList.remove('hidden');
+                        document.getElementById('nav-admin').classList.remove('hidden');
+                        document.getElementById('nav-audit').classList.remove('hidden');
+                    } else if (role === 'recruteur' || role === 'user') {
+                        document.getElementById('nav-extraction').classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error("Erreur de vérification des permissions :", err);
+            }
+        }
+
+        function showError(msg) {
+            const banner = document.getElementById('error-banner');
+            const txt = document.getElementById('error-message');
+            txt.textContent = msg;
+            banner.classList.remove('hidden');
+        }
+
+        // Initialisation globale
+        async function initHub() {
+            try {
+                // 1. Récupération des pools de la base
+                const { data: pools, error: ep } = await supabase.from('pools').select('*');
+                if (ep) throw ep;
+                poolList = pools || [];
+
+                // Remplir le sélecteur
+                const selector = document.getElementById('pool-selector');
+                poolList.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.pool_id || p.poolId;
+                    opt.textContent = `${p.pool_id || p.poolId} - ${p.name}`;
+                    selector.appendChild(opt);
+                });
+
+                // Auto-sélection par URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const queryPool = urlParams.get('pool');
+                if (queryPool && poolList.some(p => (p.pool_id || p.poolId) === queryPool)) {
+                    selector.value = queryPool;
+                }
+
+                // 2. Charger les collections de base
+                await loadRawData();
+
+                // 3. Calculer et afficher
+                updateStatistics();
+
+                // Listener de changement du sélecteur
+                selector.addEventListener('change', () => {
+                    updateStatistics();
+                });
+
+            } catch (e) {
+                console.error(e);
+                showError("Impossible d'obtenir les statistiques et la liste des pools.");
+            }
+        }
+
+        // Chargement des collections sans filtrer
+        async function loadRawData() {
+            // Lecture complète pour calculs locaux
+            const { data: talents, error: et } = await supabase.from('talents').select('*');
+            if (et) throw et;
+            rawTalents = talents || [];
+
+            const { data: missions, error: em } = await supabase.from('missions').select('*');
+            if (em) throw em;
+            rawMissions = missions || [];
+        }
+
+        // Calcul de validité conforme Hercules original
+        function calculateMonthsWithoutMission(talent) {
+            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+            const status = talent.status;
+            
+            // Compteur gelé
+            if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
+                return talent.months_without_alima_mission || talent.monthsWithoutAlimaMission || 0;
+            }
+
+            const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
+            if (!refDateStr) return 0;
+            
+            const refDate = new Date(refDateStr);
+            const now = new Date();
+            const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+            return Math.max(0, diffMonths);
+        }
+
+        // Calcule et affiche les KPI + Graphiques en mémoire
+        function updateStatistics() {
+            const selectorValue = document.getElementById('pool-selector').value;
+            
+            // Filtrage des données local
+            let talents = [...rawTalents];
+            let missions = [...rawMissions];
+
+            if (selectorValue !== 'global') {
+                talents = talents.filter(t => t.pool === selectorValue);
+                missions = missions.filter(m => m.pool_id === selectorValue);
+            }
+
+            // --- CALCUL DES METRIQUES KPIs ---
+            const totalPositions = missions.length;
+            const occupiedPositions = missions.filter(m => m.status === 'occupied').length;
+            const vacantPositions = missions.filter(m => m.status === 'vacant').length;
+            const recruitingPositions = missions.filter(m => m.status === 'recruiting').length;
+
+            const occupancyRate = totalPositions > 0 ? Math.round((occupiedPositions / totalPositions) * 100) : 0;
+            
+            const activeTalentsList = talents.filter(t => t.isValid !== false && t.is_valid !== false);
+            const activeTalents = activeTalentsList.length;
+            
+            const availableTalents = talents.filter(t => {
+                const isVal = t.isValid !== false && t.is_valid !== false;
+                const isRed = t.isRedListed || t.is_red_listed;
+                return isVal && !isRed && t.status === 'En attente de poste';
+            }).length;
+
+            // Calcul des profils à risque (seuil de 20 mois sans mission ALIMA)
+            const talentsAtRisk = talents.filter(t => {
+                const isVal = t.isValid !== false && t.is_valid !== false;
+                if (!isVal) return false;
+                const months = calculateMonthsWithoutMission(t);
+                return months >= 20;
+            }).length;
+
+            // Remplissage DOM
+            document.getElementById('kpi-occupancy-rate').textContent = `${occupancyRate}%`;
+            document.getElementById('kpi-occupancy-sub').textContent = `${occupiedPositions} de ${totalPositions} postes occupés`;
+            
+            document.getElementById('kpi-vacancies').textContent = vacantPositions;
+            document.getElementById('kpi-vacancies-sub').textContent = `Recrutements en cours : ${recruitingPositions}`;
+            
+            document.getElementById('kpi-talents-active').textContent = activeTalents;
+            document.getElementById('kpi-talents-sub').textContent = `Disponibles immédiatement : ${availableTalents}`;
+            
+            document.getElementById('kpi-talents-risk').textContent = talentsAtRisk;
+
+            // --- DISTRIBUTION GRAPHIQUES ---
+            // 1. Statuts des postes
+            const statusLabels = ['Occupé', 'En recrutement', 'Vacant'];
+            const statusData = [occupiedPositions, recruitingPositions, vacantPositions];
+            renderStatusChart(statusLabels, statusData);
+
+            // 2. Expatriés vs Nationaux (calculé sur les types de candidats des postes)
+            const expatCount = missions.filter(m => m.candidateType === 'expat' || m.candidate_type === 'expat').length;
+            const nationalCount = missions.filter(m => m.candidateType === 'nat' || m.candidate_type === 'nat').length;
+            const undefinedType = totalPositions - (expatCount + nationalCount);
+            
+            const expatLabels = ['Expatrié', 'Staff national', 'Non défini'];
+            const expatData = [expatCount, nationalCount, undefinedType];
+            renderExpatChart(expatLabels, expatData);
+        }
+
+        // Render Status Chart
+        function renderStatusChart(labels, data) {
+            if (chartStatus) {
+                chartStatus.destroy();
+            }
+
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            chartStatus = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#10b981', '#ea580c', '#94a3b8'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        // Render Expat Chart
+        function renderExpatChart(labels, data) {
+            if (chartExpat) {
+                chartExpat.destroy();
+            }
+
+            const ctx = document.getElementById('expatChart').getContext('2d');
+            chartExpat = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nombre de postes',
+                        data: data,
+                        backgroundColor: ['#1d4ed8', '#10b981', '#cbd5e1'],
+                        borderRadius: 12,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- SECTION IA STRATEGIQUE ---
+        // Anonymise complètement les données et prépare le summary
+        function buildAnonymizedPayload() {
+            const selectorValue = document.getElementById('pool-selector').value;
+            
+            let talents = [...rawTalents];
+            let missions = [...rawMissions];
+
+            if (selectorValue !== 'global') {
+                talents = talents.filter(t => t.pool === selectorValue);
+                missions = missions.filter(m => m.pool_id === selectorValue);
+            }
+
+            // Extraction statistique agrégée sans métadonnées privées (GDPR/RGPD stricte)
+            return {
+                poolSelectionne: selectorValue,
+                totalTalents: talents.length,
+                talentsActifs: talents.filter(t => t.isValid !== false && t.is_valid !== false).length,
+                talentsDisponibles: talents.filter(t => {
+                    const isVal = t.isValid !== false && t.is_valid !== false;
+                    const isRed = t.isRedListed || t.is_red_listed;
+                    return isVal && !isRed && t.status === 'En attente de poste';
+                }).length,
+                talentsARisque: talents.filter(t => {
+                    const isVal = t.isValid !== false && t.is_valid !== false;
+                    return isVal && calculateMonthsWithoutMission(t) >= 20;
+                }).length,
+                totalMissions: missions.length,
+                missionsOccupees: missions.filter(m => m.status === 'occupied').length,
+                missionsEnRecrutement: missions.filter(m => m.status === 'recruiting').length,
+                missionsVacantes: missions.filter(m => m.status === 'vacant').length,
+                proportionExpat: missions.filter(m => m.candidateType === 'expat' || m.candidate_type === 'expat').length,
+                proportionNational: missions.filter(m => m.candidateType === 'nat' || m.candidate_type === 'nat').length
+            };
+        }
+
+        // Appel à l'assistant IA
+        async function generateAIReport(customQuery = "") {
+            if (!AI_API_KEY) {
+                toastMessage("Veuillez configurer une clé API pour l'intelligence artificielle dans l'index.", "error");
+                return;
+            }
+
+            const promptInput = document.getElementById('ai-prompt-input');
+            const generateBtn = document.getElementById('ai-generate-btn');
+            const spinner = document.getElementById('ai-spinner');
+            const resultBox = document.getElementById('ai-result-box');
+            const resultContent = document.getElementById('ai-result-content');
+
+            setIsLoading(true);
+
+            // Formulation du contexte d'envoi anonymisé
+            const statsSummary = buildAnonymizedPayload();
+            
+            const systemContext = `Tu es un expert RH et analyste stratégique senior pour ALIMA.
+Tu dois analyser les données statistiques suivantes et répondre à la question ci-dessous de manière professionnelle, concise et actionable, dans un style humanitaire.
+
+Données consolidées anonymisées du pool:
+- Pool analysé : ${statsSummary.poolSelectionne}
+- Nombre total de talents : ${statsSummary.totalTalents}
+- Talents actifs : ${statsSummary.talentsActifs}
+- Talents disponibles immédiatement : ${statsSummary.talentsDisponibles}
+- Profils à risque d'éjection (sans mission depuis >=20 mois) : ${statsSummary.talentsARisque}
+- Nombre total de postes définis : ${statsSummary.totalMissions}
+- Postes occupés : ${statsSummary.missionsOccupees}
+- Postes vacants : ${statsSummary.missionsVacantes}
+- Recrutements actifs en cours : ${statsSummary.missionsEnRecrutement}
+- Postes Expatriés : ${statsSummary.proportionExpat}
+- Postes Nationaux : ${statsSummary.proportionNational}`;
+
+            const finalQuery = customQuery.trim() || promptInput.value.trim() || "Analyse la santé globale de ce pool et propose des actions concrètes.";
+
+            try {
+                // Détection de l'infrastructure API configurée (Gemini, OpenAI, ou passerelle Hercules)
+                let response = null;
+                const useOpenAIFormat = AI_API_URL && (AI_API_URL.includes('/v1') || AI_API_URL.includes('openai') || AI_API_URL.includes('gateway'));
+
+                if (useOpenAIFormat) {
+                    // Format OpenAI / Hercules AI Gateway
+                    response = await fetch(`${AI_API_URL}/chat/completions`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${AI_API_KEY}`
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o-mini", // fallback gpt-4o-mini
+                            messages: [
+                                { role: "system", content: systemContext },
+                                { role: "user", content: finalQuery }
+                            ],
+                            temperature: 0.3
+                        })
+                    });
+                    const resJson = await response.json();
+                    if (resJson.choices && resJson.choices[0]) {
+                        resultContent.textContent = resJson.choices[0].message.content;
+                    } else {
+                        throw new Error(JSON.stringify(resJson));
+                    }
+                } else {
+                    // Standard Google Gemini API
+                    const geminiUrl = AI_API_URL || "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+                    response = await fetch(`${geminiUrl}?key=${AI_API_KEY}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: `${systemContext}\n\nQuestion utilisateur : ${finalQuery}\n\nRéponds en français, de manière structurée avec des puces.`
+                                }]
+                            }]
+                        })
+                    });
+                    const resJson = await response.json();
+                    if (resJson.candidates && resJson.candidates[0].content.parts[0]) {
+                        resultContent.textContent = resJson.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error(JSON.stringify(resJson));
+                    }
+                }
+
+                resultBox.classList.remove('hidden');
+                toastMessage("Analyse stratégique générée avec succès.", "success");
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de la communication avec l'IA. Veuillez vérifier votre clé API ou l'URL configurée.", "error");
+            } finally {
+                setIsLoading(false);
+            }
+
+            function setIsLoading(loading) {
+                if (loading) {
+                    generateBtn.disabled = true;
+                    spinner.classList.remove('hidden');
+                } else {
+                    generateBtn.disabled = false;
+                    spinner.classList.add('hidden');
+                }
+            }
+        }
+
+        // Notifications personnalisées
+        function toastMessage(msg, type = "success") {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-50 transform translate-y-10 opacity-0 duration-300 ${
+                type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 100);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Bindings des événements d'analyse IA
+        document.getElementById('ai-generate-btn').addEventListener('click', () => {
+            generateAIReport();
+        });
+
+        document.getElementById('ai-clear-btn').addEventListener('click', () => {
+            document.getElementById('ai-result-box').classList.add('hidden');
+            document.getElementById('ai-result-content').textContent = "";
+        });
+
+        // Boutons de requêtes rapides
+        document.querySelectorAll('.ai-quick-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const queryText = e.target.textContent;
+                document.getElementById('ai-prompt-input').value = queryText;
+                generateAIReport(queryText);
+            });
+        });
+
+        // Déconnexion
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            if (supabase) {
+                await supabase.auth.signOut();
+            }
+            window.location.replace('login.html');
+        });
+
+        // Initialisation de la page après le chargement du DOM
+        window.addEventListener('DOMContentLoaded', () => {
+            checkSession();
+        });
+    </script>
+</body>
+</html>
