@@ -22,7 +22,7 @@
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
-                        accent:  { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                        accent: { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
                     }
                 }
             }
@@ -33,13 +33,13 @@
         @media print {
             .no-print { display: none !important; }
             body { background-color: white !important; }
-            .print-card { border: none !important; shadow: none !important; }
+            @page { margin: 1.2cm; }
         }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- En-tête pleine largeur (no-print) -->
+    <!-- En-tête pleine largeur (Navbar commune sans sidebar) -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-50 no-print">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
@@ -55,6 +55,7 @@
                     </a>
                 </div>
                 
+                <!-- Liens de navigation conformes à la cartographie de la section 4 -->
                 <nav class="hidden md:flex items-center gap-4 text-sm font-medium">
                     <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
                     <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
@@ -73,7 +74,8 @@
         </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <!-- Conteneur Principal -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         <!-- Bouton retour et actions rapides (no-print) -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
@@ -90,6 +92,17 @@
                 <button id="print-btn" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all flex items-center gap-2">
                     🖨️ Imprimer
                 </button>
+            </div>
+        </div>
+
+        <!-- Bannière d'alerte de chargement / erreur détaillée -->
+        <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-3xl shadow-sm">
+            <div class="flex items-start gap-3">
+                <span class="text-red-500 font-bold text-xl">⚠️</span>
+                <div>
+                    <h3 class="font-bold text-red-900">Erreur de chargement</h3>
+                    <p class="text-sm text-red-700 mt-1" id="error-message">Impossible de charger le profil.</p>
+                </div>
             </div>
         </div>
 
@@ -143,11 +156,9 @@
 
                 <!-- Grille d'informations -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Infos personnelles -->
-                    <div class="space-y-4">
-                        <h3 class="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wider text-slate-400">
-                            <span>👤</span> Informations Générales
-                        </h3>
+                    <!-- Informations Générales -->
+                    <div class="space-y-3">
+                        <h3 class="font-bold text-sm text-slate-400 uppercase tracking-wider">Information</h3>
                         <div class="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <span class="text-xs text-slate-400 block">Email</span>
@@ -177,14 +188,12 @@
                     </div>
 
                     <!-- Expérience & Éducation -->
-                    <div class="space-y-4">
-                        <h3 class="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wider text-slate-400">
-                            <span>🎓</span> Parcours & Éducation
-                        </h3>
+                    <div class="space-y-3">
+                        <h3 class="font-bold text-sm text-slate-400 uppercase tracking-wider">Parcours &amp; Éducation</h3>
                         <div class="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <span class="text-xs text-slate-400 block">Niveau d'études</span>
-                            <span class="font-bold" id="info-edu-level">—</span>
+                            <span class="font-bold text-primary" id="info-edu-level">—</span>
                           </div>
                           <div>
                             <span class="text-xs text-slate-400 block">Spécialité</span>
@@ -238,7 +247,6 @@
                     </h2>
                     
                     <div id="timeline-container" class="space-y-4">
-                        <!-- Poste en cours et passages archivés injectés par JS -->
                         <p class="text-sm text-slate-500 italic">Aucun historique de mission disponible pour le moment.</p>
                     </div>
                 </div>
@@ -253,7 +261,7 @@
         <!-- Section administrative de gestion du talent (no-print) -->
         <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 no-print" id="admin-actions-card">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <span>⚙️</span> Actions Administratives & Gestion de Mission
+                <span>⚙️</span> Actions Administratives &amp; Gestion de Mission
             </h3>
             <div class="flex flex-wrap gap-2">
                 <button id="btn-start-mission" class="bg-green-600 hover:bg-green-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all">
@@ -291,8 +299,7 @@
 
         async function checkSession() {
             if (!supabaseClient) {
-                alert("Identifiants Supabase introuvables. Redirection vers la configuration.");
-                window.location.replace('index.html');
+                showError("Configuration Supabase introuvable dans le localStorage.");
                 return;
             }
             try {
@@ -308,15 +315,16 @@
                 // Récupérer l'ID du talent dans l'URL
                 const urlParams = new URLSearchParams(window.location.search);
                 talentId = urlParams.get('id');
-                if (!talentId) {
-                    alert("ID du talent manquant dans l'URL.");
-                    window.location.replace('dashboard.html');
+                if (!talentId || talentId === 'undefined' || talentId === 'null') {
+                    showError("ID du talent invalide ou non fourni dans l'URL.");
+                    setTimeout(() => window.location.replace('dashboard.html'), 3000);
                     return;
                 }
                 
                 await loadTalentData();
             } catch (e) {
                 console.error(e);
+                showError("Erreur d'authentification ou problème réseau.");
             }
         }
 
@@ -342,21 +350,45 @@
             }
         }
 
+        function showError(msg) {
+            const banner = document.getElementById('error-banner');
+            const txt = document.getElementById('error-message');
+            txt.textContent = msg;
+            banner.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         async function loadTalentData() {
             try {
-                // 1. Charger la fiche du talent
+                // Double vérification défensive sur l'ID (cherche sur la colonne standard 'id')
                 const { data: t, error: et } = await supabaseClient
                     .from('talents')
                     .select('*')
                     .eq('id', talentId)
                     .maybeSingle();
                 
-                if (et || !t) {
-                    throw et || new Error("Talent introuvable");
+                if (et) {
+                    console.error("Détails de l'échec Supabase :", et);
+                    throw new Error(`Erreur Supabase : ${et.message}`);
                 }
-                talent = t;
 
-                // 2. Charger s'il y a un poste actuellement occupé par ce talent
+                if (!t) {
+                    // Fallback alternatif au cas où l'identifiant PostgreSQL ait été stocké sous '_id'
+                    const { data: tAlt, error: etAlt } = await supabaseClient
+                        .from('talents')
+                        .select('*')
+                        .eq('_id', talentId)
+                        .maybeSingle();
+                    
+                    if (etAlt || !tAlt) {
+                        throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
+                    }
+                    talent = tAlt;
+                } else {
+                    talent = t;
+                }
+
+                // Charger s'il y a un poste actuellement occupé par ce talent
                 const { data: mission, error: em } = await supabaseClient
                     .from('missions')
                     .select('*')
@@ -370,30 +402,43 @@
 
                 renderTalentCard();
             } catch (err) {
-                console.error(err);
-                alert("Erreur lors du chargement des données du talent.");
-                window.location.replace('dashboard.html');
+                console.error("Erreur complète :", err);
+                showError(err.message || "Erreur lors du chargement des données.");
             }
         }
 
+        function calculateMonthsWithoutMission(talent) {
+            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+            const status = talent.status;
+            
+            if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
+                return talent.months_without_alima_mission || 0;
+            }
+
+            const refDateStr = talent.last_mission_end_date || talent.pool_integration_date;
+            if (!refDateStr) return 0;
+            
+            const refDate = new Date(refDateStr);
+            const now = new Date();
+            const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+            return Math.max(0, diffMonths);
+        }
+
         function renderTalentCard() {
-            // Bouton retour personnalisé sur le pool
             document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
             document.getElementById('back-btn').onclick = () => {
                 window.location.href = `talents.html?pool=${talent.pool}`;
             };
 
-            // Informations d'en-tête
-            document.getElementById('talent-fullname').textContent = `${talent.firstName} ${talent.lastName}`;
-            document.getElementById('talent-function').textContent = talent.currentFunction || "N/A";
+            document.getElementById('talent-fullname').textContent = `${talent.first_name} ${talent.last_name}`;
+            document.getElementById('talent-function').textContent = talent.current_function || "N/A";
             document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool}`;
             
-            const expAlima = talent.experienceMonthsAlima || 0;
+            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
             const expAlimaYears = Math.floor(expAlima / 12);
             const expAlimaRem = expAlima % 12;
             document.getElementById('talent-experience-alima').textContent = `${expAlimaYears}a ${expAlimaRem}m`;
 
-            // Badge Statut Professionnel
             const statusBadge = document.getElementById('talent-status-badge');
             statusBadge.textContent = talent.status;
             statusBadge.className = "bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider";
@@ -401,17 +446,17 @@
                 statusBadge.classList.add('bg-green-600');
             }
 
-            // Gestion Liste Rouge
-            if (talent.isRedListed || talent.is_red_listed) {
+            if (talent.is_red_listed || talent.isRedListed) {
                 document.getElementById('redlist-banner').classList.remove('hidden');
-                document.getElementById('redlist-reason').textContent = `Motif : ${talent.redListReason || talent.redlist_reason || "Non spécifié"}`;
+                document.getElementById('redlist-reason').textContent = `Motif : ${talent.red_list_reason || talent.redListReason || "Non spécifié"}`;
             } else {
                 document.getElementById('redlist-banner').classList.add('hidden');
             }
 
-            // --- DEVALIDATION PROGRESS BAR ---
+            // Progression validité
             const isInvalid = talent.isValid === false || talent.is_valid === false;
-            const isPaused = !isInvalid && (talent.status === 'En poste ALIMA' || activeMission);
+            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+            const isPaused = !isInvalid && (isCurrentlyOnMission || talent.status === 'En poste ALIMA');
             const totalMonths = isInvalid ? 24 : calculateMonthsWithoutMission(talent);
             const cappedMonths = Math.min(totalMonths, 24);
             const percent = (cappedMonths / 24) * 100;
@@ -450,18 +495,17 @@
                     vLabel.className = "text-green-600 font-bold";
                     vBar.className = "h-full bg-green-500 rounded-full";
                 }
-                const refDate = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
-                vSub.textContent = `Date de référence du calcul : ${new Date(refDate).toLocaleDateString('fr-FR')}`;
+                const refDate = talent.last_mission_end_date || talent.pool_integration_date || talent.poolIntegrationDate;
+                vSub.textContent = `Date de référence du calcul : ${refDate ? new Date(refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
             }
 
-            // --- REMPLISSAGE DES GRILLES D'INFOS ---
+            // Infos personnelles
             document.getElementById('info-email').textContent = talent.email || "N/A";
             document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
             document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
-            document.getElementById('info-residence').textContent = talent.countryOfResidence || talent.country_of_residence || "N/A";
-            document.getElementById('info-visa').textContent = talent.hasVisa ? "Valide" : "Non valide / N/A";
+            document.getElementById('info-residence').textContent = talent.country_of_residence || talent.countryOfResidence || "N/A";
+            document.getElementById('info-visa').textContent = talent.has_visa || talent.hasVisa ? "Valide" : "Non valide / N/A";
             
-            // Langues
             const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
             document.getElementById('info-languages').textContent = langs;
 
@@ -471,28 +515,25 @@
                 "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
                 "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
             };
-            document.getElementById('info-edu-level').textContent = eduLevels[talent.educationLevel || talent.education_level] || "N/A";
-            document.getElementById('info-edu-specialty').textContent = talent.educationSpecialty || talent.education_specialty || "N/A";
-            document.getElementById('info-integration-date').textContent = new Date(talent.poolIntegrationDate || talent.pool_integration_date).toLocaleDateString('fr-FR');
+            document.getElementById('info-edu-level').textContent = eduLevels[talent.education_level || talent.educationLevel] || "N/A";
+            document.getElementById('info-edu-specialty').textContent = talent.education_specialty || talent.educationSpecialty || "N/A";
+            document.getElementById('info-integration-date').textContent = new Date(talent.pool_integration_date || talent.poolIntegrationDate).toLocaleDateString('fr-FR');
             
-            const expHum = talent.experienceMonthsHumanitarian || 0;
+            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
             document.getElementById('info-exp-humanitarian').textContent = `${Math.floor(expHum / 12)}a ${expHum % 12}m`;
             
-            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3+ missions" };
-            document.getElementById('info-alima-missions').textContent = missionCountLabels[talent.numberOfAlimaMissions || talent.number_of_alima_missions] || "0";
+            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
+            document.getElementById('info-alima-missions').textContent = missionCountLabels[talent.number_of_alima_missions || talent.numberOfAlimaMissions] || "0";
 
-            // --- RENDU DES BADGES ---
-            renderBadges('skills-badges-container', talent.keySkills || talent.key_skills, 'bg-blue-50 text-blue-700 border-blue-200');
-            renderBadges('contexts-badges-container', talent.interventionContexts || talent.intervention_contexts, 'bg-orange-50 text-accent border-orange-200');
-            renderBadges('zones-badges-container', talent.interventionZones || talent.intervention_zones, 'bg-green-50 text-green-700 border-green-200');
+            renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
+            renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
+            renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
 
-            // --- RENDU DE LA TIMELINE DE MISSION (STYLE CV) ---
+            // Timeline
             const timeline = document.getElementById('timeline-container');
             timeline.innerHTML = "";
-
             let hasTimelineElements = false;
 
-            // A) Poste actuellement occupé
             if (activeMission) {
                 hasTimelineElements = true;
                 const startStr = activeMission.contract_start_date || activeMission.contractStartDate
@@ -511,20 +552,16 @@
                 `;
             }
 
-            // B) Passages archivés
-            const passages = talent.archivedPositionPassages || talent.archived_position_passages || [];
+            const passages = talent.archived_position_passages || talent.archivedPositionPassages || [];
             if (passages.length > 0) {
                 hasTimelineElements = true;
-                // Trier du plus récent au plus ancien
                 const sortedPassages = [...passages].sort((a, b) => b.startDate - a.startDate);
-                
                 sortedPassages.forEach(p => {
                     const durationMs = p.endDate - p.startDate;
                     const durationMonths = Math.round(durationMs / (1000 * 60 * 60 * 24 * 30));
                     const startStr = new Date(p.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
                     const endStr = new Date(p.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
 
-                    // Concaténation des évaluations associées à ce passage
                     let evalHtml = "";
                     if (p.comments && p.comments.length > 0) {
                         p.comments.forEach(c => {
@@ -558,10 +595,9 @@
             }
 
             if (!hasTimelineElements) {
-                timeline.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun parcours de mission ALIMA archivé pour le moment.</p>`;
+                timeline.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun parcours de mission ALIMA archivé.</p>`;
             }
 
-            // --- CONFIGURATION DES ACTIONS ADMIN ---
             setupAdminActions(isInvalid);
         }
 
@@ -576,7 +612,7 @@
             items.forEach(item => {
                 const badge = document.createElement('span');
                 badge.className = `text-xs px-2.5 py-1 rounded-lg border font-medium ${colorClass}`;
-                badge.textContent = INTERVENTION_CONTEXT_LABELS[item] || INTERVENTION_ZONE_LABELS[item] || item;
+                badge.textContent = item;
                 container.appendChild(badge);
             });
         }
@@ -587,7 +623,6 @@
             const btnDevalidate = document.getElementById('btn-devalidate');
             const btnRevalidate = document.getElementById('btn-revalidate');
 
-            // Visibilité conditionnelle selon l'état de mission et d'invalidation du talent
             if (isInvalid) {
                 btnStart.classList.add('hidden');
                 btnEnd.classList.add('hidden');
@@ -607,24 +642,6 @@
             }
         }
 
-        // --- EXPORT PDF DE QUALITÉ NATIVE (jsPDF) ---
-        async function handleExportPDF() {
-            if (!talent) return;
-            try {
-                // Déclenche l'export via le module partagé pdf-talent-card
-                exportTalentCardPDF(talent, activeMission);
-                toastMessage("Fiche d'identité exportée en PDF.", "success");
-            } catch (err) {
-                console.error(err);
-                alert("Erreur lors de la génération du document PDF.");
-            }
-        }
-
-        // --- IMPRESSION NATIVE ---
-        document.getElementById('print-btn').addEventListener('click', () => window.print());
-        document.getElementById('pdf-btn').addEventListener('click', () => handleExportPDF());
-
-        // Toast de confirmation
         function toastMessage(msg, type = "success") {
             const toast = document.createElement('div');
             toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-50 transform translate-y-10 opacity-0 duration-300 ${

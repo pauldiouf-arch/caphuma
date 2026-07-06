@@ -371,7 +371,7 @@
                             ${(t.first_name || '?')[0]}${(t.last_name || '?')[0]}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <!-- Nom cliquable redirigeant vers la carte d'identité -->
+                            <!-- Nom du talent redirigeant vers la carte d'identité -->
                             <p class="font-bold text-slate-800 hover:text-primary hover:underline truncate">
                                 ${t.first_name || ''} ${t.last_name || ''} ${t.is_red_listed ? '🚩' : ''}
                             </p>
@@ -382,7 +382,7 @@
                     <div class="flex items-center gap-3 shrink-0">
                         <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${t.status || '—'}</span>
                         
-                        <!-- Bouton d'action Modifier dédié -->
+                        <!-- Bouton d'action Modifier dédié qui ouvre le modal -->
                         <button class="edit-btn p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-primary transition-all" title="Modifier">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -392,11 +392,12 @@
                 `;
                 
                 // Rediriger vers id-card.html lors d'un clic n'importe où sur la ligne
-                row.addEventListener('click', () => {
-                    window.location.href = `id-card.html?id=${t.id}`;
+                row.addEventListener('click', (e) => {
+                    const idKey = t.id || t._id;
+                    window.location.href = `id-card.html?id=${idKey}`;
                 });
 
-                // Clic sur l'édition : ouvrir le modal sans propager le clic à la ligne
+                // Clic sur le bouton d'édition : ouvrir le modal sans déclencher le clic de la ligne
                 row.querySelector('.edit-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
                     openEditModal(t);
