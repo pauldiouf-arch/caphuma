@@ -178,13 +178,7 @@
                                 </select></div>
                         </div>
 
-                        <div id="validityIndicator" class="hidden bg-primary-light border border-blue-100 rounded-xl p-4">
-                            <p class="text-xs font-bold text-primary uppercase mb-1">Validité dans le pool</p>
-                            <p id="validityText" class="text-sm text-slate-700"></p>
-                            <div class="w-full bg-white rounded-full h-2 mt-2 overflow-hidden">
-                                <div id="validityBar" class="h-full bg-primary rounded-full" style="width: 0%"></div>
-                            </div>
-                        </div>
+                        <div id="validityIndicator" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4"></div>
                     </div>
 
                     <!-- TAB 3 : FORMATION & EXPÉRIENCE -->
@@ -372,13 +366,14 @@
                 const row = document.createElement('div');
                 row.className = "bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-sm transition-all cursor-pointer";
                 row.innerHTML = `
-                    <div class="flex items-center gap-3 min-w-0">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
                         <div class="h-10 w-10 rounded-full bg-primary-light text-primary font-extrabold flex items-center justify-center shrink-0">
                             ${(t.first_name || '?')[0]}${(t.last_name || '?')[0]}
                         </div>
-                        <div class="min-w-0">
+                        <div class="min-w-0 flex-1">
                             <p class="font-bold text-slate-800 truncate">${t.first_name || ''} ${t.last_name || ''} ${t.is_red_listed ? '🚩' : ''}</p>
                             <p class="text-xs text-slate-400 truncate">${t.current_function || t.email || ''}</p>
+                            ${renderCompactValidityBar(t)}
                         </div>
                     </div>
                     <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${t.status || '—'}</span>
@@ -498,7 +493,8 @@
         }
         hadAlimaMissionCb.addEventListener('change', syncMissionFields);
 
-        // ── Calcul de la validité dans le pool (porté fidèlement de calculateMonthsWithoutMission) ──
+        // ── Calcul de la validité dans le pool (porté fidèlement de calculateMonthsWithoutMission
+        //    + DevalidationProgressBar du vrai Hercules, mêmes seuils et couleurs) ──
         const DEVALIDATION_MAX_MONTHS = 24;
 
         function calculateMonthsWithoutMission(talent) {
@@ -515,30 +511,64 @@
             return 0;
         }
 
+        function getValidityData(talent) {
+            const isInvalid = talent.is_valid === false;
+            const isPaused = !isInvalid && (talent.is_currently_on_mission || talent.status === 'En poste ALIMA');
+            const totalMonths = isInvalid ? DEVALIDATION_MAX_MONTHS : calculateMonthsWithoutMission(talent);
+            const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
+            const progressPercent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
+            const remainingMonths = Math.max(0, DEVALIDATION_MAX_MONTHS - totalMonths);
+
+            let barColor, textColor;
+            if (isInvalid || totalMonths >= 24) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
+            else if (totalMonths >= 22) { barColor = 'bg-red-500'; textColor = 'text-red-600'; }
+            else if (totalMonths >= 20) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
+            else { barColor = 'bg-green-500'; textColor = 'text-slate-400'; }
+
+            const refDate = talent.last_mission_end_date || talent.pool_integration_date;
+            const refLabel = talent.last_mission_end_date ? 'Fin dernière mission' : 'Intégration pool';
+
+            return { isInvalid, isPaused, totalMonths, cappedMonths, progressPercent, remainingMonths, barColor, textColor, refDate, refLabel };
+        }
+
+        // Barre compacte pour la liste (juste la barre colorée, sans texte)
+        function renderCompactValidityBar(talent) {
+            const v = getValidityData(talent);
+            const opacity = v.isPaused ? 'opacity-50' : '';
+            return `<div class="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden mt-2"><div class="h-full rounded-full ${v.barColor} ${opacity}" style="width:${v.progressPercent}%"></div></div>`;
+        }
+
+        // Bloc complet pour la modale (label + barre + texte + date de référence)
         function renderValidityIndicator(talent) {
             const box = document.getElementById('validityIndicator');
-            const text = document.getElementById('validityText');
-            const bar = document.getElementById('validityBar');
-
-            const frozen = talent.is_currently_on_mission || talent.status === 'En poste ALIMA';
-            const totalMonths = frozen ? 0 : calculateMonthsWithoutMission(talent);
-            const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
-            const remainingMonths = Math.max(0, DEVALIDATION_MAX_MONTHS - totalMonths);
-            const progressPercent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
-
+            const v = getValidityData(talent);
             box.classList.remove('hidden');
-            bar.style.width = progressPercent + '%';
 
-            if (frozen) {
-                text.textContent = "Compteur gelé (en poste ALIMA) — 24 mois restants.";
-                bar.className = 'h-full bg-emerald-500 rounded-full';
-            } else if (remainingMonths === 0) {
-                text.textContent = "0 mois restant — dévalidation du pool imminente ou déjà effective.";
-                bar.className = 'h-full bg-red-500 rounded-full';
+            let labelHtml, bottomHtml;
+
+            if (v.isInvalid) {
+                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1">⛔ Dévalidé</span><span class="text-red-600 font-bold">24 / 24 mois</span>`;
+                bottomHtml = '';
+            } else if (v.isPaused) {
+                labelHtml = `<span class="text-blue-600 font-bold flex items-center gap-1">⏸ Compteur suspendu</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
+                bottomHtml = `<p class="text-xs text-blue-500 mt-1">⏸ En mission ALIMA — compteur en pause</p>`;
             } else {
-                text.textContent = `${remainingMonths} mois restant${remainingMonths > 1 ? 's' : ''} avant éjection du pool (${totalMonths}/${DEVALIDATION_MAX_MONTHS} mois écoulés).`;
-                bar.className = remainingMonths <= 6 ? 'h-full bg-amber-500 rounded-full' : 'h-full bg-primary rounded-full';
+                const riskLabel = v.totalMonths < 20 ? '✅ Validité pool' : (v.totalMonths >= 22 ? '⚠️ Critique' : '⚠️ À risque');
+                labelHtml = `<span class="font-bold ${v.textColor}">${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
+                const remainingText = v.totalMonths >= 20
+                    ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
+                    : '';
+                bottomHtml = `<div class="flex items-center justify-between text-xs text-slate-400 mt-1">
+                    <span class="font-medium ${v.textColor}">${remainingText}</span>
+                    <span class="italic">${v.refLabel} : ${v.refDate ? new Date(v.refDate).toLocaleDateString('fr-FR') : 'N/A'}</span>
+                </div>`;
             }
+
+            box.innerHTML = `
+                <div class="flex items-center justify-between text-xs mb-1.5">${labelHtml}</div>
+                <div class="h-1.5 w-full rounded-full bg-white overflow-hidden"><div class="h-full rounded-full ${v.barColor} ${v.isPaused ? 'opacity-50' : ''}" style="width:${v.progressPercent}%"></div></div>
+                ${bottomHtml}
+            `;
         }
 
         document.querySelectorAll('.mission-checkbox').forEach(cb => {
