@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche d'Identité Talent - Cap Huma</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- jsPDF & jsPDF-AutoTable via CDN pour l'export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
+                        accent:  { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white !important; }
+            .print-card { border: none !important; shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <!-- En-tête pleine largeur (no-print) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <a href="dashboard.html" class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
+                            <span class="text-xl">🧭</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Cap Huma</span>
+                            <span class="text-xs block text-slate-400">ALIMA</span>
+                        </div>
+                    </a>
+                </div>
+                
+                <nav class="hidden md:flex items-center gap-4 text-sm font-medium">
+                    <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
+                    <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
+                    <a href="extraction.html" id="nav-extraction" class="text-slate-600 hover:text-primary transition-colors hidden">📤 Extraction</a>
+                    <a href="admin.html#red-list" class="text-slate-600 hover:text-primary transition-colors">⚠️ Liste Rouge</a>
+                    <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
+                    <a href="statistics.html" class="text-slate-600 hover:text-primary transition-colors">📊 Hub Statistique & IA</a>
+                    <a href="admin.html" id="nav-admin" class="text-slate-600 hover:text-primary transition-colors hidden">🛡️ Admin</a>
+                    <a href="audit.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
+                </nav>
+
+                <div class="flex items-center gap-3">
+                    <span id="user-display-name" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Bouton retour et actions rapides (no-print) -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
+            <button id="back-btn" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-primary transition-colors">
+                <span>←</span> <span id="back-btn-text">Retour au pool</span>
+            </button>
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+                <button id="share-btn" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all flex items-center gap-2">
+                    🔗 Partager
+                </button>
+                <button id="pdf-btn" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all flex items-center gap-2">
+                    📄 Fiche PDF
+                </button>
+                <button id="print-btn" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all flex items-center gap-2">
+                    🖨️ Imprimer
+                </button>
+            </div>
+        </div>
+
+        <!-- Bannière d'alerte Liste Rouge -->
+        <div id="redlist-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-3xl shadow-sm no-print">
+            <div class="flex items-start gap-3">
+                <span class="text-xl">⚠️</span>
+                <div>
+                    <h3 class="font-bold text-red-900">Ce professionnel est inscrit en Liste Rouge</h3>
+                    <p class="text-sm text-red-700 mt-1" id="redlist-reason">Motif : </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Fiche d'identité -->
+        <div id="talent-card-container" class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden print-card">
+            
+            <!-- En-tête profil -->
+            <div class="bg-primary p-8 text-white relative">
+                <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3">
+                            <h1 class="text-3xl font-bold" id="talent-fullname">Chargement...</h1>
+                            <span id="talent-status-badge" class="bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">...</span>
+                        </div>
+                        <p class="text-lg opacity-90 font-medium" id="talent-function">Fonction actuelle</p>
+                        <p class="text-sm opacity-75" id="talent-pool-display">Pool : —</p>
+                    </div>
+                    <div class="bg-white/10 border border-white/20 px-6 py-3 rounded-2xl text-center shrink-0 min-w-[140px] no-print">
+                        <span class="text-xs block opacity-85">Expérience ALIMA</span>
+                        <span class="text-2xl font-extrabold" id="talent-experience-alima">0 m</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Corps de la carte d'identité -->
+            <div class="p-8 space-y-6">
+                <!-- Barre de validité -->
+                <div class="space-y-2" id="validity-progress-container">
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                        <span id="validity-label" class="text-slate-500">Compteur de validité pool :</span>
+                        <span id="validity-counter" class="text-slate-900">0 / 24 mois</span>
+                    </div>
+                    <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div id="validity-bar" class="h-full bg-green-500 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="validity-subtext" class="text-xs text-slate-400 italic">Dernier point de référence de calcul</p>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <!-- Grille d'informations -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Infos personnelles -->
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wider text-slate-400">
+                            <span>👤</span> Informations Générales
+                        </h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span class="text-xs text-slate-400 block">Email</span>
+                            <span class="font-medium break-all" id="info-email">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Genre</span>
+                            <span class="font-medium" id="info-gender">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Nationalité</span>
+                            <span class="font-medium" id="info-nationality">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Pays de résidence</span>
+                            <span class="font-medium" id="info-residence">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Visa Schengen</span>
+                            <span class="font-medium" id="info-visa">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Langues</span>
+                            <span class="font-medium" id="info-languages">—</span>
+                          </div>
+                        </div>
+                    </div>
+
+                    <!-- Expérience & Éducation -->
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wider text-slate-400">
+                            <span>🎓</span> Parcours & Éducation
+                        </h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span class="text-xs text-slate-400 block">Niveau d'études</span>
+                            <span class="font-bold" id="info-edu-level">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Spécialité</span>
+                            <span class="font-medium" id="info-edu-specialty">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Date d'intégration</span>
+                            <span class="font-medium" id="info-integration-date">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Expérience humanitaire</span>
+                            <span class="font-medium" id="info-exp-humanitarian">—</span>
+                          </div>
+                          <div>
+                            <span class="text-xs text-slate-400 block">Missions ALIMA antérieures</span>
+                            <span class="font-medium" id="info-alima-missions">—</span>
+                          </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section des badges (Compétences, Contextes et Zones) -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
+                    <!-- Compétences clés -->
+                    <div class="space-y-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Compétences clés</span>
+                        <div id="skills-badges-container" class="flex flex-wrap gap-1.5">
+                            <span class="text-xs text-slate-400 italic">Aucune compétence clé répertoriée</span>
+                        </div>
+                    </div>
+                    <!-- Contextes d'intervention -->
+                    <div class="space-y-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Contextes humanitaires</span>
+                        <div id="contexts-badges-container" class="flex flex-wrap gap-1.5">
+                            <span class="text-xs text-slate-400 italic">Aucun contexte spécifique</span>
+                        </div>
+                    </div>
+                    <!-- Zones géographiques -->
+                    <div class="space-y-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Zones géographiques</span>
+                        <div id="zones-badges-container" class="flex flex-wrap gap-1.5">
+                            <span class="text-xs text-slate-400 italic">Aucune zone spécifique</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section Parcours de mission (Timeline de style CV) -->
+                <div class="border-t border-slate-100 pt-6 space-y-4">
+                    <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <span>💼</span> Parcours de missions ALIMA
+                    </h2>
+                    
+                    <div id="timeline-container" class="space-y-4">
+                        <!-- Poste en cours et passages archivés injectés par JS -->
+                        <p class="text-sm text-slate-500 italic">Aucun historique de mission disponible pour le moment.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer confidentiel -->
+            <div class="bg-slate-50 p-4 border-t border-slate-200 text-center text-xs text-slate-400">
+                Cap Huma — ALIMA • Document confidentiel à usage interne uniquement
+            </div>
+        </div>
+
+        <!-- Section administrative de gestion du talent (no-print) -->
+        <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 no-print" id="admin-actions-card">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <span>⚙️</span> Actions Administratives & Gestion de Mission
+            </h3>
+            <div class="flex flex-wrap gap-2">
+                <button id="btn-start-mission" class="bg-green-600 hover:bg-green-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all">
+                    🚀 Démarrer une mission
+                </button>
+                <button id="btn-end-mission" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all hidden">
+                    🏁 Terminer la mission
+                </button>
+                <button id="btn-devalidate" class="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
+                    ⛔ Dévalider le talent
+                </button>
+                <button id="btn-revalidate" class="bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all hidden">
+                    🔄 Réintégrer le talent
+                </button>
+                <button id="btn-redlist" class="bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
+                    🚨 Inscrire en Liste Rouge
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- JS de logique et SDK Supabase -->
+    <script>
+        let supabaseClient = null;
+        let talentId = null;
+        let talent = null;
+        let activeMission = null;
+
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+
+        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        async function checkSession() {
+            if (!supabaseClient) {
+                alert("Identifiants Supabase introuvables. Redirection vers la configuration.");
+                window.location.replace('index.html');
+                return;
+            }
+            try {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+                if (error || !session) {
+                    window.location.replace('login.html');
+                    return;
+                }
+                
+                document.getElementById('user-display-name').textContent = session.user.email;
+                await checkUserRole(session.user.id);
+                
+                // Récupérer l'ID du talent dans l'URL
+                const urlParams = new URLSearchParams(window.location.search);
+                talentId = urlParams.get('id');
+                if (!talentId) {
+                    alert("ID du talent manquant dans l'URL.");
+                    window.location.replace('dashboard.html');
+                    return;
+                }
+                
+                await loadTalentData();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function checkUserRole(userId) {
+            try {
+                const { data: user } = await supabaseClient
+                    .from('users')
+                    .select('role')
+                    .eq('tokenIdentifier', userId)
+                    .maybeSingle();
+                
+                if (user) {
+                    if (user.role === 'admin') {
+                        document.getElementById('nav-extraction').classList.remove('hidden');
+                        document.getElementById('nav-admin').classList.remove('hidden');
+                        document.getElementById('nav-audit').classList.remove('hidden');
+                    } else if (user.role === 'recruteur' || user.role === 'user') {
+                        document.getElementById('nav-extraction').classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function loadTalentData() {
+            try {
+                // 1. Charger la fiche du talent
+                const { data: t, error: et } = await supabaseClient
+                    .from('talents')
+                    .select('*')
+                    .eq('id', talentId)
+                    .maybeSingle();
+                
+                if (et || !t) {
+                    throw et || new Error("Talent introuvable");
+                }
+                talent = t;
+
+                // 2. Charger s'il y a un poste actuellement occupé par ce talent
+                const { data: mission, error: em } = await supabaseClient
+                    .from('missions')
+                    .select('*')
+                    .eq('occupant_id', talentId)
+                    .eq('status', 'occupied')
+                    .maybeSingle();
+                
+                if (!em) {
+                    activeMission = mission;
+                }
+
+                renderTalentCard();
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors du chargement des données du talent.");
+                window.location.replace('dashboard.html');
+            }
+        }
+
+        function renderTalentCard() {
+            // Bouton retour personnalisé sur le pool
+            document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
+            document.getElementById('back-btn').onclick = () => {
+                window.location.href = `talents.html?pool=${talent.pool}`;
+            };
+
+            // Informations d'en-tête
+            document.getElementById('talent-fullname').textContent = `${talent.firstName} ${talent.lastName}`;
+            document.getElementById('talent-function').textContent = talent.currentFunction || "N/A";
+            document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool}`;
+            
+            const expAlima = talent.experienceMonthsAlima || 0;
+            const expAlimaYears = Math.floor(expAlima / 12);
+            const expAlimaRem = expAlima % 12;
+            document.getElementById('talent-experience-alima').textContent = `${expAlimaYears}a ${expAlimaRem}m`;
+
+            // Badge Statut Professionnel
+            const statusBadge = document.getElementById('talent-status-badge');
+            statusBadge.textContent = talent.status;
+            statusBadge.className = "bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider";
+            if (talent.status === 'En poste ALIMA') {
+                statusBadge.classList.add('bg-green-600');
+            }
+
+            // Gestion Liste Rouge
+            if (talent.isRedListed || talent.is_red_listed) {
+                document.getElementById('redlist-banner').classList.remove('hidden');
+                document.getElementById('redlist-reason').textContent = `Motif : ${talent.redListReason || talent.redlist_reason || "Non spécifié"}`;
+            } else {
+                document.getElementById('redlist-banner').classList.add('hidden');
+            }
+
+            // --- DEVALIDATION PROGRESS BAR ---
+            const isInvalid = talent.isValid === false || talent.is_valid === false;
+            const isPaused = !isInvalid && (talent.status === 'En poste ALIMA' || activeMission);
+            const totalMonths = isInvalid ? 24 : calculateMonthsWithoutMission(talent);
+            const cappedMonths = Math.min(totalMonths, 24);
+            const percent = (cappedMonths / 24) * 100;
+
+            const vCounter = document.getElementById('validity-counter');
+            const vLabel = document.getElementById('validity-label');
+            const vBar = document.getElementById('validity-bar');
+            const vSub = document.getElementById('validity-subtext');
+
+            vBar.style.width = `${percent}%`;
+
+            if (isInvalid) {
+                vLabel.textContent = "Statut : Dévalidé du pool";
+                vLabel.className = "text-red-600 font-bold";
+                vCounter.textContent = "24 / 24 mois";
+                vBar.className = "h-full bg-red-600 rounded-full";
+                vSub.textContent = "Ce professionnel est inactif et doit faire l'objet d'une réintégration manuelle.";
+            } else if (isPaused) {
+                vLabel.textContent = "Compteur suspendu (Actif)";
+                vLabel.className = "text-blue-600 font-bold";
+                vCounter.textContent = `${totalMonths} / 24 mois`;
+                vBar.className = "h-full bg-blue-500 rounded-full opacity-60";
+                vSub.textContent = "⏸ En cours de mission ALIMA — le compteur est gelé.";
+            } else {
+                vCounter.textContent = `${totalMonths} / 24 mois`;
+                if (totalMonths >= 22) {
+                    vLabel.textContent = "Validité pool : Critique (Action urgente)";
+                    vLabel.className = "text-red-500 font-bold";
+                    vBar.className = "h-full bg-red-500 rounded-full";
+                } else if (totalMonths >= 20) {
+                    vLabel.textContent = "Validité pool : À risque";
+                    vLabel.className = "text-orange-500 font-bold";
+                    vBar.className = "h-full bg-orange-400 rounded-full";
+                } else {
+                    vLabel.textContent = "Validité pool : Stable";
+                    vLabel.className = "text-green-600 font-bold";
+                    vBar.className = "h-full bg-green-500 rounded-full";
+                }
+                const refDate = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
+                vSub.textContent = `Date de référence du calcul : ${new Date(refDate).toLocaleDateString('fr-FR')}`;
+            }
+
+            // --- REMPLISSAGE DES GRILLES D'INFOS ---
+            document.getElementById('info-email').textContent = talent.email || "N/A";
+            document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
+            document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
+            document.getElementById('info-residence').textContent = talent.countryOfResidence || talent.country_of_residence || "N/A";
+            document.getElementById('info-visa').textContent = talent.hasVisa ? "Valide" : "Non valide / N/A";
+            
+            // Langues
+            const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
+            document.getElementById('info-languages').textContent = langs;
+
+            // Parcours & éducation
+            const eduLevels = {
+                none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
+                "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
+                "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
+            };
+            document.getElementById('info-edu-level').textContent = eduLevels[talent.educationLevel || talent.education_level] || "N/A";
+            document.getElementById('info-edu-specialty').textContent = talent.educationSpecialty || talent.education_specialty || "N/A";
+            document.getElementById('info-integration-date').textContent = new Date(talent.poolIntegrationDate || talent.pool_integration_date).toLocaleDateString('fr-FR');
+            
+            const expHum = talent.experienceMonthsHumanitarian || 0;
+            document.getElementById('info-exp-humanitarian').textContent = `${Math.floor(expHum / 12)}a ${expHum % 12}m`;
+            
+            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3+ missions" };
+            document.getElementById('info-alima-missions').textContent = missionCountLabels[talent.numberOfAlimaMissions || talent.number_of_alima_missions] || "0";
+
+            // --- RENDU DES BADGES ---
+            renderBadges('skills-badges-container', talent.keySkills || talent.key_skills, 'bg-blue-50 text-blue-700 border-blue-200');
+            renderBadges('contexts-badges-container', talent.interventionContexts || talent.intervention_contexts, 'bg-orange-50 text-accent border-orange-200');
+            renderBadges('zones-badges-container', talent.interventionZones || talent.intervention_zones, 'bg-green-50 text-green-700 border-green-200');
+
+            // --- RENDU DE LA TIMELINE DE MISSION (STYLE CV) ---
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = "";
+
+            let hasTimelineElements = false;
+
+            // A) Poste actuellement occupé
+            if (activeMission) {
+                hasTimelineElements = true;
+                const startStr = activeMission.contract_start_date || activeMission.contractStartDate
+                    ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).toLocaleDateString('fr-FR')
+                    : "En cours";
+                
+                timeline.innerHTML += `
+                    <div class="relative pl-6 border-l-2 border-green-500">
+                        <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
+                        <div class="space-y-1">
+                            <span class="inline-block text-[10px] uppercase font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">En cours</span>
+                            <h4 class="font-bold text-slate-900">${activeMission.title}</h4>
+                            <p class="text-xs text-slate-500">${activeMission.country} • Prise de poste le ${startStr}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // B) Passages archivés
+            const passages = talent.archivedPositionPassages || talent.archived_position_passages || [];
+            if (passages.length > 0) {
+                hasTimelineElements = true;
+                // Trier du plus récent au plus ancien
+                const sortedPassages = [...passages].sort((a, b) => b.startDate - a.startDate);
+                
+                sortedPassages.forEach(p => {
+                    const durationMs = p.endDate - p.startDate;
+                    const durationMonths = Math.round(durationMs / (1000 * 60 * 60 * 24 * 30));
+                    const startStr = new Date(p.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+                    const endStr = new Date(p.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+
+                    // Concaténation des évaluations associées à ce passage
+                    let evalHtml = "";
+                    if (p.comments && p.comments.length > 0) {
+                        p.comments.forEach(c => {
+                            evalHtml += `
+                                <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1 mt-2">
+                                    <div class="flex justify-between items-center text-[10px] text-slate-400">
+                                        <span>Évalué par ${c.createdByName}</span>
+                                        ${c.rating ? `<span class="font-bold text-primary">★ ${c.rating}/10</span>` : ""}
+                                    </div>
+                                    ${c.context ? `<p class="italic text-slate-500">Contexte : ${c.context}</p>` : ""}
+                                    ${c.positivePoints ? `<p class="text-green-700"><strong>Points forts :</strong> ${c.positivePoints}</p>` : ""}
+                                    ${c.negativePoints ? `<p class="text-orange-700"><strong>Axes d'amélioration :</strong> ${c.negativePoints}</p>` : ""}
+                                    ${c.content && !c.context ? `<p class="text-slate-600">${c.content}</p>` : ""}
+                                </div>
+                            `;
+                        });
+                    }
+
+                    timeline.innerHTML += `
+                        <div class="relative pl-6 border-l-2 border-slate-200">
+                            <div class="absolute -left-[6px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white shadow"></div>
+                            <div class="space-y-1">
+                                <span class="text-xs font-semibold text-slate-400">${startStr} – ${endStr} (${durationMonths} m)</span>
+                                <h4 class="font-bold text-slate-800">${p.positionTitle}</h4>
+                                <p class="text-xs text-slate-500">${p.country || "Mission ALIMA"}</p>
+                                ${evalHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (!hasTimelineElements) {
+                timeline.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun parcours de mission ALIMA archivé pour le moment.</p>`;
+            }
+
+            // --- CONFIGURATION DES ACTIONS ADMIN ---
+            setupAdminActions(isInvalid);
+        }
+
+        function renderBadges(containerId, list, colorClass) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = "";
+            const items = list || [];
+            if (items.length === 0) {
+                container.innerHTML = `<span class="text-xs text-slate-400 italic">Non spécifié</span>`;
+                return;
+            }
+            items.forEach(item => {
+                const badge = document.createElement('span');
+                badge.className = `text-xs px-2.5 py-1 rounded-lg border font-medium ${colorClass}`;
+                badge.textContent = INTERVENTION_CONTEXT_LABELS[item] || INTERVENTION_ZONE_LABELS[item] || item;
+                container.appendChild(badge);
+            });
+        }
+
+        function setupAdminActions(isInvalid) {
+            const btnStart = document.getElementById('btn-start-mission');
+            const btnEnd = document.getElementById('btn-end-mission');
+            const btnDevalidate = document.getElementById('btn-devalidate');
+            const btnRevalidate = document.getElementById('btn-revalidate');
+
+            // Visibilité conditionnelle selon l'état de mission et d'invalidation du talent
+            if (isInvalid) {
+                btnStart.classList.add('hidden');
+                btnEnd.classList.add('hidden');
+                btnDevalidate.classList.add('hidden');
+                btnRevalidate.classList.remove('hidden');
+            } else {
+                btnRevalidate.classList.add('hidden');
+                btnDevalidate.classList.remove('hidden');
+                
+                if (activeMission || talent.status === 'En poste ALIMA') {
+                    btnStart.classList.add('hidden');
+                    btnEnd.classList.remove('hidden');
+                } else {
+                    btnStart.classList.remove('hidden');
+                    btnEnd.classList.add('hidden');
+                }
+            }
+        }
+
+        // --- EXPORT PDF DE QUALITÉ NATIVE (jsPDF) ---
+        async function handleExportPDF() {
+            if (!talent) return;
+            try {
+                // Déclenche l'export via le module partagé pdf-talent-card
+                exportTalentCardPDF(talent, activeMission);
+                toastMessage("Fiche d'identité exportée en PDF.", "success");
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la génération du document PDF.");
+            }
+        }
+
+        // --- IMPRESSION NATIVE ---
+        document.getElementById('print-btn').addEventListener('click', () => window.print());
+        document.getElementById('pdf-btn').addEventListener('click', () => handleExportPDF());
+
+        // Toast de confirmation
+        function toastMessage(msg, type = "success") {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-50 transform translate-y-10 opacity-0 duration-300 ${
+                type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => checkSession());
+    </script>
+</body>
+</html>
