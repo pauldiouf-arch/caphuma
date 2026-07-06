@@ -7,13 +7,17 @@
     
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js via CDN -->
+    
+    <!-- Chart.js via CDN pour le rendu des graphiques -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Supabase JS Client via CDN -->
+    
+    <!-- Supabase JS Client via CDN pour la communication BDD -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
+    <!-- Polices -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- Configuration Tailwind personnalisée selon la section 3 du Master Context -->
     <script>
         tailwind.config = {
             theme: {
@@ -47,7 +51,7 @@
                     </div>
                 </div>
                 
-                <!-- Liens de navigation -->
+                <!-- Liens de navigation conformes à la cartographie de la section 4 -->
                 <nav class="hidden md:flex items-center gap-4 text-sm font-medium">
                     <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
                     <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
@@ -70,18 +74,18 @@
     <!-- Conteneur Principal -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-        <!-- Bannière d'alerte ou message d'erreur si config manquante -->
+        <!-- Bannière d'alerte ou de configuration manquante -->
         <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
             <div class="flex items-start gap-3">
                 <span class="text-red-500 font-bold text-xl">⚠️</span>
                 <div>
-                    <h3 class="font-semibold text-red-800">Configuration requise</h3>
-                    <p class="text-sm text-red-700 mt-1" id="error-message">Veuillez configurer Supabase et l'IA dans l'index avant d'accéder aux statistiques.</p>
+                    <h3 class="font-semibold text-red-800">Alerte système</h3>
+                    <p class="text-sm text-red-700 mt-1" id="error-message">Une erreur s'est produite lors du chargement des statistiques.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Titre et Sélecteur de portée -->
+        <!-- Titre et Sélecteur de portée conforme à la section 8 -->
         <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900">Hub Statistique & IA</h1>
@@ -92,14 +96,14 @@
                 <label for="pool-selector" class="text-sm font-semibold text-slate-600 shrink-0">Portée :</label>
                 <select id="pool-selector" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-primary">
                     <option value="global">Vue globale (Tous les pools)</option>
-                    <!-- Options de pool générées par JS -->
+                    <!-- Les options de pool dynamiques seront injectées ici -->
                 </select>
             </div>
         </div>
 
-        <!-- Section des KPIs (Cartes de statistiques) -->
+        <!-- Section des KPIs (Cartes de statistiques macro) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- KPI 1 -->
+            <!-- KPI 1 : Taux d'occupation -->
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Taux d'occupation</p>
@@ -108,7 +112,7 @@
                 </div>
                 <div class="text-3xl p-3 bg-blue-50 rounded-2xl text-blue-600">📊</div>
             </div>
-            <!-- KPI 2 -->
+            <!-- KPI 2 : Postes vacants -->
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Postes vacants</p>
@@ -117,7 +121,7 @@
                 </div>
                 <div class="text-3xl p-3 bg-red-50 rounded-2xl text-red-600">⚠️</div>
             </div>
-            <!-- KPI 3 -->
+            <!-- KPI 3 : Vivier de talents actifs -->
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Vivier de talents actifs</p>
@@ -126,7 +130,7 @@
                 </div>
                 <div class="text-3xl p-3 bg-green-50 rounded-2xl text-green-600">👤</div>
             </div>
-            <!-- KPI 4 -->
+            <!-- KPI 4 : Profils à risque de dévalidation -->
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div>
                   <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Profils à risque (≥20 mois)</p>
@@ -168,11 +172,11 @@
                 </div>
                 <div>
                     <h3 class="text-lg font-bold text-slate-900">Analyste Stratégique Intelligent</h3>
-                    <p class="text-xs text-slate-500">Générez des comptes rendus prédictifs conformes au RGPD basés sur l'état actuel du pool</p>
+                    <p class="text-xs text-slate-500">Générez des rapports et diagnostics prédictifs conformes au RGPD basés sur l'état du pool de talents</p>
                 </div>
             </div>
 
-            <!-- Boutons de questions rapides de l'assistant Hercules original -->
+            <!-- Boutons de questions de l'assistant Hercules original -->
             <div class="flex flex-wrap gap-2 py-2">
                 <button type="button" class="ai-quick-btn text-xs bg-slate-100 hover:bg-primary hover:text-white px-3 py-1.5 rounded-full transition-all">Quelle est la situation de santé globale du pool ?</button>
                 <button type="button" class="ai-quick-btn text-xs bg-slate-100 hover:bg-primary hover:text-white px-3 py-1.5 rounded-full transition-all">Quels pools de talents présentent un risque de pénurie ?</button>
@@ -202,78 +206,69 @@
                     </span>
                     <button id="ai-clear-btn" class="text-xs text-slate-400 hover:text-slate-600">Effacer</button>
                 </div>
-                <div id="ai-result-content" class="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap"></div>
+                <div id="ai-result-content" class="text-sm leading-relaxed whitespace-pre-wrap font-sans text-slate-700"></div>
             </div>
         </div>
-
     </main>
 
-    <!-- JS logique et intégration SDK Supabase -->
+    <!-- Script de logique et liaison Supabase -->
     <script>
-        // Lecture de la configuration d'environnement et garde de session standard
+        let supabaseClient = null;
+        let poolList = [];
+        let rawTalents = [];
+        let rawMissions = [];
+        let statusChartInstance = null;
+        let expatChartInstance = null;
+
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
         const AI_API_URL = localStorage.getItem('ai_api_url');
         const AI_API_KEY = localStorage.getItem('ai_api_key');
 
-        let supabase = null;
-        let chartStatus = null;
-        let chartExpat = null;
-        let poolList = [];
-        let rawTalents = [];
-        let rawMissions = [];
+        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
 
-        // Protection de session stricte
         async function checkSession() {
-            if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-                showError("Identifiants Supabase manquants. Veuillez retourner à l'index de configuration.");
-                setTimeout(() => window.location.replace('index.html'), 3000);
+            if (!supabaseClient) {
+                showError("Configuration Supabase introuvable dans le localStorage.");
                 return;
             }
-
             try {
-                supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                const { data: { session }, error } = await supabase.auth.getSession();
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
                 if (error || !session) {
                     window.location.replace('login.html');
                     return;
                 }
                 
-                // Affichage nom d'utilisateur
                 document.getElementById('user-display-name').textContent = session.user.email;
-                
-                // Vérifier les permissions et masquer/afficher les éléments nav
                 await checkUserRole(session.user.id);
-                
-                // Charger les données de la page
                 await initHub();
             } catch (e) {
                 console.error(e);
-                showError("Erreur de connexion à l'infrastructure. Veuillez réactiver votre session.");
+                showError("Erreur d'authentification ou problème réseau.");
             }
         }
 
-        // Vérification des droits utilisateur
         async function checkUserRole(userId) {
             try {
-                const { data: user, error } = await supabase
+                const { data: user } = await supabaseClient
                     .from('users')
                     .select('role')
-                    .eq('tokenIdentifier', userId) // ou auth.uid() selon RLS hercules
+                    .eq('tokenIdentifier', userId)
                     .maybeSingle();
                 
                 if (user) {
-                    const role = user.role;
-                    if (role === 'admin') {
+                    if (user.role === 'admin') {
                         document.getElementById('nav-extraction').classList.remove('hidden');
                         document.getElementById('nav-admin').classList.remove('hidden');
                         document.getElementById('nav-audit').classList.remove('hidden');
-                    } else if (role === 'recruteur' || role === 'user') {
+                    } else if (user.role === 'recruteur' || user.role === 'user') {
                         document.getElementById('nav-extraction').classList.remove('hidden');
                     }
                 }
             } catch (err) {
-                console.error("Erreur de vérification des permissions :", err);
+                console.error("Erreur de droits :", err);
             }
         }
 
@@ -284,34 +279,42 @@
             banner.classList.remove('hidden');
         }
 
-        // Initialisation globale
         async function initHub() {
             try {
-                // 1. Récupération des pools de la base
-                const { data: pools, error: ep } = await supabase.from('pools').select('*');
+                // 1. Récupération des pools de la base (pools.pool_id)
+                const { data: pools, error: ep } = await supabaseClient.from('pools').select('*');
                 if (ep) throw ep;
                 poolList = pools || [];
 
-                // Remplir le sélecteur
+                // Remplir le sélecteur avec la clé pool_id du Master Context
                 const selector = document.getElementById('pool-selector');
                 poolList.forEach(p => {
+                    const pCode = p.pool_id || p.poolId; // pool_id selon le schéma réel de la section 5
                     const opt = document.createElement('option');
-                    opt.value = p.pool_id || p.poolId;
-                    opt.textContent = `${p.pool_id || p.poolId} - ${p.name}`;
+                    opt.value = pCode;
+                    opt.textContent = `${pCode} - ${p.fullName || p.name}`;
                     selector.appendChild(opt);
                 });
-
-                // Auto-sélection par URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const queryPool = urlParams.get('pool');
-                if (queryPool && poolList.some(p => (p.pool_id || p.poolId) === queryPool)) {
-                    selector.value = queryPool;
-                }
 
                 // 2. Charger les collections de base
                 await loadRawData();
 
-                // 3. Calculer et afficher
+                // 3. Détecter le paramètre d'URL (dashboard.html envoie ?pool=ID)
+                const urlParams = new URLSearchParams(window.location.search);
+                const queryPool = urlParams.get('pool') || urlParams.get('pool_id');
+                
+                if (queryPool) {
+                    const normalizedQuery = queryPool.trim().toUpperCase();
+                    const matchedPool = poolList.find(p => {
+                        const code = (p.pool_id || p.poolId || p.name || "").toUpperCase();
+                        return code === normalizedQuery;
+                    });
+                    if (matchedPool) {
+                        selector.value = matchedPool.pool_id || matchedPool.poolId;
+                    }
+                }
+
+                // 4. Calculer et afficher
                 updateStatistics();
 
                 // Listener de changement du sélecteur
@@ -321,28 +324,24 @@
 
             } catch (e) {
                 console.error(e);
-                showError("Impossible d'obtenir les statistiques et la liste des pools.");
+                showError("Échec du chargement des indicateurs analytiques.");
             }
         }
 
-        // Chargement des collections sans filtrer
         async function loadRawData() {
-            // Lecture complète pour calculs locaux
-            const { data: talents, error: et } = await supabase.from('talents').select('*');
+            const { data: talents, error: et } = await supabaseClient.from('talents').select('*');
             if (et) throw et;
             rawTalents = talents || [];
 
-            const { data: missions, error: em } = await supabase.from('missions').select('*');
+            const { data: mData, error: em } = await supabaseClient.from('missions').select('*');
             if (em) throw em;
-            rawMissions = missions || [];
+            rawMissions = mData || [];
         }
 
-        // Calcul de validité conforme Hercules original
         function calculateMonthsWithoutMission(talent) {
             const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
             const status = talent.status;
             
-            // Compteur gelé
             if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
                 return talent.months_without_alima_mission || talent.monthsWithoutAlimaMission || 0;
             }
@@ -356,29 +355,29 @@
             return Math.max(0, diffMonths);
         }
 
-        // Calcule et affiche les KPI + Graphiques en mémoire
         function updateStatistics() {
             const selectorValue = document.getElementById('pool-selector').value;
             
-            // Filtrage des données local
             let talents = [...rawTalents];
-            let missions = [...rawMissions];
+            let mData = [...rawMissions];
 
+            // Application des colonnes réelles (pool pour talents, pool_id pour missions)
             if (selectorValue !== 'global') {
-                talents = talents.filter(t => t.pool === selectorValue);
-                missions = missions.filter(m => m.pool_id === selectorValue);
+                talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
+                mData = mData.filter(m => {
+                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
+                    return mPool === selectorValue.toUpperCase();
+                });
             }
 
-            // --- CALCUL DES METRIQUES KPIs ---
-            const totalPositions = missions.length;
-            const occupiedPositions = missions.filter(m => m.status === 'occupied').length;
-            const vacantPositions = missions.filter(m => m.status === 'vacant').length;
-            const recruitingPositions = missions.filter(m => m.status === 'recruiting').length;
+            // Calculs KPIs
+            const totalPositions = mData.length;
+            const occupiedPositions = mData.filter(m => m.status === 'occupied').length;
+            const vacantPositions = mData.filter(m => m.status === 'vacant').length;
+            const recruitingPositions = mData.filter(m => m.status === 'recruiting').length;
 
             const occupancyRate = totalPositions > 0 ? Math.round((occupiedPositions / totalPositions) * 100) : 0;
-            
-            const activeTalentsList = talents.filter(t => t.isValid !== false && t.is_valid !== false);
-            const activeTalents = activeTalentsList.length;
+            const activeTalents = talents.filter(t => t.isValid !== false && t.is_valid !== false).length;
             
             const availableTalents = talents.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
@@ -386,55 +385,38 @@
                 return isVal && !isRed && t.status === 'En attente de poste';
             }).length;
 
-            // Calcul des profils à risque (seuil de 20 mois sans mission ALIMA)
             const talentsAtRisk = talents.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
-                if (!isVal) return false;
-                const months = calculateMonthsWithoutMission(t);
-                return months >= 20;
+                return isVal && calculateMonthsWithoutMission(t) >= 20;
             }).length;
 
             // Remplissage DOM
             document.getElementById('kpi-occupancy-rate').textContent = `${occupancyRate}%`;
             document.getElementById('kpi-occupancy-sub').textContent = `${occupiedPositions} de ${totalPositions} postes occupés`;
-            
             document.getElementById('kpi-vacancies').textContent = vacantPositions;
             document.getElementById('kpi-vacancies-sub').textContent = `Recrutements en cours : ${recruitingPositions}`;
-            
             document.getElementById('kpi-talents-active').textContent = activeTalents;
-            document.getElementById('kpi-talents-sub').textContent = `Disponibles immédiatement : ${availableTalents}`;
-            
+            document.getElementById('kpi-talents-sub').textContent = `Disponibles : ${availableTalents}`;
             document.getElementById('kpi-talents-risk').textContent = talentsAtRisk;
 
-            // --- DISTRIBUTION GRAPHIQUES ---
-            // 1. Statuts des postes
-            const statusLabels = ['Occupé', 'En recrutement', 'Vacant'];
-            const statusData = [occupiedPositions, recruitingPositions, vacantPositions];
-            renderStatusChart(statusLabels, statusData);
-
-            // 2. Expatriés vs Nationaux (calculé sur les types de candidats des postes)
-            const expatCount = missions.filter(m => m.candidateType === 'expat' || m.candidate_type === 'expat').length;
-            const nationalCount = missions.filter(m => m.candidateType === 'nat' || m.candidate_type === 'nat').length;
-            const undefinedType = totalPositions - (expatCount + nationalCount);
+            // Rendu graphiques
+            renderStatusChart([occupiedPositions, recruitingPositions, vacantPositions]);
             
-            const expatLabels = ['Expatrié', 'Staff national', 'Non défini'];
-            const expatData = [expatCount, nationalCount, undefinedType];
-            renderExpatChart(expatLabels, expatData);
+            const expatCount = mData.filter(m => (m.candidateType || m.candidate_type) === 'expat').length;
+            const nationalCount = mData.filter(m => (m.candidateType || m.candidate_type) === 'nat').length;
+            const unclassifiedCount = totalPositions - (expatCount + nationalCount);
+            renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
         }
 
-        // Render Status Chart
-        function renderStatusChart(labels, data) {
-            if (chartStatus) {
-                chartStatus.destroy();
-            }
-
+        function renderStatusChart(dataValues) {
+            if (statusChartInstance) statusChartInstance.destroy();
             const ctx = document.getElementById('statusChart').getContext('2d');
-            chartStatus = new Chart(ctx, {
+            statusChartInstance = new Chart(ctx, {
                 type: 'pie',
                 data: {
-                    labels: labels,
+                    labels: ['Occupé', 'En recrutement', 'Vacant'],
                     datasets: [{
-                        data: data,
+                        data: dataValues,
                         backgroundColor: ['#10b981', '#ea580c', '#94a3b8'],
                         borderWidth: 2,
                         borderColor: '#ffffff'
@@ -443,64 +425,50 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' }
-                    }
+                    plugins: { legend: { position: 'bottom' } }
                 }
             });
         }
 
-        // Render Expat Chart
-        function renderExpatChart(labels, data) {
-            if (chartExpat) {
-                chartExpat.destroy();
-            }
-
+        function renderExpatChart(dataValues) {
+            if (expatChartInstance) expatChartInstance.destroy();
             const ctx = document.getElementById('expatChart').getContext('2d');
-            chartExpat = new Chart(ctx, {
+            expatChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: labels,
+                    labels: ['Expatrié', 'Staff national', 'Non défini'],
                     datasets: [{
-                        label: 'Nombre de postes',
-                        data: data,
+                        label: 'Postes',
+                        data: dataValues,
                         backgroundColor: ['#1d4ed8', '#10b981', '#cbd5e1'],
-                        borderRadius: 12,
-                        borderWidth: 0
+                        borderRadius: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { stepSize: 1 }
-                        }
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
                 }
             });
         }
 
-        // --- SECTION IA STRATEGIQUE ---
-        // Anonymise complètement les données et prépare le summary
         function buildAnonymizedPayload() {
             const selectorValue = document.getElementById('pool-selector').value;
             
             let talents = [...rawTalents];
-            let missions = [...rawMissions];
+            let mData = [...rawMissions];
 
             if (selectorValue !== 'global') {
-                talents = talents.filter(t => t.pool === selectorValue);
-                missions = missions.filter(m => m.pool_id === selectorValue);
+                talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
+                mData = mData.filter(m => {
+                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
+                    return mPool === selectorValue.toUpperCase();
+                });
             }
 
-            // Extraction statistique agrégée sans métadonnées privées (GDPR/RGPD stricte)
             return {
-                poolSelectionne: selectorValue,
+                pool: selectorValue,
                 totalTalents: talents.length,
                 talentsActifs: talents.filter(t => t.isValid !== false && t.is_valid !== false).length,
                 talentsDisponibles: talents.filter(t => {
@@ -512,19 +480,43 @@
                     const isVal = t.isValid !== false && t.is_valid !== false;
                     return isVal && calculateMonthsWithoutMission(t) >= 20;
                 }).length,
-                totalMissions: missions.length,
-                missionsOccupees: missions.filter(m => m.status === 'occupied').length,
-                missionsEnRecrutement: missions.filter(m => m.status === 'recruiting').length,
-                missionsVacantes: missions.filter(m => m.status === 'vacant').length,
-                proportionExpat: missions.filter(m => m.candidateType === 'expat' || m.candidate_type === 'expat').length,
-                proportionNational: missions.filter(m => m.candidateType === 'nat' || m.candidate_type === 'nat').length
+                totalMissions: mData.length,
+                missionsOccupees: mData.filter(m => m.status === 'occupied').length,
+                missionsEnRecrutement: mData.filter(m => m.status === 'recruiting').length,
+                missionsVacantes: mData.filter(m => m.status === 'vacant').length,
+                proportionExpat: mData.filter(m => (m.candidateType || m.candidate_type) === 'expat').length,
+                proportionNational: mData.filter(m => (m.candidateType || m.candidate_type) === 'nat').length
             };
         }
 
-        // Appel à l'assistant IA
+        // Convertisseur basique Markdown pour rendu premium de l'analyse IA
+        function renderMarkdownToHtml(text) {
+            if (!text) return "";
+            let html = text;
+            
+            // Échappement basique contre les injections
+            html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            
+            // Formatage des titres (###)
+            html = html.replace(/^### (.*$)/gim, '<h4 class="text-sm font-bold text-slate-900 mt-4 mb-2 flex items-center gap-1.5">🔸 $1</h4>');
+            html = html.replace(/^## (.*$)/gim, '<h3 class="text-base font-bold text-primary mt-6 mb-3 border-b border-slate-200 pb-1">$1</h3>');
+            html = html.replace(/^# (.*$)/gim, '<h2 class="text-lg font-bold text-slate-900 mt-8 mb-4">$1</h2>');
+            
+            // Formatage du gras (**)
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
+            
+            // Liste à puces (* ou -)
+            html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li class="list-disc ml-5 mt-1.5 text-slate-700">$1</li>');
+            
+            // Retours chariots
+            html = html.replace(/\n/g, '<br>');
+            
+            return html;
+        }
+
         async function generateAIReport(customQuery = "") {
             if (!AI_API_KEY) {
-                toastMessage("Veuillez configurer une clé API pour l'intelligence artificielle dans l'index.", "error");
+                toastMessage("Veuillez configurer une clé API IA pour continuer.", "error");
                 return;
             }
 
@@ -534,36 +526,33 @@
             const resultBox = document.getElementById('ai-result-box');
             const resultContent = document.getElementById('ai-result-content');
 
-            setIsLoading(true);
+            generateBtn.disabled = true;
+            spinner.classList.remove('hidden');
 
-            // Formulation du contexte d'envoi anonymisé
             const statsSummary = buildAnonymizedPayload();
             
-            const systemContext = `Tu es un expert RH et analyste stratégique senior pour ALIMA.
-Tu dois analyser les données statistiques suivantes et répondre à la question ci-dessous de manière professionnelle, concise et actionable, dans un style humanitaire.
+            const systemContext = `Tu es l'analyste stratégique RH senior pour ALIMA.
+Analyse les données statistiques consolidées suivantes de manière professionnelle, courte et structurée (puces et gras). Ne mentionne aucun nom ni e-mail individuel.
 
-Données consolidées anonymisées du pool:
-- Pool analysé : ${statsSummary.poolSelectionne}
-- Nombre total de talents : ${statsSummary.totalTalents}
-- Talents actifs : ${statsSummary.talentsActifs}
-- Talents disponibles immédiatement : ${statsSummary.talentsDisponibles}
-- Profils à risque d'éjection (sans mission depuis >=20 mois) : ${statsSummary.talentsARisque}
-- Nombre total de postes définis : ${statsSummary.totalMissions}
+Données consolidées du pool (${statsSummary.pool}) :
+- Total talents : ${statsSummary.totalTalents}
+- Actifs : ${statsSummary.talentsActifs}
+- Disponibles immédiatement : ${statsSummary.talentsDisponibles}
+- Profils à risque de dévalidation (>=20 mois sans mission) : ${statsSummary.talentsARisque}
+- Total postes : ${statsSummary.totalMissions}
 - Postes occupés : ${statsSummary.missionsOccupees}
 - Postes vacants : ${statsSummary.missionsVacantes}
 - Recrutements actifs en cours : ${statsSummary.missionsEnRecrutement}
 - Postes Expatriés : ${statsSummary.proportionExpat}
 - Postes Nationaux : ${statsSummary.proportionNational}`;
 
-            const finalQuery = customQuery.trim() || promptInput.value.trim() || "Analyse la santé globale de ce pool et propose des actions concrètes.";
+            const finalQuery = customQuery.trim() || promptInput.value.trim() || "Analyse la santé du pool et formule des recommandations.";
 
             try {
-                // Détection de l'infrastructure API configurée (Gemini, OpenAI, ou passerelle Hercules)
                 let response = null;
                 const useOpenAIFormat = AI_API_URL && (AI_API_URL.includes('/v1') || AI_API_URL.includes('openai') || AI_API_URL.includes('gateway'));
 
                 if (useOpenAIFormat) {
-                    // Format OpenAI / Hercules AI Gateway
                     response = await fetch(`${AI_API_URL}/chat/completions`, {
                         method: 'POST',
                         headers: {
@@ -571,7 +560,7 @@ Données consolidées anonymisées du pool:
                             'Authorization': `Bearer ${AI_API_KEY}`
                         },
                         body: JSON.stringify({
-                            model: "gpt-4o-mini", // fallback gpt-4o-mini
+                            model: "gpt-4o-mini",
                             messages: [
                                 { role: "system", content: systemContext },
                                 { role: "user", content: finalQuery }
@@ -581,12 +570,11 @@ Données consolidées anonymisées du pool:
                     });
                     const resJson = await response.json();
                     if (resJson.choices && resJson.choices[0]) {
-                        resultContent.textContent = resJson.choices[0].message.content;
+                        resultContent.innerHTML = renderMarkdownToHtml(resJson.choices[0].message.content);
                     } else {
                         throw new Error(JSON.stringify(resJson));
                     }
                 } else {
-                    // Standard Google Gemini API
                     const geminiUrl = AI_API_URL || "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
                     response = await fetch(`${geminiUrl}?key=${AI_API_KEY}`, {
                         method: 'POST',
@@ -603,7 +591,7 @@ Données consolidées anonymisées du pool:
                     });
                     const resJson = await response.json();
                     if (resJson.candidates && resJson.candidates[0].content.parts[0]) {
-                        resultContent.textContent = resJson.candidates[0].content.parts[0].text;
+                        resultContent.innerHTML = renderMarkdownToHtml(resJson.candidates[0].content.parts[0].text);
                     } else {
                         throw new Error(JSON.stringify(resJson));
                     }
@@ -615,21 +603,11 @@ Données consolidées anonymisées du pool:
                 console.error(err);
                 toastMessage("Échec de la communication avec l'IA. Veuillez vérifier votre clé API ou l'URL configurée.", "error");
             } finally {
-                setIsLoading(false);
-            }
-
-            function setIsLoading(loading) {
-                if (loading) {
-                    generateBtn.disabled = true;
-                    spinner.classList.remove('hidden');
-                } else {
-                    generateBtn.disabled = false;
-                    spinner.classList.add('hidden');
-                }
+                generateBtn.disabled = false;
+                spinner.classList.add('hidden');
             }
         }
 
-        // Notifications personnalisées
         function toastMessage(msg, type = "success") {
             const toast = document.createElement('div');
             toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-50 transform translate-y-10 opacity-0 duration-300 ${
@@ -637,28 +615,19 @@ Données consolidées anonymisées du pool:
             }`;
             toast.textContent = msg;
             document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.classList.remove('translate-y-10', 'opacity-0');
-            }, 100);
-
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
             setTimeout(() => {
                 toast.classList.add('translate-y-10', 'opacity-0');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
 
-        // Bindings des événements d'analyse IA
-        document.getElementById('ai-generate-btn').addEventListener('click', () => {
-            generateAIReport();
-        });
-
+        document.getElementById('ai-generate-btn').addEventListener('click', () => generateAIReport());
         document.getElementById('ai-clear-btn').addEventListener('click', () => {
             document.getElementById('ai-result-box').classList.add('hidden');
             document.getElementById('ai-result-content').textContent = "";
         });
 
-        // Boutons de requêtes rapides
         document.querySelectorAll('.ai-quick-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const queryText = e.target.textContent;
@@ -667,18 +636,12 @@ Données consolidées anonymisées du pool:
             });
         });
 
-        // Déconnexion
         document.getElementById('logout-btn').addEventListener('click', async () => {
-            if (supabase) {
-                await supabase.auth.signOut();
-            }
+            if (supabaseClient) await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });
 
-        // Initialisation de la page après le chargement du DOM
-        window.addEventListener('DOMContentLoaded', () => {
-            checkSession();
-        });
+        window.addEventListener('DOMContentLoaded', () => checkSession());
     </script>
 </body>
 </html>
