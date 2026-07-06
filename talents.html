@@ -371,14 +371,37 @@
                             ${(t.first_name || '?')[0]}${(t.last_name || '?')[0]}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="font-bold text-slate-800 truncate">${t.first_name || ''} ${t.last_name || ''} ${t.is_red_listed ? '🚩' : ''}</p>
+                            <!-- Nom cliquable redirigeant vers la carte d'identité -->
+                            <p class="font-bold text-slate-800 hover:text-primary hover:underline truncate">
+                                ${t.first_name || ''} ${t.last_name || ''} ${t.is_red_listed ? '🚩' : ''}
+                            </p>
                             <p class="text-xs text-slate-400 truncate">${t.current_function || t.email || ''}</p>
                             ${renderCompactValidityBar(t)}
                         </div>
                     </div>
-                    <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${t.status || '—'}</span>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${t.status || '—'}</span>
+                        
+                        <!-- Bouton d'action Modifier dédié -->
+                        <button class="edit-btn p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-primary transition-all" title="Modifier">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                            </svg>
+                        </button>
+                    </div>
                 `;
-                row.addEventListener('click', () => openEditModal(t));
+                
+                // Rediriger vers id-card.html lors d'un clic n'importe où sur la ligne
+                row.addEventListener('click', () => {
+                    window.location.href = `id-card.html?id=${t.id}`;
+                });
+
+                // Clic sur l'édition : ouvrir le modal sans propager le clic à la ligne
+                row.querySelector('.edit-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openEditModal(t);
+                });
+
                 listEl.appendChild(row);
             });
         }
@@ -480,7 +503,6 @@
             if (hadAlimaMissionCb.checked) {
                 lastMissionEndDateWrap.classList.remove('hidden');
                 lastMissionEndDateInput.required = true;
-                // "Néant" n'a plus de sens si une mission a été effectuée
                 numberOfMissionsSelect.querySelector('option[value="none"]').disabled = true;
                 if (numberOfMissionsSelect.value === 'none') numberOfMissionsSelect.value = 'one';
             } else {
@@ -493,27 +515,29 @@
         }
         hadAlimaMissionCb.addEventListener('change', syncMissionFields);
 
-        // ── Calcul de la validité dans le pool (porté fidèlement de calculateMonthsWithoutMission
-        //    + DevalidationProgressBar du vrai Hercules, mêmes seuils et couleurs) ──
+        // ============================================================================
+        // 7. COMPTEUR DE VALIDITÉ & BARRE DE PROGRESSION (DevalidationProgressBar)
+        // ============================================================================
         const DEVALIDATION_MAX_MONTHS = 24;
 
         function calculateMonthsWithoutMission(talent) {
             const now = Date.now();
-            if (talent.is_currently_on_mission || talent.status === 'En poste ALIMA') {
+            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+            
+            if (isCurrentlyOnMission || talent.status === 'En poste ALIMA') {
                 return talent.months_without_alima_mission || 0;
             }
-            if (talent.last_mission_end_date) {
-                return Math.max(0, Math.floor((now - new Date(talent.last_mission_end_date).getTime()) / (1000 * 60 * 60 * 24 * 30)));
-            }
-            if (talent.pool_integration_date) {
-                return Math.max(0, Math.floor((now - new Date(talent.pool_integration_date).getTime()) / (1000 * 60 * 60 * 24 * 30)));
+            const refDateStr = talent.last_mission_end_date || talent.pool_integration_date;
+            if (refDateStr) {
+                return Math.max(0, Math.floor((now - new Date(refDateStr).getTime()) / (1000 * 60 * 60 * 24 * 30)));
             }
             return 0;
         }
 
         function getValidityData(talent) {
             const isInvalid = talent.is_valid === false;
-            const isPaused = !isInvalid && (talent.is_currently_on_mission || talent.status === 'En poste ALIMA');
+            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+            const isPaused = !isInvalid && (isCurrentlyOnMission || talent.status === 'En poste ALIMA');
             const totalMonths = isInvalid ? DEVALIDATION_MAX_MONTHS : calculateMonthsWithoutMission(talent);
             const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
             const progressPercent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
@@ -521,7 +545,7 @@
 
             let barColor, textColor;
             if (isInvalid || totalMonths >= 24) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
-            else if (totalMonths >= 22) { barColor = 'bg-red-500'; textColor = 'text-red-600'; }
+            else if (totalMonths >= 22) { barColor = 'bg-red-50'; textColor = 'text-red-600'; }
             else if (totalMonths >= 20) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
             else { barColor = 'bg-green-500'; textColor = 'text-slate-400'; }
 
@@ -531,14 +555,12 @@
             return { isInvalid, isPaused, totalMonths, cappedMonths, progressPercent, remainingMonths, barColor, textColor, refDate, refLabel };
         }
 
-        // Barre compacte pour la liste (juste la barre colorée, sans texte)
         function renderCompactValidityBar(talent) {
             const v = getValidityData(talent);
             const opacity = v.isPaused ? 'opacity-50' : '';
             return `<div class="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden mt-2"><div class="h-full rounded-full ${v.barColor} ${opacity}" style="width:${v.progressPercent}%"></div></div>`;
         }
 
-        // Bloc complet pour la modale (label + barre + texte + date de référence)
         function renderValidityIndicator(talent) {
             const box = document.getElementById('validityIndicator');
             const v = getValidityData(talent);
@@ -579,7 +601,7 @@
         });
 
         // ============================================================================
-        // 7. FORMATIONS ALIMA — LIGNES DYNAMIQUES
+        // 8. FORMATIONS ALIMA — LIGNES DYNAMIQUES
         // ============================================================================
         function addTrainingRow(training) {
             training = training || {};
@@ -608,7 +630,7 @@
         }
 
         // ============================================================================
-        // 8. OUVERTURE / FERMETURE DE LA MODALE
+        // 9. OUVERTURE / FERMETURE DE LA MODALE
         // ============================================================================
         const talentModal = document.getElementById('talentModal');
         const formError = document.getElementById('formError');
@@ -715,7 +737,7 @@
         document.getElementById('cancelBtn').addEventListener('click', () => talentModal.classList.add('hidden'));
 
         // ============================================================================
-        // 9. ENREGISTREMENT (création ou mise à jour)
+        // 10. ENREGISTREMENT (création ou mise à jour)
         // ============================================================================
         document.getElementById('saveTalentBtn').addEventListener('click', async function () {
             formError.classList.add('hidden');
@@ -724,11 +746,11 @@
             const payload = {};
             for (const [key, value] of formData.entries()) {
                 const field = talentForm.querySelector(`[name="${key}"]`);
-                if (field.type === 'checkbox') continue; // géré séparément ci-dessous
+                if (field.type === 'checkbox') continue;
                 if (field.type === 'number') payload[key] = value ? Number(value) : null;
                 else payload[key] = value || null;
             }
-            // Checkboxes (non inclus dans FormData si décochés)
+            
             ['has_visa', 'had_alima_mission', 'has_mission_opening', 'has_emergency_mission', 'has_mission_closure'].forEach(name => {
                 const field = talentForm.querySelector(`[name="${name}"]`);
                 if (field) payload[name] = field.checked;
