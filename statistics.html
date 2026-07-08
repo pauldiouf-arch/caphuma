@@ -56,7 +56,7 @@
                     <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
                     <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
                     <a href="extraction.html" id="nav-extraction" class="text-slate-600 hover:text-primary transition-colors hidden">📤 Extraction</a>
-                    <a href="admin.html#red-list" class="text-slate-600 hover:text-primary transition-colors">⚠️ Liste Rouge</a>
+                    <a href="red_list.html" id="nav-redlist" class="text-slate-600 hover:text-primary transition-colors hidden">⚠️ Liste Rouge</a>
                     <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
                     <a href="statistics.html" class="text-primary border-b-2 border-primary px-1 py-4">📊 Hub Statistique & IA</a>
                     <a href="admin.html" id="nav-admin" class="text-slate-600 hover:text-primary transition-colors hidden">🛡️ Admin</a>
@@ -266,10 +266,12 @@
                 if (user) {
                     if (user.role === 'admin') {
                         document.getElementById('nav-extraction').classList.remove('hidden');
+                        document.getElementById('nav-redlist').classList.remove('hidden');
                         document.getElementById('nav-admin').classList.remove('hidden');
                         document.getElementById('nav-audit').classList.remove('hidden');
                     } else if (user.role === 'user') {
                         document.getElementById('nav-extraction').classList.remove('hidden');
+                        document.getElementById('nav-redlist').classList.remove('hidden');
                     }
                 }
             } catch (err) {

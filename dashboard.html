@@ -67,7 +67,7 @@
                 <a href="extraction.html" id="navExtraction" class="border border-teal-200 hover:bg-teal-50 text-teal-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
                     📤 Extraction
                 </a>
-                <a href="admin.html#red-list" class="border border-orange-200 hover:bg-orange-50 text-orange-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                <a href="red_list.html" id="navRedList" class="border border-orange-200 hover:bg-orange-50 text-orange-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
                     ⚠️ Liste Rouge
                 </a>
                 <a href="devalidated.html" class="border border-red-200 hover:bg-red-50 text-red-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
@@ -174,6 +174,7 @@
                     // Le bouton Extraction est réservé aux recruteurs et admins (pas aux visiteurs)
                     if (profile.role === 'visitor') {
                         document.getElementById('navExtraction').classList.add('hidden');
+                        document.getElementById('navRedList').classList.add('hidden');
                     }
                 } else {
                     userSubtitle.textContent = 'Tableau de bord';

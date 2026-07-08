@@ -106,6 +106,29 @@
                 </div>
             </div>
 
+            <!-- Signalement d'un nouveau talent : sélection pool → talent -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><span>🚨</span> Signaler un talent</h2>
+                <div class="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                    <div class="flex-1 w-full space-y-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase">Pool</label>
+                        <select id="select-pool" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="">— Choisir un pool —</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 w-full space-y-1.5">
+                        <label class="text-xs font-bold text-slate-500 uppercase">Talent</label>
+                        <select id="select-talent" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" disabled>
+                            <option value="">— Choisir d'abord un pool —</option>
+                        </select>
+                    </div>
+                    <button id="btn-open-redlist-add" disabled class="w-full md:w-auto shrink-0 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-sm px-5 py-2.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        🚨 Inscrire en Liste Rouge
+                    </button>
+                </div>
+                <p id="select-talent-empty" class="hidden text-xs text-slate-400 mt-2">Tous les talents de ce pool sont déjà en liste rouge, ou ce pool ne contient aucun talent.</p>
+            </div>
+
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <div id="redlist-loading" class="text-sm text-slate-400 py-6 text-center">Chargement de la liste rouge...</div>
                 <div id="redlist-empty" class="hidden text-sm text-slate-400 py-10 text-center flex flex-col items-center gap-2">
@@ -160,12 +183,36 @@
         </div>
     </div>
 
+    <!-- MODALE : Signalement Liste Rouge (identique à id-card.html, pour cohérence UX) -->
+    <div id="redlist-add-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Signalement Liste Rouge</h3>
+            <p id="redlist-add-talent-name" class="text-sm font-semibold text-slate-700"></p>
+            <p class="text-sm text-slate-500">Indiquez le motif précis et sécuritaire justifiant la mise en Liste Rouge du talent.</p>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Motif / Justification *</label>
+                <textarea id="modal-redlist-add-reason" placeholder="Veuillez consigner les faits de manière précise..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="4" required></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="modal-redlist-add-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="modal-redlist-add-confirm" class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-4 py-2 rounded-xl flex items-center gap-2">
+                    <span>Inscrire</span>
+                    <div id="redlist-add-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script de logique et liaison Supabase -->
     <script>
         let supabaseClient = null;
         let redListTalents = [];
         let pendingConfirmAction = null;
         let currentUserRole = null;
+        let currentUserId = null;
+        let poolsForSelect = [];
+        let talentsInSelectedPool = [];
+        let selectedTalentForRedlist = null;
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
@@ -189,6 +236,7 @@
                 }
 
                 document.getElementById('user-display-name').textContent = session.user.email;
+                currentUserId = session.user.id;
 
                 const allowed = await checkUserRole(session.user.id);
                 if (!allowed) {
@@ -198,7 +246,7 @@
                 }
 
                 document.getElementById('redlist-content').classList.remove('hidden');
-                await loadRedList();
+                await Promise.all([loadRedList(), loadPoolsForSelect()]);
             } catch (e) {
                 console.error(e);
                 showError("Erreur d'authentification ou problème réseau.");
@@ -262,6 +310,142 @@
             div.textContent = str == null ? '' : String(str);
             return div.innerHTML;
         }
+
+        // ============ SIGNALEMENT D'UN NOUVEAU TALENT ============
+
+        async function loadPoolsForSelect() {
+            const selectPool = document.getElementById('select-pool');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('pools')
+                    .select('pool_id, full_name, is_archived')
+                    .eq('is_archived', false)
+                    .order('pool_id', { ascending: true });
+
+                if (error) throw error;
+                poolsForSelect = data || [];
+
+                selectPool.innerHTML = '<option value="">— Choisir un pool —</option>' +
+                    poolsForSelect.map(p => `<option value="${escapeHtml(p.pool_id)}">${escapeHtml(p.pool_id)} - ${escapeHtml(p.full_name)}</option>`).join('');
+            } catch (e) {
+                console.error(e);
+                showError("Impossible de charger la liste des pools : " + e.message);
+            }
+        }
+
+        async function onPoolSelected(poolCode) {
+            const selectTalent = document.getElementById('select-talent');
+            const emptyMsg = document.getElementById('select-talent-empty');
+            const btnOpen = document.getElementById('btn-open-redlist-add');
+
+            selectedTalentForRedlist = null;
+            btnOpen.disabled = true;
+            emptyMsg.classList.add('hidden');
+
+            if (!poolCode) {
+                selectTalent.innerHTML = '<option value="">— Choisir d\'abord un pool —</option>';
+                selectTalent.disabled = true;
+                return;
+            }
+
+            selectTalent.innerHTML = '<option value="">Chargement...</option>';
+            selectTalent.disabled = true;
+
+            try {
+                // is_red_listed est nullable : .is('is_red_listed', false) exclurait les
+                // NULL, donc on filtre côté client pour couvrir null ET false.
+                const { data, error } = await supabaseClient
+                    .from('talents')
+                    .select('id, first_name, last_name, is_red_listed')
+                    .eq('pool', poolCode)
+                    .order('last_name', { ascending: true });
+
+                if (error) throw error;
+
+                talentsInSelectedPool = (data || []).filter(t => !t.is_red_listed);
+
+                if (talentsInSelectedPool.length === 0) {
+                    selectTalent.innerHTML = '<option value="">— Aucun talent disponible —</option>';
+                    selectTalent.disabled = true;
+                    emptyMsg.classList.remove('hidden');
+                    return;
+                }
+
+                selectTalent.innerHTML = '<option value="">— Choisir un talent —</option>' +
+                    talentsInSelectedPool.map(t => `<option value="${t.id}">${escapeHtml(t.last_name)} ${escapeHtml(t.first_name)}</option>`).join('');
+                selectTalent.disabled = false;
+            } catch (e) {
+                console.error(e);
+                showError("Impossible de charger les talents de ce pool : " + e.message);
+            }
+        }
+
+        function onTalentSelected(talentId) {
+            const btnOpen = document.getElementById('btn-open-redlist-add');
+            selectedTalentForRedlist = talentsInSelectedPool.find(t => t.id === talentId) || null;
+            btnOpen.disabled = !selectedTalentForRedlist;
+        }
+
+        function openRedlistAddModal() {
+            if (!selectedTalentForRedlist) return;
+            const fullName = `${selectedTalentForRedlist.first_name || ''} ${selectedTalentForRedlist.last_name || ''}`.trim();
+            document.getElementById('redlist-add-talent-name').textContent = fullName;
+            document.getElementById('modal-redlist-add-reason').value = '';
+            document.getElementById('redlist-add-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('modal-redlist-add-cancel').addEventListener('click', () => {
+            document.getElementById('redlist-add-modal').classList.add('hidden');
+        });
+
+        document.getElementById('modal-redlist-add-confirm').addEventListener('click', async () => {
+            const reasonVal = document.getElementById('modal-redlist-add-reason').value.trim();
+            if (!reasonVal) {
+                toastMessage("Veuillez indiquer le motif d'inscription.", "error");
+                return;
+            }
+            if (!selectedTalentForRedlist) return;
+
+            const spinner = document.getElementById('redlist-add-spinner');
+            const btn = document.getElementById('modal-redlist-add-confirm');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            try {
+                // Format ISO (pas toLocaleDateString) : la colonne est un
+                // timestamptz, un format DD/MM/YYYY serait ambigu à la relecture.
+                const { error } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        is_red_listed: true,
+                        red_list_date: new Date().toISOString(),
+                        red_list_reason: reasonVal,
+                        red_list_added_by: currentUserId,
+                        red_list_added_by_name: document.getElementById('user-display-name').textContent
+                    })
+                    .eq('id', selectedTalentForRedlist.id);
+
+                if (error) throw error;
+
+                document.getElementById('redlist-add-modal').classList.add('hidden');
+                toastMessage("Talent inscrit en Liste Rouge avec succès.");
+
+                // Rafraîchir la liste rouge + le sélecteur de talents du pool courant
+                const poolCode = document.getElementById('select-pool').value;
+                await loadRedList();
+                if (poolCode) await onPoolSelected(poolCode);
+            } catch (e) {
+                console.error(e);
+                toastMessage("Échec de l'inscription : " + e.message, "error");
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('select-pool').addEventListener('change', (e) => onPoolSelected(e.target.value));
+        document.getElementById('select-talent').addEventListener('change', (e) => onTalentSelected(e.target.value));
+        document.getElementById('btn-open-redlist-add').addEventListener('click', openRedlistAddModal);
 
         // ============ CHARGEMENT DE LA LISTE ROUGE ============
 
