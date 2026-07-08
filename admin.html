@@ -179,7 +179,7 @@
                 <div>
                     <label class="text-xs font-semibold text-slate-600">Rôle</label>
                     <select id="input-new-role" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="recruteur">Recruteur</option>
+                        <option value="user">Recruteur</option>
                         <option value="admin">Admin</option>
                         <option value="visitor">Visiteur</option>
                     </select>
@@ -321,7 +321,7 @@
                         document.getElementById('nav-admin').classList.remove('hidden');
                         document.getElementById('nav-audit').classList.remove('hidden');
                         return true;
-                    } else if (user.role === 'recruteur' || user.role === 'user') {
+                    } else if (user.role === 'user') {
                         document.getElementById('nav-extraction').classList.remove('hidden');
                     }
                 }
@@ -417,10 +417,15 @@
             table.classList.remove('hidden');
             empty.classList.add('hidden');
 
-            const roleLabels = { admin: '🛡️ Admin', recruteur: '👤 Recruteur', visitor: '👁️ Visiteur' };
+            // Rôles réels autorisés par la contrainte CHECK "users_role_check"
+            // vérifiée en base : admin / user / visitor. "user" est libellé
+            // "Recruteur" côté métier (le Master Context affirmait à tort
+            // "recruteur" comme valeur stockée — même type d'erreur que
+            // tokenIdentifier, corrigé après vérification directe).
+            const roleLabels = { admin: '🛡️ Admin', user: '👤 Recruteur', visitor: '👁️ Visiteur' };
             const roleColors = {
                 admin: 'bg-primary-light text-primary',
-                recruteur: 'bg-green-50 text-green-700',
+                user: 'bg-green-50 text-green-700',
                 visitor: 'bg-slate-100 text-slate-600'
             };
 
@@ -523,7 +528,7 @@
         document.getElementById('btn-open-create-account').addEventListener('click', () => {
             document.getElementById('input-new-name').value = '';
             document.getElementById('input-new-email').value = '';
-            document.getElementById('input-new-role').value = 'recruteur';
+            document.getElementById('input-new-role').value = 'user';
             document.getElementById('modal-create-account').classList.remove('hidden');
         });
         document.getElementById('btn-cancel-create-account').addEventListener('click', () => {
