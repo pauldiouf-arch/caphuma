@@ -350,7 +350,7 @@
             const status = talent.status;
             
             if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
-                return talent.months_without_alima_mission || talent.monthsWithoutAlimaMission || 0;
+                return talent.months_without_mission || 0;
             }
 
             const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;

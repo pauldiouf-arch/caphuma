@@ -489,7 +489,7 @@
             const status = talent.status;
             
             if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
-                return talent.months_without_alima_mission || talent.monthsWithoutAlimaMission || 0;
+                return talent.months_without_mission || 0;
             }
 
             const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
@@ -1231,7 +1231,15 @@
                 try {
                     const { error } = await supabaseClient
                         .from('talents')
-                        .update({ is_valid: false, devalidation_date: new Date().toISOString() })
+                        .update({
+                            is_valid: false,
+                            devalidation_date: new Date().toISOString(),
+                            devalidation_extension_until: null,
+                            devalidation_extension_months: null,
+                            devalidation_extension_granted_by: null,
+                            devalidation_extension_granted_by_name: null,
+                            devalidation_extension_granted_at: null
+                        })
                         .eq('id', talentId);
                     
                     if (error) throw error;
@@ -1248,7 +1256,7 @@
                 try {
                     const { error } = await supabaseClient
                         .from('talents')
-                        .update({ is_valid: true, devalidation_date: null, months_without_alima_mission: 0 })
+                        .update({ is_valid: true, devalidation_date: null, months_without_mission: 0 })
                         .eq('id', talentId);
                     
                     if (error) throw error;
@@ -1366,7 +1374,7 @@
                             is_currently_on_mission: false,
                             last_mission_end_date: new Date(endDateVal).toISOString(),
                             archived_position_passages: updatedPassages,
-                            months_without_alima_mission: 0
+                            months_without_mission: 0
                         })
                         .eq('id', talentId);
                     

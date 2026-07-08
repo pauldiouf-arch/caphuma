@@ -263,6 +263,30 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════ MODAL PROLONGATION AVANT DÉVALIDATION ═══════════════════════════════════ -->
+    <div id="prolongModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-blue-700 flex items-center gap-2">⏳ Prolonger avant dévalidation</h3>
+            <p id="prolongTalentName" class="text-sm font-semibold text-slate-700"></p>
+            <p class="text-sm text-slate-500">Le talent ne sera pas proposé à l'arbitrage tant que la prolongation est en cours.</p>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Durée de la prolongation *</label>
+                <select id="prolongMonths" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                    <option value="1">1 mois</option>
+                    <option value="2">2 mois</option>
+                    <option value="3" selected>3 mois</option>
+                    <option value="4">4 mois</option>
+                    <option value="5">5 mois</option>
+                    <option value="6">6 mois</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="prolongCancelBtn" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="prolongConfirmBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2 rounded-xl">Confirmer la prolongation</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ============================================================================
         // 1. INIT SUPABASE + GARDE DE SESSION
@@ -280,12 +304,14 @@
         const appBody = document.getElementById('appBody');
         const talentForm = document.getElementById('talentForm');
         let currentUserId = null;
+        let currentUserEmail = null;
 
         async function checkSession() {
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (!session) throw new Error("Session absente.");
                 currentUserId = session.user.id;
+                currentUserEmail = session.user.email;
                 appBody.style.display = 'flex';
                 await loadPoolInfo();
                 await loadTalents();
@@ -364,7 +390,22 @@
 
             talents.forEach(t => {
                 const row = document.createElement('div');
-                row.className = "bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-sm transition-all cursor-pointer";
+                const eligible = isDevalidationEligible(t);
+                const isDevalidated = t.is_valid === false;
+
+                row.className = "bg-white border rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-sm transition-all cursor-pointer " +
+                    (eligible ? "border-red-300 bg-red-50" : "border-slate-200");
+
+                let extraBadge = '';
+                if (isDevalidated) {
+                    extraBadge = '<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 text-slate-600">⛔ Dévalidé</span>';
+                } else if (eligible) {
+                    extraBadge = '<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700">⚠️ À arbitrer</span>';
+                } else if (hasActiveExtension(t)) {
+                    const untilLabel = new Date(t.devalidation_extension_until).toLocaleDateString('fr-FR');
+                    extraBadge = `<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">⏳ Prolongé jusqu'au ${untilLabel}</span>`;
+                }
+
                 row.innerHTML = `
                     <div class="flex items-center gap-3 min-w-0 flex-1">
                         <div class="h-10 w-10 rounded-full bg-primary-light text-primary font-extrabold flex items-center justify-center shrink-0">
@@ -379,9 +420,18 @@
                             ${renderCompactValidityBar(t)}
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 shrink-0">
+                    <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                        ${extraBadge}
                         <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${t.status || '—'}</span>
-                        
+
+                        ${eligible ? `
+                        <button class="btn-prolong-talent text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-all" title="Prolonger">
+                            ⏳ Prolonger
+                        </button>
+                        <button class="btn-devalidate-talent text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg transition-all" title="Dévalider">
+                            ⛔ Dévalider
+                        </button>` : ''}
+
                         <!-- Bouton d'action Modifier dédié qui ouvre le modal -->
                         <button class="edit-btn p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-primary transition-all" title="Modifier">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
@@ -402,6 +452,17 @@
                     e.stopPropagation();
                     openEditModal(t);
                 });
+
+                if (eligible) {
+                    row.querySelector('.btn-prolong-talent').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openProlongModal(t);
+                    });
+                    row.querySelector('.btn-devalidate-talent').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        devalidateTalentFromList(t);
+                    });
+                }
 
                 listEl.appendChild(row);
             });
@@ -526,13 +587,126 @@
             const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
             
             if (isCurrentlyOnMission || talent.status === 'En poste ALIMA') {
-                return talent.months_without_alima_mission || 0;
+                return talent.months_without_mission || 0;
             }
             const refDateStr = talent.last_mission_end_date || talent.pool_integration_date;
             if (refDateStr) {
                 return Math.max(0, Math.floor((now - new Date(refDateStr).getTime()) / (1000 * 60 * 60 * 24 * 30)));
             }
             return 0;
+        }
+
+        // Une prolongation est active tant que devalidation_extension_until est dans le futur.
+        function hasActiveExtension(talent) {
+            if (!talent.devalidation_extension_until) return false;
+            return new Date(talent.devalidation_extension_until).getTime() > Date.now();
+        }
+
+        // Un talent est proposé à l'arbitrage (dévalider/prolonger) s'il n'est pas déjà
+        // dévalidé, qu'il a atteint le seuil des 24 mois sans mission, et qu'aucune
+        // prolongation active ne le couvre encore.
+        function isDevalidationEligible(talent) {
+            if (talent.is_valid === false) return false;
+            if (hasActiveExtension(talent)) return false;
+            return calculateMonthsWithoutMission(talent) >= DEVALIDATION_MAX_MONTHS;
+        }
+
+        // ============================================================================
+        // 7bis. ARBITRAGE : PROLONGER OU DÉVALIDER DEPUIS LA LISTE
+        // ============================================================================
+        function toastMessage(msg, type = "success") {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
+                type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        let talentPendingArbitration = null;
+        const prolongModal = document.getElementById('prolongModal');
+
+        function openProlongModal(talent) {
+            talentPendingArbitration = talent;
+            document.getElementById('prolongTalentName').textContent = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
+            document.getElementById('prolongMonths').value = '3';
+            prolongModal.classList.remove('hidden');
+        }
+
+        document.getElementById('prolongCancelBtn').addEventListener('click', () => {
+            prolongModal.classList.add('hidden');
+            talentPendingArbitration = null;
+        });
+
+        document.getElementById('prolongConfirmBtn').addEventListener('click', async () => {
+            if (!talentPendingArbitration) return;
+            const months = parseInt(document.getElementById('prolongMonths').value, 10);
+
+            const untilDate = new Date();
+            untilDate.setMonth(untilDate.getMonth() + months);
+            const untilStr = untilDate.toISOString().slice(0, 10); // colonne "date"
+
+            try {
+                const { error } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        devalidation_extension_until: untilStr,
+                        devalidation_extension_months: months,
+                        devalidation_extension_granted_by: currentUserId,
+                        devalidation_extension_granted_by_name: currentUserEmail,
+                        devalidation_extension_granted_at: new Date().toISOString()
+                    })
+                    .eq('id', talentPendingArbitration.id);
+
+                if (error) throw error;
+
+                prolongModal.classList.add('hidden');
+                toastMessage(`Prolongation de ${months} mois accordée.`);
+                talentPendingArbitration = null;
+                await loadTalents();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de la prolongation : " + err.message, "error");
+            }
+        });
+
+        // Dévalidation directe depuis la liste : aucun email n'est envoyé
+        // automatiquement (choix validé avec l'utilisateur) — le recruteur/admin
+        // doit avoir contacté le talent lui-même avant de confirmer ici.
+        async function devalidateTalentFromList(talent) {
+            const fullName = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
+            const confirmed = confirm(
+                `Dévalider "${fullName}" ?\n\nAssurez-vous d'avoir déjà envoyé un email à ${talent.email || '(email non renseigné)'} avant de confirmer.\nCette action est réversible depuis la fiche du talent (bouton Réintégrer).`
+            );
+            if (!confirmed) return;
+
+            try {
+                const { error } = await supabaseClient
+                    .from('talents')
+                    .update({
+                        is_valid: false,
+                        devalidation_date: new Date().toISOString().slice(0, 10),
+                        devalidation_extension_until: null,
+                        devalidation_extension_months: null,
+                        devalidation_extension_granted_by: null,
+                        devalidation_extension_granted_by_name: null,
+                        devalidation_extension_granted_at: null
+                    })
+                    .eq('id', talent.id);
+
+                if (error) throw error;
+
+                toastMessage(`${fullName} a été dévalidé(e).`);
+                await loadTalents();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de la dévalidation : " + err.message, "error");
+            }
         }
 
         function getValidityData(talent) {
