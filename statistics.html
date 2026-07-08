@@ -573,7 +573,13 @@ Données consolidées du pool (${statsSummary.pool}) :
 
             try {
                 let response = null;
-                const useOpenAIFormat = AI_API_URL && (AI_API_URL.includes('/v1') || AI_API_URL.includes('openai') || AI_API_URL.includes('gateway'));
+                // Détection par domaine : toute URL pointant vers l'API Gemini native
+                // (generativelanguage.googleapis.com) est traitée au format Gemini,
+                // le reste est traité au format OpenAI-compatible (fallback).
+                // Ancien bug : un test sur '/v1' matchait aussi 'v1beta' (Gemini),
+                // ce qui basculait à tort vers le format OpenAI.
+                const isGeminiNative = AI_API_URL && AI_API_URL.includes('generativelanguage.googleapis.com');
+                const useOpenAIFormat = AI_API_URL && !isGeminiNative;
 
                 if (useOpenAIFormat) {
                     response = await fetch(`${AI_API_URL}/chat/completions`, {
@@ -598,7 +604,7 @@ Données consolidées du pool (${statsSummary.pool}) :
                         throw new Error(JSON.stringify(resJson));
                     }
                 } else {
-                    const geminiUrl = AI_API_URL || "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+                    const geminiUrl = AI_API_URL || "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
                     response = await fetch(`${geminiUrl}?key=${AI_API_KEY}`, {
                         method: 'POST',
                         headers: {
