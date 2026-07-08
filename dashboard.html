@@ -136,6 +136,18 @@
         const poolsError = document.getElementById('poolsError');
         const userSubtitle = document.getElementById('userSubtitle');
 
+        // Échappement HTML systématique de toute donnée venant de la base
+        // avant injection via innerHTML — prévention XSS (audit sécurité).
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         // Pools de secours si la table Supabase est vide ou inaccessible
         const FALLBACK_POOLS = [
             { pool_id: 'COLOG', name: 'COLOG', full_name: 'Pool Logistique' },
@@ -243,8 +255,8 @@
                         <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-light text-2xl mb-4">
                             ${poolIcon(pool.pool_id)}
                         </div>
-                        <h3 class="text-lg font-extrabold text-slate-800">${pool.name || pool.pool_id}</h3>
-                        <p class="text-xs text-slate-400 font-semibold mt-1">${pool.full_name || ''}</p>
+                        <h3 class="text-lg font-extrabold text-slate-800">${escapeHtml(pool.name || pool.pool_id)}</h3>
+                        <p class="text-xs text-slate-400 font-semibold mt-1">${escapeHtml(pool.full_name || '')}</p>
                     </div>
                     <div class="flex flex-col gap-2 mt-6">
                         <div class="grid grid-cols-2 gap-2">

@@ -140,6 +140,18 @@
         let currentUserName = null;
         let currentUserRole = null;
 
+        // Échappement HTML systématique de toute donnée provenant de la base
+        // avant injection via innerHTML — prévention XSS.
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         // ============================================================================
         // 2. GARDE DE SESSION (identique au pattern de dashboard.html)
         // ============================================================================
@@ -248,7 +260,7 @@
                 const header = document.createElement('div');
                 header.className = "px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between";
                 header.innerHTML = `
-                    <h3 class="text-sm font-extrabold text-slate-700">${poolLabel(poolId)}</h3>
+                    <h3 class="text-sm font-extrabold text-slate-700">${escapeHtml(poolLabel(poolId))}</h3>
                     <span class="text-xs font-bold text-slate-400">${grouped[poolId].length} talent(s)</span>
                 `;
                 section.appendChild(header);
@@ -280,12 +292,12 @@
             row.innerHTML = `
                 <div>
                     <a href="id-card.html?id=${encodeURIComponent(t.id)}" class="font-bold text-sm text-slate-800 hover:text-primary transition-all">
-                        ${t.first_name} ${t.last_name}
+                        ${escapeHtml(t.first_name)} ${escapeHtml(t.last_name)}
                     </a>
                     ${redListBadge}
                     <p class="text-xs text-slate-400 mt-0.5">
                         Dévalidé le ${dateStr}
-                        ${t.months_without_mission !== null && t.months_without_mission !== undefined ? ` · ${t.months_without_mission} mois sans mission` : ''}
+                        ${t.months_without_mission !== null && t.months_without_mission !== undefined ? ` · ${escapeHtml(t.months_without_mission)} mois sans mission` : ''}
                     </p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">

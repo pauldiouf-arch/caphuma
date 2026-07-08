@@ -301,6 +301,18 @@
         const urlParams = new URLSearchParams(window.location.search);
         const currentPoolId = urlParams.get('pool');
 
+        // Échappement HTML systématique de toute donnée venant de la base
+        // avant injection via innerHTML — prévention XSS (audit sécurité).
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         const appBody = document.getElementById('appBody');
         const talentForm = document.getElementById('talentForm');
         let currentUserId = null;
@@ -409,20 +421,20 @@
                 row.innerHTML = `
                     <div class="flex items-center gap-3 min-w-0 flex-1">
                         <div class="h-10 w-10 rounded-full bg-primary-light text-primary font-extrabold flex items-center justify-center shrink-0">
-                            ${(t.first_name || '?')[0]}${(t.last_name || '?')[0]}
+                            ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
                         </div>
                         <div class="min-w-0 flex-1">
                             <!-- Nom du talent redirigeant vers la carte d'identité -->
                             <p class="font-bold text-slate-800 hover:text-primary hover:underline truncate">
-                                ${t.first_name || ''} ${t.last_name || ''} ${t.is_red_listed ? '🚩' : ''}
+                                ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? '🚩' : ''}
                             </p>
-                            <p class="text-xs text-slate-400 truncate">${t.current_function || t.email || ''}</p>
+                            <p class="text-xs text-slate-400 truncate">${escapeHtml(t.current_function || t.email || '')}</p>
                             ${renderCompactValidityBar(t)}
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                         ${extraBadge}
-                        <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${t.status || '—'}</span>
+                        <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${escapeHtml(t.status || '—')}</span>
 
                         ${eligible ? `
                         <button class="btn-prolong-talent text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-all" title="Prolonger">
@@ -525,7 +537,7 @@
             const chip = document.createElement('span');
             chip.className = 'tag-chip';
             chip.dataset.value = value;
-            chip.innerHTML = `${value} <button type="button">&times;</button>`;
+            chip.innerHTML = `${escapeHtml(value)} <button type="button">&times;</button>`;
             chip.querySelector('button').addEventListener('click', () => chip.remove());
             wrap.appendChild(chip);
         }
@@ -783,10 +795,10 @@
             const row = document.createElement('div');
             row.className = 'training-row grid grid-cols-12 gap-2 items-center bg-slate-50 border border-slate-200 rounded-lg p-2';
             row.innerHTML = `
-                <input class="training-name col-span-4 rounded border border-slate-200 p-1.5 text-xs" placeholder="Nom formation" value="${training.name || ''}" />
-                <input class="training-date col-span-3 rounded border border-slate-200 p-1.5 text-xs" type="date" value="${training.date ? training.date.substring(0,10) : ''}" />
-                <input class="training-duration col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Durée" value="${training.duration || ''}" />
-                <input class="training-desc col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Description" value="${training.description || ''}" />
+                <input class="training-name col-span-4 rounded border border-slate-200 p-1.5 text-xs" placeholder="Nom formation" value="${escapeHtml(training.name || '')}" />
+                <input class="training-date col-span-3 rounded border border-slate-200 p-1.5 text-xs" type="date" value="${escapeHtml(training.date ? training.date.substring(0,10) : '')}" />
+                <input class="training-duration col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Durée" value="${escapeHtml(training.duration || '')}" />
+                <input class="training-desc col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Description" value="${escapeHtml(training.description || '')}" />
                 <button type="button" class="removeTrainingBtn col-span-1 text-red-500 text-lg">&times;</button>
             `;
             row.querySelector('.removeTrainingBtn').addEventListener('click', () => row.remove());
@@ -871,9 +883,9 @@
             if (talent.is_red_listed) {
                 document.getElementById('redListReadonly').innerHTML = `
                     <p class="font-bold text-red-600">🚩 Talent en Liste Rouge</p>
-                    <p class="mt-2"><strong>Date :</strong> ${talent.red_list_date || '—'}</p>
-                    <p><strong>Raison :</strong> ${talent.red_list_reason || '—'}</p>
-                    <p><strong>Ajouté par :</strong> ${talent.red_list_added_by_name || '—'}</p>
+                    <p class="mt-2"><strong>Date :</strong> ${escapeHtml(talent.red_list_date || '—')}</p>
+                    <p><strong>Raison :</strong> ${escapeHtml(talent.red_list_reason || '—')}</p>
+                    <p><strong>Ajouté par :</strong> ${escapeHtml(talent.red_list_added_by_name || '—')}</p>
                     <p class="mt-2 text-xs">La réhabilitation se fait exclusivement depuis <strong>Admin</strong>.</p>
                 `;
             } else {
@@ -890,13 +902,13 @@
                 if (passages.length) {
                     html += '<p class="font-bold text-slate-700 mb-2">Missions passées</p>';
                     passages.forEach(p => {
-                        html += `<div class="mb-2 pb-2 border-b border-slate-200"><p class="font-semibold">${p.positionTitle || ''} — ${p.country || ''}</p></div>`;
+                        html += `<div class="mb-2 pb-2 border-b border-slate-200"><p class="font-semibold">${escapeHtml(p.positionTitle || '')} — ${escapeHtml(p.country || '')}</p></div>`;
                     });
                 }
                 if (history.length) {
                     html += '<p class="font-bold text-slate-700 mt-3 mb-2">Changements</p>';
                     history.forEach(h => {
-                        html += `<p class="text-xs">${h.previousValue} → ${h.newValue} <span class="text-slate-400">(${h.changedByName || ''})</span></p>`;
+                        html += `<p class="text-xs">${escapeHtml(h.previousValue)} → ${escapeHtml(h.newValue)} <span class="text-slate-400">(${escapeHtml(h.changedByName || '')})</span></p>`;
                     });
                 }
                 document.getElementById('historyReadonly').innerHTML = html;
