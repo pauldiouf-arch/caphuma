@@ -576,7 +576,7 @@
             table.classList.add('hidden');
 
             try {
-                const { data, error } = await supabaseClient.from('pools').select('*');
+                const { data, error } = await supabaseClient.from('pools').select('id, pool_id, full_name, level, description, is_archived');
                 if (error) throw error;
                 poolsList = data || [];
                 renderPools();

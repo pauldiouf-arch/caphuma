@@ -289,7 +289,7 @@
         async function initHub() {
             try {
                 // 1. Récupération des pools de la base (pools.pool_id)
-                const { data: pools, error: ep } = await supabaseClient.from('pools').select('*');
+                const { data: pools, error: ep } = await supabaseClient.from('pools').select('pool_id, name, full_name');
                 if (ep) throw ep;
                 poolList = pools || [];
 
@@ -336,7 +336,9 @@
         }
 
         async function loadRawData() {
-            const { data: talents, error: et } = await supabaseClient.from('talents').select('*');
+            const { data: talents, error: et } = await supabaseClient
+                .from('talents')
+                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date');
             if (et) throw et;
             rawTalents = talents || [];
 
