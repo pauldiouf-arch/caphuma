@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Cap Huma</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase JS Client via CDN pour la communication BDD -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Polices -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Configuration Tailwind personnalisée selon la section 3 du Master Context -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
+                        accent:  { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <!-- En-tête pleine largeur (Navbar commune sans sidebar) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
+                        <span class="text-xl">🧭</span>
+                    </div>
+                    <div>
+                        <span class="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Cap Huma</span>
+                        <span class="text-xs block text-slate-400">ALIMA</span>
+                    </div>
+                </div>
+
+                <!-- Liens de navigation conformes à la cartographie de la section 4 -->
+                <nav class="hidden md:flex items-center gap-4 text-sm font-medium">
+                    <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
+                    <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
+                    <a href="extraction.html" id="nav-extraction" class="text-slate-600 hover:text-primary transition-colors hidden">📤 Extraction</a>
+                    <a href="admin.html#red-list" class="text-slate-600 hover:text-primary transition-colors">⚠️ Liste Rouge</a>
+                    <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
+                    <a href="statistics.html" class="text-slate-600 hover:text-primary transition-colors">📊 Hub Statistique & IA</a>
+                    <a href="admin.html" id="nav-admin" class="text-primary border-b-2 border-primary px-1 py-4 hidden">🛡️ Admin</a>
+                    <a href="audit.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
+                </nav>
+
+                <div class="flex items-center gap-3">
+                    <span id="user-display-name" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                    <button id="logout-btn" class="text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all">Déconnexion</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteneur Principal -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Bannière d'alerte -->
+        <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
+            <div class="flex items-start gap-3">
+                <span class="text-red-500 font-bold text-xl">⚠️</span>
+                <div>
+                    <h3 class="font-semibold text-red-800">Alerte système</h3>
+                    <p class="text-sm text-red-700 mt-1" id="error-message">Une erreur s'est produite.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bannière d'accès refusé (masquée par défaut, affichée si non-admin) -->
+        <div id="access-denied-banner" class="hidden bg-white border border-slate-200 rounded-3xl p-10 shadow-sm text-center space-y-3">
+            <span class="text-4xl">🛡️</span>
+            <h2 class="text-xl font-bold text-slate-900">Accès réservé aux administrateurs</h2>
+            <p class="text-sm text-slate-500">Vous allez être redirigé vers le tableau de bord.</p>
+        </div>
+
+        <!-- Contenu principal, masqué tant que le rôle admin n'est pas confirmé -->
+        <div id="admin-content" class="hidden space-y-6">
+
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h1 class="text-2xl font-bold text-slate-900">Administration</h1>
+                <p class="text-sm text-slate-500 mt-1">Gestion des comptes utilisateurs et des pools de talents</p>
+            </div>
+
+            <!-- Onglets -->
+            <div class="flex gap-2 border-b border-slate-200">
+                <button type="button" class="admin-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-primary text-primary" data-tab="accounts">👤 Comptes</button>
+                <button type="button" class="admin-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-primary" data-tab="pools">🗂️ Pools</button>
+            </div>
+
+            <!-- ONGLET COMPTES -->
+            <section id="tab-accounts" class="space-y-4">
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>👤</span> Comptes utilisateurs</h2>
+                        <button id="btn-open-create-account" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">+ Nouveau compte</button>
+                    </div>
+
+                    <div id="accounts-loading" class="text-sm text-slate-400 py-6 text-center">Chargement des comptes...</div>
+                    <div id="accounts-empty" class="hidden text-sm text-slate-400 py-6 text-center">Aucun compte trouvé.</div>
+
+                    <div class="overflow-x-auto">
+                        <table id="accounts-table" class="hidden w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                                    <th class="py-2 pr-4">Nom</th>
+                                    <th class="py-2 pr-4">Email</th>
+                                    <th class="py-2 pr-4">Rôle</th>
+                                    <th class="py-2 pr-4">Statut</th>
+                                    <th class="py-2 pr-4">Créé le</th>
+                                    <th class="py-2 pr-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accounts-tbody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ONGLET POOLS -->
+            <section id="tab-pools" class="space-y-4 hidden">
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>🗂️</span> Pools de talents</h2>
+                        <button id="btn-open-create-pool" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">+ Nouveau pool</button>
+                    </div>
+
+                    <div id="pools-loading" class="text-sm text-slate-400 py-6 text-center">Chargement des pools...</div>
+                    <div id="pools-empty" class="hidden text-sm text-slate-400 py-6 text-center">Aucun pool trouvé.</div>
+
+                    <div class="overflow-x-auto">
+                        <table id="pools-table" class="hidden w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                                    <th class="py-2 pr-4">Code</th>
+                                    <th class="py-2 pr-4">Nom complet</th>
+                                    <th class="py-2 pr-4">Description</th>
+                                    <th class="py-2 pr-4">Statut</th>
+                                    <th class="py-2 pr-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pools-tbody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- MODALE : Création de compte -->
+    <div id="modal-create-account" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Nouveau compte</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-slate-600">Nom complet</label>
+                    <input id="input-new-name" type="text" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Ex : Fatou Ndiaye">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600">Email</label>
+                    <input id="input-new-email" type="email" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="prenom.nom@alima.ngo">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600">Rôle</label>
+                    <select id="input-new-role" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="recruteur">Recruteur</option>
+                        <option value="admin">Admin</option>
+                        <option value="visitor">Visiteur</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="btn-cancel-create-account" class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
+                <button id="btn-confirm-create-account" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
+                    <span>Créer le compte</span>
+                    <div id="create-account-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE : Code affiché une seule fois (création / réinitialisation) -->
+    <div id="modal-access-code" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4 text-center">
+            <span class="text-4xl">🔑</span>
+            <h3 class="text-lg font-bold text-slate-900">Code d'accès généré</h3>
+            <p class="text-sm text-slate-500">Ce code ne sera plus jamais affiché. Copiez-le et transmettez-le à l'utilisateur par un canal sécurisé.</p>
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+                <code id="access-code-value" class="text-lg font-bold text-slate-900 tracking-wider break-all"></code>
+                <button id="btn-copy-access-code" class="shrink-0 text-xs font-semibold bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-xl transition-all">Copier</button>
+            </div>
+            <button id="btn-close-access-code" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">J'ai bien noté le code</button>
+        </div>
+    </div>
+
+    <!-- MODALE : Création de pool -->
+    <div id="modal-create-pool" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Nouveau pool</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-slate-600">Code du pool</label>
+                    <input id="input-pool-code" type="text" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary uppercase" placeholder="Ex : COLOG">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600">Nom complet</label>
+                    <input id="input-pool-fullname" type="text" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Ex : Coordinateur Logistique">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600">Description (optionnel)</label>
+                    <textarea id="input-pool-description" rows="2" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="btn-cancel-create-pool" class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
+                <button id="btn-confirm-create-pool" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
+                    <span>Créer le pool</span>
+                    <div id="create-pool-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE : Confirmation générique (suppression, suspension, archivage...) -->
+    <div id="modal-confirm" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
+            <span class="text-4xl" id="confirm-icon">⚠️</span>
+            <h3 class="text-lg font-bold text-slate-900" id="confirm-title">Confirmer l'action</h3>
+            <p class="text-sm text-slate-500" id="confirm-message"></p>
+            <div class="flex justify-center gap-2 pt-2">
+                <button id="btn-cancel-confirm" class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
+                <button id="btn-confirm-confirm" class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
+                    <span id="confirm-action-label">Confirmer</span>
+                    <div id="confirm-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de logique et liaison Supabase -->
+    <script>
+        let supabaseClient = null;
+        let accountsList = [];
+        let poolsList = [];
+        let pendingConfirmAction = null;
+
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+
+        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        // ============ SESSION & RÔLE ============
+
+        async function checkSession() {
+            if (!supabaseClient) {
+                showError("Configuration Supabase introuvable dans le localStorage.");
+                return;
+            }
+            try {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+                if (error || !session) {
+                    window.location.replace('login.html');
+                    return;
+                }
+
+                document.getElementById('user-display-name').textContent = session.user.email;
+
+                const isAdmin = await checkUserRole(session.user.id);
+                if (!isAdmin) {
+                    document.getElementById('access-denied-banner').classList.remove('hidden');
+                    setTimeout(() => window.location.replace('dashboard.html'), 2500);
+                    return;
+                }
+
+                document.getElementById('admin-content').classList.remove('hidden');
+                await Promise.all([loadAccounts(), loadPools()]);
+            } catch (e) {
+                console.error(e);
+                showError("Erreur d'authentification ou problème réseau.");
+            }
+        }
+
+        // Vérifie le rôle de l'utilisateur connecté et met à jour la navbar.
+        // Retourne true si le rôle est admin (accès autorisé à cette page).
+        async function checkUserRole(userId) {
+            try {
+                const { data: user } = await supabaseClient
+                    .from('users')
+                    .select('role')
+                    .eq('id', userId)
+                    .maybeSingle();
+
+                if (user) {
+                    if (user.role === 'admin') {
+                        document.getElementById('nav-extraction').classList.remove('hidden');
+                        document.getElementById('nav-admin').classList.remove('hidden');
+                        document.getElementById('nav-audit').classList.remove('hidden');
+                        return true;
+                    } else if (user.role === 'recruteur' || user.role === 'user') {
+                        document.getElementById('nav-extraction').classList.remove('hidden');
+                    }
+                }
+                return false;
+            } catch (err) {
+                console.error(err);
+                return false;
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('error-message').textContent = msg;
+            document.getElementById('error-banner').classList.remove('hidden');
+        }
+
+        function toastMessage(msg, type = "success") {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
+                type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // ============ APPEL SÉCURISÉ À manage-users ============
+        // Rappel section 2 du Master Context : le header 'apikey' est
+        // OBLIGATOIRE en plus de 'Authorization', sinon 401 systématique
+        // côté gateway avant même d'atteindre le code de la fonction.
+        async function callManageUsers(action, payload = {}) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
+
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action, ...payload })
+            });
+
+            const json = await response.json();
+            if (!response.ok || json.error) {
+                throw new Error(json.error || `Erreur inattendue (statut ${response.status})`);
+            }
+            return json;
+        }
+
+        // ============ GESTION DES COMPTES ============
+
+        async function loadAccounts() {
+            const loading = document.getElementById('accounts-loading');
+            const empty = document.getElementById('accounts-empty');
+            const table = document.getElementById('accounts-table');
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            table.classList.add('hidden');
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('users')
+                    .select('id, name, email, role, is_active, created_at')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                accountsList = data || [];
+                renderAccounts();
+            } catch (e) {
+                console.error(e);
+                showError("Impossible de charger la liste des comptes : " + e.message);
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function renderAccounts() {
+            const tbody = document.getElementById('accounts-tbody');
+            const table = document.getElementById('accounts-table');
+            const empty = document.getElementById('accounts-empty');
+
+            if (accountsList.length === 0) {
+                empty.classList.remove('hidden');
+                table.classList.add('hidden');
+                return;
+            }
+
+            table.classList.remove('hidden');
+            empty.classList.add('hidden');
+
+            const roleLabels = { admin: '🛡️ Admin', recruteur: '👤 Recruteur', visitor: '👁️ Visiteur' };
+            const roleColors = {
+                admin: 'bg-primary-light text-primary',
+                recruteur: 'bg-green-50 text-green-700',
+                visitor: 'bg-slate-100 text-slate-600'
+            };
+
+            tbody.innerHTML = accountsList.map(u => {
+                const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—';
+                const statusBadge = u.is_active
+                    ? '<span class="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">Actif</span>'
+                    : '<span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Suspendu</span>';
+                const roleBadge = `<span class="text-xs font-semibold ${roleColors[u.role] || 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full">${roleLabels[u.role] || u.role}</span>`;
+
+                return `
+                <tr class="text-slate-700">
+                    <td class="py-3 pr-4 font-medium">${escapeHtml(u.name || '—')}</td>
+                    <td class="py-3 pr-4 text-slate-500">${escapeHtml(u.email || '—')}</td>
+                    <td class="py-3 pr-4">${roleBadge}</td>
+                    <td class="py-3 pr-4">${statusBadge}</td>
+                    <td class="py-3 pr-4 text-slate-400 text-xs">${createdDate}</td>
+                    <td class="py-3 pr-4">
+                        <div class="flex justify-end gap-1.5 flex-wrap">
+                            <button class="btn-toggle-active text-xs font-semibold ${u.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-active="${u.is_active}">
+                                ${u.is_active ? 'Suspendre' : 'Réactiver'}
+                            </button>
+                            <button class="btn-reset-password text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}">
+                                Réinitialiser
+                            </button>
+                            <button class="btn-delete-account text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-email="${escapeHtml(u.email || '')}">
+                                Supprimer
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            attachAccountRowListeners();
+        }
+
+        function attachAccountRowListeners() {
+            document.querySelectorAll('.btn-toggle-active').forEach(btn => {
+                btn.addEventListener('click', () => onToggleActive(btn.dataset.id, btn.dataset.active === 'true'));
+            });
+            document.querySelectorAll('.btn-reset-password').forEach(btn => {
+                btn.addEventListener('click', () => onResetPassword(btn.dataset.id));
+            });
+            document.querySelectorAll('.btn-delete-account').forEach(btn => {
+                btn.addEventListener('click', () => onDeleteAccount(btn.dataset.id, btn.dataset.email));
+            });
+        }
+
+        // Suspension / réactivation : client direct sur is_active (pas besoin d'Edge Function, section 8)
+        async function onToggleActive(userId, currentlyActive) {
+            const nextState = !currentlyActive;
+            openConfirmModal({
+                title: nextState ? "Réactiver le compte" : "Suspendre le compte",
+                message: nextState
+                    ? "L'utilisateur retrouvera immédiatement l'accès à la plateforme."
+                    : "L'utilisateur perdra immédiatement l'accès à la plateforme.",
+                actionLabel: nextState ? "Réactiver" : "Suspendre",
+                icon: nextState ? "✅" : "⏸️",
+                onConfirm: async () => {
+                    const { error } = await supabaseClient
+                        .from('users')
+                        .update({ is_active: nextState })
+                        .eq('id', userId);
+                    if (error) throw error;
+                    toastMessage(nextState ? "Compte réactivé." : "Compte suspendu.");
+                    await loadAccounts();
+                }
+            });
+        }
+
+        async function onResetPassword(userId) {
+            openConfirmModal({
+                title: "Réinitialiser le code d'accès",
+                message: "Un nouveau code sera généré et l'ancien cessera immédiatement de fonctionner.",
+                actionLabel: "Réinitialiser",
+                icon: "🔑",
+                onConfirm: async () => {
+                    const result = await callManageUsers('reset_password', { userId });
+                    showAccessCodeModal(result.accessCode);
+                    toastMessage("Code d'accès réinitialisé avec succès.");
+                }
+            });
+        }
+
+        async function onDeleteAccount(userId, email) {
+            openConfirmModal({
+                title: "Supprimer définitivement ce compte",
+                message: `Cette action est irréversible. Le compte "${email}" et son accès seront définitivement supprimés.`,
+                actionLabel: "Supprimer",
+                icon: "🗑️",
+                onConfirm: async () => {
+                    await callManageUsers('delete', { userId });
+                    toastMessage("Compte supprimé avec succès.");
+                    await loadAccounts();
+                }
+            });
+        }
+
+        // Création de compte
+        document.getElementById('btn-open-create-account').addEventListener('click', () => {
+            document.getElementById('input-new-name').value = '';
+            document.getElementById('input-new-email').value = '';
+            document.getElementById('input-new-role').value = 'recruteur';
+            document.getElementById('modal-create-account').classList.remove('hidden');
+        });
+        document.getElementById('btn-cancel-create-account').addEventListener('click', () => {
+            document.getElementById('modal-create-account').classList.add('hidden');
+        });
+        document.getElementById('btn-confirm-create-account').addEventListener('click', async () => {
+            const fullName = document.getElementById('input-new-name').value.trim();
+            const email = document.getElementById('input-new-email').value.trim();
+            const role = document.getElementById('input-new-role').value;
+            const spinner = document.getElementById('create-account-spinner');
+            const btn = document.getElementById('btn-confirm-create-account');
+
+            if (!email || !role) {
+                toastMessage("L'email et le rôle sont obligatoires.", "error");
+                return;
+            }
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            try {
+                // Paramètre envoyé à l'Edge Function : fullName, mappé sur la
+                // colonne 'name' en base (voir section 8 du Master Context).
+                const result = await callManageUsers('create', { email, role, fullName });
+                document.getElementById('modal-create-account').classList.add('hidden');
+                showAccessCodeModal(result.accessCode);
+                toastMessage("Compte créé avec succès.");
+                await loadAccounts();
+            } catch (e) {
+                console.error(e);
+                toastMessage("Échec de la création : " + e.message, "error");
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        });
+
+        // ============ GESTION DES POOLS ============
+
+        async function loadPools() {
+            const loading = document.getElementById('pools-loading');
+            const empty = document.getElementById('pools-empty');
+            const table = document.getElementById('pools-table');
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            table.classList.add('hidden');
+
+            try {
+                const { data, error } = await supabaseClient.from('pools').select('*');
+                if (error) throw error;
+                poolsList = data || [];
+                renderPools();
+            } catch (e) {
+                console.error(e);
+                showError("Impossible de charger la liste des pools : " + e.message);
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function renderPools() {
+            const tbody = document.getElementById('pools-tbody');
+            const table = document.getElementById('pools-table');
+            const empty = document.getElementById('pools-empty');
+
+            if (poolsList.length === 0) {
+                empty.classList.remove('hidden');
+                table.classList.add('hidden');
+                return;
+            }
+
+            table.classList.remove('hidden');
+            empty.classList.add('hidden');
+
+            tbody.innerHTML = poolsList.map(p => {
+                // Tolérance de nommage de colonnes (pool_id/poolId, full_name/fullName),
+                // cohérent avec le pattern déjà utilisé dans statistics.html.
+                const code = p.pool_id || p.poolId || p.name || '—';
+                const fullName = p.full_name || p.fullName || p.name || '—';
+                const isArchived = !!p.is_archived;
+                const statusBadge = isArchived
+                    ? '<span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Archivé</span>'
+                    : '<span class="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">Actif</span>';
+
+                return `
+                <tr class="text-slate-700">
+                    <td class="py-3 pr-4 font-semibold">${escapeHtml(code)}</td>
+                    <td class="py-3 pr-4">${escapeHtml(fullName)}</td>
+                    <td class="py-3 pr-4 text-slate-500 text-xs max-w-xs truncate">${escapeHtml(p.description || '—')}</td>
+                    <td class="py-3 pr-4">${statusBadge}</td>
+                    <td class="py-3 pr-4">
+                        <div class="flex justify-end gap-1.5">
+                            <button class="btn-toggle-pool-archive text-xs font-semibold ${isArchived ? 'text-green-600 hover:bg-green-50' : 'text-amber-600 hover:bg-amber-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-archived="${isArchived}" data-code="${escapeHtml(code)}">
+                                ${isArchived ? 'Désarchiver' : 'Archiver'}
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            document.querySelectorAll('.btn-toggle-pool-archive').forEach(btn => {
+                btn.addEventListener('click', () => onTogglePoolArchive(btn.dataset.id, btn.dataset.archived === 'true', btn.dataset.code));
+            });
+        }
+
+        async function onTogglePoolArchive(poolId, currentlyArchived, code) {
+            const nextState = !currentlyArchived;
+            openConfirmModal({
+                title: nextState ? `Archiver le pool ${code}` : `Désarchiver le pool ${code}`,
+                message: nextState
+                    ? "Le pool n'apparaîtra plus dans les sélecteurs actifs (dashboard, statistiques)."
+                    : "Le pool redeviendra visible et sélectionnable normalement.",
+                actionLabel: nextState ? "Archiver" : "Désarchiver",
+                icon: nextState ? "📦" : "📤",
+                onConfirm: async () => {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    const updatePayload = nextState
+                        ? { is_archived: true, archived_at: new Date().toISOString(), archived_by_name: session.user.email }
+                        : { is_archived: false, archived_at: null, archived_by_name: null };
+
+                    const { error } = await supabaseClient.from('pools').update(updatePayload).eq('id', poolId);
+                    if (error) throw error;
+                    toastMessage(nextState ? "Pool archivé." : "Pool désarchivé.");
+                    await loadPools();
+                }
+            });
+        }
+
+        // Création de pool (insert direct, pas besoin d'Edge Function — section 8)
+        document.getElementById('btn-open-create-pool').addEventListener('click', () => {
+            document.getElementById('input-pool-code').value = '';
+            document.getElementById('input-pool-fullname').value = '';
+            document.getElementById('input-pool-description').value = '';
+            document.getElementById('modal-create-pool').classList.remove('hidden');
+        });
+        document.getElementById('btn-cancel-create-pool').addEventListener('click', () => {
+            document.getElementById('modal-create-pool').classList.add('hidden');
+        });
+        document.getElementById('btn-confirm-create-pool').addEventListener('click', async () => {
+            const code = document.getElementById('input-pool-code').value.trim().toUpperCase();
+            const fullName = document.getElementById('input-pool-fullname').value.trim();
+            const description = document.getElementById('input-pool-description').value.trim();
+            const spinner = document.getElementById('create-pool-spinner');
+            const btn = document.getElementById('btn-confirm-create-pool');
+
+            if (!code || !fullName) {
+                toastMessage("Le code et le nom complet sont obligatoires.", "error");
+                return;
+            }
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            try {
+                const { error } = await supabaseClient.from('pools').insert({
+                    pool_id: code,
+                    full_name: fullName,
+                    description: description || null,
+                    is_archived: false
+                });
+                if (error) throw error;
+                document.getElementById('modal-create-pool').classList.add('hidden');
+                toastMessage("Pool créé avec succès.");
+                await loadPools();
+            } catch (e) {
+                console.error(e);
+                toastMessage("Échec de la création du pool : " + e.message, "error");
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        });
+
+        // ============ MODALES GÉNÉRIQUES ============
+
+        function openConfirmModal({ title, message, actionLabel, icon, onConfirm }) {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            document.getElementById('confirm-action-label').textContent = actionLabel;
+            document.getElementById('confirm-icon').textContent = icon || '⚠️';
+            pendingConfirmAction = onConfirm;
+            document.getElementById('modal-confirm').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-cancel-confirm').addEventListener('click', () => {
+            pendingConfirmAction = null;
+            document.getElementById('modal-confirm').classList.add('hidden');
+        });
+
+        document.getElementById('btn-confirm-confirm').addEventListener('click', async () => {
+            if (!pendingConfirmAction) return;
+            const spinner = document.getElementById('confirm-spinner');
+            const btn = document.getElementById('btn-confirm-confirm');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            try {
+                await pendingConfirmAction();
+                document.getElementById('modal-confirm').classList.add('hidden');
+            } catch (e) {
+                console.error(e);
+                toastMessage("Échec de l'action : " + e.message, "error");
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                pendingConfirmAction = null;
+            }
+        });
+
+        function showAccessCodeModal(code) {
+            document.getElementById('access-code-value').textContent = code;
+            document.getElementById('modal-access-code').classList.remove('hidden');
+        }
+        document.getElementById('btn-close-access-code').addEventListener('click', () => {
+            document.getElementById('access-code-value').textContent = '';
+            document.getElementById('modal-access-code').classList.add('hidden');
+        });
+        document.getElementById('btn-copy-access-code').addEventListener('click', async () => {
+            const code = document.getElementById('access-code-value').textContent;
+            try {
+                await navigator.clipboard.writeText(code);
+                toastMessage("Code copié dans le presse-papiers.");
+            } catch (e) {
+                toastMessage("Impossible de copier automatiquement, copiez le code manuellement.", "error");
+            }
+        });
+
+        // ============ ONGLETS ============
+
+        document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab-btn').forEach(b => {
+                    b.classList.remove('border-primary', 'text-primary');
+                    b.classList.add('border-transparent', 'text-slate-500');
+                });
+                btn.classList.add('border-primary', 'text-primary');
+                btn.classList.remove('border-transparent', 'text-slate-500');
+
+                document.getElementById('tab-accounts').classList.add('hidden');
+                document.getElementById('tab-pools').classList.add('hidden');
+                document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+            });
+        });
+
+        // ============ UTILITAIRES ============
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str == null ? '' : String(str);
+            return div.innerHTML;
+        }
+
+        // ============ INITIALISATION ============
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            if (supabaseClient) await supabaseClient.auth.signOut();
+            window.location.replace('login.html');
+        });
+
+        window.addEventListener('DOMContentLoaded', () => checkSession());
+    </script>
+</body>
+</html>
