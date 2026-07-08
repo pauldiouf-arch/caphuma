@@ -260,7 +260,7 @@
                 const { data: user } = await supabaseClient
                     .from('users')
                     .select('role')
-                    .eq('tokenIdentifier', userId)
+                    .eq('id', userId)
                     .maybeSingle();
                 
                 if (user) {
