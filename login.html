@@ -74,33 +74,34 @@
                     Se connecter
                 </button>
             </form>
-
-            <div class="mt-5 pt-4 border-t border-slate-100 text-center">
-                <button type="button" id="resetConfigBtn" class="text-[11px] text-slate-400 hover:text-slate-600 font-semibold">
-                    Modifier la configuration Supabase / IA
-                </button>
-            </div>
         </div>
     </div>
 
     <script>
         // ============================================================================
-        // 1. GARDE DE CONFIGURATION : redirection vers index.html si absente
+        // CONFIGURATION SUPABASE — codée en dur (même valeurs que index.html).
+        // La clé "anon" / "publishable" est publique par conception Supabase ;
+        // la sécurité réelle repose sur RLS + GRANT côté serveur.
+        //
+        // ⚠️ À REMPLACER avant déploiement par les vraies valeurs du projet Supabase :
         // ============================================================================
+        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
+
+        // Pont de compatibilité : on alimente le localStorage pour que les autres
+        // pages déjà livrées (qui lisent encore supabase_url / supabase_anon_key
+        // depuis le localStorage) continuent de fonctionner sans modification,
+        // même si l'utilisateur arrive directement sur login.html sans être
+        // passé par index.html au préalable.
+        localStorage.setItem('supabase_url', SUPABASE_URL);
+        localStorage.setItem('supabase_anon_key', SUPABASE_ANON_KEY);
+
         const appBody = document.getElementById('appBody');
-
-        const SUPABASE_URL = localStorage.getItem('supabase_url');
-        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
-
-        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-            window.location.replace('index.html');
-        }
-
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ============================================================================
-        // 2. GARDE DE SESSION : si déjà connecté, on saute directement au dashboard
+        // GARDE DE SESSION : si déjà connecté, on saute directement au dashboard
         // ============================================================================
         async function checkExistingSession() {
             try {
@@ -118,7 +119,7 @@
         checkExistingSession();
 
         // ============================================================================
-        // 3. SOUMISSION DU FORMULAIRE DE CONNEXION
+        // SOUMISSION DU FORMULAIRE DE CONNEXION
         // ============================================================================
         const loginForm = document.getElementById('loginForm');
         const loginError = document.getElementById('loginError');
@@ -144,17 +145,6 @@
                 submitLoginBtn.disabled = false;
                 submitLoginBtn.textContent = 'Se connecter';
             }
-        });
-
-        // ============================================================================
-        // 4. RÉINITIALISATION DE LA CONFIGURATION
-        // ============================================================================
-        document.getElementById('resetConfigBtn').addEventListener('click', function () {
-            localStorage.removeItem('supabase_url');
-            localStorage.removeItem('supabase_anon_key');
-            localStorage.removeItem('ai_api_url');
-            localStorage.removeItem('ai_api_key');
-            window.location.href = 'index.html';
         });
     </script>
 </body>
