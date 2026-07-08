@@ -149,6 +149,7 @@
                                 <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                                     <th class="py-2 pr-4">Code</th>
                                     <th class="py-2 pr-4">Nom complet</th>
+                                    <th class="py-2 pr-4">Niveau</th>
                                     <th class="py-2 pr-4">Description</th>
                                     <th class="py-2 pr-4">Statut</th>
                                     <th class="py-2 pr-4 text-right">Actions</th>
@@ -220,6 +221,13 @@
                 <div>
                     <label class="text-xs font-semibold text-slate-600">Nom complet</label>
                     <input id="input-pool-fullname" type="text" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Ex : Coordinateur Logistique">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600">Niveau</label>
+                    <select id="input-pool-level" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="project">Projet (niveau terrain/opérationnel)</option>
+                        <option value="mission">Mission (niveau stratégique/supérieur)</option>
+                    </select>
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-600">Description (optionnel)</label>
@@ -589,25 +597,27 @@
             table.classList.remove('hidden');
             empty.classList.add('hidden');
 
+            const levelLabels = { mission: 'Mission', project: 'Projet' };
+
             tbody.innerHTML = poolsList.map(p => {
-                // Tolérance de nommage de colonnes (pool_id/poolId, full_name/fullName),
-                // cohérent avec le pattern déjà utilisé dans statistics.html.
-                const code = p.pool_id || p.poolId || p.name || '—';
-                const fullName = p.full_name || p.fullName || p.name || '—';
                 const isArchived = !!p.is_archived;
                 const statusBadge = isArchived
                     ? '<span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Archivé</span>'
                     : '<span class="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">Actif</span>';
+                const levelBadge = p.level
+                    ? `<span class="text-xs font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-full">${escapeHtml(levelLabels[p.level] || p.level)}</span>`
+                    : '—';
 
                 return `
                 <tr class="text-slate-700">
-                    <td class="py-3 pr-4 font-semibold">${escapeHtml(code)}</td>
-                    <td class="py-3 pr-4">${escapeHtml(fullName)}</td>
+                    <td class="py-3 pr-4 font-semibold">${escapeHtml(p.pool_id)}</td>
+                    <td class="py-3 pr-4">${escapeHtml(p.full_name)}</td>
+                    <td class="py-3 pr-4">${levelBadge}</td>
                     <td class="py-3 pr-4 text-slate-500 text-xs max-w-xs truncate">${escapeHtml(p.description || '—')}</td>
                     <td class="py-3 pr-4">${statusBadge}</td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5">
-                            <button class="btn-toggle-pool-archive text-xs font-semibold ${isArchived ? 'text-green-600 hover:bg-green-50' : 'text-amber-600 hover:bg-amber-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-archived="${isArchived}" data-code="${escapeHtml(code)}">
+                            <button class="btn-toggle-pool-archive text-xs font-semibold ${isArchived ? 'text-green-600 hover:bg-green-50' : 'text-amber-600 hover:bg-amber-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-archived="${isArchived}" data-code="${escapeHtml(p.pool_id)}">
                                 ${isArchived ? 'Désarchiver' : 'Archiver'}
                             </button>
                         </div>
@@ -656,6 +666,7 @@
         document.getElementById('btn-confirm-create-pool').addEventListener('click', async () => {
             const code = document.getElementById('input-pool-code').value.trim().toUpperCase();
             const fullName = document.getElementById('input-pool-fullname').value.trim();
+            const level = document.getElementById('input-pool-level').value;
             const description = document.getElementById('input-pool-description').value.trim();
             const spinner = document.getElementById('create-pool-spinner');
             const btn = document.getElementById('btn-confirm-create-pool');
@@ -668,10 +679,16 @@
             btn.disabled = true;
             spinner.classList.remove('hidden');
             try {
+                // Schéma réel vérifié via information_schema.columns (name, level,
+                // full_name, pool_id sont NOT NULL) : name reçoit le code court,
+                // cohérent avec le pattern déjà observé côté Convex de référence.
                 const { error } = await supabaseClient.from('pools').insert({
                     pool_id: code,
+                    name: code,
                     full_name: fullName,
+                    level: level,
                     description: description || null,
+                    is_active: true,
                     is_archived: false
                 });
                 if (error) throw error;
