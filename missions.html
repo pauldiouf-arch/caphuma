@@ -155,7 +155,7 @@
                     </div>
                 </div>
 
-                <div>
+                <div id="projectNameField" class="hidden">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Nom du projet</label>
                     <input type="text" id="fieldProjectName" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
@@ -546,12 +546,30 @@
         document.getElementById('closeModalBtn').addEventListener('click', closeModal);
         document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
 
+        // Le champ "Nom du projet" n'a de sens que pour un poste de niveau "Projet" —
+        // masqué et vidé automatiquement pour un poste de niveau "Mission".
+        const fieldPoolLevel = document.getElementById('fieldPoolLevel');
+        const projectNameField = document.getElementById('projectNameField');
+        const fieldProjectName = document.getElementById('fieldProjectName');
+
+        function toggleProjectNameField() {
+            if (fieldPoolLevel.value === 'project') {
+                projectNameField.classList.remove('hidden');
+            } else {
+                projectNameField.classList.add('hidden');
+                fieldProjectName.value = '';
+            }
+        }
+
+        fieldPoolLevel.addEventListener('change', toggleProjectNameField);
+
         function openCreateModal() {
             modalTitle.textContent = 'Nouveau poste';
             missionForm.reset();
             document.getElementById('missionId').value = '';
             document.getElementById('fieldPoolLevel').value = 'mission';
             document.getElementById('fieldStatus').value = 'vacant';
+            toggleProjectNameField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
         }
@@ -578,6 +596,7 @@
             document.getElementById('fieldFutureContractStart').value = toDateInputValue(mission.future_contract_start_date);
             document.getElementById('fieldFutureContractEnd').value = toDateInputValue(mission.future_contract_end_date);
 
+            toggleProjectNameField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
         }
