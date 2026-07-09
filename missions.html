@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Postes - Cap Huma</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Charte graphique ALIMA / Cap Huma (identique à dashboard.html) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1d4ed8',
+                            dark: '#1e3a8a',
+                            light: '#eff6ff',
+                        },
+                        accent: {
+                            DEFAULT: '#ea580c',
+                            dark: '#c2410c',
+                            light: '#fff7ed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         EN-TÊTE SUPÉRIEUR (identique structure à dashboard.html)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <a href="dashboard.html" class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md shrink-0" title="Retour au tableau de bord">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.45.258-.717.258H3.571a.8.8 0 0 1-.717-.258m17.5 0a2.18 2.18 0 0 1-.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m0 0a48.58 48.58 0 0 0-6.177 0m6.177 0v1.502a2.25 2.25 0 0 1-2.25 2.25H9.75a2.25 2.25 0 0 1-2.25-2.25V6.144m6.177 0a48.114 48.114 0 0 0-3.413.387m0 0a48.58 48.58 0 0 1-6.177 0" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight" id="pageTitle">Postes</h1>
+                    <p class="text-xs text-slate-400 font-semibold mt-1" id="userSubtitle">Gestion des postes</p>
+                </div>
+            </div>
+
+            <nav class="flex items-center gap-2 flex-wrap justify-end">
+                <a href="dashboard.html" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    🏠 Tableau de bord
+                </a>
+                <a href="#" id="navTalents" class="border border-blue-200 hover:bg-blue-50 text-primary px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    👤 Professionnels du pool
+                </a>
+
+                <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
+                    </svg>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE : LISTE DES POSTES DU POOL
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="max-w-7xl w-full mx-auto px-6 py-8 flex-1 overflow-auto">
+
+        <div class="mb-6 flex items-end justify-between flex-wrap gap-3">
+            <div>
+                <h2 class="text-xl font-extrabold text-slate-800" id="poolHeading">Postes du pool</h2>
+                <p class="text-sm text-slate-400 mt-1" id="poolSubheading">Chargement du pool…</p>
+            </div>
+            <button id="createMissionBtn" type="button" class="hidden bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-xs">
+                ➕ Nouveau poste
+            </button>
+        </div>
+
+        <p id="missionsError" class="hidden mb-4 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
+        <p id="readOnlyNotice" class="hidden mb-4 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-lg p-3">
+            👁️ Vous êtes en lecture seule sur cette page.
+        </p>
+
+        <div id="missionsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <!-- Squelettes de chargement -->
+            <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
+            <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
+            <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
+        </div>
+
+        <p id="missionsEmpty" class="hidden text-center text-sm text-slate-400 py-12">Aucun poste enregistré pour ce pool pour le moment.</p>
+
+    </main>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         MODALE CRÉATION / MODIFICATION D'UN POSTE
+         ──────────────────────────────────────────────────────────────────────── -->
+    <div id="missionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
+        <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
+                <h3 class="text-lg font-extrabold text-slate-800" id="modalTitle">Nouveau poste</h3>
+                <button id="closeModalBtn" type="button" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            </div>
+
+            <form id="missionForm" class="px-6 py-5 space-y-4">
+                <input type="hidden" id="missionId">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Titre du poste *</label>
+                    <input type="text" id="fieldTitle" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Niveau *</label>
+                        <select id="fieldPoolLevel" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="mission">Mission</option>
+                            <option value="project">Projet</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Statut *</label>
+                        <select id="fieldStatus" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="vacant">⚪ Vacant</option>
+                            <option value="recruiting">🟡 En recrutement</option>
+                            <option value="occupied">🟢 Occupé</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Pays *</label>
+                        <input type="text" id="fieldCountry" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Lieu *</label>
+                        <input type="text" id="fieldLocation" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Nom du projet</label>
+                    <input type="text" id="fieldProjectName" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Type de candidat</label>
+                        <select id="fieldCandidateType" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="">— Non précisé —</option>
+                            <option value="expat">Expatrié</option>
+                            <option value="nat">National</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Desk</label>
+                        <select id="fieldDesk" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="">— Non précisé —</option>
+                            <option value="desk1">Desk 1</option>
+                            <option value="desk2">Desk 2</option>
+                            <option value="desk3">Desk 3</option>
+                            <option value="suo">SUO</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="h-px bg-slate-100 my-2"></div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Occupant actuel</p>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Talent occupant ce poste</label>
+                    <select id="fieldOccupant" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="">— Aucun —</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Début de contrat</label>
+                        <input type="date" id="fieldContractStart" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fin de contrat</label>
+                        <input type="date" id="fieldContractEnd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <p class="text-[10px] text-slate-400 mt-1">Modifiable librement, sans justification.</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Statut du contrat</label>
+                    <select id="fieldContractStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="">— Non précisé —</option>
+                        <option value="ongoing">En cours</option>
+                        <option value="renewable">Renouvelable</option>
+                        <option value="ending">Se termine</option>
+                    </select>
+                </div>
+
+                <div class="h-px bg-slate-100 my-2"></div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Futur occupant (rotation prévue)</p>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Talent prévu en remplacement</label>
+                    <select id="fieldFutureOccupant" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="">— Aucun —</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Début prévu</label>
+                        <input type="date" id="fieldFutureContractStart" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fin prévue</label>
+                        <input type="date" id="fieldFutureContractEnd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                </div>
+
+                <p id="formError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+
+                <div class="flex items-center justify-end gap-3 pt-2 pb-1 sticky bottom-0 bg-white">
+                    <button type="button" id="cancelModalBtn" class="px-4 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">Annuler</button>
+                    <button type="submit" id="saveMissionBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-xs">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification toast -->
+    <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-bold shadow-lg"></div>
+
+    <script>
+        // ============================================================================
+        // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
+        // ============================================================================
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            window.location.replace('index.html');
+        }
+
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const appBody = document.getElementById('appBody');
+        const userSubtitle = document.getElementById('userSubtitle');
+        const pageTitle = document.getElementById('pageTitle');
+        const poolHeading = document.getElementById('poolHeading');
+        const poolSubheading = document.getElementById('poolSubheading');
+        const navTalents = document.getElementById('navTalents');
+        const missionsGrid = document.getElementById('missionsGrid');
+        const missionsError = document.getElementById('missionsError');
+        const missionsEmpty = document.getElementById('missionsEmpty');
+        const readOnlyNotice = document.getElementById('readOnlyNotice');
+        const createMissionBtn = document.getElementById('createMissionBtn');
+
+        // Échappement HTML systématique de toute donnée venant de la base
+        // avant injection via innerHTML — prévention XSS (audit sécurité, cf. Master Context section 7).
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function toastMessage(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-bold shadow-lg '
+                + (type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+
+        // Récupération du pool depuis l'URL (ex. missions.html?pool=COLOG)
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPoolId = (urlParams.get('pool') || urlParams.get('pool_id') || '').toUpperCase();
+
+        if (!currentPoolId) {
+            poolSubheading.textContent = "Aucun pool sélectionné — retournez au tableau de bord.";
+            missionsError.textContent = "Aucun pool indiqué dans l'URL. Accédez à cette page depuis le bouton « Postes » d'un pool sur le tableau de bord.";
+            missionsError.classList.remove('hidden');
+        }
+
+        navTalents.href = 'talents.html?pool=' + encodeURIComponent(currentPoolId);
+
+        // État en mémoire
+        let currentUserId = null;
+        let currentUserRole = null;
+        let currentMissions = [];
+        let poolTalents = []; // talents du pool, pour les listes déroulantes occupant / futur occupant
+        let talentNameById = {};
+
+        // Libellés d'affichage des valeurs stockées (jamais de valeur brute affichée à l'utilisateur)
+        const STATUS_LABELS = { occupied: '🟢 Occupé', recruiting: '🟡 En recrutement', vacant: '⚪ Vacant' };
+        const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
+        const CANDIDATE_TYPE_LABELS = { expat: 'Expatrié', nat: 'National' };
+        const DESK_LABELS = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
+        const CONTRACT_STATUS_LABELS = { ongoing: 'En cours', renewable: 'Renouvelable', ending: 'Se termine' };
+
+        // ============================================================================
+        // 2. GARDE DE SESSION (identique au pattern de dashboard.html)
+        // ============================================================================
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+
+                if (!session) {
+                    throw new Error("Session absente ou expirée.");
+                }
+
+                currentUserId = session.user.id;
+
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('role, is_active')
+                    .eq('id', currentUserId);
+
+                if (!profileError && profiles && profiles.length > 0) {
+                    const profile = profiles[0];
+                    if (profile.is_active === false) throw new Error("Compte désactivé.");
+                    currentUserRole = profile.role;
+                    userSubtitle.textContent = `Connecté en tant que ${profile.role || 'utilisateur'}`;
+                } else {
+                    userSubtitle.textContent = 'Gestion des postes';
+                }
+
+                // Édition réservée à admin + user (recruteur) ; visitor en lecture seule.
+                if (currentUserRole === 'admin' || currentUserRole === 'user') {
+                    createMissionBtn.classList.remove('hidden');
+                } else {
+                    readOnlyNotice.classList.remove('hidden');
+                }
+
+                appBody.style.display = 'flex';
+
+                if (currentPoolId) {
+                    await loadPoolInfo();
+                    await loadPoolTalents();
+                    await loadMissions();
+                }
+
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
+                try {
+                    await supabaseClient.auth.signOut();
+                } catch (logoutErr) {}
+                window.location.replace('login.html');
+            }
+        }
+
+        checkSession();
+
+        document.getElementById('logoutBtn').addEventListener('click', async function () {
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+
+        // ============================================================================
+        // 3. CHARGEMENT DU POOL, DES TALENTS DU POOL, ET DES POSTES
+        // ============================================================================
+        async function loadPoolInfo() {
+            try {
+                const { data: pool, error } = await supabaseClient
+                    .from('pools')
+                    .select('pool_id, name, full_name')
+                    .eq('pool_id', currentPoolId)
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                const displayName = pool ? (pool.full_name || pool.name || currentPoolId) : currentPoolId;
+                pageTitle.textContent = 'Postes — ' + displayName;
+                poolHeading.textContent = 'Postes du pool ' + displayName;
+                poolSubheading.textContent = 'Liste des postes rattachés à ce pool.';
+
+            } catch (error) {
+                console.error("Erreur de récupération du pool :", error);
+                poolHeading.textContent = 'Postes du pool ' + currentPoolId;
+                poolSubheading.textContent = 'Liste des postes rattachés à ce pool.';
+            }
+        }
+
+        async function loadPoolTalents() {
+            try {
+                // Colonnes strictement nécessaires (règle perf Master Context section 2 bis.2)
+                const { data: talents, error } = await supabaseClient
+                    .from('talents')
+                    .select('id, first_name, last_name, pool')
+                    .eq('pool', currentPoolId)
+                    .order('last_name', { ascending: true });
+
+                if (error) throw error;
+
+                poolTalents = talents || [];
+                talentNameById = {};
+                poolTalents.forEach(t => {
+                    talentNameById[t.id] = `${t.first_name || ''} ${t.last_name || ''}`.trim();
+                });
+
+                populateTalentDropdown('fieldOccupant', poolTalents);
+                populateTalentDropdown('fieldFutureOccupant', poolTalents);
+
+            } catch (error) {
+                console.error("Erreur de récupération des talents du pool :", error);
+            }
+        }
+
+        function populateTalentDropdown(selectId, talents) {
+            const select = document.getElementById(selectId);
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">— Aucun —</option>';
+            talents.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = `${t.first_name || ''} ${t.last_name || ''}`.trim();
+                select.appendChild(opt);
+            });
+            select.value = currentValue;
+        }
+
+        async function loadMissions() {
+            try {
+                missionsError.classList.add('hidden');
+
+                // select('*') volontairement conservé : la liste alimente directement la
+                // modale d'édition complète du même enregistrement (même justification que
+                // talents.html, cf. Master Context section 8.2 cas n°2). Schéma intégralement
+                // vérifié (section 5), donc sans risque de colonne manquante.
+                const { data: missions, error } = await supabaseClient
+                    .from('missions')
+                    .select('*')
+                    .eq('pool', currentPoolId)
+                    .order('title', { ascending: true });
+
+                if (error) throw error;
+
+                currentMissions = missions || [];
+                renderMissions();
+
+            } catch (error) {
+                console.error("Erreur de récupération des postes :", error);
+                missionsGrid.innerHTML = '';
+                missionsError.textContent = "Impossible de charger les postes de ce pool depuis Supabase.";
+                missionsError.classList.remove('hidden');
+            }
+        }
+
+        // ============================================================================
+        // 4. RENDU DE LA LISTE DES POSTES
+        // ============================================================================
+        function renderMissions() {
+            missionsGrid.innerHTML = '';
+
+            if (currentMissions.length === 0) {
+                missionsEmpty.classList.remove('hidden');
+                return;
+            }
+            missionsEmpty.classList.add('hidden');
+
+            const canEdit = currentUserRole === 'admin' || currentUserRole === 'user';
+
+            currentMissions.forEach(mission => {
+                const statusLabel = STATUS_LABELS[mission.status] || mission.status || '—';
+                const occupantName = mission.occupant_id ? (talentNameById[mission.occupant_id] || 'Talent introuvable') : null;
+                const futureName = mission.future_talent_id ? (talentNameById[mission.future_talent_id] || 'Talent introuvable') : null;
+
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 rounded-2xl shadow-sm p-5 flex flex-col justify-between";
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <h3 class="text-sm font-extrabold text-slate-800">${escapeHtml(mission.title)}</h3>
+                            <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-slate-100 text-slate-600 shrink-0">${escapeHtml(statusLabel)}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 font-semibold">${escapeHtml(mission.location)}, ${escapeHtml(mission.country)}</p>
+                        ${mission.project_name ? `<p class="text-xs text-slate-400 mt-0.5">${escapeHtml(mission.project_name)}</p>` : ''}
+                        <div class="flex flex-wrap gap-1.5 mt-3">
+                            ${mission.pool_level ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-primary">${escapeHtml(POOL_LEVEL_LABELS[mission.pool_level] || mission.pool_level)}</span>` : ''}
+                            ${mission.desk ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">${escapeHtml(DESK_LABELS[mission.desk] || mission.desk)}</span>` : ''}
+                            ${mission.candidate_type ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">${escapeHtml(CANDIDATE_TYPE_LABELS[mission.candidate_type] || mission.candidate_type)}</span>` : ''}
+                        </div>
+                        <div class="mt-3 text-xs text-slate-500 space-y-1">
+                            ${occupantName ? `<p>👤 Occupant : <span class="font-semibold text-slate-700">${escapeHtml(occupantName)}</span></p>` : ''}
+                            ${mission.contract_end_date ? `<p>📅 Fin de contrat : <span class="font-semibold text-slate-700">${escapeHtml(formatDate(mission.contract_end_date))}</span></p>` : ''}
+                            ${futureName ? `<p>🔄 Futur occupant : <span class="font-semibold text-slate-700">${escapeHtml(futureName)}</span></p>` : ''}
+                        </div>
+                    </div>
+                    ${canEdit ? `
+                    <div class="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+                        <button type="button" class="editMissionBtn flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold transition-all" data-id="${escapeHtml(mission.id)}">✏️ Modifier</button>
+                        <button type="button" class="deleteMissionBtn bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-bold transition-all" data-id="${escapeHtml(mission.id)}">🗑️</button>
+                    </div>` : ''}
+                `;
+
+                missionsGrid.appendChild(card);
+            });
+
+            document.querySelectorAll('.editMissionBtn').forEach(btn => {
+                btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+            });
+            document.querySelectorAll('.deleteMissionBtn').forEach(btn => {
+                btn.addEventListener('click', () => deleteMission(btn.dataset.id));
+            });
+        }
+
+        function formatDate(isoDate) {
+            if (!isoDate) return '';
+            const d = new Date(isoDate);
+            if (isNaN(d.getTime())) return isoDate;
+            return d.toLocaleDateString('fr-FR');
+        }
+
+        // ============================================================================
+        // 5. MODALE CRÉATION / MODIFICATION
+        // ============================================================================
+        const missionModal = document.getElementById('missionModal');
+        const missionForm = document.getElementById('missionForm');
+        const modalTitle = document.getElementById('modalTitle');
+        const formError = document.getElementById('formError');
+
+        createMissionBtn.addEventListener('click', openCreateModal);
+        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+
+        function openCreateModal() {
+            modalTitle.textContent = 'Nouveau poste';
+            missionForm.reset();
+            document.getElementById('missionId').value = '';
+            document.getElementById('fieldPoolLevel').value = 'mission';
+            document.getElementById('fieldStatus').value = 'vacant';
+            formError.classList.add('hidden');
+            missionModal.classList.remove('hidden');
+        }
+
+        function openEditModal(missionId) {
+            const mission = currentMissions.find(m => m.id === missionId);
+            if (!mission) return;
+
+            modalTitle.textContent = 'Modifier le poste';
+            document.getElementById('missionId').value = mission.id;
+            document.getElementById('fieldTitle').value = mission.title || '';
+            document.getElementById('fieldPoolLevel').value = mission.pool_level || 'mission';
+            document.getElementById('fieldStatus').value = mission.status || 'vacant';
+            document.getElementById('fieldCountry').value = mission.country || '';
+            document.getElementById('fieldLocation').value = mission.location || '';
+            document.getElementById('fieldProjectName').value = mission.project_name || '';
+            document.getElementById('fieldCandidateType').value = mission.candidate_type || '';
+            document.getElementById('fieldDesk').value = mission.desk || '';
+            document.getElementById('fieldOccupant').value = mission.occupant_id || '';
+            document.getElementById('fieldContractStart').value = toDateInputValue(mission.contract_start_date);
+            document.getElementById('fieldContractEnd').value = toDateInputValue(mission.contract_end_date);
+            document.getElementById('fieldContractStatus').value = mission.contract_status || '';
+            document.getElementById('fieldFutureOccupant').value = mission.future_talent_id || '';
+            document.getElementById('fieldFutureContractStart').value = toDateInputValue(mission.future_contract_start_date);
+            document.getElementById('fieldFutureContractEnd').value = toDateInputValue(mission.future_contract_end_date);
+
+            formError.classList.add('hidden');
+            missionModal.classList.remove('hidden');
+        }
+
+        function toDateInputValue(isoDate) {
+            if (!isoDate) return '';
+            return String(isoDate).substring(0, 10);
+        }
+
+        function closeModal() {
+            missionModal.classList.add('hidden');
+        }
+
+        missionForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            formError.classList.add('hidden');
+
+            const missionId = document.getElementById('missionId').value;
+            const candidateType = document.getElementById('fieldCandidateType').value || null;
+
+            const payload = {
+                title: document.getElementById('fieldTitle').value.trim(),
+                pool: currentPoolId,
+                pool_level: document.getElementById('fieldPoolLevel').value,
+                status: document.getElementById('fieldStatus').value,
+                country: document.getElementById('fieldCountry').value.trim(),
+                location: document.getElementById('fieldLocation').value.trim(),
+                project_name: document.getElementById('fieldProjectName').value.trim() || null,
+                candidate_type: candidateType,
+                // is_expat maintenue en cohérence automatique avec candidate_type pour éviter
+                // qu'elle devienne une colonne fantôme jamais alimentée (cf. Master Context
+                // section 0 point 14 sur les colonnes redondantes non tenues à jour).
+                is_expat: candidateType ? candidateType === 'expat' : null,
+                desk: document.getElementById('fieldDesk').value || null,
+                occupant_id: document.getElementById('fieldOccupant').value || null,
+                contract_start_date: document.getElementById('fieldContractStart').value || null,
+                contract_end_date: document.getElementById('fieldContractEnd').value || null,
+                contract_status: document.getElementById('fieldContractStatus').value || null,
+                future_talent_id: document.getElementById('fieldFutureOccupant').value || null,
+                future_contract_start_date: document.getElementById('fieldFutureContractStart').value || null,
+                future_contract_end_date: document.getElementById('fieldFutureContractEnd').value || null,
+            };
+
+            if (!payload.title || !payload.country || !payload.location) {
+                formError.textContent = "Le titre, le pays et le lieu sont obligatoires.";
+                formError.classList.remove('hidden');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveMissionBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Enregistrement…';
+
+            try {
+                if (missionId) {
+                    const { error } = await supabaseClient
+                        .from('missions')
+                        .update(payload)
+                        .eq('id', missionId);
+                    if (error) throw error;
+                    toastMessage('Poste mis à jour.', 'success');
+                } else {
+                    payload.created_by = currentUserId;
+                    const { error } = await supabaseClient
+                        .from('missions')
+                        .insert(payload);
+                    if (error) throw error;
+                    toastMessage('Poste créé.', 'success');
+                }
+
+                closeModal();
+                await loadMissions();
+
+            } catch (error) {
+                console.error("Erreur d'enregistrement du poste :", error);
+                // PostgrestError n'est pas une instance native d'Error — on teste .message directement
+                formError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
+                formError.classList.remove('hidden');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Enregistrer';
+            }
+        });
+
+        // ============================================================================
+        // 6. SUPPRESSION D'UN POSTE
+        // ============================================================================
+        async function deleteMission(missionId) {
+            const mission = currentMissions.find(m => m.id === missionId);
+            const label = mission ? mission.title : 'ce poste';
+
+            if (!window.confirm(`Supprimer définitivement « ${label} » ? Cette action est irréversible.`)) {
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('missions')
+                    .delete()
+                    .eq('id', missionId);
+
+                if (error) throw error;
+
+                toastMessage('Poste supprimé.', 'success');
+                await loadMissions();
+
+            } catch (error) {
+                console.error("Erreur de suppression du poste :", error);
+                toastMessage("Échec de la suppression : " + (error && error.message ? error.message : 'erreur inconnue.'), 'error');
+            }
+        }
+    </script>
+</body>
+</html>
