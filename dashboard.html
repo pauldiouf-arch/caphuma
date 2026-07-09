@@ -101,9 +101,14 @@
          ──────────────────────────────────────────────────────────────────────── -->
     <main class="max-w-7xl w-full mx-auto px-6 py-8 flex-1 overflow-auto">
 
-        <div class="mb-6">
-            <h2 class="text-xl font-extrabold text-slate-800">Sélectionnez un pool</h2>
-            <p class="text-sm text-slate-400 mt-1">Accédez à la gestion terrain ou aux statistiques de chaque vivier métier.</p>
+        <div class="mb-6 flex items-end justify-between flex-wrap gap-3">
+            <div>
+                <h2 class="text-xl font-extrabold text-slate-800">Sélectionnez un pool</h2>
+                <p class="text-sm text-slate-400 mt-1">Accédez à la gestion terrain ou aux statistiques de chaque vivier métier.</p>
+            </div>
+            <div id="archivedToggleContainer" class="hidden">
+                <button id="archivedToggleBtn" type="button" class="border border-slate-200 hover:bg-slate-50 text-slate-500 px-3 py-2 rounded-lg text-xs font-bold transition-all"></button>
+            </div>
         </div>
 
         <div id="poolsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -135,6 +140,13 @@
         const poolsGrid = document.getElementById('poolsGrid');
         const poolsError = document.getElementById('poolsError');
         const userSubtitle = document.getElementById('userSubtitle');
+        const archivedToggleContainer = document.getElementById('archivedToggleContainer');
+        const archivedToggleBtn = document.getElementById('archivedToggleBtn');
+
+        archivedToggleBtn.addEventListener('click', function () {
+            showArchivedPools = !showArchivedPools;
+            renderPools();
+        });
 
         // Échappement HTML systématique de toute donnée venant de la base
         // avant injection via innerHTML — prévention XSS (audit sécurité).
@@ -150,10 +162,18 @@
 
         // Pools de secours si la table Supabase est vide ou inaccessible
         const FALLBACK_POOLS = [
-            { pool_id: 'COLOG', name: 'COLOG', full_name: 'Pool Logistique' },
-            { pool_id: 'COMED', name: 'COMED', full_name: 'Pool Médical' },
-            { pool_id: 'ADMIN', name: 'ADMIN', full_name: 'Pool Administration' }
+            { pool_id: 'COLOG', name: 'COLOG', full_name: 'Pool Logistique', is_archived: false },
+            { pool_id: 'COMED', name: 'COMED', full_name: 'Pool Médical', is_archived: false },
+            { pool_id: 'ADMIN', name: 'ADMIN', full_name: 'Pool Administration', is_archived: false }
         ];
+
+        // Seuil "à risque" aligné sur talents.html (surlignage rouge ≥24 mois sans mission)
+        const MONTHS_WITHOUT_MISSION_RISK_THRESHOLD = 24;
+
+        // État en mémoire : liste brute des pools, KPIs calculés par pool, affichage des archivés
+        let currentPools = [];
+        let poolStats = {};
+        let showArchivedPools = false;
 
         // ============================================================================
         // 2. GARDE DE SESSION (identique au pattern de missions.html)
@@ -219,18 +239,92 @@
             try {
                 const { data: pools, error } = await supabaseClient
                     .from('pools')
-                    .select('pool_id, name, full_name')
+                    .select('pool_id, name, full_name, is_archived')
                     .order('name', { ascending: true });
 
                 if (error) throw error;
 
-                renderPools(pools && pools.length > 0 ? pools : FALLBACK_POOLS);
+                currentPools = pools && pools.length > 0 ? pools : FALLBACK_POOLS;
 
             } catch (error) {
                 console.error("Erreur de récupération des pools :", error);
-                renderPools(FALLBACK_POOLS);
+                currentPools = FALLBACK_POOLS;
                 poolsError.textContent = "Impossible de charger les pools depuis Supabase — affichage des pools par défaut.";
                 poolsError.classList.remove('hidden');
+            }
+
+            await loadPoolStats();
+            renderPools();
+        }
+
+        // ============================================================================
+        // 3 BIS. CALCUL DES MINI-KPIS PAR POOL (Étape 4 — effectifs / dispo / à risque)
+        // ============================================================================
+        async function loadPoolStats() {
+            poolStats = {};
+
+            // 1. KPIs talents (effectif / dispo / à risque)
+            try {
+                // Colonnes strictement nécessaires (règle perf section 2 bis.2 du Master Context)
+                const { data: talents, error } = await supabaseClient
+                    .from('talents')
+                    .select('pool, is_valid, is_red_listed, status, months_without_mission');
+
+                if (error) throw error;
+
+                (talents || []).forEach(talent => {
+                    if (!talent.pool) return;
+
+                    if (!poolStats[talent.pool]) {
+                        poolStats[talent.pool] = { active: 0, available: 0, atRisk: 0, positions: 0 };
+                    }
+
+                    // Un talent "actif" = validé et pas en liste rouge
+                    const isActive = talent.is_valid !== false && !talent.is_red_listed;
+                    if (!isActive) return;
+
+                    poolStats[talent.pool].active++;
+
+                    if (talent.status === 'En attente de poste') {
+                        poolStats[talent.pool].available++;
+                    }
+
+                    if ((talent.months_without_mission || 0) >= MONTHS_WITHOUT_MISSION_RISK_THRESHOLD) {
+                        poolStats[talent.pool].atRisk++;
+                    }
+                });
+
+            } catch (error) {
+                // Ne bloque jamais l'affichage des cartes de pool : les KPIs restent à 0 en cas d'échec
+                console.error("Erreur de récupération des KPIs talents :", error);
+            }
+
+            // 2. KPI postes (nombre total de missions du pool, tous statuts confondus)
+            // ⚠️ Incohérence de schéma découverte cette session : la contrainte FK réelle
+            // porte sur la colonne "pool" (missions_pool_fkey → pools.pool_id), mais l'unique
+            // enregistrement réel observé avait "pool_id" rempli et "pool" vide. Aucune des deux
+            // colonnes n'est donc fiable à 100% tant que ce n'est pas tranché avec l'utilisateur
+            // (voir Master Context, Étape 5) → on lit les deux et on prend celle qui est renseignée.
+            try {
+                const { data: missions, error } = await supabaseClient
+                    .from('missions')
+                    .select('pool, pool_id');
+
+                if (error) throw error;
+
+                (missions || []).forEach(mission => {
+                    const effectivePoolId = mission.pool || mission.pool_id;
+                    if (!effectivePoolId) return;
+
+                    if (!poolStats[effectivePoolId]) {
+                        poolStats[effectivePoolId] = { active: 0, available: 0, atRisk: 0, positions: 0 };
+                    }
+
+                    poolStats[effectivePoolId].positions++;
+                });
+
+            } catch (error) {
+                console.error("Erreur de récupération des KPIs postes :", error);
             }
         }
 
@@ -243,20 +337,66 @@
             return icons[poolId] || '🌍';
         }
 
-        function renderPools(pools) {
+        function renderPools() {
             poolsGrid.innerHTML = '';
 
-            pools.forEach(pool => {
+            const activePools = currentPools.filter(pool => pool.is_archived !== true);
+            const archivedPools = currentPools.filter(pool => pool.is_archived === true);
+
+            // Bouton de bascule visible uniquement s'il existe au moins un pool archivé
+            if (archivedPools.length > 0) {
+                archivedToggleContainer.classList.remove('hidden');
+                archivedToggleBtn.textContent = showArchivedPools
+                    ? `🔽 Masquer les pools archivés (${archivedPools.length})`
+                    : `▶️ Afficher les pools archivés (${archivedPools.length})`;
+            } else {
+                archivedToggleContainer.classList.add('hidden');
+            }
+
+            const poolsToRender = showArchivedPools ? currentPools : activePools;
+
+            if (poolsToRender.length === 0) {
+                poolsGrid.innerHTML = '<p class="col-span-full text-center text-sm text-slate-400 py-12">Aucun pool à afficher.</p>';
+                return;
+            }
+
+            poolsToRender.forEach(pool => {
+                const stats = poolStats[pool.pool_id] || { active: 0, available: 0, atRisk: 0, positions: 0 };
+                const isArchived = pool.is_archived === true;
+
                 const card = document.createElement('div');
-                card.className = "bg-white border border-slate-200 rounded-3xl shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition-all";
+                card.className = "bg-white border border-slate-200 rounded-3xl shadow-sm p-6 flex flex-col justify-between transition-all"
+                    + (isArchived ? " opacity-60" : " hover:shadow-md");
 
                 card.innerHTML = `
                     <div>
-                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-light text-2xl mb-4">
-                            ${poolIcon(pool.pool_id)}
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-light text-2xl">
+                                ${poolIcon(pool.pool_id)}
+                            </div>
+                            ${isArchived ? '<span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 px-2 py-1 rounded-full">Archivé</span>' : ''}
                         </div>
                         <h3 class="text-lg font-extrabold text-slate-800">${escapeHtml(pool.name || pool.pool_id)}</h3>
                         <p class="text-xs text-slate-400 font-semibold mt-1">${escapeHtml(pool.full_name || '')}</p>
+
+                        <div class="grid grid-cols-4 gap-1.5 mt-4">
+                            <div class="bg-slate-50 rounded-xl px-1.5 py-2 text-center">
+                                <p class="text-base font-extrabold text-slate-800">${stats.active}</p>
+                                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Effectif</p>
+                            </div>
+                            <div class="bg-emerald-50 rounded-xl px-1.5 py-2 text-center">
+                                <p class="text-base font-extrabold text-emerald-700">${stats.available}</p>
+                                <p class="text-[10px] font-semibold text-emerald-500 uppercase tracking-wide">Dispo</p>
+                            </div>
+                            <div class="bg-red-50 rounded-xl px-1.5 py-2 text-center">
+                                <p class="text-base font-extrabold text-red-700">${stats.atRisk}</p>
+                                <p class="text-[10px] font-semibold text-red-500 uppercase tracking-wide">À risque</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-xl px-1.5 py-2 text-center">
+                                <p class="text-base font-extrabold text-primary">${stats.positions}</p>
+                                <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Postes</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="flex flex-col gap-2 mt-6">
                         <div class="grid grid-cols-2 gap-2">
