@@ -247,6 +247,61 @@
     <!-- Notification toast -->
     <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-bold shadow-lg"></div>
 
+    <!-- ────────────────────────────────────────────────────────────────────────
+         MODALE ÉVALUATIONS DE L'OCCUPANT COURANT (Étape 5, point 9.2)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <div id="evaluationsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
+        <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
+                <div>
+                    <h3 class="text-lg font-extrabold text-slate-800">Évaluations de l'occupant</h3>
+                    <p class="text-xs text-slate-400 font-semibold mt-0.5" id="evaluationsSubtitle"></p>
+                </div>
+                <button id="closeEvaluationsModalBtn" type="button" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="px-6 py-5">
+                <div id="evaluationsList" class="space-y-3 mb-6">
+                    <!-- Rempli dynamiquement -->
+                </div>
+                <p id="evaluationsEmpty" class="hidden text-sm text-slate-400 text-center py-6">Aucune évaluation enregistrée pour cet occupant sur ce poste.</p>
+                <p id="evaluationsError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-4"></p>
+
+                <form id="evaluationForm" class="hidden space-y-3 pt-4 border-t border-slate-100">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wide" id="evaluationFormLabel">Ajouter une évaluation</p>
+                    <input type="hidden" id="evaluationId">
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Contexte d'intervention *</label>
+                        <textarea id="fieldContext" required rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Points positifs</label>
+                        <textarea id="fieldPositivePoints" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Points à améliorer</label>
+                        <textarea id="fieldNegativePoints" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Note sur 10 *</label>
+                        <input type="number" id="fieldRating" required min="1" max="10" step="1" class="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+
+                    <p id="evaluationFormError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+
+                    <div class="flex justify-end gap-2 pt-1">
+                        <button type="button" id="cancelEvaluationEditBtn" class="hidden px-4 py-2.5 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">Annuler</button>
+                        <button type="submit" id="saveEvaluationBtn" class="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-xs">Ajouter l'évaluation</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ============================================================================
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
@@ -308,6 +363,7 @@
 
         // État en mémoire
         let currentUserId = null;
+        let currentUserEmail = null;
         let currentUserRole = null;
         let currentMissions = [];
         let poolTalents = []; // talents du pool, pour les listes déroulantes occupant / futur occupant
@@ -332,6 +388,7 @@
                 }
 
                 currentUserId = session.user.id;
+                currentUserEmail = session.user.email || null;
 
                 const { data: profiles, error: profileError } = await supabaseClient
                     .from('users')
@@ -514,6 +571,10 @@
                         <button type="button" class="editMissionBtn flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold transition-all" data-id="${escapeHtml(mission.id)}">✏️ Modifier</button>
                         <button type="button" class="deleteMissionBtn bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-bold transition-all" data-id="${escapeHtml(mission.id)}">🗑️</button>
                     </div>` : ''}
+                    ${mission.status === 'occupied' && mission.occupant_id ? `
+                    <div class="mt-2">
+                        <button type="button" class="evaluationsBtn w-full bg-primary-light hover:bg-blue-100 text-primary px-3 py-2 rounded-lg text-xs font-bold transition-all" data-id="${escapeHtml(mission.id)}">💬 Évaluations de l'occupant</button>
+                    </div>` : ''}
                 `;
 
                 missionsGrid.appendChild(card);
@@ -524,6 +585,9 @@
             });
             document.querySelectorAll('.deleteMissionBtn').forEach(btn => {
                 btn.addEventListener('click', () => deleteMission(btn.dataset.id));
+            });
+            document.querySelectorAll('.evaluationsBtn').forEach(btn => {
+                btn.addEventListener('click', () => openEvaluationsModal(btn.dataset.id));
             });
         }
 
@@ -708,6 +772,228 @@
                 toastMessage("Échec de la suppression : " + (error && error.message ? error.message : 'erreur inconnue.'), 'error');
             }
         }
+        // ============================================================================
+        // 7. ÉVALUATIONS DE L'OCCUPANT COURANT (Étape 5, point 9.2)
+        // ============================================================================
+        const evaluationsModal = document.getElementById('evaluationsModal');
+        const evaluationsList = document.getElementById('evaluationsList');
+        const evaluationsEmpty = document.getElementById('evaluationsEmpty');
+        const evaluationsError = document.getElementById('evaluationsError');
+        const evaluationsSubtitle = document.getElementById('evaluationsSubtitle');
+        const evaluationForm = document.getElementById('evaluationForm');
+        const evaluationFormError = document.getElementById('evaluationFormError');
+
+        let currentEvaluationMission = null;
+
+        document.getElementById('closeEvaluationsModalBtn').addEventListener('click', () => {
+            evaluationsModal.classList.add('hidden');
+        });
+
+        async function openEvaluationsModal(missionId) {
+            const mission = currentMissions.find(m => m.id === missionId);
+            if (!mission || !mission.occupant_id) return;
+
+            currentEvaluationMission = mission;
+            const occupantName = talentNameById[mission.occupant_id] || 'Talent introuvable';
+            evaluationsSubtitle.textContent = `${occupantName} — ${mission.title}`;
+
+            evaluationsList.innerHTML = '';
+            evaluationsEmpty.classList.add('hidden');
+            evaluationsError.classList.add('hidden');
+            resetEvaluationForm();
+
+            // Ajout réservé admin + user, lecture ouverte à tous (même pattern que le reste de la page)
+            const canEdit = currentUserRole === 'admin' || currentUserRole === 'user';
+            evaluationForm.classList.toggle('hidden', !canEdit);
+
+            evaluationsModal.classList.remove('hidden');
+            await loadEvaluations(mission.id);
+        }
+
+        async function loadEvaluations(missionId) {
+            try {
+                // Colonnes restreintes à celles réellement utilisées (règle perf section 2 bis.2).
+                // is_moderated / is_red_list_trigger / legacy_content / comment_text volontairement
+                // ignorées — usage non documenté, à traiter plus tard si besoin (cf. échange avec l'utilisateur).
+                const { data: evaluations, error } = await supabaseClient
+                    .from('evaluations')
+                    .select('id, mission_id, talent_id, author_id, author_email, context, positive_points, negative_points, rating, created_at')
+                    .eq('mission_id', missionId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                currentEvaluationsCache = evaluations || [];
+                renderEvaluations(currentEvaluationsCache);
+
+            } catch (error) {
+                console.error("Erreur de récupération des évaluations :", error);
+                evaluationsError.textContent = "Impossible de charger les évaluations depuis Supabase.";
+                evaluationsError.classList.remove('hidden');
+            }
+        }
+
+        function renderEvaluations(evaluations) {
+            evaluationsList.innerHTML = '';
+
+            if (evaluations.length === 0) {
+                evaluationsEmpty.classList.remove('hidden');
+                return;
+            }
+            evaluationsEmpty.classList.add('hidden');
+
+            evaluations.forEach(evaluation => {
+                // Admin : peut modifier/supprimer n'importe quelle évaluation.
+                // User : uniquement les siennes (comparaison author_id).
+                // Visitor : aucune action (cf. évaluationForm masqué pour ce rôle).
+                const canManage = currentUserRole === 'admin'
+                    || (currentUserRole === 'user' && evaluation.author_id === currentUserId);
+
+                const item = document.createElement('div');
+                item.className = 'bg-slate-50 border border-slate-200 rounded-xl p-4';
+
+                item.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-600">${escapeHtml(evaluation.author_email || 'Auteur inconnu')}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-extrabold text-primary bg-primary-light px-2 py-0.5 rounded-full">${escapeHtml(evaluation.rating != null ? evaluation.rating + '/10' : '—')}</span>
+                            <span class="text-[10px] text-slate-400">${escapeHtml(formatDate(evaluation.created_at))}</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-700 mb-2">${escapeHtml(evaluation.context)}</p>
+                    ${evaluation.positive_points ? `<p class="text-xs text-emerald-700 mb-1">✅ ${escapeHtml(evaluation.positive_points)}</p>` : ''}
+                    ${evaluation.negative_points ? `<p class="text-xs text-amber-700 mb-1">⚠️ ${escapeHtml(evaluation.negative_points)}</p>` : ''}
+                    ${canManage ? `
+                    <div class="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200">
+                        <button type="button" class="editEvaluationBtn text-xs font-bold text-primary hover:underline" data-id="${escapeHtml(evaluation.id)}">✏️ Modifier</button>
+                        <button type="button" class="deleteEvaluationBtn text-xs font-bold text-red-600 hover:underline" data-id="${escapeHtml(evaluation.id)}">🗑️ Supprimer</button>
+                    </div>` : ''}
+                `;
+
+                evaluationsList.appendChild(item);
+            });
+
+            document.querySelectorAll('.editEvaluationBtn').forEach(btn => {
+                btn.addEventListener('click', () => startEditEvaluation(btn.dataset.id));
+            });
+            document.querySelectorAll('.deleteEvaluationBtn').forEach(btn => {
+                btn.addEventListener('click', () => deleteEvaluation(btn.dataset.id));
+            });
+        }
+
+        // Cache locale des évaluations actuellement affichées (pour retrouver les valeurs à éditer
+        // sans refaire une requête réseau) — remplie à chaque loadEvaluations().
+        let currentEvaluationsCache = [];
+
+        function startEditEvaluation(evaluationId) {
+            const evaluation = currentEvaluationsCache.find(e => e.id === evaluationId);
+            if (!evaluation) return;
+
+            document.getElementById('evaluationId').value = evaluation.id;
+            document.getElementById('fieldContext').value = evaluation.context || '';
+            document.getElementById('fieldPositivePoints').value = evaluation.positive_points || '';
+            document.getElementById('fieldNegativePoints').value = evaluation.negative_points || '';
+            document.getElementById('fieldRating').value = evaluation.rating != null ? evaluation.rating : '';
+
+            document.getElementById('evaluationFormLabel').textContent = "Modifier l'évaluation";
+            document.getElementById('saveEvaluationBtn').textContent = 'Enregistrer les modifications';
+            document.getElementById('cancelEvaluationEditBtn').classList.remove('hidden');
+            evaluationFormError.classList.add('hidden');
+
+            evaluationForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function resetEvaluationForm() {
+            evaluationForm.reset();
+            document.getElementById('evaluationId').value = '';
+            document.getElementById('evaluationFormLabel').textContent = 'Ajouter une évaluation';
+            document.getElementById('saveEvaluationBtn').textContent = "Ajouter l'évaluation";
+            document.getElementById('cancelEvaluationEditBtn').classList.add('hidden');
+            evaluationFormError.classList.add('hidden');
+        }
+
+        document.getElementById('cancelEvaluationEditBtn').addEventListener('click', resetEvaluationForm);
+
+        async function deleteEvaluation(evaluationId) {
+            if (!window.confirm("Supprimer définitivement cette évaluation ? Cette action est irréversible.")) {
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('evaluations')
+                    .delete()
+                    .eq('id', evaluationId);
+
+                if (error) throw error;
+
+                toastMessage('Évaluation supprimée.', 'success');
+                await loadEvaluations(currentEvaluationMission.id);
+
+            } catch (error) {
+                console.error("Erreur de suppression de l'évaluation :", error);
+                toastMessage("Échec de la suppression : " + (error && error.message ? error.message : 'erreur inconnue.'), 'error');
+            }
+        }
+
+        evaluationForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            evaluationFormError.classList.add('hidden');
+
+            if (!currentEvaluationMission) return;
+
+            const evaluationId = document.getElementById('evaluationId').value;
+
+            const payload = {
+                context: document.getElementById('fieldContext').value.trim(),
+                positive_points: document.getElementById('fieldPositivePoints').value.trim() || null,
+                negative_points: document.getElementById('fieldNegativePoints').value.trim() || null,
+                rating: parseInt(document.getElementById('fieldRating').value, 10),
+            };
+
+            if (!payload.context || !payload.rating || payload.rating < 1 || payload.rating > 10) {
+                evaluationFormError.textContent = "Le contexte et une note entre 1 et 10 sont obligatoires.";
+                evaluationFormError.classList.remove('hidden');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveEvaluationBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Enregistrement…';
+
+            try {
+                if (evaluationId) {
+                    // Modification : mission_id/talent_id/author_id/author_email ne changent jamais
+                    const { error } = await supabaseClient
+                        .from('evaluations')
+                        .update(payload)
+                        .eq('id', evaluationId);
+                    if (error) throw error;
+                    toastMessage('Évaluation modifiée.', 'success');
+                } else {
+                    payload.mission_id = currentEvaluationMission.id;
+                    payload.talent_id = currentEvaluationMission.occupant_id;
+                    payload.author_id = currentUserId;
+                    payload.author_email = currentUserEmail;
+                    const { error } = await supabaseClient
+                        .from('evaluations')
+                        .insert(payload);
+                    if (error) throw error;
+                    toastMessage('Évaluation ajoutée.', 'success');
+                }
+
+                resetEvaluationForm();
+                await loadEvaluations(currentEvaluationMission.id);
+
+            } catch (error) {
+                console.error("Erreur d'enregistrement de l'évaluation :", error);
+                evaluationFormError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
+                evaluationFormError.classList.remove('hidden');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = evaluationId ? 'Enregistrer les modifications' : "Ajouter l'évaluation";
+            }
+        });
     </script>
 </body>
 </html>
