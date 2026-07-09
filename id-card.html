@@ -264,12 +264,9 @@
                 <span>⚙️</span> Actions Administratives &amp; Gestion de Mission
             </h3>
             <div class="flex flex-wrap gap-2">
-                <button id="btn-start-mission" class="bg-green-600 hover:bg-green-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all">
-                    🚀 Démarrer une mission
-                </button>
-                <button id="btn-end-mission" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all hidden">
-                    🏁 Terminer la mission
-                </button>
+                <a id="btn-manage-missions" href="#" class="bg-primary hover:bg-primary-dark text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all inline-flex items-center gap-1.5">
+                    🧭 Gérer les postes du pool
+                </a>
                 <button id="btn-devalidate" class="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
                     ⛔ Dévalider le talent
                 </button>
@@ -285,63 +282,6 @@
 
     <!-- ═══════════════════════════════════ MODALS INTERACTIFS (no-print) ═══════════════════════════════════ -->
     
-    <!-- Modal Démarrer Mission -->
-    <div id="start-mission-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🚀 Démarrer une mission</h3>
-            <p class="text-sm text-slate-500">Définissez la date de fin de contrat prévue pour cette nouvelle mission ALIMA.</p>
-            <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase">Date de fin prévue</label>
-                <input id="modal-start-date" type="date" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" required>
-            </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button id="modal-start-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
-                <button id="modal-start-confirm" class="bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-4 py-2 rounded-xl">Démarrer</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Terminer Mission -->
-    <div id="end-mission-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">🏁 Évaluer &amp; Terminer la mission</h3>
-            <p class="text-sm text-slate-500">Veuillez consigner le bilan d'évaluation de fin de mission avant de libérer le talent.</p>
-            
-            <div class="space-y-4">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Date de fin effective *</label>
-                    <input id="modal-end-date" type="date" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" required>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Contexte d'intervention *</label>
-                    <input id="modal-end-context" type="text" placeholder="Mission d'urgence, contexte d'insécurité, etc." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" required>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Points forts / Compétences clés démontrées *</label>
-                    <textarea id="modal-end-positive" placeholder="Excellent leadership, résilience terrain, etc." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="3" required></textarea>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Axes d'amélioration / Objectifs de développement *</label>
-                    <textarea id="modal-end-negative" placeholder="Communication à polir, reporting plus rigoureux..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="3" required></textarea>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Note générale (sur 10) : <span id="modal-rating-val" class="font-bold text-primary">5</span></label>
-                    <input id="modal-end-rating" type="range" min="0" max="10" step="1" value="5" class="w-full accent-primary">
-                    <div class="flex justify-between text-[10px] text-slate-400">
-                        <span>0 - Insuffisant</span>
-                        <span>5 - Satisfaisant</span>
-                        <span>10 - Excellent</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2">
-                <button id="modal-end-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
-                <button id="modal-end-confirm" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-4 py-2 rounded-xl">Enregistrer &amp; Clôturer</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal Liste Rouge -->
     <div id="redlist-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
@@ -365,6 +305,36 @@
         let talent = null;
         let activeMission = null;
         let currentUserId = null;
+
+        // ============================================================================
+        // NORMALISATION DES PASSAGES ARCHIVÉS (compatibilité double format)
+        // ============================================================================
+        // Deux formats coexistent dans talents.archived_position_passages :
+        //  - Ancien (créé par l'ex-mini-workflow de id-card.html, retiré depuis) :
+        //    dates en nombre (epoch ms), commentaire unique par passage, champs
+        //    camelCase (positivePoints, negativePoints, createdByName, createdAt).
+        //  - Nouveau (créé par missions.html, Étape 5) : dates en texte ISO,
+        //    plusieurs commentaires par passage possibles, champs snake_case
+        //    (positive_points, negative_points, author_email, created_at).
+        // Ces fonctions lisent les deux indifféremment pour l'affichage (Historique
+        // + export PDF), sans jamais réécrire les anciennes entrées en base.
+        function passageDateMs(value) {
+            if (value === null || value === undefined || value === '') return null;
+            if (typeof value === 'number') return value;
+            const parsed = new Date(value).getTime();
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        function normalizePassageComment(c) {
+            return {
+                context: c.context || null,
+                positivePoints: c.positive_points || c.positivePoints || null,
+                negativePoints: c.negative_points || c.negativePoints || null,
+                rating: (c.rating !== undefined && c.rating !== null) ? c.rating : null,
+                authorLabel: c.author_email || c.createdByName || null,
+                legacyContent: (!c.context && c.content) ? c.content : null
+            };
+        }
 
         // Échappement HTML systématique de toute donnée venant de la base
         // avant injection via innerHTML — prévention XSS (audit sécurité).
@@ -668,26 +638,30 @@
 
             if (passages.length > 0) {
                 hasTimelineElements = true;
-                const sortedPassages = [...passages].sort((a, b) => b.startDate - a.startDate);
+                const sortedPassages = [...passages].sort((a, b) => (passageDateMs(b.startDate) || 0) - (passageDateMs(a.startDate) || 0));
                 sortedPassages.forEach(p => {
-                    const durationMs = p.endDate - p.startDate;
-                    const durationMonths = Math.round(durationMs / (1000 * 60 * 60 * 24 * 30));
-                    const startStr = new Date(p.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-                    const endStr = new Date(p.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+                    const startMs = passageDateMs(p.startDate);
+                    const endMs = passageDateMs(p.endDate);
+                    const durationMonths = (startMs !== null && endMs !== null)
+                        ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24 * 30))
+                        : null;
+                    const startStr = startMs !== null ? new Date(startMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
+                    const endStr = endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
 
                     let evalHtml = "";
                     if (p.comments && p.comments.length > 0) {
-                        p.comments.forEach(c => {
+                        p.comments.forEach(rawComment => {
+                            const c = normalizePassageComment(rawComment);
                             evalHtml += `
                                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1 mt-2">
                                     <div class="flex justify-between items-center text-[10px] text-slate-400">
-                                        <span>Évalué par ${escapeHtml(c.createdByName)}</span>
-                                        ${c.rating ? `<span class="font-bold text-primary">★ ${escapeHtml(c.rating)}/10</span>` : ""}
+                                        <span>${c.authorLabel ? 'Évalué par ' + escapeHtml(c.authorLabel) : 'Auteur inconnu'}</span>
+                                        ${c.rating !== null ? `<span class="font-bold text-primary">★ ${escapeHtml(c.rating)}/10</span>` : ""}
                                     </div>
                                     ${c.context ? `<p class="italic text-slate-500">Contexte : ${escapeHtml(c.context)}</p>` : ""}
                                     ${c.positivePoints ? `<p class="text-green-700"><strong>Points forts :</strong> ${escapeHtml(c.positivePoints)}</p>` : ""}
                                     ${c.negativePoints ? `<p class="text-orange-700"><strong>Axes d'amélioration :</strong> ${escapeHtml(c.negativePoints)}</p>` : ""}
-                                    ${c.content && !c.context ? `<p class="text-slate-600">${escapeHtml(c.content)}</p>` : ""}
+                                    ${c.legacyContent ? `<p class="text-slate-600">${escapeHtml(c.legacyContent)}</p>` : ""}
                                 </div>
                             `;
                         });
@@ -697,7 +671,7 @@
                         <div class="relative pl-6 border-l-2 border-slate-200">
                             <div class="absolute -left-[6px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white shadow"></div>
                             <div class="space-y-1">
-                                <span class="text-xs font-semibold text-slate-400">${startStr} – ${endStr} (${durationMonths} m)</span>
+                                <span class="text-xs font-semibold text-slate-400">${startStr} – ${endStr}${durationMonths !== null ? ` (${durationMonths} m)` : ''}</span>
                                 <h4 class="font-bold text-slate-800">${escapeHtml(p.positionTitle)}</h4>
                                 <p class="text-xs text-slate-500">${escapeHtml(p.country || "Mission ALIMA")}</p>
                                 ${evalHtml}
@@ -1013,16 +987,17 @@
                     y += 24;
                 }
 
-                const sortedPassages = [...passages].sort((a, b) => b.startDate - a.startDate);
+                const sortedPassages = [...passages].sort((a, b) => (passageDateMs(b.startDate) || 0) - (passageDateMs(a.startDate) || 0));
 
                 sortedPassages.forEach(passage => {
-                    const comments = passage.comments || [];
+                    const comments = (passage.comments || []).map(normalizePassageComment);
                     let neededH = 28;
                     comments.forEach(c => {
                         if (c.context) neededH += 12;
                         if (c.positivePoints) neededH += 12;
                         if (c.negativePoints) neededH += 12;
-                        if (c.content && !c.context && !c.positivePoints && !c.negativePoints) neededH += 10;
+                        if (c.legacyContent) neededH += 10;
+                        neededH += 6; // ligne "Évaluation par ..." de chaque commentaire
                     });
                     y = pdfEnsureSpace(doc, y, neededH);
 
@@ -1039,13 +1014,15 @@
                     doc.setFontSize(8);
                     doc.setFont("helvetica", "normal");
                     doc.setTextColor(100, 100, 100);
-                    const dateStr = `${new Date(passage.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} → ${new Date(passage.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`;
-                    const durationMonths = Math.round((passage.endDate - passage.startDate) / (1000 * 60 * 60 * 24 * 30));
-                    const metaLine = [passage.country || "", dateStr, `(${durationMonths} mois)`].filter(Boolean).join("  |  ");
+                    const startMs = passageDateMs(passage.startDate);
+                    const endMs = passageDateMs(passage.endDate);
+                    const dateStr = `${startMs !== null ? new Date(startMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'} → ${endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'}`;
+                    const durationMonths = (startMs !== null && endMs !== null) ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24 * 30)) : null;
+                    const metaLine = [passage.country || "", dateStr, durationMonths !== null ? `(${durationMonths} mois)` : ''].filter(Boolean).join("  |  ");
                     doc.text(metaLine, 18, y + 11);
 
-                    const firstRating = comments[0] ? comments[0].rating : undefined;
-                    if (firstRating !== undefined) {
+                    const firstRating = comments[0] ? comments[0].rating : null;
+                    if (firstRating !== null) {
                         doc.setFontSize(10);
                         doc.setFont("helvetica", "bold");
                         doc.setTextColor(...PDF_ALIMA_BLUE);
@@ -1089,12 +1066,12 @@
                             doc.text(lines, 18, cy + 4);
                             cy += 4 + lines.length * 4;
                         }
-                        if (comment.content && !comment.context && !comment.positivePoints && !comment.negativePoints) {
+                        if (comment.legacyContent) {
                             cy = pdfEnsureSpace(doc, cy, 10);
                             doc.setFontSize(8);
                             doc.setFont("helvetica", "normal");
                             doc.setTextColor(80, 80, 80);
-                            const lines = doc.splitTextToSize(comment.content, pageW - 40);
+                            const lines = doc.splitTextToSize(comment.legacyContent, pageW - 40);
                             doc.text(lines, 18, cy);
                             cy += lines.length * 4;
                         }
@@ -1103,7 +1080,7 @@
                         doc.setFont("helvetica", "italic");
                         doc.setTextColor(130, 130, 130);
                         doc.text(
-                            `Évaluation par ${comment.createdByName || "N/A"} – ${comment.createdAt ? new Date(comment.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : ""}`,
+                            `Évaluation par ${comment.authorLabel || "N/A"}`,
                             pageW - 18, cy + 3, { align: "right" }
                         );
                         cy += 6;
@@ -1169,27 +1146,22 @@
         }
 
         function setupAdminActions(isInvalid) {
-            const btnStart = document.getElementById('btn-start-mission');
-            const btnEnd = document.getElementById('btn-end-mission');
+            const btnManageMissions = document.getElementById('btn-manage-missions');
             const btnDevalidate = document.getElementById('btn-devalidate');
             const btnRevalidate = document.getElementById('btn-revalidate');
 
+            // La gestion des postes (affectation, évaluations, fin de mission) se fait
+            // désormais entièrement depuis missions.html — ce lien y renvoie, filtré sur
+            // le pool du talent (Étape 5, décision utilisateur : retrait du mini-workflow
+            // "Démarrer/Terminer mission" qui existait auparavant dans id-card.html).
+            btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || '');
+
             if (isInvalid) {
-                btnStart.classList.add('hidden');
-                btnEnd.classList.add('hidden');
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.remove('hidden');
             } else {
                 btnRevalidate.classList.add('hidden');
                 btnDevalidate.classList.remove('hidden');
-                
-                if (activeMission || talent.status === 'En poste ALIMA') {
-                    btnStart.classList.add('hidden');
-                    btnEnd.classList.remove('hidden');
-                } else {
-                    btnStart.classList.remove('hidden');
-                    btnEnd.classList.add('hidden');
-                }
             }
         }
 
@@ -1277,134 +1249,6 @@
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de la réintégration.", "error");
-                }
-            };
-
-            // 🚀 Démarrer une mission ALIMA (Modal)
-            const startModal = document.getElementById('start-mission-modal');
-            document.getElementById('btn-start-mission').onclick = () => {
-                document.getElementById('modal-start-date').value = new Date().toISOString().substring(0, 10);
-                startModal.classList.remove('hidden');
-            };
-            
-            document.getElementById('modal-start-cancel').onclick = () => startModal.classList.add('hidden');
-            
-            document.getElementById('modal-start-confirm').onclick = async () => {
-                const endDateStr = document.getElementById('modal-start-date').value;
-                if (!endDateStr) {
-                    alert("Date requise.");
-                    return;
-                }
-                try {
-                    const { error: et } = await supabaseClient
-                        .from('talents')
-                        .update({ status: 'En poste ALIMA', is_currently_on_mission: true })
-                        .eq('id', talentId);
-                    
-                    if (et) throw et;
-
-                    const { error: em } = await supabaseClient
-                        .from('missions')
-                        .insert({
-                            title: `Mission ${talent.currentFunction || talent.current_function || "Coordinateur"}`,
-                            pool_id: talent.pool,
-                            occupant_id: talentId,
-                            contract_start_date: new Date().toISOString(),
-                            contract_end_date: new Date(endDateStr).toISOString(),
-                            status: 'occupied'
-                        });
-
-                    if (em) throw em;
-
-                    startModal.classList.add('hidden');
-                    toastMessage("Mission ALIMA démarrée.", "success");
-                    await loadTalentData();
-                } catch (err) {
-                    console.error(err);
-                    toastMessage("Échec de l'action.", "error");
-                }
-            };
-
-            // 🏁 Terminer la mission
-            const endModal = document.getElementById('end-mission-modal');
-            const rangeRating = document.getElementById('modal-end-rating');
-            const rangeVal = document.getElementById('modal-rating-val');
-
-            rangeRating.oninput = () => {
-                rangeVal.textContent = rangeRating.value;
-            };
-
-            document.getElementById('btn-end-mission').onclick = () => {
-                document.getElementById('modal-end-date').value = new Date().toISOString().substring(0, 10);
-                document.getElementById('modal-end-context').value = "";
-                document.getElementById('modal-end-positive').value = "";
-                document.getElementById('modal-end-negative').value = "";
-                rangeRating.value = "5";
-                rangeVal.textContent = "5";
-                endModal.classList.remove('hidden');
-            };
-
-            document.getElementById('modal-end-cancel').onclick = () => endModal.classList.add('hidden');
-
-            document.getElementById('modal-end-confirm').onclick = async () => {
-                const endDateVal = document.getElementById('modal-end-date').value;
-                const contextVal = document.getElementById('modal-end-context').value.trim();
-                const positiveVal = document.getElementById('modal-end-positive').value.trim();
-                const negativeVal = document.getElementById('modal-end-negative').value.trim();
-                const ratingVal = Number(rangeRating.value);
-
-                if (!endDateVal || !contextVal || !positiveVal || !negativeVal) {
-                    alert("Veuillez remplir l'évaluation complète.");
-                    return;
-                }
-
-                try {
-                    const newPassage = {
-                        positionTitle: activeMission ? activeMission.title : `Mission ${talent.currentFunction || talent.current_function || "Intervenant"}`,
-                        country: activeMission ? activeMission.country : (talent.country_of_residence || talent.countryOfResidence || "Mission ALIMA"),
-                        startDate: activeMission && (activeMission.contract_start_date || activeMission.contractStartDate)
-                            ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).getTime()
-                            : Date.now() - 3 * 30 * 24 * 60 * 60 * 1000,
-                        endDate: new Date(endDateVal).getTime(),
-                        comments: [{
-                            context: contextVal,
-                            positivePoints: positiveVal,
-                            negativePoints: negativeVal,
-                            rating: ratingVal,
-                            createdAt: Date.now(),
-                            createdByName: document.getElementById('user-display-name').textContent
-                        }]
-                    };
-
-                    const currentPassages = talent.archived_position_passages || talent.archivedPositionPassages || [];
-                    const updatedPassages = [...currentPassages, newPassage];
-
-                    const { error: ut } = await supabaseClient
-                        .from('talents')
-                        .update({
-                            status: 'En attente de poste',
-                            is_currently_on_mission: false,
-                            last_mission_end_date: new Date(endDateVal).toISOString(),
-                            archived_position_passages: updatedPassages,
-                            months_without_mission: 0
-                        })
-                        .eq('id', talentId);
-                    
-                    if (ut) throw ut;
-
-                    if (activeMission) {
-                        await supabaseClient
-                            .from('missions')
-                            .update({ status: 'vacant', occupant_id: null })
-                            .eq('id', activeMission.id);
-                    }
-
-                    endModal.classList.add('hidden');
-                    toastMessage("Mission clôturée et bilan d'évaluation archivé.", "success");
-                    await loadTalentData();
-                } catch (err) {
-                    console.error(err);
-                    toastMessage("Échec de la clôture de la mission.", "error");
                 }
             };
 
