@@ -276,6 +276,9 @@
                 <button id="btn-redlist" class="bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
                     🚨 Inscrire en Liste Rouge
                 </button>
+                <button id="btn-delete-talent" class="hidden bg-red-600 hover:bg-red-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all ml-auto">
+                    🗑️ Supprimer définitivement
+                </button>
             </div>
         </div>
     </main>
@@ -305,6 +308,7 @@
         let talent = null;
         let activeMission = null;
         let currentUserId = null;
+        let currentUserRole = null;
 
         // ============================================================================
         // NORMALISATION DES PASSAGES ARCHIVÉS (compatibilité double format)
@@ -396,6 +400,7 @@
                     .maybeSingle();
                 
                 if (user) {
+                    currentUserRole = user.role;
                     if (user.role === 'admin') {
                         document.getElementById('nav-extraction').classList.remove('hidden');
                         document.getElementById('nav-redlist').classList.remove('hidden');
@@ -1149,6 +1154,7 @@
             const btnManageMissions = document.getElementById('btn-manage-missions');
             const btnDevalidate = document.getElementById('btn-devalidate');
             const btnRevalidate = document.getElementById('btn-revalidate');
+            const btnDeleteTalent = document.getElementById('btn-delete-talent');
 
             // La gestion des postes (affectation, évaluations, fin de mission) se fait
             // désormais entièrement depuis missions.html — ce lien y renvoie, filtré sur
@@ -1162,6 +1168,16 @@
             } else {
                 btnRevalidate.classList.add('hidden');
                 btnDevalidate.classList.remove('hidden');
+            }
+
+            // Suppression définitive : réservée admin, et uniquement pour un talent ACTIF.
+            // Un talent dévalidé se supprime depuis devalidated.html — deux chemins de
+            // suppression différents selon l'état du talent, jamais les deux en même temps
+            // sur la même fiche (décision utilisateur).
+            if (currentUserRole === 'admin' && !isInvalid) {
+                btnDeleteTalent.classList.remove('hidden');
+            } else {
+                btnDeleteTalent.classList.add('hidden');
             }
         }
 
@@ -1288,6 +1304,49 @@
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de l'inscription.", "error");
+                }
+            };
+
+            // 🗑️ Supprimer définitivement le talent (admin uniquement, talent actif)
+            document.getElementById('btn-delete-talent').onclick = async () => {
+                const fullName = `${talent.first_name || talent.firstName || ''} ${talent.last_name || talent.lastName || ''}`.trim() || "ce talent";
+
+                if (!confirm(
+                    `Voulez-vous vraiment supprimer définitivement ${fullName} ?\n\n` +
+                    `Cette action supprime aussi son historique d'évaluations et ses liens de ` +
+                    `partage. Si ${fullName} occupe actuellement un poste, ce poste ne sera PAS ` +
+                    `automatiquement remis en "Vacant" — pensez à le vérifier ensuite dans ` +
+                    `missions.html. Cette action est irréversible.`
+                )) return;
+
+                if (!confirm(`Confirmation finale : ${fullName} sera supprimé(e) de façon permanente. Continuer ?`)) return;
+
+                try {
+                    // Nettoyage des données liées avant suppression du talent — la contrainte
+                    // FK de ces tables vers talents.id n'a pas de règle ON DELETE confirmée,
+                    // donc suppression explicite plutôt que de compter sur une cascade
+                    // éventuelle (cf. Master Context, règle de méthode : ne jamais deviner un
+                    // comportement de schéma non vérifié).
+                    await supabaseClient.from('evaluations').delete().eq('talent_id', talentId);
+                    await supabaseClient.from('comments').delete().eq('talent_id', talentId);
+                    await supabaseClient.from('share_tokens').delete().eq('talent_id', talentId);
+
+                    const { data, error } = await supabaseClient
+                        .from('talents')
+                        .delete()
+                        .eq('id', talentId)
+                        .select('id');
+
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
+                    }
+
+                    toastMessage("Talent supprimé définitivement.", "success");
+                    setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la suppression : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
                 }
             };
         }

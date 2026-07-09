@@ -308,16 +308,18 @@
                     <button class="btn-redlist bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-3 py-2 rounded-lg text-xs font-bold transition-all">
                         ⚠️ Liste Rouge
                     </button>` : ''}
+                    ${currentUserRole === 'admin' ? `
                     <button class="btn-delete bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">
                         🗑️ Supprimer définitivement
-                    </button>
+                    </button>` : ''}
                 </div>
             `;
 
             row.querySelector('.btn-reintegrer').addEventListener('click', () => reintegrateTalent(t));
             const redListBtn = row.querySelector('.btn-redlist');
             if (redListBtn) redListBtn.addEventListener('click', () => openRedListModal(t));
-            row.querySelector('.btn-delete').addEventListener('click', () => deleteTalentDefinitively(t));
+            const deleteBtn = row.querySelector('.btn-delete');
+            if (deleteBtn) deleteBtn.addEventListener('click', () => deleteTalentDefinitively(t));
 
             return row;
         }
@@ -426,12 +428,28 @@
             if (!doubleCheck) return;
 
             try {
-                const { error } = await supabaseClient
+                // Nettoyage des données liées avant suppression du talent — la règle
+                // ON DELETE de ces FK vers talents.id n'a jamais été vérifiée, donc
+                // suppression défensive plutôt que de compter sur une cascade non confirmée
+                // (même correctif que id-card.html, cf. Master Context règle de méthode n°19).
+                await supabaseClient.from('evaluations').delete().eq('talent_id', t.id);
+                await supabaseClient.from('comments').delete().eq('talent_id', t.id);
+                await supabaseClient.from('share_tokens').delete().eq('talent_id', t.id);
+
+                const { data, error } = await supabaseClient
                     .from('talents')
                     .delete()
-                    .eq('id', t.id);
+                    .eq('id', t.id)
+                    .select('id');
 
                 if (error) throw error;
+
+                // Un DELETE Supabase peut "réussir" sans erreur tout en n'affectant aucune
+                // ligne si une policy RLS bloque silencieusement (cf. Master Context règle de
+                // méthode n°15) — vérification explicite plutôt qu'un faux succès.
+                if (!data || data.length === 0) {
+                    throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
+                }
 
                 await loadDevalidatedTalents();
 
