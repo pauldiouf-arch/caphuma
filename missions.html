@@ -184,7 +184,7 @@
                 <div class="h-px bg-slate-100 my-2"></div>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Occupant actuel</p>
 
-                <div>
+                <div id="occupantField">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Talent occupant ce poste</label>
                     <select id="fieldOccupant" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="">— Aucun —</option>
@@ -627,6 +627,21 @@
 
         fieldPoolLevel.addEventListener('change', toggleProjectNameField);
 
+        // Le champ "Occupant" n'a de sens que si le statut est "Occupé" — masqué sinon,
+        // en cohérence avec le garde-fou appliqué à l'enregistrement (occupant_id forcé à null).
+        const fieldStatus = document.getElementById('fieldStatus');
+        const occupantField = document.getElementById('occupantField');
+
+        function toggleOccupantField() {
+            if (fieldStatus.value === 'occupied') {
+                occupantField.classList.remove('hidden');
+            } else {
+                occupantField.classList.add('hidden');
+            }
+        }
+
+        fieldStatus.addEventListener('change', toggleOccupantField);
+
         function openCreateModal() {
             modalTitle.textContent = 'Nouveau poste';
             missionForm.reset();
@@ -634,6 +649,7 @@
             document.getElementById('fieldPoolLevel').value = 'mission';
             document.getElementById('fieldStatus').value = 'vacant';
             toggleProjectNameField();
+            toggleOccupantField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
         }
@@ -661,6 +677,7 @@
             document.getElementById('fieldFutureContractEnd').value = toDateInputValue(mission.future_contract_end_date);
 
             toggleProjectNameField();
+            toggleOccupantField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
         }
@@ -680,12 +697,14 @@
 
             const missionId = document.getElementById('missionId').value;
             const candidateType = document.getElementById('fieldCandidateType').value || null;
+            const selectedStatus = document.getElementById('fieldStatus').value;
+            const selectedOccupantId = document.getElementById('fieldOccupant').value || null;
 
             const payload = {
                 title: document.getElementById('fieldTitle').value.trim(),
                 pool: currentPoolId,
                 pool_level: document.getElementById('fieldPoolLevel').value,
-                status: document.getElementById('fieldStatus').value,
+                status: selectedStatus,
                 country: document.getElementById('fieldCountry').value.trim(),
                 location: document.getElementById('fieldLocation').value.trim(),
                 project_name: document.getElementById('fieldProjectName').value.trim() || null,
@@ -695,7 +714,8 @@
                 // section 0 point 14 sur les colonnes redondantes non tenues à jour).
                 is_expat: candidateType ? candidateType === 'expat' : null,
                 desk: document.getElementById('fieldDesk').value || null,
-                occupant_id: document.getElementById('fieldOccupant').value || null,
+                // Garde-fou : un poste qui n'est plus "occupied" ne peut pas conserver d'occupant affiché.
+                occupant_id: selectedStatus === 'occupied' ? selectedOccupantId : null,
                 contract_start_date: document.getElementById('fieldContractStart').value || null,
                 contract_end_date: document.getElementById('fieldContractEnd').value || null,
                 contract_status: document.getElementById('fieldContractStatus').value || null,
@@ -716,6 +736,14 @@
 
             try {
                 if (missionId) {
+                    const originalMission = currentMissions.find(m => m.id === missionId);
+
+                    // L'occupant sort si : il y avait un occupant avant ET (il change, OU le poste
+                    // n'est plus "occupied") — cf. Master Context section 9.3.
+                    if (originalMission && originalMission.occupant_id && originalMission.occupant_id !== payload.occupant_id) {
+                        await archiveOutgoingOccupant(originalMission);
+                    }
+
                     const { error } = await supabaseClient
                         .from('missions')
                         .update(payload)
@@ -757,6 +785,12 @@
             }
 
             try {
+                // La suppression d'un poste occupé fait sortir l'occupant au même titre qu'un
+                // changement de statut — on archive avant de supprimer (Master Context section 9.3).
+                if (mission && mission.occupant_id) {
+                    await archiveOutgoingOccupant(mission);
+                }
+
                 const { error } = await supabaseClient
                     .from('missions')
                     .delete()
@@ -772,6 +806,74 @@
                 toastMessage("Échec de la suppression : " + (error && error.message ? error.message : 'erreur inconnue.'), 'error');
             }
         }
+        // ============================================================================
+        // 6 BIS. ARCHIVAGE AUTOMATIQUE À LA SORTIE D'UN OCCUPANT (Étape 5, point 9.3)
+        // ============================================================================
+        // Regroupe les évaluations liées à l'occupant sortant d'un poste en un "passage"
+        // ajouté à talents.archived_position_passages (colonne jsonb existante), puis
+        // supprime les évaluations brutes (elles ne concernent que l'occupant courant,
+        // pas l'historique). Appelée avant toute modification qui fait sortir un occupant
+        // (changement d'occupant, passage à vacant/recruiting, ou suppression du poste).
+        async function archiveOutgoingOccupant(mission) {
+            if (!mission.occupant_id) return;
+
+            // 1. Charger les évaluations existantes de ce poste (toutes concernent l'occupant sortant,
+            // puisqu'un poste n'a qu'un seul occupant courant à la fois).
+            const { data: evals, error: evalErr } = await supabaseClient
+                .from('evaluations')
+                .select('context, positive_points, negative_points, rating, author_email, created_at')
+                .eq('mission_id', mission.id);
+            if (evalErr) throw evalErr;
+
+            // Rien à archiver si aucune évaluation n'a été saisie pour ce passage — mais on
+            // continue quand même si besoin d'autres nettoyages plus tard ; ici on peut sortir.
+            if (!evals || evals.length === 0) return;
+
+            // 2. Construire le passage archivé
+            const passage = {
+                positionTitle: mission.title,
+                pool: mission.pool,
+                country: mission.country,
+                desk: mission.desk || null,
+                startDate: mission.contract_start_date || null,
+                endDate: mission.contract_end_date || new Date().toISOString().substring(0, 10),
+                comments: evals.map(e => ({
+                    context: e.context,
+                    positive_points: e.positive_points,
+                    negative_points: e.negative_points,
+                    rating: e.rating,
+                    author_email: e.author_email,
+                    created_at: e.created_at
+                }))
+            };
+
+            // 3. Charger le tableau existant de passages du talent sortant, y ajouter le nouveau
+            const { data: talent, error: talentErr } = await supabaseClient
+                .from('talents')
+                .select('archived_position_passages')
+                .eq('id', mission.occupant_id)
+                .maybeSingle();
+            if (talentErr) throw talentErr;
+
+            const existingPassages = (talent && Array.isArray(talent.archived_position_passages))
+                ? talent.archived_position_passages
+                : [];
+            const updatedPassages = existingPassages.concat([passage]);
+
+            const { error: updateErr } = await supabaseClient
+                .from('talents')
+                .update({ archived_position_passages: updatedPassages })
+                .eq('id', mission.occupant_id);
+            if (updateErr) throw updateErr;
+
+            // 4. Supprimer les évaluations brutes de ce poste — elles sont désormais dans le passage archivé
+            const { error: deleteErr } = await supabaseClient
+                .from('evaluations')
+                .delete()
+                .eq('mission_id', mission.id);
+            if (deleteErr) throw deleteErr;
+        }
+
         // ============================================================================
         // 7. ÉVALUATIONS DE L'OCCUPANT COURANT (Étape 5, point 9.2)
         // ============================================================================
