@@ -902,11 +902,15 @@
                     : [];
                 const updatedPassages = existingPassages.concat([passage]);
 
-                const { error: passageUpdateErr } = await supabaseClient
+                const { data: passageUpdateData, error: passageUpdateErr } = await supabaseClient
                     .from('talents')
                     .update({ archived_position_passages: updatedPassages })
-                    .eq('id', mission.occupant_id);
+                    .eq('id', mission.occupant_id)
+                    .select('id');
                 if (passageUpdateErr) throw passageUpdateErr;
+                if (!passageUpdateData || passageUpdateData.length === 0) {
+                    throw new Error("La mise à jour de l'historique du talent n'a affecté aucune ligne (policy RLS ?).");
+                }
 
                 // Évaluations brutes supprimées — elles sont désormais dans le passage archivé
                 const { error: deleteErr } = await supabaseClient
@@ -918,15 +922,19 @@
 
             // 2. Mise à jour du suivi de disponibilité du talent sortant (toujours faite,
             // même sans évaluation à archiver — c'est le point signalé par l'utilisateur).
-            const { error: statusErr } = await supabaseClient
+            const { data: statusData, error: statusErr } = await supabaseClient
                 .from('talents')
                 .update({
                     is_currently_on_mission: false,
                     last_mission_end_date: exitDate,
                     status: 'En attente de poste'
                 })
-                .eq('id', mission.occupant_id);
+                .eq('id', mission.occupant_id)
+                .select('id');
             if (statusErr) throw statusErr;
+            if (!statusData || statusData.length === 0) {
+                throw new Error("La mise à jour du statut du talent sortant n'a affecté aucune ligne (policy RLS ?).");
+            }
         }
 
         // À l'ENTRÉE d'un talent sur un poste (nouvelle affectation ou rotation) : ses
@@ -935,7 +943,7 @@
         async function markIncomingOccupant(talentId) {
             if (!talentId) return;
 
-            const { error } = await supabaseClient
+            const { data, error } = await supabaseClient
                 .from('talents')
                 .update({
                     is_currently_on_mission: true,
@@ -943,8 +951,12 @@
                     last_mission_end_date: null,
                     status: 'En poste ALIMA'
                 })
-                .eq('id', talentId);
+                .eq('id', talentId)
+                .select('id');
             if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error("La mise à jour du talent entrant n'a affecté aucune ligne (policy RLS ?).");
+            }
         }
 
         // ============================================================================
