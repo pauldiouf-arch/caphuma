@@ -191,26 +191,28 @@
                     </select>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Début de contrat</label>
-                        <input type="date" id="fieldContractStart" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                <div id="currentContractFields">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Début de contrat</label>
+                            <input type="date" id="fieldContractStart" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fin de contrat</label>
+                            <input type="date" id="fieldContractEnd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <p class="text-[10px] text-slate-400 mt-1">Modifiable librement, sans justification.</p>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fin de contrat</label>
-                        <input type="date" id="fieldContractEnd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                        <p class="text-[10px] text-slate-400 mt-1">Modifiable librement, sans justification.</p>
-                    </div>
-                </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Statut du contrat</label>
-                    <select id="fieldContractStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="">— Non précisé —</option>
-                        <option value="ongoing">En cours</option>
-                        <option value="renewable">Renouvelable</option>
-                        <option value="ending">Se termine</option>
-                    </select>
+                    <div class="mt-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Statut du contrat</label>
+                        <select id="fieldContractStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="">— Non précisé —</option>
+                            <option value="ongoing">En cours</option>
+                            <option value="renewable">Renouvelable</option>
+                            <option value="ending">Se termine</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="h-px bg-slate-100 my-2"></div>
@@ -562,7 +564,7 @@
                         </div>
                         <div class="mt-3 text-xs text-slate-500 space-y-1">
                             ${occupantName ? `<p>👤 Occupant : <span class="font-semibold text-slate-700">${escapeHtml(occupantName)}</span></p>` : ''}
-                            ${mission.contract_end_date ? `<p>📅 Fin de contrat : <span class="font-semibold text-slate-700">${escapeHtml(formatDate(mission.contract_end_date))}</span></p>` : ''}
+                            ${(mission.status === 'occupied' && mission.contract_end_date) ? `<p>📅 Fin de contrat : <span class="font-semibold text-slate-700">${escapeHtml(formatDate(mission.contract_end_date))}</span></p>` : ''}
                             ${futureName ? `<p>🔄 Futur occupant : <span class="font-semibold text-slate-700">${escapeHtml(futureName)}</span></p>` : ''}
                         </div>
                     </div>
@@ -574,7 +576,11 @@
                     ${mission.status === 'occupied' && mission.occupant_id ? `
                     <div class="mt-2">
                         <button type="button" class="evaluationsBtn w-full bg-primary-light hover:bg-blue-100 text-primary px-3 py-2 rounded-lg text-xs font-bold transition-all" data-id="${escapeHtml(mission.id)}">💬 Évaluations de l'occupant</button>
-                    </div>` : ''}
+                    </div>
+                    ${canEdit ? `
+                    <div class="mt-2">
+                        <button type="button" class="resyncOccupantBtn w-full border border-slate-200 hover:bg-slate-50 text-slate-500 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all" data-id="${escapeHtml(mission.id)}">🔄 Resynchroniser le compteur du talent</button>
+                    </div>` : ''}` : ''}
                 `;
 
                 missionsGrid.appendChild(card);
@@ -589,6 +595,25 @@
             document.querySelectorAll('.evaluationsBtn').forEach(btn => {
                 btn.addEventListener('click', () => openEvaluationsModal(btn.dataset.id));
             });
+            document.querySelectorAll('.resyncOccupantBtn').forEach(btn => {
+                btn.addEventListener('click', () => resyncOccupant(btn.dataset.id));
+            });
+        }
+
+        // Correction ponctuelle pour les postes déjà occupés avant l'introduction de la
+        // synchronisation automatique (Étape 5, point 9.3 étendu) — remet à zéro le compteur
+        // de l'occupant actuel sans avoir besoin de changer d'occupant pour déclencher la sync.
+        async function resyncOccupant(missionId) {
+            const mission = currentMissions.find(m => m.id === missionId);
+            if (!mission || !mission.occupant_id) return;
+
+            try {
+                await markIncomingOccupant(mission.occupant_id);
+                toastMessage('Compteur du talent resynchronisé.', 'success');
+            } catch (error) {
+                console.error("Erreur de resynchronisation :", error);
+                toastMessage("Échec de la resynchronisation : " + (error && error.message ? error.message : 'erreur inconnue.'), 'error');
+            }
         }
 
         function formatDate(isoDate) {
@@ -631,12 +656,15 @@
         // en cohérence avec le garde-fou appliqué à l'enregistrement (occupant_id forcé à null).
         const fieldStatus = document.getElementById('fieldStatus');
         const occupantField = document.getElementById('occupantField');
+        const currentContractFields = document.getElementById('currentContractFields');
 
         function toggleOccupantField() {
             if (fieldStatus.value === 'occupied') {
                 occupantField.classList.remove('hidden');
+                currentContractFields.classList.remove('hidden');
             } else {
                 occupantField.classList.add('hidden');
+                currentContractFields.classList.add('hidden');
             }
         }
 
@@ -737,10 +765,11 @@
             try {
                 if (missionId) {
                     const originalMission = currentMissions.find(m => m.id === missionId);
+                    const previousOccupantId = originalMission ? originalMission.occupant_id : null;
 
                     // L'occupant sort si : il y avait un occupant avant ET (il change, OU le poste
                     // n'est plus "occupied") — cf. Master Context section 9.3.
-                    if (originalMission && originalMission.occupant_id && originalMission.occupant_id !== payload.occupant_id) {
+                    if (originalMission && previousOccupantId && previousOccupantId !== payload.occupant_id) {
                         await archiveOutgoingOccupant(originalMission);
                     }
 
@@ -749,6 +778,12 @@
                         .update(payload)
                         .eq('id', missionId);
                     if (error) throw error;
+
+                    // Nouvel occupant entrant (affectation ou rotation) : compteurs remis à zéro.
+                    if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
+                        await markIncomingOccupant(payload.occupant_id);
+                    }
+
                     toastMessage('Poste mis à jour.', 'success');
                 } else {
                     payload.created_by = currentUserId;
@@ -756,6 +791,11 @@
                         .from('missions')
                         .insert(payload);
                     if (error) throw error;
+
+                    if (payload.occupant_id) {
+                        await markIncomingOccupant(payload.occupant_id);
+                    }
+
                     toastMessage('Poste créé.', 'success');
                 }
 
@@ -807,71 +847,104 @@
             }
         }
         // ============================================================================
-        // 6 BIS. ARCHIVAGE AUTOMATIQUE À LA SORTIE D'UN OCCUPANT (Étape 5, point 9.3)
+        // 6 BIS. SORTIE / ENTRÉE D'UN OCCUPANT (Étape 5, point 9.3 + suivi des compteurs)
         // ============================================================================
-        // Regroupe les évaluations liées à l'occupant sortant d'un poste en un "passage"
-        // ajouté à talents.archived_position_passages (colonne jsonb existante), puis
-        // supprime les évaluations brutes (elles ne concernent que l'occupant courant,
-        // pas l'historique). Appelée avant toute modification qui fait sortir un occupant
-        // (changement d'occupant, passage à vacant/recruiting, ou suppression du poste).
+        // À la SORTIE d'un occupant (changement d'occupant, passage à vacant/recruiting,
+        // ou suppression du poste) :
+        //   1. Archive ses évaluations en un "passage" dans talents.archived_position_passages
+        //      (si des évaluations existent — sinon rien à archiver).
+        //   2. Remet à jour son suivi de disponibilité : is_currently_on_mission = false,
+        //      last_mission_end_date = date de sortie (le décompte des mois sans mission
+        //      repart de cette date au prochain passage du Cron mensuel monthly-maintenance),
+        //      status = 'En attente de poste'.
+        // Point signalé par l'utilisateur : avant ce correctif, ces deux mises à jour
+        // n'étaient jamais faites depuis missions.html, laissant les compteurs du talent
+        // désynchronisés de son affectation réelle.
         async function archiveOutgoingOccupant(mission) {
             if (!mission.occupant_id) return;
 
-            // 1. Charger les évaluations existantes de ce poste (toutes concernent l'occupant sortant,
-            // puisqu'un poste n'a qu'un seul occupant courant à la fois).
+            const exitDate = mission.contract_end_date || new Date().toISOString().substring(0, 10);
+
+            // 1. Archivage des évaluations (uniquement si des évaluations existent)
             const { data: evals, error: evalErr } = await supabaseClient
                 .from('evaluations')
                 .select('context, positive_points, negative_points, rating, author_email, created_at')
                 .eq('mission_id', mission.id);
             if (evalErr) throw evalErr;
 
-            // Rien à archiver si aucune évaluation n'a été saisie pour ce passage — mais on
-            // continue quand même si besoin d'autres nettoyages plus tard ; ici on peut sortir.
-            if (!evals || evals.length === 0) return;
+            if (evals && evals.length > 0) {
+                const passage = {
+                    positionTitle: mission.title,
+                    pool: mission.pool,
+                    country: mission.country,
+                    desk: mission.desk || null,
+                    startDate: mission.contract_start_date || null,
+                    endDate: exitDate,
+                    comments: evals.map(e => ({
+                        context: e.context,
+                        positive_points: e.positive_points,
+                        negative_points: e.negative_points,
+                        rating: e.rating,
+                        author_email: e.author_email,
+                        created_at: e.created_at
+                    }))
+                };
 
-            // 2. Construire le passage archivé
-            const passage = {
-                positionTitle: mission.title,
-                pool: mission.pool,
-                country: mission.country,
-                desk: mission.desk || null,
-                startDate: mission.contract_start_date || null,
-                endDate: mission.contract_end_date || new Date().toISOString().substring(0, 10),
-                comments: evals.map(e => ({
-                    context: e.context,
-                    positive_points: e.positive_points,
-                    negative_points: e.negative_points,
-                    rating: e.rating,
-                    author_email: e.author_email,
-                    created_at: e.created_at
-                }))
-            };
+                const { data: talent, error: talentErr } = await supabaseClient
+                    .from('talents')
+                    .select('archived_position_passages')
+                    .eq('id', mission.occupant_id)
+                    .maybeSingle();
+                if (talentErr) throw talentErr;
 
-            // 3. Charger le tableau existant de passages du talent sortant, y ajouter le nouveau
-            const { data: talent, error: talentErr } = await supabaseClient
+                const existingPassages = (talent && Array.isArray(talent.archived_position_passages))
+                    ? talent.archived_position_passages
+                    : [];
+                const updatedPassages = existingPassages.concat([passage]);
+
+                const { error: passageUpdateErr } = await supabaseClient
+                    .from('talents')
+                    .update({ archived_position_passages: updatedPassages })
+                    .eq('id', mission.occupant_id);
+                if (passageUpdateErr) throw passageUpdateErr;
+
+                // Évaluations brutes supprimées — elles sont désormais dans le passage archivé
+                const { error: deleteErr } = await supabaseClient
+                    .from('evaluations')
+                    .delete()
+                    .eq('mission_id', mission.id);
+                if (deleteErr) throw deleteErr;
+            }
+
+            // 2. Mise à jour du suivi de disponibilité du talent sortant (toujours faite,
+            // même sans évaluation à archiver — c'est le point signalé par l'utilisateur).
+            const { error: statusErr } = await supabaseClient
                 .from('talents')
-                .select('archived_position_passages')
-                .eq('id', mission.occupant_id)
-                .maybeSingle();
-            if (talentErr) throw talentErr;
-
-            const existingPassages = (talent && Array.isArray(talent.archived_position_passages))
-                ? talent.archived_position_passages
-                : [];
-            const updatedPassages = existingPassages.concat([passage]);
-
-            const { error: updateErr } = await supabaseClient
-                .from('talents')
-                .update({ archived_position_passages: updatedPassages })
+                .update({
+                    is_currently_on_mission: false,
+                    last_mission_end_date: exitDate,
+                    status: 'En attente de poste'
+                })
                 .eq('id', mission.occupant_id);
-            if (updateErr) throw updateErr;
+            if (statusErr) throw statusErr;
+        }
 
-            // 4. Supprimer les évaluations brutes de ce poste — elles sont désormais dans le passage archivé
-            const { error: deleteErr } = await supabaseClient
-                .from('evaluations')
-                .delete()
-                .eq('mission_id', mission.id);
-            if (deleteErr) throw deleteErr;
+        // À l'ENTRÉE d'un talent sur un poste (nouvelle affectation ou rotation) : ses
+        // compteurs repartent à zéro et le décompte des mois sans mission est gelé tant
+        // qu'il reste occupant (is_currently_on_mission = true).
+        async function markIncomingOccupant(talentId) {
+            if (!talentId) return;
+
+            const { error } = await supabaseClient
+                .from('talents')
+                .update({
+                    is_currently_on_mission: true,
+                    months_without_mission: 0,
+                    last_mission_end_date: null,
+                    status: 'En poste ALIMA'
+                })
+                .eq('id', talentId);
+            if (error) throw error;
         }
 
         // ============================================================================
