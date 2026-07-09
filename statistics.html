@@ -227,8 +227,9 @@
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
-        const AI_API_URL = localStorage.getItem('ai_api_url');
-        const AI_API_KEY = localStorage.getItem('ai_api_key');
+        // La clé IA ne vit plus jamais côté client (ni localStorage, ni variable
+        // visible en console) — l'appel passe désormais par la Edge Function
+        // sécurisée ai-proxy, qui détient seule la clé côté serveur.
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -542,11 +543,6 @@
         }
 
         async function generateAIReport(customQuery = "") {
-            if (!AI_API_KEY) {
-                toastMessage("Veuillez configurer une clé API IA pour continuer.", "error");
-                return;
-            }
-
             const promptInput = document.getElementById('ai-prompt-input');
             const generateBtn = document.getElementById('ai-generate-btn');
             const spinner = document.getElementById('ai-spinner');
@@ -557,7 +553,7 @@
             spinner.classList.remove('hidden');
 
             const statsSummary = buildAnonymizedPayload();
-            
+
             const systemContext = `Tu es l'analyste stratégique RH senior pour ALIMA.
 Analyse les données statistiques consolidées suivantes de manière professionnelle, courte et structurée (puces et gras). Ne mentionne aucun nom ni e-mail individuel.
 
@@ -575,66 +571,35 @@ Données consolidées du pool (${statsSummary.pool}) :
 
             const finalQuery = customQuery.trim() || promptInput.value.trim() || "Analyse la santé du pool et formule des recommandations.";
 
-            try {
-                let response = null;
-                // Détection par domaine : toute URL pointant vers l'API Gemini native
-                // (generativelanguage.googleapis.com) est traitée au format Gemini,
-                // le reste est traité au format OpenAI-compatible (fallback).
-                // Ancien bug : un test sur '/v1' matchait aussi 'v1beta' (Gemini),
-                // ce qui basculait à tort vers le format OpenAI.
-                const isGeminiNative = AI_API_URL && AI_API_URL.includes('generativelanguage.googleapis.com');
-                const useOpenAIFormat = AI_API_URL && !isGeminiNative;
+            const fullPrompt = `${systemContext}\n\nQuestion : ${finalQuery}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
 
-                if (useOpenAIFormat) {
-                    response = await fetch(`${AI_API_URL}/chat/completions`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${AI_API_KEY}`
-                        },
-                        body: JSON.stringify({
-                            model: "gpt-4o-mini",
-                            messages: [
-                                { role: "system", content: systemContext },
-                                { role: "user", content: finalQuery }
-                            ],
-                            temperature: 0.3
-                        })
-                    });
-                    const resJson = await response.json();
-                    if (resJson.choices && resJson.choices[0]) {
-                        resultContent.innerHTML = renderMarkdownToHtml(resJson.choices[0].message.content);
-                    } else {
-                        throw new Error(JSON.stringify(resJson));
-                    }
-                } else {
-                    const geminiUrl = AI_API_URL || "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
-                    response = await fetch(`${geminiUrl}?key=${AI_API_KEY}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: `${systemContext}\n\nQuestion utilisateur : ${finalQuery}\n\nRéponds en français, de manière structurée avec des puces.`
-                                }]
-                            }]
-                        })
-                    });
-                    const resJson = await response.json();
-                    if (resJson.candidates && resJson.candidates[0].content.parts[0]) {
-                        resultContent.innerHTML = renderMarkdownToHtml(resJson.candidates[0].content.parts[0].text);
-                    } else {
-                        throw new Error(JSON.stringify(resJson));
-                    }
+            try {
+                // Appel à la Edge Function générique ai-proxy (partagée avec missions.html) —
+                // vérifie le rôle côté serveur (visitor exclu) et détient seule la clé IA.
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error("Session expirée — reconnectez-vous.");
+
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ prompt: fullPrompt })
+                });
+
+                const result = await response.json();
+                if (!response.ok || result.error) {
+                    throw new Error(result.error || `Erreur serveur (${response.status})`);
                 }
 
+                resultContent.innerHTML = renderMarkdownToHtml(result.analysis);
                 resultBox.classList.remove('hidden');
                 toastMessage("Analyse stratégique générée avec succès.", "success");
             } catch (err) {
                 console.error(err);
-                toastMessage("Échec de la communication avec l'IA. Veuillez vérifier votre clé API ou l'URL configurée.", "error");
+                toastMessage("Échec de la communication avec l'IA : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
             } finally {
                 generateBtn.disabled = false;
                 spinner.classList.add('hidden');

@@ -87,9 +87,43 @@
                 <h2 class="text-xl font-extrabold text-slate-800" id="poolHeading">Postes du pool</h2>
                 <p class="text-sm text-slate-400 mt-1" id="poolSubheading">Chargement du pool…</p>
             </div>
-            <button id="createMissionBtn" type="button" class="hidden bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-xs">
-                ➕ Nouveau poste
-            </button>
+            <div class="flex items-center gap-2">
+                <button id="analyzePoolBtn" type="button" class="hidden border border-primary text-primary hover:bg-primary-light px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all">
+                    🤖 Analyser ce pool
+                </button>
+                <button id="createMissionBtn" type="button" class="hidden bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-xs">
+                    ➕ Nouveau poste
+                </button>
+            </div>
+        </div>
+
+        <!-- KPIs du pool (calculés côté client à partir des postes chargés, cf. Hercules
+             positions/stats.ts : getPositionStats / getDetailedPositionStats) -->
+        <div id="kpiBar" class="hidden grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <div class="bg-white border border-slate-200 rounded-2xl p-3 text-center">
+                <p class="text-lg font-extrabold text-slate-800" id="kpiTotal">0</p>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Postes</p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
+                <p class="text-lg font-extrabold text-emerald-700" id="kpiOccupied">0</p>
+                <p class="text-[10px] font-semibold text-emerald-500 uppercase tracking-wide">Occupés</p>
+            </div>
+            <div class="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center">
+                <p class="text-lg font-extrabold text-amber-700" id="kpiRecruiting">0</p>
+                <p class="text-[10px] font-semibold text-amber-500 uppercase tracking-wide">En recrutement</p>
+            </div>
+            <div class="bg-slate-100 border border-slate-200 rounded-2xl p-3 text-center">
+                <p class="text-lg font-extrabold text-slate-600" id="kpiVacant">0</p>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Vacants</p>
+            </div>
+            <div class="bg-orange-50 border border-orange-100 rounded-2xl p-3 text-center">
+                <p class="text-lg font-extrabold text-orange-700" id="kpiEndingSoon">0</p>
+                <p class="text-[10px] font-semibold text-orange-500 uppercase tracking-wide">Fin ≤ 6 mois</p>
+            </div>
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-3 text-center">
+                <p class="text-lg font-extrabold text-primary" id="kpiAvgDuration">0</p>
+                <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Durée moy. (mois)</p>
+            </div>
         </div>
 
         <p id="missionsError" class="hidden mb-4 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
@@ -304,6 +338,29 @@
         </div>
     </div>
 
+    <!-- ────────────────────────────────────────────────────────────────────────
+         MODALE ANALYSE IA DU POOL (synthèse narrative + recommandations)
+         ──────────────────────────────────────────────────────────────────────── -->
+    <div id="aiAnalysisModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
+        <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
+                <div>
+                    <h3 class="text-lg font-extrabold text-slate-800">🤖 Analyse IA du pool</h3>
+                    <p class="text-xs text-slate-400 font-semibold mt-0.5" id="aiAnalysisSubtitle"></p>
+                </div>
+                <button id="closeAiAnalysisModalBtn" type="button" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="px-6 py-5">
+                <div id="aiAnalysisLoading" class="hidden text-center py-10 text-sm text-slate-400">
+                    Analyse en cours, quelques secondes…
+                </div>
+                <p id="aiAnalysisError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+                <div id="aiAnalysisContent" class="prose prose-sm max-w-none text-slate-700"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ============================================================================
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
@@ -329,6 +386,8 @@
         const missionsEmpty = document.getElementById('missionsEmpty');
         const readOnlyNotice = document.getElementById('readOnlyNotice');
         const createMissionBtn = document.getElementById('createMissionBtn');
+        const analyzePoolBtn = document.getElementById('analyzePoolBtn');
+        const kpiBar = document.getElementById('kpiBar');
 
         // Échappement HTML systématique de toute donnée venant de la base
         // avant injection via innerHTML — prévention XSS (audit sécurité, cf. Master Context section 7).
@@ -407,8 +466,11 @@
                 }
 
                 // Édition réservée à admin + user (recruteur) ; visitor en lecture seule.
+                // Le bouton d'analyse IA suit la même restriction que côté Edge Function
+                // (ai-proxy exclut "visitor" server-side également).
                 if (currentUserRole === 'admin' || currentUserRole === 'user') {
                     createMissionBtn.classList.remove('hidden');
+                    analyzePoolBtn.classList.remove('hidden');
                 } else {
                     readOnlyNotice.classList.remove('hidden');
                 }
@@ -517,7 +579,16 @@
                 if (error) throw error;
 
                 currentMissions = missions || [];
+
+                // Contrats expirés avec statut confirmé "Se termine" : traitement
+                // automatique. Les autres restent occupés, signalés visuellement dans
+                // renderMissions() (garde-fou explicite demandé par l'utilisateur).
+                if (currentUserRole === 'admin' || currentUserRole === 'user') {
+                    await processExpiredMissions();
+                }
+
                 renderMissions();
+                updateKpiBar();
 
             } catch (error) {
                 console.error("Erreur de récupération des postes :", error);
@@ -525,6 +596,98 @@
                 missionsError.textContent = "Impossible de charger les postes de ce pool depuis Supabase.";
                 missionsError.classList.remove('hidden');
             }
+        }
+
+        // ============================================================================
+        // 3 BIS. TRAITEMENT AUTOMATIQUE DES CONTRATS EXPIRÉS (nouveau)
+        // ============================================================================
+        // Un contrat expiré (contract_end_date dépassée) ne signifie pas forcément que
+        // le talent est réellement sorti — il peut avoir été renouvelé sans que
+        // l'information soit encore saisie. Décision explicite de l'utilisateur,
+        // par analogie avec la règle "jamais de dévalidation automatique" :
+        //   - contract_status === 'ending' (confirmé "Se termine") → sortie automatique
+        //     (même traitement qu'une sortie normale : archivage + poste vacant).
+        //   - tout autre cas (ongoing/renewable/non précisé) → aucune écriture
+        //     automatique, seulement un signalement visuel (badge rouge) dans
+        //     renderMissions(), à charge de l'utilisateur de mettre à jour manuellement.
+        async function processExpiredMissions() {
+            const now = Date.now();
+            const toProcess = currentMissions.filter(m =>
+                m.status === 'occupied' &&
+                m.contract_end_date &&
+                new Date(m.contract_end_date).getTime() < now &&
+                m.contract_status === 'ending'
+            );
+
+            if (toProcess.length === 0) return;
+
+            let processedCount = 0;
+            for (const mission of toProcess) {
+                try {
+                    await archiveOutgoingOccupant(mission);
+                    const { data, error } = await supabaseClient
+                        .from('missions')
+                        .update({ status: 'vacant', occupant_id: null })
+                        .eq('id', mission.id)
+                        .select('id');
+                    if (error) throw error;
+                    if (data && data.length > 0) processedCount++;
+                } catch (error) {
+                    console.error("Erreur de traitement automatique du contrat expiré :", mission.id, error);
+                }
+            }
+
+            if (processedCount > 0) {
+                toastMessage(`${processedCount} poste(s) automatiquement libéré(s) suite à une fin de contrat confirmée.`, 'success');
+                const { data: refreshed, error: refreshErr } = await supabaseClient
+                    .from('missions')
+                    .select('*')
+                    .eq('pool', currentPoolId)
+                    .order('title', { ascending: true });
+                if (!refreshErr) currentMissions = refreshed || currentMissions;
+            }
+        }
+
+        // ============================================================================
+        // 3 TER. BARRE DE KPIS DU POOL (cf. Hercules positions/stats.ts)
+        // ============================================================================
+        function updateKpiBar() {
+            if (currentMissions.length === 0) {
+                kpiBar.classList.add('hidden');
+                return;
+            }
+            kpiBar.classList.remove('hidden');
+
+            const now = Date.now();
+            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
+
+            const total = currentMissions.length;
+            const occupied = currentMissions.filter(m => m.status === 'occupied').length;
+            const recruiting = currentMissions.filter(m => m.status === 'recruiting').length;
+            const vacant = currentMissions.filter(m => m.status === 'vacant').length;
+
+            const endingSoon = currentMissions.filter(m => {
+                if (!m.contract_end_date) return false;
+                const t = new Date(m.contract_end_date).getTime();
+                return t > now && t <= sixMonthsLater;
+            }).length;
+
+            const withContracts = currentMissions.filter(m => m.contract_start_date && m.contract_end_date);
+            const durations = withContracts.map(m => {
+                const start = new Date(m.contract_start_date).getTime();
+                const end = new Date(m.contract_end_date).getTime();
+                return Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
+            });
+            const avgDuration = durations.length > 0
+                ? Math.round(durations.reduce((sum, d) => sum + d, 0) / durations.length)
+                : 0;
+
+            document.getElementById('kpiTotal').textContent = total;
+            document.getElementById('kpiOccupied').textContent = occupied;
+            document.getElementById('kpiRecruiting').textContent = recruiting;
+            document.getElementById('kpiVacant').textContent = vacant;
+            document.getElementById('kpiEndingSoon').textContent = endingSoon;
+            document.getElementById('kpiAvgDuration').textContent = avgDuration;
         }
 
         // ============================================================================
@@ -546,8 +709,17 @@
                 const occupantName = mission.occupant_id ? (talentNameById[mission.occupant_id] || 'Talent introuvable') : null;
                 const futureName = mission.future_talent_id ? (talentNameById[mission.future_talent_id] || 'Talent introuvable') : null;
 
+                // Contrat expiré mais statut non confirmé "Se termine" — traité par
+                // processExpiredMissions() uniquement si contract_status === 'ending'.
+                // Dans tous les autres cas, simple signalement visuel, aucune écriture.
+                const isExpiredUnconfirmed = mission.status === 'occupied'
+                    && mission.contract_end_date
+                    && new Date(mission.contract_end_date).getTime() < Date.now()
+                    && mission.contract_status !== 'ending';
+
                 const card = document.createElement('div');
-                card.className = "bg-white border border-slate-200 rounded-2xl shadow-sm p-5 flex flex-col justify-between";
+                card.className = "bg-white border rounded-2xl shadow-sm p-5 flex flex-col justify-between "
+                    + (isExpiredUnconfirmed ? "border-red-300 ring-1 ring-red-200" : "border-slate-200");
 
                 card.innerHTML = `
                     <div>
@@ -555,6 +727,7 @@
                             <h3 class="text-sm font-extrabold text-slate-800">${escapeHtml(mission.title)}</h3>
                             <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-slate-100 text-slate-600 shrink-0">${escapeHtml(statusLabel)}</span>
                         </div>
+                        ${isExpiredUnconfirmed ? `<p class="text-[11px] font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2 py-1 mb-2">🔴 Contrat expiré le ${escapeHtml(formatDate(mission.contract_end_date))} — statut à mettre à jour d'urgence</p>` : ''}
                         <p class="text-xs text-slate-400 font-semibold">${escapeHtml(mission.location)}, ${escapeHtml(mission.country)}</p>
                         ${mission.project_name ? `<p class="text-xs text-slate-400 mt-0.5">${escapeHtml(mission.project_name)}</p>` : ''}
                         <div class="flex flex-wrap gap-1.5 mt-3">
@@ -1007,13 +1180,28 @@
         async function markIncomingOccupant(talentId) {
             if (!talentId) return;
 
+            // Lecture de l'état actuel : number_of_alima_missions n'est pas un simple
+            // incrément numérique mais une progression par palier (none → one → two →
+            // three_plus), logique reprise de Hercules startAlimaMission.
+            const { data: currentTalent, error: readErr } = await supabaseClient
+                .from('talents')
+                .select('number_of_alima_missions')
+                .eq('id', talentId)
+                .maybeSingle();
+            if (readErr) throw readErr;
+
+            const currentCount = (currentTalent && currentTalent.number_of_alima_missions) || 'none';
+            const newCount = currentCount === 'none' ? 'one' : (currentCount === 'one' ? 'two' : 'three_plus');
+
             const { data, error } = await supabaseClient
                 .from('talents')
                 .update({
                     is_currently_on_mission: true,
                     months_without_mission: 0,
                     last_mission_end_date: null,
-                    status: 'En poste ALIMA'
+                    status: 'En poste ALIMA',
+                    number_of_alima_missions: newCount,
+                    had_alima_mission: true
                 })
                 .eq('id', talentId)
                 .select('id');
@@ -1245,6 +1433,168 @@
                 saveBtn.textContent = evaluationId ? 'Enregistrer les modifications' : "Ajouter l'évaluation";
             }
         });
+        // ============================================================================
+        // 8. ANALYSE IA DU POOL (Edge Function générique ai-proxy)
+        // ============================================================================
+        // Rendu markdown minimal et sûr : échappement HTML d'abord (empêche toute
+        // injection), mise en forme markdown ensuite, sur le texte déjà échappé.
+        function renderMarkdownToHtml(text) {
+            if (!text) return '';
+            let html = escapeHtml(text);
+            html = html.replace(/^## (.*)$/gm, '<h3 class="font-bold text-slate-800 mt-3 mb-1">$1</h3>');
+            html = html.replace(/^# (.*)$/gm, '<h2 class="font-extrabold text-slate-900 mt-3 mb-1">$1</h2>');
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/^- (.*)$/gm, '<li class="ml-4 list-disc">$1</li>');
+            html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, function (match) {
+                return '<ul class="my-1">' + match + '</ul>';
+            });
+            html = html.replace(/\n\n/g, '</p><p class="mt-2">');
+            html = html.replace(/\n/g, '<br>');
+            return '<p>' + html + '</p>';
+        }
+
+        const aiAnalysisModal = document.getElementById('aiAnalysisModal');
+        const aiAnalysisSubtitle = document.getElementById('aiAnalysisSubtitle');
+        const aiAnalysisLoading = document.getElementById('aiAnalysisLoading');
+        const aiAnalysisError = document.getElementById('aiAnalysisError');
+        const aiAnalysisContent = document.getElementById('aiAnalysisContent');
+
+        document.getElementById('closeAiAnalysisModalBtn').addEventListener('click', () => {
+            aiAnalysisModal.classList.add('hidden');
+        });
+
+        // Construit le prompt complet côté client (données déjà agrégées et
+        // anonymisées, aucun nom de talent) — la Edge Function ai-proxy ne fait
+        // que le transmettre à l'IA de façon sécurisée.
+        function buildPoolAnalysisPrompt(poolLabel, stats) {
+            return `Tu es un(e) analyste RH pour une organisation humanitaire (ALIMA). ` +
+                `Voici un instantané agrégé et anonymisé du pool "${poolLabel}" ` +
+                `(uniquement des comptages, aucune donnée nominative de talent) :\n\n` +
+                `${JSON.stringify(stats, null, 2)}\n\n` +
+                `Rédige une synthèse narrative courte (5 à 8 phrases) de la santé de ce pool : ` +
+                `couverture des postes, risques de pénurie à venir, contrats arrivant à échéance, ` +
+                `capacité de recrutement actuelle. Termine par 3 recommandations concrètes et ` +
+                `actionnables, classées par priorité. Réponds en français, en Markdown simple ` +
+                `(titres avec ##, listes avec -), sans préambule ni formule de politesse.`;
+        }
+
+        async function callAiProxy(prompt) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) throw new Error("Session expirée — reconnectez-vous.");
+
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({ prompt })
+            });
+
+            const result = await response.json();
+            if (!response.ok || result.error) {
+                throw new Error(result.error || `Erreur serveur (${response.status})`);
+            }
+            return result.analysis;
+        }
+
+        analyzePoolBtn.addEventListener('click', async () => {
+            aiAnalysisModal.classList.remove('hidden');
+            aiAnalysisSubtitle.textContent = poolHeading.textContent;
+            aiAnalysisContent.innerHTML = '';
+            aiAnalysisError.classList.add('hidden');
+            aiAnalysisLoading.classList.remove('hidden');
+
+            try {
+                const stats = await buildPoolAnalysisStats();
+                const prompt = buildPoolAnalysisPrompt(poolHeading.textContent, stats);
+                const analysis = await callAiProxy(prompt);
+                aiAnalysisContent.innerHTML = renderMarkdownToHtml(analysis);
+
+            } catch (error) {
+                console.error("Erreur analyse IA du pool :", error);
+                aiAnalysisError.textContent = "Impossible de générer l'analyse : " + (error && error.message ? error.message : 'erreur inconnue.');
+                aiAnalysisError.classList.remove('hidden');
+            } finally {
+                aiAnalysisLoading.classList.add('hidden');
+            }
+        });
+
+        // Construit l'instantané agrégé et anonymisé envoyé à l'IA — aucune donnée
+        // nominative de talent, uniquement des comptages (cf. Master Context 14.1,
+        // même principe que buildAnonymizedPayload() de statistics.html).
+        // Logique de disponibilité adaptée de Hercules positions/analytics.ts
+        // (getRecommendations), avec les vrais noms de colonnes Postgres.
+        async function buildPoolAnalysisStats() {
+            const now = Date.now();
+            const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
+            const threeMonthsLater = now + 3 * 30 * 24 * 60 * 60 * 1000;
+            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
+
+            const total = currentMissions.length;
+            const occupied = currentMissions.filter(m => m.status === 'occupied').length;
+            const recruiting = currentMissions.filter(m => m.status === 'recruiting').length;
+            const vacant = currentMissions.filter(m => m.status === 'vacant').length;
+
+            function endingWithin(maxDate) {
+                return currentMissions.filter(m => {
+                    if (!m.contract_end_date) return false;
+                    const t = new Date(m.contract_end_date).getTime();
+                    return t > now && t <= maxDate;
+                }).length;
+            }
+
+            const renewableSoon = currentMissions.filter(m => {
+                if (m.contract_status !== 'renewable' || !m.contract_end_date) return false;
+                const t = new Date(m.contract_end_date).getTime();
+                return t > now && t <= sixMonthsLater;
+            }).length;
+
+            let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
+            try {
+                // Colonnes ciblées, requête à la demande uniquement (pas à chaque
+                // chargement de page) — règle perf Master Context section 2 bis.2.
+                const { data: talents, error } = await supabaseClient
+                    .from('talents')
+                    .select('status, is_valid, is_red_listed, experience_months_alima, availability_type, availability_date, availability_months')
+                    .eq('pool', currentPoolId);
+                if (error) throw error;
+
+                (talents || []).forEach(t => {
+                    if (t.status === 'En poste ALIMA' || t.is_valid === false || t.is_red_listed) return;
+
+                    let availDate = null;
+                    if (t.availability_type === 'asap') availDate = now;
+                    else if (t.availability_type === 'date' && t.availability_date) availDate = new Date(t.availability_date).getTime();
+                    else if (t.availability_type === 'notice' && t.availability_months != null) availDate = now + t.availability_months * 30 * 24 * 60 * 60 * 1000;
+
+                    if (availDate !== null && availDate <= now) availableNow++;
+                    if (availDate !== null && availDate <= sixMonthsLater) {
+                        availableSoon++;
+                        if ((t.experience_months_alima || 0) >= 12) experiencedAvailable++;
+                        if ((t.experience_months_alima || 0) < 6) juniorAvailable++;
+                    }
+                });
+            } catch (error) {
+                console.error("Erreur de calcul de la disponibilité des talents :", error);
+            }
+
+            return {
+                totalPositions: total,
+                occupiedPositions: occupied,
+                recruitingPositions: recruiting,
+                vacantPositions: vacant,
+                endingIn1Month: endingWithin(oneMonthLater),
+                endingIn3Months: endingWithin(threeMonthsLater),
+                endingIn6Months: endingWithin(sixMonthsLater),
+                renewableContractsSoon: renewableSoon,
+                availableTalentsNow: availableNow,
+                availableTalentsWithin6Months: availableSoon,
+                experiencedAvailableTalents: experiencedAvailable,
+                juniorAvailableTalents: juniorAvailable
+            };
+        }
     </script>
 </body>
 </html>
