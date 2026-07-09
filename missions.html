@@ -758,11 +758,75 @@
                 return;
             }
 
+            // ────────────────────────────────────────────────────────────────
+            // GARDE-FOU 1 : l'occupant choisi est-il déjà occupant d'un AUTRE poste ?
+            // (recherché dans les postes déjà chargés pour ce pool — un talent
+            // n'appartenant qu'à un seul pool, un conflit ne peut exister qu'ici)
+            // ────────────────────────────────────────────────────────────────
+            let conflictMissionToVacate = null;
+            if (payload.status === 'occupied' && payload.occupant_id) {
+                const conflict = currentMissions.find(m =>
+                    m.id !== missionId &&
+                    m.occupant_id === payload.occupant_id &&
+                    m.status === 'occupied'
+                );
+                if (conflict) {
+                    const talentLabel = talentNameById[payload.occupant_id] || 'Ce talent';
+                    const confirmed = window.confirm(
+                        `${talentLabel} occupe déjà le poste « ${conflict.title} ».\n\n` +
+                        `Confirmer le changement de poste ? L'ancien poste sera automatiquement libéré ` +
+                        `(remis en Vacant) et ses évaluations archivées dans l'historique du talent.`
+                    );
+                    if (!confirmed) return;
+                    conflictMissionToVacate = conflict;
+                }
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // GARDE-FOU 2 : le futur occupant choisi est-il occupant ailleurs, avec un
+            // chevauchement de dates (début prévu ici < date de sortie de son poste actuel) ?
+            // Purement informatif — pas d'action automatique, contrairement au garde-fou 1.
+            // ────────────────────────────────────────────────────────────────
+            if (payload.future_talent_id) {
+                const futureConflict = currentMissions.find(m =>
+                    m.id !== missionId &&
+                    m.occupant_id === payload.future_talent_id &&
+                    m.status === 'occupied'
+                );
+                if (futureConflict && payload.future_contract_start_date && futureConflict.contract_end_date
+                    && payload.future_contract_start_date < futureConflict.contract_end_date) {
+                    const talentLabel = talentNameById[payload.future_talent_id] || 'Ce talent';
+                    const confirmed = window.confirm(
+                        `${talentLabel} est actuellement occupant de « ${futureConflict.title} » jusqu'au ` +
+                        `${formatDate(futureConflict.contract_end_date)}.\n\n` +
+                        `La date de début prévue ici (${formatDate(payload.future_contract_start_date)}) est ` +
+                        `antérieure à cette date de sortie — chevauchement. Continuer quand même ?`
+                    );
+                    if (!confirmed) return;
+                }
+            }
+
             const saveBtn = document.getElementById('saveMissionBtn');
             saveBtn.disabled = true;
             saveBtn.textContent = 'Enregistrement…';
 
             try {
+                // Libération de l'ancien poste si un conflit a été confirmé (garde-fou 1) :
+                // même traitement qu'une sortie normale (archivage des évaluations + poste vacant).
+                if (conflictMissionToVacate) {
+                    await archiveOutgoingOccupant(conflictMissionToVacate);
+
+                    const { data: vacateData, error: vacateErr } = await supabaseClient
+                        .from('missions')
+                        .update({ status: 'vacant', occupant_id: null })
+                        .eq('id', conflictMissionToVacate.id)
+                        .select('id');
+                    if (vacateErr) throw vacateErr;
+                    if (!vacateData || vacateData.length === 0) {
+                        throw new Error("La libération de l'ancien poste n'a affecté aucune ligne (policy RLS ?).");
+                    }
+                }
+
                 if (missionId) {
                     const originalMission = currentMissions.find(m => m.id === missionId);
                     const previousOccupantId = originalMission ? originalMission.occupant_id : null;
