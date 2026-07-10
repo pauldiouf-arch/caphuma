@@ -57,7 +57,7 @@
                     <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
                     <a href="statistics.html" class="text-slate-600 hover:text-primary transition-colors">📊 Hub Statistique & IA</a>
                     <a href="admin.html" id="nav-admin" class="text-primary border-b-2 border-primary px-1 py-4 hidden">🛡️ Admin</a>
-                    <a href="audit.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
+                    <a href="audit_logs.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
                 </nav>
 
                 <div class="flex items-center gap-3">
@@ -266,12 +266,35 @@
         let accountsList = [];
         let poolsList = [];
         let pendingConfirmAction = null;
+        let currentUserId = null;
+        let currentUserEmail = null;
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // Ne bloque jamais l'action métier si l'écriture du log échoue.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: null,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
         }
 
         // ============ SESSION & RÔLE ============
@@ -289,6 +312,8 @@
                 }
 
                 document.getElementById('user-display-name').textContent = session.user.email;
+                currentUserId = session.user.id;
+                currentUserEmail = session.user.email || null;
 
                 const isAdmin = await checkUserRole(session.user.id);
                 if (!isAdmin) {
@@ -490,6 +515,8 @@
                         .update({ is_active: nextState })
                         .eq('id', userId);
                     if (error) throw error;
+                    const targetAccount = accountsList.find(a => a.id === userId);
+                    await logAuditAction('update', 'user', userId, targetAccount ? (targetAccount.name || targetAccount.email) : userId, nextState ? "Réactivation du compte" : "Suspension du compte");
                     toastMessage(nextState ? "Compte réactivé." : "Compte suspendu.");
                     await loadAccounts();
                 }
@@ -504,6 +531,7 @@
                 icon: "🔑",
                 onConfirm: async () => {
                     const result = await callManageUsers('reset_password', { userId });
+                    await logAuditAction('update', 'user', userId, null, "Réinitialisation du code d'accès");
                     showAccessCodeModal(result.accessCode);
                     toastMessage("Code d'accès réinitialisé avec succès.");
                 }
@@ -518,6 +546,7 @@
                 icon: "🗑️",
                 onConfirm: async () => {
                     await callManageUsers('delete', { userId });
+                    await logAuditAction('delete', 'user', userId, email, null);
                     toastMessage("Compte supprimé avec succès.");
                     await loadAccounts();
                 }
@@ -552,6 +581,7 @@
                 // Paramètre envoyé à l'Edge Function : fullName, mappé sur la
                 // colonne 'name' en base (voir section 8 du Master Context).
                 const result = await callManageUsers('create', { email, role, fullName });
+                await logAuditAction('create', 'user', result && result.userId ? result.userId : null, fullName || email, `Rôle : ${role}`);
                 document.getElementById('modal-create-account').classList.add('hidden');
                 showAccessCodeModal(result.accessCode);
                 toastMessage("Compte créé avec succès.");
@@ -790,6 +820,7 @@
         // ============ INITIALISATION ============
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             if (supabaseClient) await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });

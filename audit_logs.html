@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journal d'audit - Cap Huma</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- SheetJS (export Excel des logs, UMD, cohérent avec les autres pages) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Charte graphique ALIMA / Cap Huma (identique à devalidated.html) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
+                        accent: { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         EN-TÊTE SUPÉRIEUR
+         ──────────────────────────────────────────────────────────────────────── -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-3">
+                <a href="dashboard.html" class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.45.258-.717.258H3.571a.8.8 0 0 1-.717-.258m17.5 0a2.18 2.18 0 0 1-.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m0 0a48.58 48.58 0 0 0-6.177 0m6.177 0v1.502a2.25 2.25 0 0 1-2.25 2.25H9.75a2.25 2.25 0 0 1-2.25-2.25V6.144m6.177 0a48.114 48.114 0 0 0-3.413.387m0 0a48.58 48.58 0 0 1-6.177 0" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Journal d'audit</h1>
+                    <p class="text-xs text-slate-400 font-semibold mt-1">
+                        Suivi complet des actions effectuées sur la plateforme — conformité RGPD
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="dashboard.html" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    ← Tableau de bord
+                </a>
+                <button id="exportBtn" class="bg-accent hover:bg-accent-dark text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5">
+                    📥 Exporter Excel
+                </button>
+                <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="max-w-6xl w-full mx-auto px-6 py-6 flex-1 overflow-auto space-y-6">
+
+        <p id="pageError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
+
+        <!-- Statistiques -->
+        <div class="grid gap-4 md:grid-cols-4">
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total actions</p>
+                <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statTotal">—</p>
+                <p class="text-xs text-slate-400 mt-1">Toutes les actions enregistrées</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Activité récente</p>
+                <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statRecent">—</p>
+                <p class="text-xs text-slate-400 mt-1">7 derniers jours</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Utilisateurs actifs</p>
+                <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statUsers">—</p>
+                <p class="text-xs text-slate-400 mt-1">Sur la période affichée</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Types d'actions</p>
+                <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statTypes">—</p>
+                <p class="text-xs text-slate-400 mt-1">Différentes actions distinctes</p>
+            </div>
+        </div>
+
+        <!-- Filtres -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">🔎 Filtres</h3>
+                <button id="resetFiltersBtn" class="text-[11px] font-bold text-slate-500 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition-all">↺ Réinitialiser</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Type d'action</label>
+                    <select id="filterAction" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="">Toutes les actions</option>
+                        <option value="create">Création</option>
+                        <option value="update">Modification</option>
+                        <option value="delete">Suppression</option>
+                        <option value="devalidate">Dévalidation</option>
+                        <option value="reintegrate">Réintégration</option>
+                        <option value="add_to_red_list">Ajout liste rouge</option>
+                        <option value="remove_from_red_list">Retrait liste rouge</option>
+                        <option value="login">Connexion</option>
+                        <option value="logout">Déconnexion</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Type d'entité</label>
+                    <select id="filterEntityType" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="">Tous les types</option>
+                        <option value="talent">Talent</option>
+                        <option value="mission">Poste</option>
+                        <option value="comment">Commentaire</option>
+                        <option value="user">Utilisateur</option>
+                        <option value="system">Système</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Période</label>
+                    <select id="filterPeriod" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="">Toutes les périodes</option>
+                        <option value="today">Aujourd'hui</option>
+                        <option value="week">7 derniers jours</option>
+                        <option value="month">30 derniers jours</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Jour précis</label>
+                    <input id="filterExactDate" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                </div>
+            </div>
+            <p id="exactDateHint" class="hidden text-[11px] text-primary font-semibold">📅 Filtre "Jour précis" actif — le filtre "Période" est ignoré tant qu'une date précise est choisie.</p>
+        </div>
+
+        <!-- Table des logs -->
+        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-slate-800 text-sm">📋 Actions enregistrées</h3>
+                <p class="text-xs text-slate-400" id="tableCountLabel">Chargement…</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 text-left text-[11px] font-bold text-slate-400 uppercase">
+                        <tr>
+                            <th class="px-4 py-2.5">Date</th>
+                            <th class="px-4 py-2.5">Utilisateur</th>
+                            <th class="px-4 py-2.5">Action</th>
+                            <th class="px-4 py-2.5">Type d'entité</th>
+                            <th class="px-4 py-2.5">Entité</th>
+                            <th class="px-4 py-2.5">Détails</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+            <p id="tableEmptyState" class="hidden text-center text-sm text-slate-400 font-semibold py-10">
+                Aucune action ne correspond à ces filtres.
+            </p>
+            <p id="tableLoadingState" class="text-center text-sm text-slate-400 font-semibold py-10">
+                Chargement des logs…
+            </p>
+        </div>
+
+        <p class="text-[11px] text-slate-400 text-center">
+            Affichage limité aux 1000 entrées les plus récentes. Les logs standard sont purgés
+            automatiquement après 12 mois, les logs critiques après 24 mois (conformité RGPD).
+        </p>
+    </main>
+
+    <script>
+        // ============================================================================
+        // 1. INITIALISATION SUPABASE
+        // ============================================================================
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            window.location.replace('index.html');
+        }
+
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const appBody = document.getElementById('appBody');
+        const pageError = document.getElementById('pageError');
+
+        let currentUserId = null;
+        let currentUserEmail = null;
+        let allLogs = [];
+
+        // Échappement HTML systématique de toute donnée provenant de la base
+        // avant injection via innerHTML — prévention XSS.
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ============================================================================
+        // JOURNAL D'AUDIT — la déconnexion depuis CETTE page est aussi tracée, par
+        // cohérence avec toutes les autres pages (voir id-card.html pour la logique
+        // détaillée du helper).
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: null,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
+        }
+
+        // ============================================================================
+        // 2. GARDE DE SESSION — réservée ADMIN UNIQUEMENT (cohérent avec la policy RLS
+        //    SELECT sur audit_logs, qui bloque toute lecture pour user/visitor).
+        // ============================================================================
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error("Session absente ou expirée.");
+
+                currentUserId = session.user.id;
+                currentUserEmail = session.user.email || null;
+
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('role, is_active')
+                    .eq('id', currentUserId);
+
+                let role = null;
+                if (!profileError && profiles && profiles.length > 0) {
+                    const profile = profiles[0];
+                    if (profile.is_active === false) throw new Error("Compte désactivé.");
+                    role = profile.role;
+                }
+
+                if (role !== 'admin') {
+                    throw new Error("Accès réservé aux administrateurs.");
+                }
+
+                appBody.style.display = 'flex';
+                await loadLogs();
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
+                window.location.replace('dashboard.html');
+            }
+        }
+        checkSession();
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+
+        // ============================================================================
+        // 3. LIBELLÉS D'AFFICHAGE
+        // ============================================================================
+        const ACTION_LABELS = {
+            create: 'Création', update: 'Modification', delete: 'Suppression',
+            devalidate: 'Dévalidation', reintegrate: 'Réintégration',
+            add_to_red_list: 'Ajout liste rouge', remove_from_red_list: 'Retrait liste rouge',
+            login: 'Connexion', logout: 'Déconnexion'
+        };
+        const ACTION_BADGE_CLASS = {
+            create: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            update: 'bg-blue-50 text-blue-700 border-blue-200',
+            delete: 'bg-red-50 text-red-700 border-red-200',
+            devalidate: 'bg-orange-50 text-orange-700 border-orange-200',
+            reintegrate: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            add_to_red_list: 'bg-red-50 text-red-700 border-red-200',
+            remove_from_red_list: 'bg-slate-100 text-slate-600 border-slate-200',
+            login: 'bg-slate-100 text-slate-600 border-slate-200',
+            logout: 'bg-slate-100 text-slate-600 border-slate-200'
+        };
+        const ENTITY_TYPE_LABELS = {
+            talent: 'Talent', mission: 'Poste', comment: 'Commentaire',
+            user: 'Utilisateur', system: 'Système'
+        };
+
+        function fmtDateTime(value) {
+            if (!value) return '—';
+            const d = new Date(value);
+            return isNaN(d.getTime()) ? '—' : d.toLocaleString('fr-FR');
+        }
+
+        // ============================================================================
+        // 4. CHARGEMENT DES LOGS (1000 plus récents — voir note en bas de page)
+        // ============================================================================
+        async function loadLogs() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('audit_logs')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(1000);
+
+                if (error) throw error;
+                allLogs = data || [];
+                applyFiltersAndRender();
+            } catch (err) {
+                console.error(err);
+                pageError.textContent = "Impossible de charger le journal d'audit : " + (err && err.message ? err.message : 'erreur inconnue.');
+                pageError.classList.remove('hidden');
+                document.getElementById('tableLoadingState').classList.add('hidden');
+            }
+        }
+
+        // ============================================================================
+        // 5. FILTRES + STATISTIQUES + RENDU
+        // ============================================================================
+        function periodStartDate(period) {
+            const now = new Date();
+            if (period === 'today') {
+                return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            }
+            if (period === 'week') {
+                return now.getTime() - 7 * 24 * 60 * 60 * 1000;
+            }
+            if (period === 'month') {
+                return now.getTime() - 30 * 24 * 60 * 60 * 1000;
+            }
+            return null;
+        }
+
+        // "Jour précis" : bornes [00:00, 23:59:59.999] du jour choisi, en heure locale
+        // du navigateur — cohérent avec l'affichage des dates (toLocaleString('fr-FR')).
+        function exactDateBounds(dateStr) {
+            if (!dateStr) return null;
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const start = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
+            const end = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+            return { start, end };
+        }
+
+        function applyFiltersAndRender() {
+            const actionFilter = document.getElementById('filterAction').value;
+            const entityTypeFilter = document.getElementById('filterEntityType').value;
+            const periodFilter = document.getElementById('filterPeriod').value;
+            const exactDateFilter = document.getElementById('filterExactDate').value;
+            const exactBounds = exactDateBounds(exactDateFilter);
+            const periodStart = exactBounds ? null : periodStartDate(periodFilter);
+
+            // Le filtre "Jour précis" prend le pas sur "Période" s'il est renseigné —
+            // indication visuelle pour éviter toute confusion sur le filtre réellement actif.
+            document.getElementById('exactDateHint').classList.toggle('hidden', !exactBounds);
+            document.getElementById('filterPeriod').disabled = !!exactBounds;
+
+            let filtered = allLogs;
+            if (actionFilter) filtered = filtered.filter(l => l.action === actionFilter);
+            if (entityTypeFilter) filtered = filtered.filter(l => l.entity_type === entityTypeFilter);
+            if (exactBounds) {
+                filtered = filtered.filter(l => {
+                    if (!l.created_at) return false;
+                    const ts = new Date(l.created_at).getTime();
+                    return ts >= exactBounds.start && ts <= exactBounds.end;
+                });
+            } else if (periodStart !== null) {
+                filtered = filtered.filter(l => l.created_at && new Date(l.created_at).getTime() >= periodStart);
+            }
+
+            renderStats(filtered);
+            renderTable(filtered);
+
+            const hasFilter = !!(actionFilter || entityTypeFilter || periodFilter || exactDateFilter);
+            document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasFilter);
+        }
+
+        function renderStats(logs) {
+            document.getElementById('statTotal').textContent = allLogs.length;
+
+            const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+            const recentCount = allLogs.filter(l => l.created_at && new Date(l.created_at).getTime() >= sevenDaysAgo).length;
+            document.getElementById('statRecent').textContent = recentCount;
+
+            const uniqueUsers = new Set(logs.map(l => l.user_email || l.user_id).filter(Boolean));
+            document.getElementById('statUsers').textContent = uniqueUsers.size;
+
+            const uniqueActions = new Set(logs.map(l => l.action).filter(Boolean));
+            document.getElementById('statTypes').textContent = uniqueActions.size;
+        }
+
+        function renderTable(logs) {
+            const tbody = document.getElementById('logsTableBody');
+            const emptyState = document.getElementById('tableEmptyState');
+            const loadingState = document.getElementById('tableLoadingState');
+            const countLabel = document.getElementById('tableCountLabel');
+
+            loadingState.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            countLabel.textContent = logs.length === allLogs.length
+                ? `${logs.length} action${logs.length > 1 ? 's' : ''}`
+                : `${logs.length} sur ${allLogs.length} action${allLogs.length > 1 ? 's' : ''}`;
+
+            if (logs.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            // Affichage limité aux 200 premières lignes filtrées pour rester fluide ;
+            // l'export Excel, lui, exporte l'intégralité du résultat filtré.
+            logs.slice(0, 200).forEach(log => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors';
+                const badgeClass = ACTION_BADGE_CLASS[log.action] || 'bg-slate-100 text-slate-600 border-slate-200';
+                tr.innerHTML = `
+                    <td class="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">${escapeHtml(fmtDateTime(log.created_at))}</td>
+                    <td class="px-4 py-2.5 text-xs text-slate-700">${escapeHtml(log.user_name || log.user_email || 'Inconnu')}</td>
+                    <td class="px-4 py-2.5"><span class="text-[10px] font-bold px-2 py-1 rounded-full border ${badgeClass}">${escapeHtml(ACTION_LABELS[log.action] || log.action)}</span></td>
+                    <td class="px-4 py-2.5 text-xs text-slate-500">${escapeHtml(ENTITY_TYPE_LABELS[log.entity_type] || log.entity_type)}</td>
+                    <td class="px-4 py-2.5 text-xs text-slate-700">${escapeHtml(log.entity_name || log.entity_id || '—')}</td>
+                    <td class="px-4 py-2.5 text-xs text-slate-500 max-w-xs truncate" title="${escapeHtml(log.details || '')}">${escapeHtml(log.details || '—')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (logs.length > 200) {
+                const trMore = document.createElement('tr');
+                trMore.innerHTML = `<td colspan="6" class="px-4 py-3 text-center text-xs text-slate-400 italic">... et ${logs.length - 200} action(s) supplémentaire(s), affinez les filtres ou utilisez l'export Excel pour tout voir.</td>`;
+                tbody.appendChild(trMore);
+            }
+        }
+
+        ['filterAction', 'filterEntityType', 'filterPeriod', 'filterExactDate'].forEach(id => {
+            document.getElementById(id).addEventListener('change', applyFiltersAndRender);
+        });
+
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+            document.getElementById('filterAction').value = '';
+            document.getElementById('filterEntityType').value = '';
+            document.getElementById('filterPeriod').value = '';
+            document.getElementById('filterExactDate').value = '';
+            applyFiltersAndRender();
+        });
+
+        // ============================================================================
+        // 6. EXPORT EXCEL (résultat filtré actuel, pas seulement les 200 lignes affichées)
+        // ============================================================================
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const actionFilter = document.getElementById('filterAction').value;
+            const entityTypeFilter = document.getElementById('filterEntityType').value;
+            const periodFilter = document.getElementById('filterPeriod').value;
+            const exactDateFilter = document.getElementById('filterExactDate').value;
+            const exactBounds = exactDateBounds(exactDateFilter);
+            const periodStart = exactBounds ? null : periodStartDate(periodFilter);
+
+            let filtered = allLogs;
+            if (actionFilter) filtered = filtered.filter(l => l.action === actionFilter);
+            if (entityTypeFilter) filtered = filtered.filter(l => l.entity_type === entityTypeFilter);
+            if (exactBounds) {
+                filtered = filtered.filter(l => {
+                    if (!l.created_at) return false;
+                    const ts = new Date(l.created_at).getTime();
+                    return ts >= exactBounds.start && ts <= exactBounds.end;
+                });
+            } else if (periodStart !== null) {
+                filtered = filtered.filter(l => l.created_at && new Date(l.created_at).getTime() >= periodStart);
+            }
+
+            if (filtered.length === 0) {
+                alert("Aucune action à exporter avec les filtres actuels.");
+                return;
+            }
+
+            try {
+                const rows = filtered.map(log => ({
+                    'Date': fmtDateTime(log.created_at),
+                    'Utilisateur': log.user_name || log.user_email || 'Inconnu',
+                    'Email': log.user_email || '',
+                    'Action': ACTION_LABELS[log.action] || log.action,
+                    "Type d'entité": ENTITY_TYPE_LABELS[log.entity_type] || log.entity_type,
+                    'Entité': log.entity_name || log.entity_id || '-',
+                    'Détails': log.details || '-'
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Logs d'audit");
+
+                const now = new Date();
+                const stamp = now.toISOString().slice(0, 16).replace('T', '_').replace(':', 'h');
+                XLSX.writeFile(wb, `logs_audit_${stamp}.xlsx`);
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de l'export : " + (err && err.message ? err.message : 'erreur inconnue.'));
+            }
+        });
+    </script>
+</body>
+</html>

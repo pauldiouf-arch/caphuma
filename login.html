@@ -136,8 +136,27 @@
             submitLoginBtn.textContent = 'Connexion...';
 
             try {
-                const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
+
+                // Journal d'audit (Étape 8) — ne bloque jamais la connexion si l'écriture
+                // échoue, simple avalage d'erreur en console (voir id-card.html pour la
+                // logique détaillée du helper, non dupliquée ici car usage unique).
+                try {
+                    await supabaseClient.from('audit_logs').insert({
+                        user_id: data && data.user ? data.user.id : null,
+                        user_email: email,
+                        user_name: null,
+                        action: 'login',
+                        entity_type: 'user',
+                        entity_id: data && data.user ? data.user.id : null,
+                        entity_name: email,
+                        details: null
+                    });
+                } catch (auditErr) {
+                    console.warn("[Audit] Échec de l'enregistrement du log :", auditErr);
+                }
+
                 window.location.href = 'dashboard.html';
             } catch (err) {
                 loginError.textContent = "Identifiants incorrects ou compte inexistant.";

@@ -64,7 +64,7 @@
                     <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
                     <a href="statistics.html" class="text-slate-600 hover:text-primary transition-colors">📊 Hub Statistique & IA</a>
                     <a href="admin.html" id="nav-admin" class="text-slate-600 hover:text-primary transition-colors hidden">🛡️ Admin</a>
-                    <a href="audit.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
+                    <a href="audit_logs.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
                 </nav>
 
                 <div class="flex items-center gap-3">
@@ -330,7 +330,31 @@
         let activeMission = null;
         let currentUserId = null;
         let currentUserRole = null;
+        let currentUserName = null;
         let comments = [];
+
+        // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — enregistre une action métier sensible dans
+        // public.audit_logs. Ne bloque JAMAIS l'action métier elle-même si
+        // l'écriture du log échoue (le log est secondaire à l'action réelle) :
+        // erreur avalée en console uniquement, jamais remontée à l'utilisateur.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: document.getElementById('user-display-name').textContent || null,
+                    user_name: currentUserName,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
+        }
 
         // ============================================================================
         // NORMALISATION DES PASSAGES ARCHIVÉS (compatibilité double format)
@@ -417,12 +441,13 @@
             try {
                 const { data: user } = await supabaseClient
                     .from('users')
-                    .select('role')
+                    .select('role, name')
                     .eq('id', userId)
                     .maybeSingle();
                 
                 if (user) {
                     currentUserRole = user.role;
+                    currentUserName = user.name || null;
                     if (user.role === 'admin') {
                         document.getElementById('nav-extraction').classList.remove('hidden');
                         document.getElementById('nav-redlist').classList.remove('hidden');
@@ -840,6 +865,7 @@
                         }
 
                         toastMessage("Commentaire supprimé.", "success");
+                        await logAuditAction('delete', 'comment', id, null, `Sur talent ${talentId}`);
                         await loadComments();
                     } catch (err) {
                         console.error(err);
@@ -1437,6 +1463,7 @@
 
                         input.value = '';
                         toastMessage("Commentaire ajouté.", "success");
+                        await logAuditAction('create', 'comment', data[0].id, null, `Sur talent ${talentId}`);
                         await loadComments();
                     } catch (err) {
                         console.error(err);
@@ -1464,6 +1491,8 @@
                     
                     if (error) throw error;
                     toastMessage("Le talent a été dévalidé.", "success");
+                    const fullNameLog = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
+                    await logAuditAction('devalidate', 'talent', talentId, fullNameLog, null);
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -1481,6 +1510,8 @@
                     
                     if (error) throw error;
                     toastMessage("Le talent a été réintégré dans le pool.", "success");
+                    const fullNameLogReint = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
+                    await logAuditAction('reintegrate', 'talent', talentId, fullNameLogReint, null);
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -1520,6 +1551,8 @@
 
                     redlistModal.classList.add('hidden');
                     toastMessage("Le talent est inscrit en Liste Rouge.", "success");
+                    const fullNameLogRl = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
+                    await logAuditAction('add_to_red_list', 'talent', talentId, fullNameLogRl, reasonVal);
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -1563,6 +1596,7 @@
                     }
 
                     toastMessage("Talent supprimé définitivement.", "success");
+                    await logAuditAction('delete', 'talent', talentId, fullName, "Suppression RGPD depuis id-card.html (talent actif)");
                     setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
                 } catch (err) {
                     console.error(err);

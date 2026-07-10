@@ -430,6 +430,30 @@
         let poolTalents = []; // talents du pool, pour les listes déroulantes occupant / futur occupant
         let talentNameById = {};
 
+        // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // Ne bloque jamais l'action métier si l'écriture du log échoue. Volontairement
+        // pas d'instrumentation sur les évaluations individuelles (create/update/delete) :
+        // trop bruyant pour peu de valeur RGPD, seules les actions sur les postes
+        // eux-mêmes sont tracées ici.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: null,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
+        }
+
         // Libellés d'affichage des valeurs stockées (jamais de valeur brute affichée à l'utilisateur)
         const STATUS_LABELS = { occupied: '🟢 Occupé', recruiting: '🟡 En recrutement', vacant: '⚪ Vacant' };
         const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
@@ -495,6 +519,7 @@
         checkSession();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });
@@ -1016,6 +1041,8 @@
                         .eq('id', missionId);
                     if (error) throw error;
 
+                    await logAuditAction('update', 'mission', missionId, payload.title || (originalMission ? originalMission.title : ''), null);
+
                     // Nouvel occupant entrant (affectation ou rotation) : compteurs remis à zéro.
                     if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
                         await markIncomingOccupant(payload.occupant_id);
@@ -1024,10 +1051,14 @@
                     toastMessage('Poste mis à jour.', 'success');
                 } else {
                     payload.created_by = currentUserId;
-                    const { error } = await supabaseClient
+                    const { data: insertedMissionRows, error } = await supabaseClient
                         .from('missions')
-                        .insert(payload);
+                        .insert(payload)
+                        .select('id');
                     if (error) throw error;
+
+                    const newMissionId = insertedMissionRows && insertedMissionRows[0] ? insertedMissionRows[0].id : null;
+                    await logAuditAction('create', 'mission', newMissionId, payload.title || '', `Pool : ${payload.pool || ''}`);
 
                     if (payload.occupant_id) {
                         await markIncomingOccupant(payload.occupant_id);
@@ -1075,6 +1106,7 @@
 
                 if (error) throw error;
 
+                await logAuditAction('delete', 'mission', missionId, label, null);
                 toastMessage('Poste supprimé.', 'success');
                 await loadMissions();
 

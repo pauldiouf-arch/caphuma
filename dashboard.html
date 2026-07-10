@@ -174,6 +174,29 @@
         let currentPools = [];
         let poolStats = {};
         let showArchivedPools = false;
+        let currentUserId = null;
+        let currentUserEmail = null;
+
+        // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // Ne bloque jamais l'action métier si l'écriture du log échoue.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: null,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
+        }
 
         // ============================================================================
         // 2. GARDE DE SESSION (identique au pattern de missions.html)
@@ -187,6 +210,8 @@
                 }
 
                 const user = session.user;
+                currentUserId = user.id;
+                currentUserEmail = user.email || null;
 
                 const { data: profiles, error: profileError } = await supabaseClient
                     .from('users')
@@ -228,6 +253,7 @@
         checkSession();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

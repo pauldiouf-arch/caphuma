@@ -436,6 +436,27 @@
         let currentUserId = null;
         let currentUserEmail = null;
 
+        // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // Ne bloque jamais l'action métier si l'écriture du log échoue.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: null,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
+        }
+
         async function checkSession() {
             try {
                 const { data: { session } } = await supabaseClient.auth.getSession();
@@ -453,6 +474,7 @@
         checkSession();
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });
@@ -1099,6 +1121,7 @@
 
                 if (error) throw error;
 
+                await logAuditAction('update', 'talent', talentPendingArbitration.id, `${talentPendingArbitration.first_name || ''} ${talentPendingArbitration.last_name || ''}`.trim(), `Prolongation de validité accordée : ${months} mois`);
                 prolongModal.classList.add('hidden');
                 toastMessage(`Prolongation de ${months} mois accordée.`);
                 talentPendingArbitration = null;
@@ -1135,6 +1158,7 @@
 
                 if (error) throw error;
 
+                await logAuditAction('devalidate', 'talent', talent.id, fullName, "Dévalidation directe depuis talents.html");
                 toastMessage(`${fullName} a été dévalidé(e).`);
                 await loadTalents();
             } catch (err) {
@@ -1383,15 +1407,19 @@
             saveBtn.textContent = 'Enregistrement...';
 
             try {
+                const fullNameLog = `${payload.first_name || ''} ${payload.last_name || ''}`.trim();
                 if (editingTalentId) {
                     const { error } = await supabaseClient.from('talents').update(payload).eq('id', editingTalentId);
                     if (error) throw error;
+                    await logAuditAction('update', 'talent', editingTalentId, fullNameLog, null);
                 } else {
                     payload.pool = currentPoolId;
                     payload.created_by = currentUserId;
                     payload.is_valid = true;
-                    const { error } = await supabaseClient.from('talents').insert(payload);
+                    const { data: insertedRows, error } = await supabaseClient.from('talents').insert(payload).select('id');
                     if (error) throw error;
+                    const newId = insertedRows && insertedRows[0] ? insertedRows[0].id : null;
+                    await logAuditAction('create', 'talent', newId, fullNameLog, `Pool : ${currentPoolId || ''}`);
                 }
                 talentModal.classList.add('hidden');
                 await loadTalents();

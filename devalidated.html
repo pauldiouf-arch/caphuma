@@ -139,6 +139,7 @@
         let currentUserId = null;
         let currentUserName = null;
         let currentUserRole = null;
+        let currentUserEmail = null;
 
         // Échappement HTML systématique de toute donnée provenant de la base
         // avant injection via innerHTML — prévention XSS.
@@ -153,6 +154,27 @@
         }
 
         // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // Ne bloque jamais l'action métier si l'écriture du log échoue.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: currentUserName,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
+        }
+
+        // ============================================================================
         // 2. GARDE DE SESSION (identique au pattern de dashboard.html)
         // ============================================================================
         async function checkSession() {
@@ -164,6 +186,7 @@
                 }
 
                 currentUserId = session.user.id;
+                currentUserEmail = session.user.email || null;
 
                 const { data: profiles, error: profileError } = await supabaseClient
                     .from('users')
@@ -197,6 +220,7 @@
         checkSession();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });
@@ -347,6 +371,7 @@
 
                 if (error) throw error;
 
+                await logAuditAction('reintegrate', 'talent', t.id, `${t.first_name} ${t.last_name}`.trim(), null);
                 await loadDevalidatedTalents();
 
             } catch (error) {
@@ -402,6 +427,7 @@
 
                 if (error) throw error;
 
+                await logAuditAction('add_to_red_list', 'talent', redListTargetTalent.id, `${redListTargetTalent.first_name} ${redListTargetTalent.last_name}`.trim(), reason);
                 closeRedListModal();
                 await loadDevalidatedTalents();
 
@@ -451,6 +477,7 @@
                     throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
                 }
 
+                await logAuditAction('delete', 'talent', t.id, `${t.first_name} ${t.last_name}`.trim(), "Suppression RGPD depuis devalidated.html (talent dévalidé)");
                 await loadDevalidatedTalents();
 
             } catch (error) {

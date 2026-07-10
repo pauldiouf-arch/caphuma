@@ -60,7 +60,7 @@
                     <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
                     <a href="statistics.html" class="text-primary border-b-2 border-primary px-1 py-4">📊 Hub Statistique & IA</a>
                     <a href="admin.html" id="nav-admin" class="text-slate-600 hover:text-primary transition-colors hidden">🛡️ Admin</a>
-                    <a href="audit.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
+                    <a href="audit_logs.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
                 </nav>
 
                 <div class="flex items-center gap-3">
@@ -224,6 +224,8 @@
         let rawMissions = [];
         let statusChartInstance = null;
         let expatChartInstance = null;
+        let currentUserId = null;
+        let currentUserEmail = null;
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
@@ -233,6 +235,27 @@
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // Ne bloque jamais l'action métier si l'écriture du log échoue.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: null,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
         }
 
         async function checkSession() {
@@ -248,6 +271,8 @@
                 }
                 
                 document.getElementById('user-display-name').textContent = session.user.email;
+                currentUserId = session.user.id;
+                currentUserEmail = session.user.email || null;
                 await checkUserRole(session.user.id);
                 await initHub();
             } catch (e) {
@@ -635,6 +660,7 @@ Données consolidées du pool (${statsSummary.pool}) :
         });
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             if (supabaseClient) await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });
