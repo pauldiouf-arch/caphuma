@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extraction Excel - Cap Huma</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- SheetJS (génération de fichiers .xlsx côté navigateur, UMD, cohérent avec
+         l'usage déjà fait de jsPDF via CDN sur id-card.html) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Charte graphique ALIMA / Cap Huma (identique à dashboard.html / devalidated.html) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
+                        accent: { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .pool-row.selected { border-color: #1d4ed8; background: #eff6ff; }
+    </style>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         EN-TÊTE SUPÉRIEUR
+         ──────────────────────────────────────────────────────────────────────── -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-4">
+                <a href="dashboard.html" class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.45.258-.717.258H3.571a.8.8 0 0 1-.717-.258m17.5 0a2.18 2.18 0 0 1-.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m0 0a48.58 48.58 0 0 0-6.177 0m6.177 0v1.502a2.25 2.25 0 0 1-2.25 2.25H9.75a2.25 2.25 0 0 1-2.25-2.25V6.144m6.177 0a48.114 48.114 0 0 0-3.413.387m0 0a48.58 48.58 0 0 1-6.177 0" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Extraction</h1>
+                    <p class="text-xs text-slate-400 font-semibold mt-1">
+                        Exportez les listes pros et les postes de plusieurs pools en un seul fichier Excel
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="dashboard.html" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    ← Retour
+                </a>
+                <button id="generateBtn" disabled class="bg-accent hover:bg-accent-dark text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    📥 <span id="generateBtnLabel">Générer le fichier Excel</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="max-w-6xl w-full mx-auto px-6 py-6 flex-1 overflow-auto space-y-6">
+
+        <p id="pageError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
+
+        <!-- Aperçu de la sélection -->
+        <div class="grid gap-4 md:grid-cols-3">
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pools talents sélectionnés</p>
+                <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statTalentPools">0</p>
+                <p class="text-xs text-slate-400 mt-1" id="statTalentCount">Aucun talent sélectionné</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pools postes sélectionnés</p>
+                <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statPositionPools">0</p>
+                <p class="text-xs text-slate-400 mt-1" id="statPositionCount">Aucun poste sélectionné</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Feuilles dans le fichier</p>
+                <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statSheetCount">0</p>
+                <p class="text-xs text-slate-400 mt-1" id="statSheetLabel">Aucune sélection</p>
+            </div>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-2">
+            <!-- Sélection pools talents -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">👥 Listes professionnelles</h3>
+                    <div class="flex gap-1.5">
+                        <button id="talentSelectAllBtn" class="text-[11px] font-bold text-primary hover:bg-primary-light px-2.5 py-1 rounded-lg transition-all">Tout sélectionner</button>
+                        <button id="talentClearAllBtn" class="text-[11px] font-bold text-slate-500 hover:bg-slate-100 px-2.5 py-1 rounded-lg transition-all">Effacer</button>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400">
+                    Les talents des pools sélectionnés seront combinés dans une seule feuille Excel.
+                </p>
+                <div id="talentPoolsList" class="space-y-2">
+                    <div class="animate-pulse bg-slate-100 rounded-xl h-14"></div>
+                    <div class="animate-pulse bg-slate-100 rounded-xl h-14"></div>
+                </div>
+            </div>
+
+            <!-- Sélection pools postes -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">🧭 Postes par pool</h3>
+                    <div class="flex gap-1.5">
+                        <button id="positionSelectAllBtn" class="text-[11px] font-bold text-primary hover:bg-primary-light px-2.5 py-1 rounded-lg transition-all">Tout sélectionner</button>
+                        <button id="positionClearAllBtn" class="text-[11px] font-bold text-slate-500 hover:bg-slate-100 px-2.5 py-1 rounded-lg transition-all">Effacer</button>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400">
+                    Chaque pool sélectionné aura sa propre feuille dans le fichier Excel. Un poste
+                    en rotation (occupant sortant + futur occupant) y occupe deux lignes.
+                </p>
+                <div id="positionPoolsList" class="space-y-2">
+                    <div class="animate-pulse bg-slate-100 rounded-xl h-14"></div>
+                    <div class="animate-pulse bg-slate-100 rounded-xl h-14"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Légende structure du fichier -->
+        <div id="structureLegend" class="hidden bg-white border-2 border-dashed border-slate-200 rounded-2xl p-5 space-y-2">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">📄 Structure du fichier Excel généré</h3>
+            <div id="structureLegendBody" class="space-y-1.5 text-sm"></div>
+        </div>
+
+        <div id="exportStatus" class="hidden text-xs font-semibold rounded-lg p-3"></div>
+
+    </main>
+
+    <script>
+        // ============================================================================
+        // 1. INITIALISATION SUPABASE
+        // ============================================================================
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            window.location.replace('index.html');
+        }
+
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const appBody = document.getElementById('appBody');
+        const pageError = document.getElementById('pageError');
+        const exportStatus = document.getElementById('exportStatus');
+        const generateBtn = document.getElementById('generateBtn');
+        const generateBtnLabel = document.getElementById('generateBtnLabel');
+
+        let currentUserRole = null;
+        let pools = [];               // [{ pool_id, name, full_name }]
+        let allTalents = [];          // tous les talents (toutes colonnes)
+        let allMissions = [];         // tous les postes (toutes colonnes)
+        const talentPoolsSelected = new Set();
+        const positionPoolsSelected = new Set();
+
+        // ============================================================================
+        // 2. GARDE DE SESSION — réservée admin + user (recruteur), bloquée pour visitor
+        // ============================================================================
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error("Session absente ou expirée.");
+
+                const { data: profiles, error: profileError } = await supabaseClient
+                    .from('users')
+                    .select('role, is_active')
+                    .eq('id', session.user.id);
+
+                if (!profileError && profiles && profiles.length > 0) {
+                    const profile = profiles[0];
+                    if (profile.is_active === false) throw new Error("Compte désactivé.");
+                    currentUserRole = profile.role;
+                } else {
+                    currentUserRole = null;
+                }
+
+                if (currentUserRole === 'visitor') {
+                    throw new Error("Accès non autorisé pour ce rôle.");
+                }
+
+                appBody.style.display = 'flex';
+                await loadData();
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
+                window.location.replace('dashboard.html');
+            }
+        }
+        checkSession();
+
+        // ============================================================================
+        // 3. LIBELLÉS (identiques à missions.html / id-card.html)
+        // ============================================================================
+        const STATUS_LABELS = { occupied: '🟢 Occupé', recruiting: '🟡 En recrutement', vacant: '⚪ Vacant' };
+        const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
+        const CANDIDATE_TYPE_LABELS = { expat: 'Expatrié', nat: 'National' };
+        const DESK_LABELS = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
+        const CONTRACT_STATUS_LABELS = { ongoing: 'En cours', renewable: 'Renouvelable', ending: 'Se termine' };
+        const EDU_LEVEL_LABELS = {
+            none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
+            "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
+            "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
+        };
+        const MISSION_COUNT_LABELS = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
+
+        function fmtDate(value) {
+            if (!value) return '';
+            const d = new Date(value);
+            return isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR');
+        }
+        function yesNo(value) { return value ? 'Oui' : 'Non'; }
+        function safeSheetName(name) {
+            return String(name || 'Feuille').replace(/[:\\/?*\[\]]/g, '-').substring(0, 31);
+        }
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        // ============================================================================
+        // 4. CHARGEMENT DES DONNÉES (une seule fois, filtrage/regroupement en mémoire)
+        // ============================================================================
+        async function loadData() {
+            try {
+                const [poolsRes, talentsRes, missionsRes] = await Promise.all([
+                    supabaseClient.from('pools').select('pool_id, name, full_name, is_archived').order('name', { ascending: true }),
+                    supabaseClient.from('talents').select('*'),
+                    supabaseClient.from('missions').select('*')
+                ]);
+
+                if (poolsRes.error) throw poolsRes.error;
+                if (talentsRes.error) throw talentsRes.error;
+                if (missionsRes.error) throw missionsRes.error;
+
+                // Pools archivés exclus, cohérent avec ce qui est déjà masqué sur dashboard.html
+                pools = (poolsRes.data || []).filter(p => !p.is_archived);
+                allTalents = talentsRes.data || [];
+                allMissions = missionsRes.data || [];
+
+                renderPoolLists();
+            } catch (err) {
+                console.error(err);
+                pageError.textContent = "Impossible de charger les données : " + (err && err.message ? err.message : 'erreur inconnue.');
+                pageError.classList.remove('hidden');
+            }
+        }
+
+        // ============================================================================
+        // 5. RENDU DES DEUX LISTES DE POOLS (avec compteurs en direct)
+        // ============================================================================
+        function talentCountForPool(poolId) {
+            return allTalents.filter(t => t.pool === poolId).length;
+        }
+        function missionCountForPool(poolId) {
+            return allMissions.filter(m => m.pool === poolId).length;
+        }
+
+        function renderPoolLists() {
+            renderPoolList('talentPoolsList', talentPoolsSelected, talentCountForPool, 'talent');
+            renderPoolList('positionPoolsList', positionPoolsSelected, missionCountForPool, 'poste');
+            updateSummary();
+        }
+
+        function renderPoolList(containerId, selectedSet, countFn, unitLabel) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            if (pools.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic">Aucun pool actif trouvé.</p>`;
+                return;
+            }
+
+            pools.forEach(pool => {
+                const count = countFn(pool.pool_id);
+                const checked = selectedSet.has(pool.pool_id);
+                const row = document.createElement('div');
+                row.className = `pool-row flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'selected border-primary bg-primary-light' : 'border-slate-200 hover:bg-slate-50'}`;
+                row.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <input type="checkbox" class="pool-checkbox h-4 w-4 rounded border-slate-300 text-primary shrink-0" ${checked ? 'checked' : ''} />
+                        <div class="min-w-0">
+                            <p class="font-bold text-sm text-slate-800 truncate">${escapeHtml(pool.name || pool.pool_id)}</p>
+                            <p class="text-xs text-slate-400 truncate">${escapeHtml(pool.full_name || '')}</p>
+                        </div>
+                    </div>
+                    <span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full ${checked ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}">
+                        ${count} ${unitLabel}${count > 1 ? 's' : ''}
+                    </span>
+                `;
+                row.addEventListener('click', () => {
+                    if (selectedSet.has(pool.pool_id)) selectedSet.delete(pool.pool_id);
+                    else selectedSet.add(pool.pool_id);
+                    renderPoolLists();
+                });
+                container.appendChild(row);
+            });
+        }
+
+        document.getElementById('talentSelectAllBtn').addEventListener('click', () => {
+            pools.forEach(p => talentPoolsSelected.add(p.pool_id));
+            renderPoolLists();
+        });
+        document.getElementById('talentClearAllBtn').addEventListener('click', () => {
+            talentPoolsSelected.clear();
+            renderPoolLists();
+        });
+        document.getElementById('positionSelectAllBtn').addEventListener('click', () => {
+            pools.forEach(p => positionPoolsSelected.add(p.pool_id));
+            renderPoolLists();
+        });
+        document.getElementById('positionClearAllBtn').addEventListener('click', () => {
+            positionPoolsSelected.clear();
+            renderPoolLists();
+        });
+
+        // ============================================================================
+        // 6. RÉCAPITULATIF EN DIRECT (cartes + légende + bouton générer)
+        // ============================================================================
+        function updateSummary() {
+            const talentCount = allTalents.filter(t => talentPoolsSelected.has(t.pool)).length;
+            const positionCount = allMissions.filter(m => positionPoolsSelected.has(m.pool)).length;
+            const sheetCount = (talentPoolsSelected.size > 0 ? 1 : 0) + positionPoolsSelected.size;
+
+            document.getElementById('statTalentPools').textContent = talentPoolsSelected.size;
+            document.getElementById('statTalentCount').textContent = talentCount > 0
+                ? `${talentCount} talent${talentCount > 1 ? 's' : ''} à exporter`
+                : 'Aucun talent sélectionné';
+
+            document.getElementById('statPositionPools').textContent = positionPoolsSelected.size;
+            document.getElementById('statPositionCount').textContent = positionCount > 0
+                ? `${positionCount} poste${positionCount > 1 ? 's' : ''} à exporter`
+                : 'Aucun poste sélectionné';
+
+            document.getElementById('statSheetCount').textContent = sheetCount;
+            document.getElementById('statSheetLabel').textContent = sheetCount > 0
+                ? `${talentPoolsSelected.size > 0 ? '1 feuille liste pros' : ''}${talentPoolsSelected.size > 0 && positionPoolsSelected.size > 0 ? ' + ' : ''}${positionPoolsSelected.size > 0 ? positionPoolsSelected.size + ' feuille' + (positionPoolsSelected.size > 1 ? 's' : '') + ' postes' : ''}`
+                : 'Aucune sélection';
+
+            const legend = document.getElementById('structureLegend');
+            const legendBody = document.getElementById('structureLegendBody');
+            if (sheetCount === 0) {
+                legend.classList.add('hidden');
+            } else {
+                legend.classList.remove('hidden');
+                let html = '';
+                let sheetIndex = 1;
+                if (talentPoolsSelected.size > 0) {
+                    html += `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white shrink-0">Feuille ${sheetIndex}</span><span>Liste pros combinée — ${Array.from(talentPoolsSelected).join(', ')} (${talentCount} talents)</span></div>`;
+                    sheetIndex++;
+                }
+                Array.from(positionPoolsSelected).forEach(poolId => {
+                    const count = missionCountForPool(poolId);
+                    html += `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-200 text-slate-700 shrink-0">Feuille ${sheetIndex}</span><span>Postes ${escapeHtml(poolId)} (${count} poste${count > 1 ? 's' : ''})</span></div>`;
+                    sheetIndex++;
+                });
+                legendBody.innerHTML = html;
+            }
+
+            generateBtn.disabled = (talentPoolsSelected.size === 0 && positionPoolsSelected.size === 0);
+        }
+
+        // ============================================================================
+        // 7. CONSTRUCTION DES LIGNES DE CHAQUE FEUILLE
+        // ============================================================================
+        function buildListesProsRows(talents) {
+            return talents.map(t => ({
+                'Pool': t.pool || '',
+                'Prénom': t.first_name || '',
+                'Nom': t.last_name || '',
+                'Email': t.email || '',
+                'Statut': t.status || '',
+                'Validé': yesNo(t.is_valid !== false),
+                'Liste rouge': yesNo(!!t.is_red_listed),
+                'Fonction actuelle': t.current_function || '',
+                'Nationalité': t.nationality || '',
+                'Pays de résidence': t.country_of_residence || '',
+                "Niveau d'études": EDU_LEVEL_LABELS[t.education_level] || t.education_level || '',
+                'Expérience ALIMA (mois)': t.experience_months_alima || 0,
+                'Expérience humanitaire (mois)': t.experience_months_humanitarian || 0,
+                'Missions ALIMA antérieures': MISSION_COUNT_LABELS[t.number_of_alima_missions] || '',
+                'En mission actuellement': yesNo(!!t.is_currently_on_mission),
+                'Mois sans mission': t.months_without_mission || 0,
+                "Date d'intégration pool": fmtDate(t.pool_integration_date)
+            }));
+        }
+
+        function buildMissionRows(mission, talentsById) {
+            const base = {
+                'Titre': mission.title || '',
+                'Niveau': POOL_LEVEL_LABELS[mission.pool_level] || mission.pool_level || '',
+                'Projet': mission.project_name || '',
+                'Pays': mission.country || '',
+                'Lieu': mission.location || '',
+                'Type de candidat': CANDIDATE_TYPE_LABELS[mission.candidate_type] || mission.candidate_type || '',
+                'Desk': DESK_LABELS[mission.desk] || mission.desk || '',
+                'Statut du poste': STATUS_LABELS[mission.status] || mission.status || '',
+                'Statut du contrat': CONTRACT_STATUS_LABELS[mission.contract_status] || mission.contract_status || ''
+            };
+            const rows = [];
+
+            if (mission.occupant_id && talentsById[mission.occupant_id]) {
+                const occ = talentsById[mission.occupant_id];
+                rows.push({
+                    ...base, 'Rôle': 'Occupant actuel',
+                    'Talent': `${occ.first_name || ''} ${occ.last_name || ''}`.trim(),
+                    'Email talent': occ.email || '',
+                    'Date début': fmtDate(mission.contract_start_date),
+                    'Date fin': fmtDate(mission.contract_end_date)
+                });
+            }
+            if (mission.future_talent_id && talentsById[mission.future_talent_id]) {
+                const fut = talentsById[mission.future_talent_id];
+                rows.push({
+                    ...base, 'Rôle': 'Futur occupant',
+                    'Talent': `${fut.first_name || ''} ${fut.last_name || ''}`.trim(),
+                    'Email talent': fut.email || '',
+                    'Date début': fmtDate(mission.future_contract_start_date),
+                    'Date fin': fmtDate(mission.future_contract_end_date)
+                });
+            }
+            if (rows.length === 0) {
+                rows.push({ ...base, 'Rôle': '—', 'Talent': '—', 'Email talent': '', 'Date début': '', 'Date fin': '' });
+            }
+            return rows;
+        }
+
+        // ============================================================================
+        // 8. GÉNÉRATION DU FICHIER (uniquement les pools cochés)
+        // ============================================================================
+        function setStatus(msg, isError) {
+            exportStatus.textContent = msg;
+            exportStatus.classList.remove('hidden', 'text-primary', 'bg-primary-light', 'text-red-600', 'bg-red-50');
+            exportStatus.classList.add(isError ? 'text-red-600' : 'text-primary', isError ? 'bg-red-50' : 'bg-primary-light');
+        }
+
+        function generateExport() {
+            if (talentPoolsSelected.size === 0 && positionPoolsSelected.size === 0) {
+                setStatus("Sélectionnez au moins un pool (listes pros ou postes).", true);
+                return;
+            }
+
+            generateBtn.disabled = true;
+            generateBtnLabel.textContent = 'Génération...';
+
+            try {
+                const wb = XLSX.utils.book_new();
+
+                // --- Feuille 1 : Listes pros combinée ---
+                if (talentPoolsSelected.size > 0) {
+                    const filteredTalents = allTalents.filter(t => talentPoolsSelected.has(t.pool));
+                    const rows = filteredTalents.length > 0
+                        ? buildListesProsRows(filteredTalents)
+                        : [{ 'Info': 'Aucun talent trouvé pour les pools sélectionnés.' }];
+                    const poolNames = Array.from(talentPoolsSelected).join('+');
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, ws, safeSheetName(`Listes pros (${poolNames})`));
+                }
+
+                // --- Une feuille par pool sélectionné pour les postes ---
+                // Talents référencés (occupant/futur occupant) des postes concernés,
+                // requête ciblée pour construire les noms/emails.
+                const poolMissionsMap = {};
+                Array.from(positionPoolsSelected).forEach(poolId => {
+                    poolMissionsMap[poolId] = allMissions.filter(m => m.pool === poolId);
+                });
+
+                const referencedIds = new Set();
+                Object.values(poolMissionsMap).flat().forEach(m => {
+                    if (m.occupant_id) referencedIds.add(m.occupant_id);
+                    if (m.future_talent_id) referencedIds.add(m.future_talent_id);
+                });
+                const talentsById = {};
+                allTalents.forEach(t => {
+                    if (referencedIds.has(t.id)) talentsById[t.id] = t;
+                });
+
+                Array.from(positionPoolsSelected).forEach(poolId => {
+                    const poolMissions = poolMissionsMap[poolId] || [];
+                    let rows = [];
+                    poolMissions.forEach(m => { rows = rows.concat(buildMissionRows(m, talentsById)); });
+                    if (rows.length === 0) rows = [{ 'Info': 'Aucun poste pour ce pool.' }];
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, ws, safeSheetName(`Postes ${poolId}`));
+                });
+
+                if (wb.SheetNames.length === 0) {
+                    throw new Error("Aucune donnée à exporter.");
+                }
+
+                const today = new Date().toISOString().slice(0, 10);
+                XLSX.writeFile(wb, `extraction-cap-huma-${today}.xlsx`);
+
+                setStatus("✅ Fichier Excel généré et téléchargé avec succès.", false);
+            } catch (err) {
+                console.error("Erreur d'export :", err);
+                setStatus("❌ Échec de la génération : " + (err && err.message ? err.message : 'erreur inconnue.'), true);
+            } finally {
+                generateBtn.disabled = (talentPoolsSelected.size === 0 && positionPoolsSelected.size === 0);
+                generateBtnLabel.textContent = 'Générer le fichier Excel';
+            }
+        }
+
+        generateBtn.addEventListener('click', generateExport);
+    </script>
+</body>
+</html>

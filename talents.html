@@ -7,6 +7,8 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS (export Excel du pool filtré, UMD, cohérent avec extraction.html) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,11 +63,127 @@
         </div>
     </header>
 
-    <!-- ═══════════════════════════════════ RECHERCHE ═══════════════════════════════════ -->
+    <!-- ═══════════════════════════════════ RECHERCHE & FILTRES AVANCÉS ═══════════════════════════════════ -->
     <div class="bg-white border-b shrink-0">
-        <div class="container mx-auto px-6 py-3">
-            <input id="searchInput" type="text" placeholder="🔎 Rechercher un talent (nom, prénom, fonction, email...)"
-                class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none focus:border-primary" />
+        <div class="container mx-auto px-6 py-3 space-y-3">
+            <div class="flex gap-2 flex-wrap">
+                <input id="searchInput" type="text" placeholder="🔎 Rechercher un talent (nom, prénom, fonction, email...)"
+                    class="flex-1 min-w-[200px] rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none focus:border-primary" />
+                <button id="toggleAdvancedBtn" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    🔧 Filtres avancés
+                </button>
+                <button id="resetFiltersBtn" class="hidden border border-slate-200 hover:bg-slate-50 text-slate-500 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    ↺ Réinitialiser
+                </button>
+                <button id="exportPoolExcelBtn" class="border border-emerald-200 hover:bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    📥 Exporter Excel
+                </button>
+            </div>
+
+            <!-- Filtres simples (toujours visibles) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Statut</label>
+                    <select id="filterStatus" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="">Tous les statuts</option>
+                        <option value="En poste ALIMA">En poste ALIMA</option>
+                        <option value="En attente de poste">En attente de poste</option>
+                        <option value="En poste autre ONG">En poste autre ONG</option>
+                        <option value="En poste hors humanitaire">En poste hors humanitaire</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Trier par</label>
+                    <select id="filterSortBy" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="name">Nom</option>
+                        <option value="availability">Disponibilité</option>
+                        <option value="integration" selected>Date d'intégration</option>
+                        <option value="expAlima">Exp. ALIMA</option>
+                        <option value="expHumanitarian">Exp. humanitaire</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Ordre</label>
+                    <select id="filterSortOrder" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="desc" selected>Décroissant</option>
+                        <option value="asc">Croissant</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Filtres avancés (repliables) -->
+            <div id="advancedFiltersPanel" class="hidden space-y-3 pt-3 border-t border-slate-100">
+                <div class="bg-primary-light border border-blue-100 rounded-lg p-3 space-y-1.5">
+                    <label class="text-xs font-bold text-primary flex items-center gap-1.5">🔎 Recherche par compétences / mots-clés</label>
+                    <input id="filterKeyword" type="text" placeholder="Ex : gestion de stock, urgence, leadership, Tchad..." class="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    <p class="text-[11px] text-slate-500">Recherche dans les compétences clés et dans l'historique de missions archivées (contexte, points forts, axes d'amélioration).</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Exp. ALIMA min. (mois)</label>
+                        <input id="filterMinExpAlima" type="number" min="0" placeholder="Ex : 12" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Exp. humanitaire min. (mois)</label>
+                        <input id="filterMinExpHum" type="number" min="0" placeholder="Ex : 24" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Disponible à partir de</label>
+                        <input id="filterAvailFrom" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Disponible jusqu'à</label>
+                        <input id="filterAvailTo" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Nationalité</label>
+                        <input id="filterNationality" type="text" placeholder="Ex : Sénégalaise" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Pays de résidence</label>
+                        <input id="filterCountry" type="text" placeholder="Ex : Sénégal" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Langue</label>
+                        <input id="filterLanguage" type="text" placeholder="Ex : Anglais" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Visa Schengen</label>
+                        <select id="filterVisa" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                            <option value="">Indifférent</option>
+                            <option value="oui">Oui</option>
+                            <option value="non">Non</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">A fait des ouvertures de mission</label>
+                        <select id="filterMissionOpening" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                            <option value="">Indifférent</option>
+                            <option value="oui">Oui</option>
+                            <option value="non">Non</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">A fait des missions d'urgence</label>
+                        <select id="filterEmergencyMission" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                            <option value="">Indifférent</option>
+                            <option value="oui">Oui</option>
+                            <option value="non">Non</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Contexte d'intervention</label>
+                        <input id="filterContext" type="text" placeholder="Ex : conflit, épidémie..." class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase">Zone géographique</label>
+                        <input id="filterZone" type="text" placeholder="Ex : Sahel, Afrique de l'Ouest..." class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    </div>
+                </div>
+            </div>
+
+            <p id="searchResultsSummary" class="text-[11px] text-slate-400 font-semibold"></p>
         </div>
     </div>
 
@@ -370,7 +488,7 @@
                 const { data, error } = await query;
                 if (error) throw error;
                 allTalents = data || [];
-                renderTalents(allTalents);
+                applyFiltersAndRender();
             } catch (err) {
                 console.error(err);
                 listEl.innerHTML = '';
@@ -480,13 +598,317 @@
             });
         }
 
-        document.getElementById('searchInput').addEventListener('input', function (e) {
-            const q = e.target.value.trim().toLowerCase();
-            if (!q) { renderTalents(allTalents); return; }
-            const filtered = allTalents.filter(t =>
-                `${t.first_name} ${t.last_name} ${t.current_function || ''} ${t.email || ''}`.toLowerCase().includes(q)
-            );
-            renderTalents(filtered);
+        // ============================================================================
+        // 3 BIS. RECHERCHE AVANCÉE (adaptée de AdvancedSearch / filterAndSortTalents,
+        //    Mon_code_hercules.txt) — filtrage et tri appliqués en mémoire sur
+        //    allTalents (déjà chargé pour ce pool), pas de nouvelle requête réseau.
+        // ============================================================================
+        const searchFilters = {
+            searchQuery: '',
+            keywordFilter: '',
+            statusFilter: '',
+            sortBy: 'integration',
+            sortOrder: 'desc',
+            minExpAlima: '',
+            minExpHumanitarian: '',
+            availableFrom: '',
+            availableTo: '',
+            nationalityFilter: '',
+            countryFilter: '',
+            languagesFilter: '',
+            hasVisaFilter: '',
+            hasMissionOpeningFilter: '',
+            hasEmergencyMissionFilter: '',
+            interventionContextFilter: '',
+            interventionZoneFilter: ''
+        };
+        const defaultSearchFilters = { ...searchFilters };
+
+        // Estimation d'une date de disponibilité exploitable pour filtre/tri, à
+        // partir de availability_type ('none' | 'asap' | 'notice' | 'date').
+        function getAvailabilityTimestamp(t) {
+            const type = t.availability_type;
+            if (type === 'date' && t.availability_date) {
+                return new Date(t.availability_date).getTime();
+            }
+            if (type === 'notice' && t.availability_months) {
+                return Date.now() + Number(t.availability_months) * 30 * 24 * 60 * 60 * 1000;
+            }
+            if (type === 'asap') {
+                return Date.now();
+            }
+            return null;
+        }
+
+        // Recherche mots-clés dans les compétences clés + l'historique archivé
+        // (compatible ancien format camelCase/epoch et nouveau format snake_case,
+        // même logique que normalizePassageComment sur id-card.html).
+        function keywordMatches(t, kw) {
+            const skills = t.key_skills || [];
+            if (skills.some(s => String(s).toLowerCase().includes(kw))) return true;
+
+            const passages = t.archived_position_passages || [];
+            return passages.some(p => {
+                const comments = p.comments || [];
+                return comments.some(c => {
+                    const context = c.context || '';
+                    const positive = c.positive_points || c.positivePoints || '';
+                    const negative = c.negative_points || c.negativePoints || '';
+                    const legacy = c.content || '';
+                    return [context, positive, negative, legacy].some(v => String(v).toLowerCase().includes(kw));
+                });
+            });
+        }
+
+        function filterAndSortTalents(talents, f) {
+            let filtered = [...talents];
+
+            if (f.searchQuery) {
+                const q = f.searchQuery.toLowerCase();
+                filtered = filtered.filter(t =>
+                    `${t.first_name || ''} ${t.last_name || ''}`.toLowerCase().includes(q) ||
+                    (t.email || '').toLowerCase().includes(q) ||
+                    (t.current_function || '').toLowerCase().includes(q)
+                );
+            }
+
+            if (f.keywordFilter) {
+                const kw = f.keywordFilter.toLowerCase();
+                filtered = filtered.filter(t => keywordMatches(t, kw));
+            }
+
+            if (f.statusFilter) {
+                filtered = filtered.filter(t => t.status === f.statusFilter);
+            }
+
+            if (f.minExpAlima) {
+                const min = parseInt(f.minExpAlima, 10);
+                if (!isNaN(min)) filtered = filtered.filter(t => (t.experience_months_alima || 0) >= min);
+            }
+
+            if (f.minExpHumanitarian) {
+                const min = parseInt(f.minExpHumanitarian, 10);
+                if (!isNaN(min)) filtered = filtered.filter(t => (t.experience_months_humanitarian || 0) >= min);
+            }
+
+            if (f.availableFrom) {
+                const fromTs = new Date(f.availableFrom).getTime();
+                filtered = filtered.filter(t => {
+                    const ts = getAvailabilityTimestamp(t);
+                    return ts !== null && ts >= fromTs;
+                });
+            }
+
+            if (f.availableTo) {
+                const toTs = new Date(f.availableTo).getTime();
+                filtered = filtered.filter(t => {
+                    const ts = getAvailabilityTimestamp(t);
+                    return ts !== null && ts <= toTs;
+                });
+            }
+
+            if (f.nationalityFilter) {
+                const q = f.nationalityFilter.toLowerCase();
+                filtered = filtered.filter(t => (t.nationality || '').toLowerCase().includes(q));
+            }
+
+            if (f.countryFilter) {
+                const q = f.countryFilter.toLowerCase();
+                filtered = filtered.filter(t => (t.country_of_residence || '').toLowerCase().includes(q));
+            }
+
+            if (f.languagesFilter) {
+                const q = f.languagesFilter.toLowerCase();
+                filtered = filtered.filter(t => {
+                    const langs = Array.isArray(t.languages) ? t.languages : (t.languages ? [t.languages] : []);
+                    return langs.some(l => String(l).toLowerCase().includes(q));
+                });
+            }
+
+            if (f.hasVisaFilter) {
+                const want = f.hasVisaFilter === 'oui';
+                filtered = filtered.filter(t => !!t.has_visa === want);
+            }
+
+            if (f.hasMissionOpeningFilter) {
+                const want = f.hasMissionOpeningFilter === 'oui';
+                filtered = filtered.filter(t => !!t.has_mission_opening === want);
+            }
+
+            if (f.hasEmergencyMissionFilter) {
+                const want = f.hasEmergencyMissionFilter === 'oui';
+                filtered = filtered.filter(t => !!t.has_emergency_mission === want);
+            }
+
+            if (f.interventionContextFilter) {
+                const q = f.interventionContextFilter.toLowerCase();
+                filtered = filtered.filter(t => (t.intervention_contexts || []).some(c => String(c).toLowerCase().includes(q)));
+            }
+
+            if (f.interventionZoneFilter) {
+                const q = f.interventionZoneFilter.toLowerCase();
+                filtered = filtered.filter(t => (t.intervention_zones || []).some(z => String(z).toLowerCase().includes(q)));
+            }
+
+            filtered.sort((a, b) => {
+                let cmp = 0;
+                switch (f.sortBy) {
+                    case 'name': {
+                        const nameA = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase();
+                        const nameB = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase();
+                        cmp = nameA.localeCompare(nameB);
+                        break;
+                    }
+                    case 'availability': {
+                        const tsA = getAvailabilityTimestamp(a);
+                        const tsB = getAvailabilityTimestamp(b);
+                        cmp = (tsA === null ? Infinity : tsA) - (tsB === null ? Infinity : tsB);
+                        break;
+                    }
+                    case 'expAlima':
+                        cmp = (a.experience_months_alima || 0) - (b.experience_months_alima || 0);
+                        break;
+                    case 'expHumanitarian':
+                        cmp = (a.experience_months_humanitarian || 0) - (b.experience_months_humanitarian || 0);
+                        break;
+                    case 'integration':
+                    default: {
+                        const dA = a.pool_integration_date ? new Date(a.pool_integration_date).getTime() : 0;
+                        const dB = b.pool_integration_date ? new Date(b.pool_integration_date).getTime() : 0;
+                        cmp = dA - dB;
+                        break;
+                    }
+                }
+                return f.sortOrder === 'asc' ? cmp : -cmp;
+            });
+
+            return filtered;
+        }
+
+        let currentFilteredTalents = [];
+
+        function applyFiltersAndRender() {
+            currentFilteredTalents = filterAndSortTalents(allTalents, searchFilters);
+            renderTalents(currentFilteredTalents);
+
+            const summary = document.getElementById('searchResultsSummary');
+            if (currentFilteredTalents.length === allTalents.length) {
+                summary.textContent = `${allTalents.length} talent${allTalents.length > 1 ? 's' : ''} au total`;
+            } else {
+                summary.textContent = `${currentFilteredTalents.length} talent${currentFilteredTalents.length > 1 ? 's' : ''} trouvé${currentFilteredTalents.length > 1 ? 's' : ''} sur ${allTalents.length} au total`;
+            }
+
+            const hasAnyFilter = JSON.stringify(searchFilters) !== JSON.stringify(defaultSearchFilters);
+            document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasAnyFilter);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', e => {
+            searchFilters.searchQuery = e.target.value.trim();
+            applyFiltersAndRender();
+        });
+
+        document.getElementById('toggleAdvancedBtn').addEventListener('click', () => {
+            document.getElementById('advancedFiltersPanel').classList.toggle('hidden');
+        });
+
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+            Object.assign(searchFilters, defaultSearchFilters);
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterSortBy').value = 'integration';
+            document.getElementById('filterSortOrder').value = 'desc';
+            document.getElementById('filterKeyword').value = '';
+            document.getElementById('filterMinExpAlima').value = '';
+            document.getElementById('filterMinExpHum').value = '';
+            document.getElementById('filterAvailFrom').value = '';
+            document.getElementById('filterAvailTo').value = '';
+            document.getElementById('filterNationality').value = '';
+            document.getElementById('filterCountry').value = '';
+            document.getElementById('filterLanguage').value = '';
+            document.getElementById('filterVisa').value = '';
+            document.getElementById('filterMissionOpening').value = '';
+            document.getElementById('filterEmergencyMission').value = '';
+            document.getElementById('filterContext').value = '';
+            document.getElementById('filterZone').value = '';
+            applyFiltersAndRender();
+        });
+
+        const filterFieldBindings = [
+            ['filterStatus', 'statusFilter'], ['filterSortBy', 'sortBy'], ['filterSortOrder', 'sortOrder'],
+            ['filterKeyword', 'keywordFilter'], ['filterMinExpAlima', 'minExpAlima'], ['filterMinExpHum', 'minExpHumanitarian'],
+            ['filterAvailFrom', 'availableFrom'], ['filterAvailTo', 'availableTo'], ['filterNationality', 'nationalityFilter'],
+            ['filterCountry', 'countryFilter'], ['filterLanguage', 'languagesFilter'], ['filterVisa', 'hasVisaFilter'],
+            ['filterMissionOpening', 'hasMissionOpeningFilter'], ['filterEmergencyMission', 'hasEmergencyMissionFilter'],
+            ['filterContext', 'interventionContextFilter'], ['filterZone', 'interventionZoneFilter']
+        ];
+        filterFieldBindings.forEach(([elId, filterKey]) => {
+            const el = document.getElementById(elId);
+            const evt = (el.tagName === 'SELECT') ? 'change' : 'input';
+            el.addEventListener(evt, e => {
+                searchFilters[filterKey] = e.target.value;
+                applyFiltersAndRender();
+            });
+        });
+
+        // ============================================================================
+        // 3 TER. EXPORT EXCEL DU POOL FILTRÉ (colonnes RH enrichies, adapté de
+        //    handleExportToExcel, Mon_code_hercules.txt)
+        // ============================================================================
+        const MISSION_COUNT_LABELS_XLS = { none: "0", one: "1", two: "2", three_plus: "3+" };
+
+        function formatAvailabilityLabel(t) {
+            const type = t.availability_type;
+            if (!type || type === 'none') return "Néant (pas de visibilité)";
+            if (type === 'notice') return `Avec préavis (${t.availability_months || '?'} mois)`;
+            if (type === 'asap') return "ASAP (immédiatement)";
+            if (type === 'date' && t.availability_date) return new Date(t.availability_date).toLocaleDateString('fr-FR');
+            return "Non définie";
+        }
+
+        document.getElementById('exportPoolExcelBtn').addEventListener('click', () => {
+            if (!currentFilteredTalents.length) {
+                alert("Aucun talent à exporter avec les filtres actuels.");
+                return;
+            }
+            try {
+                const rows = currentFilteredTalents.map(t => {
+                    const contexts = (t.intervention_contexts || []).join(', ');
+                    const zones = (t.intervention_zones || []).join(', ');
+                    const typesProjet = [contexts, zones].filter(Boolean).join(' | ') || 'N/A';
+
+                    return {
+                        'Prénom(s) et Nom': `${t.first_name || ''} ${t.last_name || ''}`.trim(),
+                        'Genre': t.gender === 'H' ? 'Homme' : t.gender === 'F' ? 'Femme' : 'N/A',
+                        'Adresse mail': t.email || 'N/A',
+                        'Nationalité': t.nationality || 'N/A',
+                        'Pool': t.pool || '',
+                        'Date fin dernière mission ALIMA': t.last_mission_end_date ? new Date(t.last_mission_end_date).toLocaleDateString('fr-FR') : 'N/A',
+                        'Expérience ALIMA (mois)': t.experience_months_alima || 0,
+                        'Expérience humanitaire (mois)': t.experience_months_humanitarian || 0,
+                        "Date d'entrée dans le pool": t.pool_integration_date ? new Date(t.pool_integration_date).toLocaleDateString('fr-FR') : 'N/A',
+                        'Prochaine disponibilité': formatAvailabilityLabel(t),
+                        "Missions d'urgence": t.has_emergency_mission ? 'Oui' : 'Non',
+                        'Commentaire urgence': t.has_emergency_mission ? (t.emergency_mission_comments || '') : '',
+                        'Ouvertures de mission/projet': t.has_mission_opening ? 'Oui' : 'Non',
+                        'Commentaire ouvertures': t.has_mission_opening ? (t.mission_opening_comments || '') : '',
+                        'Types de projets (contextes & zones)': typesProjet,
+                        'Nombre de missions ALIMA': MISSION_COUNT_LABELS_XLS[t.number_of_alima_missions] || 'N/A',
+                        'Visa Schengen': t.has_visa ? 'Oui' : 'Non'
+                    };
+                });
+
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                const sheetName = `Talents ${currentPoolId || 'pool'}`.substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+                const today = new Date().toISOString().slice(0, 10);
+                const fileSlug = (currentPoolId || 'pool').toLowerCase();
+                XLSX.writeFile(wb, `talents-${fileSlug}-${today}.xlsx`);
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de l'export : " + (err && err.message ? err.message : 'erreur inconnue.'));
+            }
         });
 
         // ============================================================================
