@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide d'utilisation - Cap Huma</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase CDN (Standard Non-Module) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Charte graphique ALIMA / Cap Huma (identique à devalidated.html) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
+                        accent: { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .step-row:last-child .step-line { display: none; }
+    </style>
+</head>
+<body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         EN-TÊTE SUPÉRIEUR
+         ──────────────────────────────────────────────────────────────────────── -->
+    <header class="border-b bg-white shadow-sm shrink-0 z-10">
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-3">
+                <a href="dashboard.html" class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.45.258-.717.258H3.571a.8.8 0 0 1-.717-.258m17.5 0a2.18 2.18 0 0 1-.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m0 0a48.58 48.58 0 0 0-6.177 0m6.177 0v1.502a2.25 2.25 0 0 1-2.25 2.25H9.75a2.25 2.25 0 0 1-2.25-2.25V6.144m6.177 0a48.114 48.114 0 0 0-3.413.387m0 0a48.58 48.58 0 0 1-6.177 0" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Guide d'utilisation</h1>
+                    <p class="text-xs text-slate-400 font-semibold mt-1">Cap Huma — ALIMA</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="user-display-name" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                <a href="dashboard.html" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    ← Tableau de bord
+                </a>
+                <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ZONE PRINCIPALE
+         ──────────────────────────────────────────────────────────────────────── -->
+    <main class="max-w-4xl w-full mx-auto px-6 py-8 flex-1 overflow-auto space-y-8">
+
+        <!-- Introduction -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6">
+            <h2 class="text-lg font-extrabold text-slate-800 mb-2">🧭 Qu'est-ce que Cap Huma ?</h2>
+            <p class="text-sm text-slate-600 leading-relaxed">
+                Cap Huma est la plateforme RH interne d'ALIMA pour suivre le pool de professionnels
+                humanitaires : leurs profils, leur disponibilité, les postes ouverts par pool
+                (COLOG, COMED, RAP...), et l'historique des missions. Elle centralise ce qui était
+                auparavant dispersé, avec une traçabilité complète des actions sensibles pour rester
+                conforme au RGPD.
+            </p>
+        </section>
+
+        <!-- Rôles & permissions -->
+        <section class="space-y-3">
+            <h2 class="text-lg font-extrabold text-slate-800">👥 Rôles &amp; permissions</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white border border-blue-200 rounded-2xl p-5 space-y-2">
+                    <span class="text-2xl">🛡️</span>
+                    <h3 class="font-bold text-blue-700">Administrateur</h3>
+                    <p class="text-xs text-slate-500">Accès complet à la plateforme.</p>
+                    <ul class="text-xs text-slate-600 space-y-1 list-disc list-inside pt-1">
+                        <li>Créer / modifier / supprimer des talents</li>
+                        <li>Gérer les comptes utilisateurs</li>
+                        <li>Dévalider, réintégrer, prolonger un talent</li>
+                        <li>Gérer la Liste Rouge et les Dévalidés</li>
+                        <li>Supprimer définitivement une fiche (RGPD)</li>
+                        <li>Consulter le journal d'audit</li>
+                        <li>Gérer tous les postes et toutes les évaluations</li>
+                        <li>Gérer tous les commentaires (y compris ceux des autres)</li>
+                    </ul>
+                </div>
+                <div class="bg-white border border-emerald-200 rounded-2xl p-5 space-y-2">
+                    <span class="text-2xl">🖊️</span>
+                    <h3 class="font-bold text-emerald-700">Utilisateur (Recruteur)</h3>
+                    <p class="text-xs text-slate-500">Accès standard pour l'équipe RH.</p>
+                    <ul class="text-xs text-slate-600 space-y-1 list-disc list-inside pt-1">
+                        <li>Consulter tous les pools</li>
+                        <li>Créer et modifier des fiches talents</li>
+                        <li>Dévalider un talent directement</li>
+                        <li>Gérer la Liste Rouge et les Dévalidés</li>
+                        <li>Créer / modifier / supprimer des postes</li>
+                        <li>Gérer ses propres évaluations et commentaires</li>
+                        <li>Utiliser l'export Excel et le Hub Statistique &amp; IA</li>
+                    </ul>
+                    <p class="text-[11px] text-slate-400 italic pt-1">Pas d'accès à Admin ni au journal d'audit ; ne peut pas supprimer définitivement une fiche.</p>
+                </div>
+                <div class="bg-white border border-orange-200 rounded-2xl p-5 space-y-2">
+                    <span class="text-2xl">👁️</span>
+                    <h3 class="font-bold text-orange-700">Visiteur</h3>
+                    <p class="text-xs text-slate-500">Lecture seule — idéal pour un stagiaire ou un auditeur externe.</p>
+                    <ul class="text-xs text-slate-600 space-y-1 list-disc list-inside pt-1">
+                        <li>Consulter les pools et les fiches talents</li>
+                        <li>Lire les commentaires et l'historique</li>
+                        <li>Consulter les postes ouverts (lecture seule)</li>
+                        <li>Consulter le Hub Statistique (hors analyse IA)</li>
+                    </ul>
+                    <p class="text-[11px] text-slate-400 italic pt-1">Pas d'accès à la Liste Rouge, aux Dévalidés, à l'Extraction, à l'analyse IA, ni évidemment à Admin ou au journal d'audit.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Prise en main -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+            <h2 class="text-lg font-extrabold text-slate-800">🚀 Prise en main</h2>
+            <div class="space-y-0">
+                <div class="step-row flex gap-4">
+                    <div class="flex flex-col items-center shrink-0">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">1</div>
+                        <div class="step-line w-px flex-1 bg-slate-200 min-h-[20px] mt-1"></div>
+                    </div>
+                    <div class="pb-5">
+                        <p class="font-semibold text-sm text-slate-800">Se connecter</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Avec l'email et le mot de passe fournis par un administrateur — les comptes sont créés uniquement depuis la page Admin, pas d'auto-inscription.</p>
+                    </div>
+                </div>
+                <div class="step-row flex gap-4">
+                    <div class="flex flex-col items-center shrink-0">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">2</div>
+                        <div class="step-line w-px flex-1 bg-slate-200 min-h-[20px] mt-1"></div>
+                    </div>
+                    <div class="pb-5">
+                        <p class="font-semibold text-sm text-slate-800">Choisir un pool depuis le tableau de bord</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Chaque pool (COLOG, COMED, RAP...) affiche ses indicateurs clés : talents actifs, disponibles, à risque, postes ouverts.</p>
+                    </div>
+                </div>
+                <div class="step-row flex gap-4">
+                    <div class="flex flex-col items-center shrink-0">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">3</div>
+                    </div>
+                    <div class="pb-1">
+                        <p class="font-semibold text-sm text-slate-800">Naviguer entre Talents, Postes, Statistiques...</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Depuis chaque pool, accède à sa liste de talents ou à la gestion de ses postes ; les autres pages (Liste Rouge, Dévalidés, Extraction, Admin) sont accessibles depuis le tableau de bord selon ton rôle.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gestion des talents -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+            <h2 class="text-lg font-extrabold text-slate-800">👤 Gestion des talents</h2>
+            <ul class="text-sm text-slate-600 space-y-2">
+                <li><strong>Ajouter un talent</strong> — depuis la liste d'un pool, bouton "Nouveau talent" : identité, statut, disponibilité, formation, compétences, langues, zones d'intervention.</li>
+                <li><strong>Consulter une fiche</strong> — clique sur un talent pour voir sa fiche complète : informations, jauge de validité dans le pool, parcours de missions ALIMA, commentaires.</li>
+                <li><strong>Commenter une fiche</strong> — tout utilisateur connecté (sauf visiteur) peut ajouter un commentaire libre ; chacun ne peut modifier/supprimer que ses propres commentaires (un admin peut gérer tous les commentaires).</li>
+                <li><strong>Exporter en PDF ou partager</strong> — depuis la fiche, génère un PDF de la fiche ou un lien de partage sécurisé et temporaire (30 jours), utile pour un partenaire externe sans lui donner accès à toute la plateforme.</li>
+            </ul>
+        </section>
+
+        <!-- Validité pool -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+            <h2 class="text-lg font-extrabold text-slate-800">⏳ Suivi de la validité dans le pool</h2>
+            <p class="text-sm text-slate-600 leading-relaxed">
+                Chaque talent dispose d'un compteur de validité (24 mois sans mission ALIMA),
+                visible sous forme de barre de progression sur sa fiche. Le compteur est **gelé**
+                tant que le talent est en poste ALIMA, et recalculé chaque mois automatiquement
+                (tâche de fond).
+            </p>
+            <p class="text-sm text-slate-600 leading-relaxed">
+                Contrairement à un système entièrement automatique, <strong>la dévalidation
+                elle-même reste une décision humaine</strong> : à 24 mois, un badge d'alerte
+                apparaît sur la fiche, mais c'est à un admin ou un recruteur de choisir de dévalider
+                le talent (ou de lui accorder une prolongation) après vérification. Une fois
+                dévalidé, le talent apparaît dans la page "Dévalidés" et peut être réintégré à tout
+                moment par un admin ou un recruteur.
+            </p>
+        </section>
+
+        <!-- Gestion des postes -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+            <h2 class="text-lg font-extrabold text-slate-800">🧭 Gestion des postes</h2>
+            <ul class="text-sm text-slate-600 space-y-2">
+                <li><strong>Créer / modifier un poste</strong> — depuis "Gérer les postes du pool" : titre, pays, lieu, type de candidat, desk, statut, occupant actuel, dates de contrat, futur occupant prévu.</li>
+                <li><strong>Rotation d'occupant</strong> — quand un occupant sort (changement, fin de contrat, suppression du poste), ses évaluations sont automatiquement archivées dans l'historique du talent, et ses compteurs de disponibilité mis à jour.</li>
+                <li><strong>Évaluations</strong> — chaque occupant en poste peut recevoir des évaluations (contexte, points forts/à améliorer, note sur 10) ; un recruteur ne gère que ses propres évaluations, un admin gère tout.</li>
+                <li><strong>Analyse IA du pool</strong> — synthèse et recommandations générées à la demande à partir des statistiques du pool (jamais de données nominatives envoyées à l'IA), réservée aux comptes admin et recruteur.</li>
+            </ul>
+        </section>
+
+        <!-- Extraction & Statistiques -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 space-y-2">
+                <h2 class="text-base font-extrabold text-slate-800">📤 Extraction Excel</h2>
+                <p class="text-sm text-slate-600">
+                    Sélectionne les pools à inclure (listes de talents combinées dans une seule
+                    feuille, postes dans une feuille par pool) et génère un fichier Excel unique en
+                    un clic — réservé admin et recruteur.
+                </p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 space-y-2">
+                <h2 class="text-base font-extrabold text-slate-800">📊 Hub Statistique &amp; IA</h2>
+                <p class="text-sm text-slate-600">
+                    Graphiques et indicateurs par pool, plus une question libre à l'IA sur les
+                    statistiques (analyse en langage naturel). Visible par tous les rôles connectés,
+                    la partie IA est réservée admin et recruteur.
+                </p>
+            </div>
+        </section>
+
+        <!-- RGPD -->
+        <section class="space-y-3">
+            <h2 class="text-lg font-extrabold text-slate-800">🔒 Conformité RGPD</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-1.5">
+                    <p class="font-bold text-sm text-slate-800 flex items-center gap-2">🗄️ Données collectées</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Uniquement les informations nécessaires au suivi RH dans le pool : identité,
+                        email professionnel, nationalité, expérience, formation, compétences,
+                        disponibilité et statut. Aucune donnée sensible (santé, opinions, origine...)
+                        n'est demandée dans les formulaires du site.
+                    </p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-1.5">
+                    <p class="font-bold text-sm text-slate-800 flex items-center gap-2">🔐 Sécurité &amp; accès</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Connexion individuelle par email/mot de passe (aucun compte partagé), accès
+                        limité selon le rôle (admin/recruteur/visiteur) à chaque table de données,
+                        et hébergement sur une infrastructure chiffrée au repos et en transit
+                        (Supabase). Les clés d'accès à l'IA ne transitent jamais côté navigateur.
+                    </p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-1.5">
+                    <p class="font-bold text-sm text-slate-800 flex items-center gap-2">📋 Journal d'audit</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Chaque action sensible (création, modification, suppression, dévalidation,
+                        Liste Rouge, connexion...) est horodatée et tracée dans un journal
+                        consultable par les administrateurs uniquement. Une purge automatique des
+                        anciens logs (conservation limitée dans le temps) est prévue pour respecter
+                        le principe de limitation de la conservation.
+                    </p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-1.5">
+                    <p class="font-bold text-sm text-slate-800 flex items-center gap-2">🗑️ Droit à l'effacement</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Un administrateur peut supprimer définitivement une fiche talent (bouton
+                        "Supprimer définitivement"), ce qui efface aussi ses évaluations, ses
+                        commentaires et ses liens de partage. Cette action est irréversible et
+                        elle-même tracée dans le journal d'audit.
+                    </p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-1.5">
+                    <p class="font-bold text-sm text-slate-800 flex items-center gap-2">🏢 Responsable du traitement</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Le traitement des données est effectué sous la responsabilité d'ALIMA, dans
+                        le cadre de la gestion RH humanitaire. L'accès est strictement limité aux
+                        équipes RH habilitées via un compte nominatif.
+                    </p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-1.5">
+                    <p class="font-bold text-sm text-slate-800 flex items-center gap-2">✋ Droits des personnes</p>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Toute personne dont les données figurent dans Cap Huma dispose d'un droit
+                        d'accès, de rectification et d'effacement. Pour exercer ces droits, contacte
+                        l'équipe RH ALIMA directement.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <p class="text-center text-xs text-slate-400 pb-4">
+            Cap Huma — ALIMA • Une question non couverte par ce guide ? Contacte un administrateur.
+        </p>
+    </main>
+
+    <script>
+        // ============================================================================
+        // INITIALISATION SUPABASE + GARDE DE SESSION
+        // Page accessible à TOUS les rôles connectés (admin, recruteur, visiteur) —
+        // aucune restriction de rôle, contrairement aux pages de gestion.
+        // ============================================================================
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            window.location.replace('index.html');
+        }
+
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const appBody = document.getElementById('appBody');
+        let currentUserId = null;
+        let currentUserEmail = null;
+
+        // ============================================================================
+        // JOURNAL D'AUDIT — la déconnexion depuis cette page est tracée aussi, par
+        // cohérence avec toutes les autres pages (voir id-card.html pour le détail).
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            try {
+                await supabaseClient.from('audit_logs').insert({
+                    user_id: currentUserId,
+                    user_email: currentUserEmail,
+                    user_name: null,
+                    action: action,
+                    entity_type: entityType,
+                    entity_id: entityId || null,
+                    entity_name: entityName || null,
+                    details: details || null
+                });
+            } catch (err) {
+                console.warn("[Audit] Échec de l'enregistrement du log :", err);
+            }
+        }
+
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error("Session absente ou expirée.");
+
+                currentUserId = session.user.id;
+                currentUserEmail = session.user.email || null;
+                document.getElementById('user-display-name').textContent = session.user.email;
+
+                appBody.style.display = 'flex';
+            } catch (error) {
+                console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
+                window.location.replace('login.html');
+            }
+        }
+        checkSession();
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+    </script>
+</body>
+</html>

@@ -435,6 +435,7 @@
         const talentForm = document.getElementById('talentForm');
         let currentUserId = null;
         let currentUserEmail = null;
+        let currentUserRole = null;
 
         // ============================================================================
         // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
@@ -463,6 +464,19 @@
                 if (!session) throw new Error("Session absente.");
                 currentUserId = session.user.id;
                 currentUserEmail = session.user.email;
+
+                // Récupération du rôle — manquait jusqu'ici sur cette page (bug signalé) :
+                // "Nouveau talent" et "Modifier" restaient visibles pour visitor, contrairement
+                // à toutes les autres pages du site qui masquent bien ces actions.
+                const { data: profile } = await supabaseClient
+                    .from('users')
+                    .select('role')
+                    .eq('id', currentUserId)
+                    .maybeSingle();
+                currentUserRole = profile ? profile.role : null;
+
+                document.getElementById('newTalentBtn').classList.toggle('hidden', currentUserRole === 'visitor');
+
                 appBody.style.display = 'flex';
                 await loadPoolInfo();
                 await loadTalents();
@@ -558,6 +572,8 @@
                     extraBadge = `<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">⏳ Prolongé jusqu'au ${untilLabel}</span>`;
                 }
 
+                const canManage = currentUserRole !== 'visitor';
+
                 row.innerHTML = `
                     <div class="flex items-center gap-3 min-w-0 flex-1">
                         <div class="h-10 w-10 rounded-full bg-primary-light text-primary font-extrabold flex items-center justify-center shrink-0">
@@ -576,7 +592,7 @@
                         ${extraBadge}
                         <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border ${statusBadge(t.status)}">${escapeHtml(t.status || '—')}</span>
 
-                        ${eligible ? `
+                        ${(eligible && canManage) ? `
                         <button class="btn-prolong-talent text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-all" title="Prolonger">
                             ⏳ Prolonger
                         </button>
@@ -584,12 +600,13 @@
                             ⛔ Dévalider
                         </button>` : ''}
 
-                        <!-- Bouton d'action Modifier dédié qui ouvre le modal -->
+                        <!-- Bouton d'action Modifier dédié qui ouvre le modal — masqué pour visitor -->
+                        ${canManage ? `
                         <button class="edit-btn p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-primary transition-all" title="Modifier">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                             </svg>
-                        </button>
+                        </button>` : ''}
                     </div>
                 `;
                 
@@ -600,12 +617,16 @@
                 });
 
                 // Clic sur le bouton d'édition : ouvrir le modal sans déclencher le clic de la ligne
-                row.querySelector('.edit-btn').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    openEditModal(t);
-                });
+                // (bouton absent du DOM pour visitor, donc querySelector peut renvoyer null)
+                const editBtn = row.querySelector('.edit-btn');
+                if (editBtn) {
+                    editBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openEditModal(t);
+                    });
+                }
 
-                if (eligible) {
+                if (eligible && canManage) {
                     row.querySelector('.btn-prolong-talent').addEventListener('click', (e) => {
                         e.stopPropagation();
                         openProlongModal(t);

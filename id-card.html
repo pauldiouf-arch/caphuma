@@ -1363,6 +1363,7 @@
             const btnManageMissions = document.getElementById('btn-manage-missions');
             const btnDevalidate = document.getElementById('btn-devalidate');
             const btnRevalidate = document.getElementById('btn-revalidate');
+            const btnRedlist = document.getElementById('btn-redlist');
             const btnDeleteTalent = document.getElementById('btn-delete-talent');
 
             // La gestion des postes (affectation, évaluations, fin de mission) se fait
@@ -1377,6 +1378,18 @@
             } else {
                 btnRevalidate.classList.add('hidden');
                 btnDevalidate.classList.remove('hidden');
+            }
+
+            // Correctif (bug identique à celui déjà corrigé sur talents.html) :
+            // Dévalider/Réintégrer/Liste Rouge restaient visibles pour visitor, alors
+            // que ce sont des actions réservées admin/user partout ailleurs sur le
+            // site. Masquage supplémentaire par-dessus la logique isInvalid ci-dessus.
+            if (currentUserRole === 'visitor') {
+                btnDevalidate.classList.add('hidden');
+                btnRevalidate.classList.add('hidden');
+                btnRedlist.classList.add('hidden');
+            } else {
+                btnRedlist.classList.remove('hidden');
             }
 
             // Suppression définitive : réservée admin, et uniquement pour un talent ACTIF.
