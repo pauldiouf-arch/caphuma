@@ -281,6 +281,27 @@
                 </button>
             </div>
         </div>
+
+        <!-- Section Commentaires libres (Étape 7, no-print) -->
+        <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 no-print" id="comments-card">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <span>💬</span> Commentaires
+            </h3>
+
+            <!-- Formulaire d'ajout — masqué pour le rôle visitor (lecture seule) -->
+            <div id="comment-form-container" class="space-y-2">
+                <textarea id="new-comment-input" placeholder="Ajouter un commentaire..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="3"></textarea>
+                <div class="flex justify-end">
+                    <button id="btn-add-comment" class="bg-primary hover:bg-primary-dark text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all">
+                        Ajouter le commentaire
+                    </button>
+                </div>
+            </div>
+
+            <div id="comments-list-container" class="space-y-3">
+                <p class="text-sm text-slate-400 italic">Chargement des commentaires...</p>
+            </div>
+        </div>
     </main>
 
     <!-- ═══════════════════════════════════ MODALS INTERACTIFS (no-print) ═══════════════════════════════════ -->
@@ -309,6 +330,7 @@
         let activeMission = null;
         let currentUserId = null;
         let currentUserRole = null;
+        let comments = [];
 
         // ============================================================================
         // NORMALISATION DES PASSAGES ARCHIVÉS (compatibilité double format)
@@ -464,6 +486,7 @@
                 activeMission = mission;
 
                 renderTalentCard();
+                await loadComments();
             } catch (err) {
                 console.error("Erreur complète :", err);
                 showError(err.message || "Erreur lors du chargement des données.");
@@ -715,6 +738,166 @@
                 badge.className = `text-xs px-2.5 py-1 rounded-lg border font-medium ${colorClass}`;
                 badge.textContent = item;
                 container.appendChild(badge);
+            });
+        }
+
+        // ============================================================================
+        // COMMENTAIRES LIBRES (Étape 7)
+        // - Lecture : tout rôle connecté (admin/user/visitor).
+        // - Ajout : admin et user uniquement.
+        // - Modification/Suppression : admin sur tout commentaire, user uniquement
+        //   sur ses propres commentaires (comparaison user_id === currentUserId).
+        // - author_email enregistré directement à la création (pas de jointure vers
+        //   users, pour éviter le même risque RLS déjà documenté pour evaluations).
+        // ============================================================================
+        async function loadComments() {
+            const container = document.getElementById('comments-list-container');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('comments')
+                    .select('id, talent_id, user_id, content, author_email, created_at')
+                    .eq('talent_id', talentId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                comments = data || [];
+                renderComments();
+            } catch (err) {
+                console.error("Erreur de chargement des commentaires :", err);
+                if (container) {
+                    container.innerHTML = `<p class="text-sm text-red-500 italic">Impossible de charger les commentaires.</p>`;
+                }
+            }
+        }
+
+        function renderComments() {
+            const container = document.getElementById('comments-list-container');
+            const formContainer = document.getElementById('comment-form-container');
+            if (!container) return;
+
+            // Formulaire d'ajout masqué pour visitor (lecture seule)
+            if (formContainer) {
+                formContainer.classList.toggle('hidden', currentUserRole === 'visitor');
+            }
+
+            if (comments.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun commentaire pour le moment.</p>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            comments.forEach(c => {
+                const canManage = currentUserRole === 'admin' ||
+                    (currentUserRole === 'user' && c.user_id === currentUserId);
+                const dateStr = c.created_at ? new Date(c.created_at).toLocaleString('fr-FR') : '';
+                const authorLabel = c.author_email || 'Auteur inconnu';
+
+                const actionsHtml = canManage ? `
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button class="btn-edit-comment text-xs font-semibold text-primary hover:underline" data-id="${escapeHtml(c.id)}">Modifier</button>
+                        <button class="btn-delete-comment text-xs font-semibold text-red-600 hover:underline" data-id="${escapeHtml(c.id)}">Supprimer</button>
+                    </div>
+                ` : '';
+
+                container.innerHTML += `
+                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm space-y-1" data-comment-id="${escapeHtml(c.id)}">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 text-[10px] text-slate-400 mb-1">
+                                    <span>${escapeHtml(authorLabel)}</span>
+                                    <span>•</span>
+                                    <span>${escapeHtml(dateStr)}</span>
+                                </div>
+                                <p class="comment-content-text text-slate-700 whitespace-pre-wrap break-words">${escapeHtml(c.content)}</p>
+                            </div>
+                            ${actionsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            bindCommentButtons();
+        }
+
+        function bindCommentButtons() {
+            // 🗑️ Suppression d'un commentaire
+            document.querySelectorAll('.btn-delete-comment').forEach(btn => {
+                btn.onclick = async () => {
+                    const id = btn.getAttribute('data-id');
+                    if (!confirm("Supprimer définitivement ce commentaire ?")) return;
+
+                    try {
+                        const { data, error } = await supabaseClient
+                            .from('comments')
+                            .delete()
+                            .eq('id', id)
+                            .select('id');
+
+                        if (error) throw error;
+                        if (!data || data.length === 0) {
+                            throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
+                        }
+
+                        toastMessage("Commentaire supprimé.", "success");
+                        await loadComments();
+                    } catch (err) {
+                        console.error(err);
+                        toastMessage("Échec de la suppression : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+                    }
+                };
+            });
+
+            // ✏️ Modification d'un commentaire (édition en ligne)
+            document.querySelectorAll('.btn-edit-comment').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.getAttribute('data-id');
+                    const card = document.querySelector(`[data-comment-id="${id}"]`);
+                    const comment = comments.find(c => c.id === id);
+                    if (!card || !comment) return;
+
+                    const textEl = card.querySelector('.comment-content-text');
+                    if (!textEl) return;
+
+                    textEl.outerHTML = `
+                        <div class="space-y-2">
+                            <textarea class="edit-comment-textarea w-full rounded-xl border border-slate-200 p-2 text-sm outline-none focus:border-primary resize-none" rows="3">${escapeHtml(comment.content)}</textarea>
+                            <div class="flex justify-end gap-2">
+                                <button class="btn-cancel-edit-comment text-xs font-semibold text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-lg">Annuler</button>
+                                <button class="btn-save-edit-comment text-xs font-semibold text-white bg-primary hover:bg-primary-dark px-3 py-1.5 rounded-lg">Enregistrer</button>
+                            </div>
+                        </div>
+                    `;
+
+                    card.querySelector('.btn-cancel-edit-comment').onclick = () => renderComments();
+
+                    card.querySelector('.btn-save-edit-comment').onclick = async () => {
+                        const newContent = card.querySelector('.edit-comment-textarea').value.trim();
+                        if (!newContent) {
+                            alert("Le commentaire ne peut pas être vide.");
+                            return;
+                        }
+
+                        try {
+                            const { data, error } = await supabaseClient
+                                .from('comments')
+                                .update({ content: newContent })
+                                .eq('id', id)
+                                .select('id');
+
+                            if (error) throw error;
+                            if (!data || data.length === 0) {
+                                throw new Error("La modification n'a affecté aucune ligne (policy RLS ?).");
+                            }
+
+                            toastMessage("Commentaire modifié.", "success");
+                            await loadComments();
+                        } catch (err) {
+                            console.error(err);
+                            toastMessage("Échec de la modification : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+                        }
+                    };
+                };
             });
         }
 
@@ -1224,6 +1407,43 @@
 
             // 🖨️ Imprimer
             document.getElementById('print-btn').onclick = () => window.print();
+
+            // 💬 Ajouter un commentaire
+            const btnAddComment = document.getElementById('btn-add-comment');
+            if (btnAddComment) {
+                btnAddComment.onclick = async () => {
+                    const input = document.getElementById('new-comment-input');
+                    const content = input.value.trim();
+                    if (!content) {
+                        alert("Veuillez saisir un commentaire avant de l'ajouter.");
+                        return;
+                    }
+
+                    try {
+                        const { data, error } = await supabaseClient
+                            .from('comments')
+                            .insert({
+                                talent_id: talentId,
+                                user_id: currentUserId,
+                                content: content,
+                                author_email: document.getElementById('user-display-name').textContent
+                            })
+                            .select('id');
+
+                        if (error) throw error;
+                        if (!data || data.length === 0) {
+                            throw new Error("L'ajout n'a affecté aucune ligne (policy RLS ?).");
+                        }
+
+                        input.value = '';
+                        toastMessage("Commentaire ajouté.", "success");
+                        await loadComments();
+                    } catch (err) {
+                        console.error(err);
+                        toastMessage("Échec de l'ajout du commentaire : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+                    }
+                };
+            }
 
             // ⛔ Dévalider le talent
             document.getElementById('btn-devalidate').onclick = async () => {
