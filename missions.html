@@ -123,6 +123,52 @@
             </div>
         </div>
 
+        <!-- Statistiques détaillées des contrats (Étape C, cf. Hercules
+             positions/stats.ts : getDetailedPositionStats) -->
+        <div id="detailedStatsCard" class="hidden bg-white border border-slate-200 rounded-2xl p-6 mb-6">
+            <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2 mb-1">
+                📈 Statistiques détaillées des contrats
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">Analyse approfondie des contrats et répartition géographique du pool</p>
+
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Contrats</h4>
+                    <div class="space-y-1.5 text-sm">
+                        <div class="flex justify-between"><span class="text-slate-400">Postes avec contrat</span><span class="font-semibold text-slate-800" id="statWithContracts">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Durée moyenne</span><span class="font-semibold text-slate-800" id="statAvgDuration">0 mois</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">En cours</span><span class="font-semibold text-slate-800" id="statOngoing">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Renouvelables</span><span class="font-semibold text-slate-800" id="statRenewable">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Taux de renouvellement</span><span class="font-semibold text-slate-800" id="statRenewalRate">0%</span></div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Par pays</h4>
+                    <div class="space-y-1.5 text-sm" id="statByCountry"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Par desk</h4>
+                    <div class="space-y-1.5 text-sm" id="statByDesk"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Échéances des contrats</h4>
+                    <div class="space-y-1.5 text-sm">
+                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 1 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700" id="statEnding1m">0</span></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 3 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700" id="statEnding3m">0</span></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 6 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700" id="statEnding6m">0</span></div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Durée des contrats</h4>
+                    <div class="space-y-1.5 text-sm" id="statDurationDistribution"></div>
+                </div>
+            </div>
+        </div>
+
         <p id="missionsError" class="hidden mb-4 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
         <p id="readOnlyNotice" class="hidden mb-4 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-lg p-3">
             👁️ Vous êtes en lecture seule sur cette page.
@@ -612,6 +658,7 @@
 
                 renderMissions();
                 updateKpiBar();
+                updateDetailedContractStats();
 
             } catch (error) {
                 console.error("Erreur de récupération des postes :", error);
@@ -711,6 +758,99 @@
             document.getElementById('kpiVacant').textContent = vacant;
             document.getElementById('kpiEndingSoon').textContent = endingSoon;
             document.getElementById('kpiAvgDuration').textContent = avgDuration;
+        }
+
+        // ============================================================================
+        // 3 QUATER. STATISTIQUES DÉTAILLÉES DES CONTRATS (Étape C, cf. Hercules
+        // positions/stats.ts : getDetailedPositionStats). Calculées côté client à
+        // partir des postes du pool déjà chargés (currentMissions), cohérent avec le
+        // choix déjà fait pour updateKpiBar() — pas de requête Supabase supplémentaire.
+        // ============================================================================
+        function updateDetailedContractStats() {
+            const card = document.getElementById('detailedStatsCard');
+            if (currentMissions.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+            card.classList.remove('hidden');
+
+            const now = Date.now();
+            const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
+            const threeMonthsLater = now + 3 * 30 * 24 * 60 * 60 * 1000;
+            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
+
+            const withContracts = currentMissions.filter(m => m.contract_start_date && m.contract_end_date);
+            const durations = withContracts.map(m => {
+                const start = new Date(m.contract_start_date).getTime();
+                const end = new Date(m.contract_end_date).getTime();
+                return Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
+            });
+            const avgDuration = durations.length > 0
+                ? Math.round(durations.reduce((sum, d) => sum + d, 0) / durations.length)
+                : 0;
+
+            const ongoing = currentMissions.filter(m => m.contract_status === 'ongoing').length;
+            const renewable = currentMissions.filter(m => m.contract_status === 'renewable').length;
+            const renewalRate = withContracts.length > 0
+                ? Math.round((renewable / withContracts.length) * 100)
+                : 0;
+
+            // Échéances cumulatives (comme Hercules : "fin dans 3 mois" inclut ce qui
+            // finit dans le mois qui vient, pas une tranche exclusive 1-3 mois).
+            const endsWithin = (maxDate) => currentMissions.filter(m => {
+                if (!m.contract_end_date) return false;
+                const t = new Date(m.contract_end_date).getTime();
+                return t > now && t <= maxDate;
+            }).length;
+
+            document.getElementById('statWithContracts').textContent = withContracts.length;
+            document.getElementById('statAvgDuration').textContent = avgDuration + ' mois';
+            document.getElementById('statOngoing').textContent = ongoing;
+            document.getElementById('statRenewable').textContent = renewable;
+            document.getElementById('statRenewalRate').textContent = renewalRate + '%';
+            document.getElementById('statEnding1m').textContent = endsWithin(oneMonthLater);
+            document.getElementById('statEnding3m').textContent = endsWithin(threeMonthsLater);
+            document.getElementById('statEnding6m').textContent = endsWithin(sixMonthsLater);
+
+            // Répartition par pays
+            const byCountry = {};
+            currentMissions.forEach(m => {
+                const c = m.country || 'Non précisé';
+                byCountry[c] = (byCountry[c] || 0) + 1;
+            });
+            document.getElementById('statByCountry').innerHTML = Object.entries(byCountry)
+                .sort((a, b) => b[1] - a[1])
+                .map(([country, count]) => `
+                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                `).join('');
+
+            // Répartition par desk (ajouté par rapport à Hercules : Cap Huma trace
+            // déjà le desk sur missions, donnée jugée utile en complément du pays).
+            const byDesk = {};
+            currentMissions.forEach(m => {
+                if (!m.desk) return;
+                const label = DESK_LABELS[m.desk] || m.desk;
+                byDesk[label] = (byDesk[label] || 0) + 1;
+            });
+            const deskEntries = Object.entries(byDesk);
+            document.getElementById('statByDesk').innerHTML = deskEntries.length > 0
+                ? deskEntries.sort((a, b) => b[1] - a[1]).map(([label, count]) => `
+                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(label)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                `).join('')
+                : '<p class="text-xs text-slate-400 italic">Aucun desk renseigné</p>';
+
+            // Distribution des durées de contrat (tranches identiques à Hercules)
+            const distribution = {
+                '0-6 mois': durations.filter(d => d <= 6).length,
+                '7-12 mois': durations.filter(d => d > 6 && d <= 12).length,
+                '13-18 mois': durations.filter(d => d > 12 && d <= 18).length,
+                '19-24 mois': durations.filter(d => d > 18 && d <= 24).length,
+                '25+ mois': durations.filter(d => d > 24).length,
+            };
+            document.getElementById('statDurationDistribution').innerHTML = Object.entries(distribution)
+                .map(([range, count]) => `
+                    <div class="flex justify-between"><span class="text-slate-400">${range}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                `).join('');
         }
 
         // ============================================================================

@@ -164,6 +164,54 @@
             </div>
         </div>
 
+        <!-- Statistiques détaillées des contrats (Étape C, cf. Hercules positions/stats.ts :
+             getDetailedPositionStats). Visible UNIQUEMENT en vue par pool — jamais sur la vue
+             globale, qui reste inchangée par décision explicite de l'utilisateur (Master Context,
+             Étape E : "Aucune modification sur le Hub Statistique global"). -->
+        <div id="detailed-stats-card" class="hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-1">
+                <span>📈</span> Statistiques détaillées des contrats — <span id="detailed-stats-pool-name">ce pool</span>
+            </h3>
+            <p class="text-xs text-slate-500 mb-4">Analyse approfondie des contrats et répartition géographique du pool</p>
+
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Contrats</h4>
+                    <div class="space-y-1.5 text-sm">
+                        <div class="flex justify-between"><span class="text-slate-400">Postes avec contrat</span><span class="font-semibold text-slate-800" id="stat-with-contracts">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Durée moyenne</span><span class="font-semibold text-slate-800" id="stat-avg-duration">0 mois</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">En cours</span><span class="font-semibold text-slate-800" id="stat-ongoing">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Renouvelables</span><span class="font-semibold text-slate-800" id="stat-renewable">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Taux de renouvellement</span><span class="font-semibold text-slate-800" id="stat-renewal-rate">0%</span></div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Par pays</h4>
+                    <div class="space-y-1.5 text-sm" id="stat-by-country"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Par desk</h4>
+                    <div class="space-y-1.5 text-sm" id="stat-by-desk"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Échéances des contrats</h4>
+                    <div class="space-y-1.5 text-sm">
+                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 1 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700" id="stat-ending-1m">0</span></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 3 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700" id="stat-ending-3m">0</span></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 6 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700" id="stat-ending-6m">0</span></div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Durée des contrats</h4>
+                    <div class="space-y-1.5 text-sm" id="stat-duration-distribution"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Hub Assistant IA Stratégique -->
         <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
             <div class="flex items-center gap-3">
@@ -222,6 +270,20 @@
         let currentUserId = null;
         let currentUserEmail = null;
         let currentUserRole = null;
+
+        // Échappement HTML systématique de toute donnée venant de la base avant
+        // injection via innerHTML — prévention XSS (Master Context, règle de méthode
+        // n°12). Absente jusqu'ici sur cette page faute d'innerHTML utilisant des
+        // données de la base ; ajoutée avec les statistiques de contrats (Étape C).
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
@@ -449,6 +511,106 @@
                 const unclassifiedCount = totalPositions - (expatCount + nationalCount);
                 renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
             }
+
+            updateDetailedContractStats(selectorValue, mData);
+        }
+
+        // ============================================================================
+        // STATISTIQUES DÉTAILLÉES DES CONTRATS PAR POOL (Étape C, cf. Hercules
+        // positions/stats.ts : getDetailedPositionStats). N'apparaît jamais sur la vue
+        // globale — seulement quand un pool précis est sélectionné, pour ne pas toucher
+        // au Hub Statistique global (décision explicite de l'utilisateur, Étape E).
+        // ============================================================================
+        function updateDetailedContractStats(selectorValue, mData) {
+            const card = document.getElementById('detailed-stats-card');
+
+            if (selectorValue === 'global' || mData.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+            card.classList.remove('hidden');
+
+            const poolInfo = poolList.find(p => (p.pool_id || p.poolId || "").toUpperCase() === selectorValue.toUpperCase());
+            document.getElementById('detailed-stats-pool-name').textContent = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
+
+            const now = Date.now();
+            const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
+            const threeMonthsLater = now + 3 * 30 * 24 * 60 * 60 * 1000;
+            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
+
+            const withContracts = mData.filter(m => m.contract_start_date && m.contract_end_date);
+            const durations = withContracts.map(m => {
+                const start = new Date(m.contract_start_date).getTime();
+                const end = new Date(m.contract_end_date).getTime();
+                return Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
+            });
+            const avgDuration = durations.length > 0
+                ? Math.round(durations.reduce((sum, d) => sum + d, 0) / durations.length)
+                : 0;
+
+            const ongoing = mData.filter(m => m.contract_status === 'ongoing').length;
+            const renewable = mData.filter(m => m.contract_status === 'renewable').length;
+            const renewalRate = withContracts.length > 0
+                ? Math.round((renewable / withContracts.length) * 100)
+                : 0;
+
+            // Échéances cumulatives (identique à la logique de missions.html/Hercules :
+            // "fin dans 3 mois" inclut ce qui finit dans le mois qui vient).
+            const endsWithin = (maxDate) => mData.filter(m => {
+                if (!m.contract_end_date) return false;
+                const t = new Date(m.contract_end_date).getTime();
+                return t > now && t <= maxDate;
+            }).length;
+
+            document.getElementById('stat-with-contracts').textContent = withContracts.length;
+            document.getElementById('stat-avg-duration').textContent = avgDuration + ' mois';
+            document.getElementById('stat-ongoing').textContent = ongoing;
+            document.getElementById('stat-renewable').textContent = renewable;
+            document.getElementById('stat-renewal-rate').textContent = renewalRate + '%';
+            document.getElementById('stat-ending-1m').textContent = endsWithin(oneMonthLater);
+            document.getElementById('stat-ending-3m').textContent = endsWithin(threeMonthsLater);
+            document.getElementById('stat-ending-6m').textContent = endsWithin(sixMonthsLater);
+
+            // Répartition par pays
+            const byCountry = {};
+            mData.forEach(m => {
+                const c = m.country || 'Non précisé';
+                byCountry[c] = (byCountry[c] || 0) + 1;
+            });
+            document.getElementById('stat-by-country').innerHTML = Object.entries(byCountry)
+                .sort((a, b) => b[1] - a[1])
+                .map(([country, count]) => `
+                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                `).join('');
+
+            // Répartition par desk (ajouté par rapport à Hercules — donnée déjà tracée
+            // dans Cap Huma, jugée utile en complément du pays)
+            const DESK_LABELS_LOCAL = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
+            const byDesk = {};
+            mData.forEach(m => {
+                if (!m.desk) return;
+                const label = DESK_LABELS_LOCAL[m.desk] || m.desk;
+                byDesk[label] = (byDesk[label] || 0) + 1;
+            });
+            const deskEntries = Object.entries(byDesk);
+            document.getElementById('stat-by-desk').innerHTML = deskEntries.length > 0
+                ? deskEntries.sort((a, b) => b[1] - a[1]).map(([label, count]) => `
+                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(label)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                `).join('')
+                : '<p class="text-xs text-slate-400 italic">Aucun desk renseigné</p>';
+
+            // Distribution des durées de contrat (tranches identiques à Hercules)
+            const distribution = {
+                '0-6 mois': durations.filter(d => d <= 6).length,
+                '7-12 mois': durations.filter(d => d > 6 && d <= 12).length,
+                '13-18 mois': durations.filter(d => d > 12 && d <= 18).length,
+                '19-24 mois': durations.filter(d => d > 18 && d <= 24).length,
+                '25+ mois': durations.filter(d => d > 24).length,
+            };
+            document.getElementById('stat-duration-distribution').innerHTML = Object.entries(distribution)
+                .map(([range, count]) => `
+                    <div class="flex justify-between"><span class="text-slate-400">${range}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                `).join('');
         }
 
         function renderStatusChart(dataValues) {
