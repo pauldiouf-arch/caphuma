@@ -1430,7 +1430,14 @@
 
                     if (error) throw error;
 
-                    const shareUrl = `${window.location.origin}/shared-talent.html?token=${token}`;
+                    // Bug corrigé : window.location.origin seul ne suffit pas quand le
+                    // site est hébergé en "project site" GitHub Pages
+                    // (https://compte.github.io/nom-du-repo/...) plutôt qu'à la racine du
+                    // domaine (https://compte.github.io/...) — on reconstruit l'URL à
+                    // partir du dossier de la page actuelle, comme le fait déjà back-btn
+                    // avec ses liens relatifs.
+                    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+                    const shareUrl = `${window.location.origin}${basePath}shared-talent.html?token=${token}`;
                     await navigator.clipboard.writeText(shareUrl);
                     toastMessage("Lien de partage généré et copié dans le presse-papiers !", "success");
                     const fullNameLogShare = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
