@@ -444,9 +444,13 @@
             // à l'analyse IA par pool reconstruite ici (ex-missions.html), sans requête
             // supplémentaire dédiée. Purement additif : aucune colonne retirée, le calcul
             // des KPI du Hub global n'est pas modifié.
+            // Colonnes étendues une seconde fois (demande explicite de l'utilisateur) :
+            // gender, nationality, languages — pour enrichir l'analyse IA par pool de
+            // répartitions agrégées (jamais de valeur individuelle envoyée à l'IA, voir
+            // buildPoolAnalysisStats). Toujours additif, KPI du Hub global inchangés.
             const { data: talents, error: et } = await supabaseClient
                 .from('talents')
-                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, experience_months_humanitarian, availability_type, availability_date, availability_months');
+                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, experience_months_humanitarian, availability_type, availability_date, availability_months, gender, nationality, languages');
             if (et) throw et;
             rawTalents = talents || [];
 
@@ -572,7 +576,12 @@
 
         // Instantané agrégé et anonymisé (comptages uniquement, aucune donnée
         // nominative) — logique de disponibilité identique à celle d'avant l'Étape E
-        // sur missions.html (adaptée de Hercules positions/analytics.ts, getRecommendations).
+        // sur missions.html (adaptée de Hercules positions/analytics.ts, getRecommendations),
+        // enrichie a posteriori avec d'autres KPI repérés dans Hercules
+        // (getRecruitmentAnalytics / getTalentAnalytics) : genre, nationalité, langues,
+        // tranches d'expérience, type de candidat, pays/desk des postes, taux
+        // d'anticipation (postes avec un futur occupant identifié). Toujours uniquement
+        // des comptages agrégés — jamais un nom, un email ou une évaluation individuelle.
         function buildPoolAnalysisStats(mData, talentsForPool) {
             const now = Date.now();
             const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
@@ -596,11 +605,40 @@
                 return t > now && t <= sixMonthsLater;
             }).length;
 
+            // Répartition par type de candidat, pays et desk (postes) — cf. Hercules
+            // getRecruitmentAnalytics (candidateTypeDistribution / countryDistribution /
+            // deskDistribution), pas encore envoyée à l'IA jusqu'ici.
+            const expatPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length;
+            const nationalPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length;
+
+            const positionsByCountry = {};
+            mData.forEach(m => {
+                const c = m.country || 'Non précisé';
+                positionsByCountry[c] = (positionsByCountry[c] || 0) + 1;
+            });
+
+            const DESK_LABELS_AI = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
+            const positionsByDesk = {};
+            mData.forEach(m => {
+                if (!m.desk) return;
+                const label = DESK_LABELS_AI[m.desk] || m.desk;
+                positionsByDesk[label] = (positionsByDesk[label] || 0) + 1;
+            });
+
+            // Taux d'anticipation : proportion de postes pour lesquels un futur occupant
+            // est déjà identifié (cf. Hercules getRecruitmentAnalytics, preparationRate).
+            const positionsWithFutureTalent = mData.filter(m => !!m.future_talent_id).length;
+            const preparationRate = total > 0 ? Math.round((positionsWithFutureTalent / total) * 100) : 0;
+
             let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
-            talentsForPool.forEach(t => {
+            const activeTalents = talentsForPool.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
                 const isRed = t.isRedListed || t.is_red_listed;
-                if (t.status === 'En poste ALIMA' || !isVal || isRed) return;
+                return isVal && !isRed;
+            });
+
+            activeTalents.forEach(t => {
+                if (t.status === 'En poste ALIMA') return;
 
                 let availDate = null;
                 if (t.availability_type === 'asap') availDate = now;
@@ -621,7 +659,50 @@
                 return isVal && calculateMonthsWithoutMission(t) >= 20;
             }).length;
 
+            // Répartition Homme/Femme — comptage agrégé uniquement (cf. décision utilisateur :
+            // acceptable à l'échelle moyenne d'un pool ~30 personnes, jamais par individu).
+            const genderDistribution = { hommes: 0, femmes: 0, nonRenseigne: 0 };
+            activeTalents.forEach(t => {
+                if (t.gender === 'H') genderDistribution.hommes++;
+                else if (t.gender === 'F') genderDistribution.femmes++;
+                else genderDistribution.nonRenseigne++;
+            });
+
+            // Répartition par nationalité — comptage agrégé (cf. Hercules getTalentAnalytics,
+            // nationalityDistribution).
+            const nationalityDistribution = {};
+            activeTalents.forEach(t => {
+                if (!t.nationality) return;
+                nationalityDistribution[t.nationality] = (nationalityDistribution[t.nationality] || 0) + 1;
+            });
+
+            // Répartition par langue parlée — comptage agrégé (cf. Hercules getTalentAnalytics,
+            // languageDistribution). `languages` est un tableau côté talents.
+            const languageDistribution = {};
+            activeTalents.forEach(t => {
+                const langs = Array.isArray(t.languages) ? t.languages : (t.languages ? [t.languages] : []);
+                langs.forEach(lang => {
+                    languageDistribution[lang] = (languageDistribution[lang] || 0) + 1;
+                });
+            });
+
+            // Tranches d'expérience ALIMA — cf. Hercules getTalentAnalytics,
+            // experienceDistribution (junior/intermediate/senior/expert).
+            const experienceDistribution = { junior: 0, intermediaire: 0, senior: 0, expert: 0 };
+            activeTalents.forEach(t => {
+                const exp = t.experience_months_alima || 0;
+                if (exp < 6) experienceDistribution.junior++;
+                else if (exp < 18) experienceDistribution.intermediaire++;
+                else if (exp < 36) experienceDistribution.senior++;
+                else experienceDistribution.expert++;
+            });
+
+            // Taux d'adéquation talents/postes — cf. Hercules getRecruitmentAnalytics,
+            // talentMatchRate (talents disponibles sous 6 mois rapportés au nb de postes).
+            const talentMatchRate = total > 0 ? Math.round((availableSoon / total) * 100) : 0;
+
             return {
+                // Postes
                 totalPositions: total,
                 occupiedPositions: occupied,
                 recruitingPositions: recruiting,
@@ -630,12 +711,23 @@
                 endingIn3Months: endingWithin(threeMonthsLater),
                 endingIn6Months: endingWithin(sixMonthsLater),
                 renewableContractsSoon: renewableSoon,
+                candidateTypeDistribution: { expatries: expatPositions, nationaux: nationalPositions },
+                positionsByCountry,
+                positionsByDesk,
+                preparationRatePercent: preparationRate,
+
+                // Talents
                 availableTalentsNow: availableNow,
                 availableTalentsWithin6Months: availableSoon,
                 experiencedAvailableTalents: experiencedAvailable,
                 juniorAvailableTalents: juniorAvailable,
                 redListedTalents: redListedCount,
-                talentsAtRiskOfDevalidation: atRiskCount
+                talentsAtRiskOfDevalidation: atRiskCount,
+                genderDistribution,
+                nationalityDistribution,
+                languageDistribution,
+                experienceDistributionMonthsAlima: experienceDistribution,
+                talentMatchRatePercent: talentMatchRate
             };
         }
 
@@ -646,10 +738,16 @@
                 `${JSON.stringify(stats, null, 2)}\n\n` +
                 `Structure ta réponse en exactement 3 sections avec des titres Markdown ## : ` +
                 `"## Analyse des Talents", "## Analyse des Postes", "## Recommandations Stratégiques". ` +
-                `Les deux premières sections font 2 à 4 phrases chacune ; la dernière est une liste ` +
-                `à puces de 3 recommandations concrètes et actionnables, classées par priorité. ` +
-                `Réponds en français, en Markdown simple (titres avec ##, listes avec -), sans ` +
-                `préambule ni formule de politesse.`;
+                `Dans "Analyse des Talents", commente si pertinent la diversité du pool ` +
+                `(répartition femmes/hommes, nationalités, langues, tranches d'expérience) ` +
+                `en plus de la disponibilité et des risques de dévalidation. Dans "Analyse ` +
+                `des Postes", commente si pertinent le taux d'anticipation (postes avec un ` +
+                `futur occupant déjà identifié) et la répartition géographique/desk, en plus ` +
+                `de l'occupation et des contrats. Les deux premières sections font 2 à 4 ` +
+                `phrases chacune ; la dernière est une liste à puces de 3 recommandations ` +
+                `concrètes et actionnables, classées par priorité. Réponds en français, en ` +
+                `Markdown simple (titres avec ##, listes avec -), sans préambule ni formule ` +
+                `de politesse.`;
         }
 
         // Appel dédié à l'analyse par pool — implémentation séparée de generateAIReport()
