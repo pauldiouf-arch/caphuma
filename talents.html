@@ -737,7 +737,7 @@
                 const eligible = isDevalidationEligible(t);
                 const isDevalidated = t.is_valid === false;
 
-                row.className = "bg-white border rounded-2xl p-4 flex items-center justify-between gap-4 hover:shadow-sm transition-all cursor-pointer " +
+                row.className = "bg-white border rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-sm transition-all cursor-pointer " +
                     (eligible ? "border-red-300 bg-red-50" : "border-slate-200");
 
                 let extraBadge = '';
@@ -753,8 +753,8 @@
                 const canManage = currentUserRole !== 'visitor';
 
                 row.innerHTML = `
-                    <div class="flex items-center gap-3 min-w-0 flex-1">
-                        <div class="h-10 w-10 rounded-full bg-primary-light text-primary font-extrabold flex items-center justify-center shrink-0">
+                    <div class="flex items-start gap-3 min-w-0 flex-1">
+                        <div class="h-10 w-10 rounded-full bg-primary-light text-primary font-extrabold flex items-center justify-center shrink-0 mt-0.5">
                             ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
                         </div>
                         <div class="min-w-0 flex-1">
@@ -762,8 +762,16 @@
                             <p class="talent-name-hover font-bold text-slate-800 hover:text-primary hover:underline truncate">
                                 ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? '🚩' : ''}
                             </p>
-                            <p class="text-xs text-slate-400 truncate">${escapeHtml(t.current_function || t.email || '')}</p>
-                            ${renderCompactValidityBar(t)}
+                            <!-- Ligne d'infos secondaires (fonction, expérience, disponibilité) —
+                                 sur le modèle Hercules talent-list.tsx, absente jusqu'ici de cette liste. -->
+                            <p class="text-xs text-slate-400 truncate mt-0.5">
+                                <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
+                                <span class="mx-1.5 text-slate-300">·</span>
+                                <span class="font-semibold text-slate-500">Exp. ALIMA :</span> ${t.experience_months_alima || 0} mois
+                                <span class="mx-1.5 text-slate-300">·</span>
+                                <span class="font-semibold text-slate-500">Disponible :</span> ${escapeHtml(formatAvailabilityLabel(t))}
+                            </p>
+                            ${renderInlineValidityBar(t)}
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
@@ -1444,10 +1452,42 @@
             return { isInvalid, isPaused, totalMonths, cappedMonths, progressPercent, remainingMonths, barColor, textColor, refDate, refLabel };
         }
 
-        function renderCompactValidityBar(talent) {
+        // Version "liste" de la jauge de validité — reprend le même contenu que
+        // renderValidityIndicator() (libellé + explication contextuelle selon la
+        // position du talent), mais retourne une chaîne HTML autonome au lieu
+        // d'injecter dans un unique élément #validityIndicator, pour être utilisable
+        // une fois par ligne dans la liste des talents (demande explicite de
+        // l'utilisateur : ne pas se limiter à une barre nue, cf. Hercules
+        // devalidation-progress-bar.tsx).
+        function renderInlineValidityBar(talent) {
             const v = getValidityData(talent);
-            const opacity = v.isPaused ? 'opacity-50' : '';
-            return `<div class="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden mt-2"><div class="h-full rounded-full ${v.barColor} ${opacity}" style="width:${v.progressPercent}%"></div></div>`;
+            let labelHtml, bottomHtml;
+
+            if (v.isInvalid) {
+                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1">⛔ Dévalidé</span><span class="text-red-600 font-bold">24 / 24 mois</span>`;
+                bottomHtml = '';
+            } else if (v.isPaused) {
+                labelHtml = `<span class="text-blue-600 font-bold flex items-center gap-1">⏸ Compteur suspendu</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
+                bottomHtml = `<p class="text-[11px] text-blue-500 mt-0.5">⏸ En mission ALIMA — compteur en pause</p>`;
+            } else {
+                const riskLabel = v.totalMonths < 20 ? 'Validité pool' : (v.totalMonths >= 22 ? 'Critique' : 'À risque');
+                const riskIcon = v.totalMonths < 20 ? '✅' : '⚠️';
+                labelHtml = `<span class="font-bold ${v.textColor} flex items-center gap-1">${riskIcon} ${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
+                const remainingText = v.totalMonths >= 20
+                    ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
+                    : '';
+                bottomHtml = remainingText
+                    ? `<p class="text-[11px] font-medium ${v.textColor} mt-0.5">${remainingText}</p>`
+                    : '';
+            }
+
+            return `
+                <div class="mt-2">
+                    <div class="flex items-center justify-between text-[11px] mb-1">${labelHtml}</div>
+                    <div class="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full ${v.barColor} ${v.isPaused ? 'opacity-50' : ''}" style="width:${v.progressPercent}%"></div></div>
+                    ${bottomHtml}
+                </div>
+            `;
         }
 
         function renderValidityIndicator(talent) {
