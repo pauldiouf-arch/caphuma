@@ -68,6 +68,9 @@
                 <a href="#" id="navTalents" class="border border-blue-200 hover:bg-blue-50 text-primary px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
                     👤 Professionnels du pool
                 </a>
+                <a href="#" id="navPoolStats" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    📊 Statistiques &amp; analyse IA
+                </a>
                 <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
                 <button id="logoutBtn" class="text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all">Déconnexion</button>
             </div>
@@ -85,9 +88,6 @@
                 <p class="text-sm text-slate-400 mt-1" id="poolSubheading">Chargement du pool…</p>
             </div>
             <div class="flex items-center gap-2">
-                <button id="analyzePoolBtn" type="button" class="hidden border border-primary text-primary hover:bg-primary-light px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all">
-                    🤖 Analyser ce pool
-                </button>
                 <button id="createMissionBtn" type="button" class="hidden bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-xs">
                     ➕ Nouveau poste
                 </button>
@@ -381,29 +381,6 @@
         </div>
     </div>
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         MODALE ANALYSE IA DU POOL (synthèse narrative + recommandations)
-         ──────────────────────────────────────────────────────────────────────── -->
-    <div id="aiAnalysisModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
-        <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
-                <div>
-                    <h3 class="text-lg font-extrabold text-slate-800">🤖 Analyse IA du pool</h3>
-                    <p class="text-xs text-slate-400 font-semibold mt-0.5" id="aiAnalysisSubtitle"></p>
-                </div>
-                <button id="closeAiAnalysisModalBtn" type="button" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
-            </div>
-
-            <div class="px-6 py-5">
-                <div id="aiAnalysisLoading" class="hidden text-center py-10 text-sm text-slate-400">
-                    Analyse en cours, quelques secondes…
-                </div>
-                <p id="aiAnalysisError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
-                <div id="aiAnalysisContent" class="prose prose-sm max-w-none text-slate-700"></div>
-            </div>
-        </div>
-    </div>
-
     <script>
         // ============================================================================
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
@@ -429,7 +406,6 @@
         const missionsEmpty = document.getElementById('missionsEmpty');
         const readOnlyNotice = document.getElementById('readOnlyNotice');
         const createMissionBtn = document.getElementById('createMissionBtn');
-        const analyzePoolBtn = document.getElementById('analyzePoolBtn');
         const kpiBar = document.getElementById('kpiBar');
 
         // Échappement HTML systématique de toute donnée venant de la base
@@ -464,6 +440,9 @@
         }
 
         navTalents.href = 'talents.html?pool=' + encodeURIComponent(currentPoolId);
+        // L'analyse IA de ce pool a été déplacée sur statistics.html (Étape E) — lien
+        // de redirection pour les habitués de l'ancien bouton "Analyser ce pool".
+        document.getElementById('navPoolStats').href = 'statistics.html?pool=' + encodeURIComponent(currentPoolId);
 
         // État en mémoire
         let currentUserId = null;
@@ -534,11 +513,8 @@
                 }
 
                 // Édition réservée à admin + user (recruteur) ; visitor en lecture seule.
-                // Le bouton d'analyse IA suit la même restriction que côté Edge Function
-                // (ai-proxy exclut "visitor" server-side également).
                 if (currentUserRole === 'admin' || currentUserRole === 'user') {
                     createMissionBtn.classList.remove('hidden');
-                    analyzePoolBtn.classList.remove('hidden');
                 } else {
                     readOnlyNotice.classList.remove('hidden');
                 }
@@ -1603,168 +1579,6 @@
                 saveBtn.textContent = evaluationId ? 'Enregistrer les modifications' : "Ajouter l'évaluation";
             }
         });
-        // ============================================================================
-        // 8. ANALYSE IA DU POOL (Edge Function générique ai-proxy)
-        // ============================================================================
-        // Rendu markdown minimal et sûr : échappement HTML d'abord (empêche toute
-        // injection), mise en forme markdown ensuite, sur le texte déjà échappé.
-        function renderMarkdownToHtml(text) {
-            if (!text) return '';
-            let html = escapeHtml(text);
-            html = html.replace(/^## (.*)$/gm, '<h3 class="font-bold text-slate-800 mt-3 mb-1">$1</h3>');
-            html = html.replace(/^# (.*)$/gm, '<h2 class="font-extrabold text-slate-900 mt-3 mb-1">$1</h2>');
-            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            html = html.replace(/^- (.*)$/gm, '<li class="ml-4 list-disc">$1</li>');
-            html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, function (match) {
-                return '<ul class="my-1">' + match + '</ul>';
-            });
-            html = html.replace(/\n\n/g, '</p><p class="mt-2">');
-            html = html.replace(/\n/g, '<br>');
-            return '<p>' + html + '</p>';
-        }
-
-        const aiAnalysisModal = document.getElementById('aiAnalysisModal');
-        const aiAnalysisSubtitle = document.getElementById('aiAnalysisSubtitle');
-        const aiAnalysisLoading = document.getElementById('aiAnalysisLoading');
-        const aiAnalysisError = document.getElementById('aiAnalysisError');
-        const aiAnalysisContent = document.getElementById('aiAnalysisContent');
-
-        document.getElementById('closeAiAnalysisModalBtn').addEventListener('click', () => {
-            aiAnalysisModal.classList.add('hidden');
-        });
-
-        // Construit le prompt complet côté client (données déjà agrégées et
-        // anonymisées, aucun nom de talent) — la Edge Function ai-proxy ne fait
-        // que le transmettre à l'IA de façon sécurisée.
-        function buildPoolAnalysisPrompt(poolLabel, stats) {
-            return `Tu es un(e) analyste RH pour une organisation humanitaire (ALIMA). ` +
-                `Voici un instantané agrégé et anonymisé du pool "${poolLabel}" ` +
-                `(uniquement des comptages, aucune donnée nominative de talent) :\n\n` +
-                `${JSON.stringify(stats, null, 2)}\n\n` +
-                `Rédige une synthèse narrative courte (5 à 8 phrases) de la santé de ce pool : ` +
-                `couverture des postes, risques de pénurie à venir, contrats arrivant à échéance, ` +
-                `capacité de recrutement actuelle. Termine par 3 recommandations concrètes et ` +
-                `actionnables, classées par priorité. Réponds en français, en Markdown simple ` +
-                `(titres avec ##, listes avec -), sans préambule ni formule de politesse.`;
-        }
-
-        async function callAiProxy(prompt) {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) throw new Error("Session expirée — reconnectez-vous.");
-
-            const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'apikey': SUPABASE_ANON_KEY
-                },
-                body: JSON.stringify({ prompt })
-            });
-
-            const result = await response.json();
-            if (!response.ok || result.error) {
-                throw new Error(result.error || `Erreur serveur (${response.status})`);
-            }
-            return result.analysis;
-        }
-
-        analyzePoolBtn.addEventListener('click', async () => {
-            aiAnalysisModal.classList.remove('hidden');
-            aiAnalysisSubtitle.textContent = poolHeading.textContent;
-            aiAnalysisContent.innerHTML = '';
-            aiAnalysisError.classList.add('hidden');
-            aiAnalysisLoading.classList.remove('hidden');
-
-            try {
-                const stats = await buildPoolAnalysisStats();
-                const prompt = buildPoolAnalysisPrompt(poolHeading.textContent, stats);
-                const analysis = await callAiProxy(prompt);
-                aiAnalysisContent.innerHTML = renderMarkdownToHtml(analysis);
-
-            } catch (error) {
-                console.error("Erreur analyse IA du pool :", error);
-                aiAnalysisError.textContent = "Impossible de générer l'analyse : " + (error && error.message ? error.message : 'erreur inconnue.');
-                aiAnalysisError.classList.remove('hidden');
-            } finally {
-                aiAnalysisLoading.classList.add('hidden');
-            }
-        });
-
-        // Construit l'instantané agrégé et anonymisé envoyé à l'IA — aucune donnée
-        // nominative de talent, uniquement des comptages (cf. Master Context 14.1,
-        // même principe que buildAnonymizedPayload() de statistics.html).
-        // Logique de disponibilité adaptée de Hercules positions/analytics.ts
-        // (getRecommendations), avec les vrais noms de colonnes Postgres.
-        async function buildPoolAnalysisStats() {
-            const now = Date.now();
-            const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
-            const threeMonthsLater = now + 3 * 30 * 24 * 60 * 60 * 1000;
-            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
-
-            const total = currentMissions.length;
-            const occupied = currentMissions.filter(m => m.status === 'occupied').length;
-            const recruiting = currentMissions.filter(m => m.status === 'recruiting').length;
-            const vacant = currentMissions.filter(m => m.status === 'vacant').length;
-
-            function endingWithin(maxDate) {
-                return currentMissions.filter(m => {
-                    if (!m.contract_end_date) return false;
-                    const t = new Date(m.contract_end_date).getTime();
-                    return t > now && t <= maxDate;
-                }).length;
-            }
-
-            const renewableSoon = currentMissions.filter(m => {
-                if (m.contract_status !== 'renewable' || !m.contract_end_date) return false;
-                const t = new Date(m.contract_end_date).getTime();
-                return t > now && t <= sixMonthsLater;
-            }).length;
-
-            let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
-            try {
-                // Colonnes ciblées, requête à la demande uniquement (pas à chaque
-                // chargement de page) — règle perf Master Context section 2 bis.2.
-                const { data: talents, error } = await supabaseClient
-                    .from('talents')
-                    .select('status, is_valid, is_red_listed, experience_months_alima, availability_type, availability_date, availability_months')
-                    .eq('pool', currentPoolId);
-                if (error) throw error;
-
-                (talents || []).forEach(t => {
-                    if (t.status === 'En poste ALIMA' || t.is_valid === false || t.is_red_listed) return;
-
-                    let availDate = null;
-                    if (t.availability_type === 'asap') availDate = now;
-                    else if (t.availability_type === 'date' && t.availability_date) availDate = new Date(t.availability_date).getTime();
-                    else if (t.availability_type === 'notice' && t.availability_months != null) availDate = now + t.availability_months * 30 * 24 * 60 * 60 * 1000;
-
-                    if (availDate !== null && availDate <= now) availableNow++;
-                    if (availDate !== null && availDate <= sixMonthsLater) {
-                        availableSoon++;
-                        if ((t.experience_months_alima || 0) >= 12) experiencedAvailable++;
-                        if ((t.experience_months_alima || 0) < 6) juniorAvailable++;
-                    }
-                });
-            } catch (error) {
-                console.error("Erreur de calcul de la disponibilité des talents :", error);
-            }
-
-            return {
-                totalPositions: total,
-                occupiedPositions: occupied,
-                recruitingPositions: recruiting,
-                vacantPositions: vacant,
-                endingIn1Month: endingWithin(oneMonthLater),
-                endingIn3Months: endingWithin(threeMonthsLater),
-                endingIn6Months: endingWithin(sixMonthsLater),
-                renewableContractsSoon: renewableSoon,
-                availableTalentsNow: availableNow,
-                availableTalentsWithin6Months: availableSoon,
-                experiencedAvailableTalents: experiencedAvailable,
-                juniorAvailableTalents: juniorAvailable
-            };
-        }
     </script>
 </body>
 </html>

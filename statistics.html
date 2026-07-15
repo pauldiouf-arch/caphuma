@@ -212,6 +212,31 @@
             </div>
         </div>
 
+        <!-- Analyse IA par pool (Étape E) — reconstruite ici depuis missions.html, sur le
+             modèle Hercules "Analyse IA - {pool}" (Analyse Talents / Analyse Postes /
+             Recommandations Stratégiques). Visible uniquement en vue par pool, jamais sur
+             la vue globale (déjà jugée satisfaisante par l'utilisateur). Générée à la
+             demande (bouton), jamais automatiquement, sur des données agrégées et
+             anonymisées uniquement — aucun nom, email ou évaluation individuelle n'est
+             envoyé à l'IA — via le moteur ai-proxy déjà en place (partagé avec le Hub
+             Assistant IA Stratégique global ci-dessous, non modifié). -->
+        <div id="pool-ai-analysis-card" class="hidden bg-white border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-white rounded-3xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <span>💡</span> Analyse IA — <span id="pool-ai-analysis-pool-name">ce pool</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1">Analyse des talents, analyse des postes et recommandations stratégiques, sur des données agrégées et anonymisées</p>
+                </div>
+                <button id="pool-ai-analysis-btn" type="button" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2 shrink-0">
+                    <span>Lancer l'analyse IA du pool</span>
+                    <div id="pool-ai-analysis-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                </button>
+            </div>
+            <p id="pool-ai-analysis-error" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+            <div id="pool-ai-analysis-content" class="hidden rounded-2xl bg-white border border-slate-200 p-6 text-sm leading-relaxed text-slate-700"></div>
+        </div>
+
         <!-- Hub Assistant IA Stratégique -->
         <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
             <div class="flex items-center gap-3">
@@ -414,9 +439,14 @@
         }
 
         async function loadRawData() {
+            // Colonnes étendues par rapport à avant l'Étape E : experience_months_alima,
+            // experience_months_humanitarian, availability_type/date/months — nécessaires
+            // à l'analyse IA par pool reconstruite ici (ex-missions.html), sans requête
+            // supplémentaire dédiée. Purement additif : aucune colonne retirée, le calcul
+            // des KPI du Hub global n'est pas modifié.
             const { data: talents, error: et } = await supabaseClient
                 .from('talents')
-                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date');
+                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, experience_months_humanitarian, availability_type, availability_date, availability_months');
             if (et) throw et;
             rawTalents = talents || [];
 
@@ -513,7 +543,178 @@
             }
 
             updateDetailedContractStats(selectorValue, mData);
+            updatePoolAiAnalysisVisibility(selectorValue, talents, mData);
         }
+
+        // ============================================================================
+        // ANALYSE IA PAR POOL (Étape E) — reconstruite depuis missions.html. Statistiques
+        // agrégées calculées en mémoire (rawTalents/rawMissions déjà chargés pour tous les
+        // pools, filtrage synchrone, pas de requête réseau supplémentaire).
+        // ============================================================================
+        function updatePoolAiAnalysisVisibility(selectorValue, talentsForPool, mData) {
+            const card = document.getElementById('pool-ai-analysis-card');
+
+            if (selectorValue === 'global') {
+                card.classList.add('hidden');
+                return;
+            }
+            card.classList.remove('hidden');
+
+            // Changement de pool : on masque toute analyse précédente (celle d'un autre
+            // pool) plutôt que de laisser un résultat obsolète visible à l'écran.
+            document.getElementById('pool-ai-analysis-content').classList.add('hidden');
+            document.getElementById('pool-ai-analysis-content').innerHTML = '';
+            document.getElementById('pool-ai-analysis-error').classList.add('hidden');
+
+            const poolInfo = poolList.find(p => (p.pool_id || p.poolId || "").toUpperCase() === selectorValue.toUpperCase());
+            document.getElementById('pool-ai-analysis-pool-name').textContent = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
+        }
+
+        // Instantané agrégé et anonymisé (comptages uniquement, aucune donnée
+        // nominative) — logique de disponibilité identique à celle d'avant l'Étape E
+        // sur missions.html (adaptée de Hercules positions/analytics.ts, getRecommendations).
+        function buildPoolAnalysisStats(mData, talentsForPool) {
+            const now = Date.now();
+            const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
+            const threeMonthsLater = now + 3 * 30 * 24 * 60 * 60 * 1000;
+            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
+
+            const total = mData.length;
+            const occupied = mData.filter(m => m.status === 'occupied').length;
+            const recruiting = mData.filter(m => m.status === 'recruiting').length;
+            const vacant = mData.filter(m => m.status === 'vacant').length;
+
+            const endingWithin = (maxDate) => mData.filter(m => {
+                if (!m.contract_end_date) return false;
+                const t = new Date(m.contract_end_date).getTime();
+                return t > now && t <= maxDate;
+            }).length;
+
+            const renewableSoon = mData.filter(m => {
+                if (m.contract_status !== 'renewable' || !m.contract_end_date) return false;
+                const t = new Date(m.contract_end_date).getTime();
+                return t > now && t <= sixMonthsLater;
+            }).length;
+
+            let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
+            talentsForPool.forEach(t => {
+                const isVal = t.isValid !== false && t.is_valid !== false;
+                const isRed = t.isRedListed || t.is_red_listed;
+                if (t.status === 'En poste ALIMA' || !isVal || isRed) return;
+
+                let availDate = null;
+                if (t.availability_type === 'asap') availDate = now;
+                else if (t.availability_type === 'date' && t.availability_date) availDate = new Date(t.availability_date).getTime();
+                else if (t.availability_type === 'notice' && t.availability_months != null) availDate = now + t.availability_months * 30 * 24 * 60 * 60 * 1000;
+
+                if (availDate !== null && availDate <= now) availableNow++;
+                if (availDate !== null && availDate <= sixMonthsLater) {
+                    availableSoon++;
+                    if ((t.experience_months_alima || 0) >= 12) experiencedAvailable++;
+                    if ((t.experience_months_alima || 0) < 6) juniorAvailable++;
+                }
+            });
+
+            const redListedCount = talentsForPool.filter(t => t.is_red_listed || t.isRedListed).length;
+            const atRiskCount = talentsForPool.filter(t => {
+                const isVal = t.isValid !== false && t.is_valid !== false;
+                return isVal && calculateMonthsWithoutMission(t) >= 20;
+            }).length;
+
+            return {
+                totalPositions: total,
+                occupiedPositions: occupied,
+                recruitingPositions: recruiting,
+                vacantPositions: vacant,
+                endingIn1Month: endingWithin(oneMonthLater),
+                endingIn3Months: endingWithin(threeMonthsLater),
+                endingIn6Months: endingWithin(sixMonthsLater),
+                renewableContractsSoon: renewableSoon,
+                availableTalentsNow: availableNow,
+                availableTalentsWithin6Months: availableSoon,
+                experiencedAvailableTalents: experiencedAvailable,
+                juniorAvailableTalents: juniorAvailable,
+                redListedTalents: redListedCount,
+                talentsAtRiskOfDevalidation: atRiskCount
+            };
+        }
+
+        function buildPoolAnalysisPrompt(poolLabel, stats) {
+            return `Tu es un(e) analyste RH pour une organisation humanitaire (ALIMA). ` +
+                `Voici un instantané agrégé et anonymisé du pool "${poolLabel}" ` +
+                `(uniquement des comptages, aucune donnée nominative de talent) :\n\n` +
+                `${JSON.stringify(stats, null, 2)}\n\n` +
+                `Structure ta réponse en exactement 3 sections avec des titres Markdown ## : ` +
+                `"## Analyse des Talents", "## Analyse des Postes", "## Recommandations Stratégiques". ` +
+                `Les deux premières sections font 2 à 4 phrases chacune ; la dernière est une liste ` +
+                `à puces de 3 recommandations concrètes et actionnables, classées par priorité. ` +
+                `Réponds en français, en Markdown simple (titres avec ##, listes avec -), sans ` +
+                `préambule ni formule de politesse.`;
+        }
+
+        // Appel dédié à l'analyse par pool — implémentation séparée de generateAIReport()
+        // (Hub global, non modifié) plutôt que factorisée, pour ne prendre aucun risque
+        // sur une fonctionnalité déjà jugée satisfaisante par l'utilisateur.
+        async function callPoolAiProxy(prompt) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) throw new Error("Session expirée — reconnectez-vous.");
+
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({ prompt })
+            });
+
+            const result = await response.json();
+            if (!response.ok || result.error) {
+                throw new Error(result.error || `Erreur serveur (${response.status})`);
+            }
+            return result.analysis;
+        }
+
+        document.getElementById('pool-ai-analysis-btn').addEventListener('click', async () => {
+            const selectorValue = document.getElementById('pool-selector').value;
+            if (selectorValue === 'global') return; // bouton normalement masqué dans ce cas
+
+            const btn = document.getElementById('pool-ai-analysis-btn');
+            const spinner = document.getElementById('pool-ai-analysis-spinner');
+            const errorEl = document.getElementById('pool-ai-analysis-error');
+            const contentEl = document.getElementById('pool-ai-analysis-content');
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            errorEl.classList.add('hidden');
+            contentEl.classList.add('hidden');
+
+            try {
+                const mData = rawMissions.filter(m => {
+                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
+                    return mPool === selectorValue.toUpperCase();
+                });
+                const talentsForPool = rawTalents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
+
+                const poolInfo = poolList.find(p => (p.pool_id || p.poolId || "").toUpperCase() === selectorValue.toUpperCase());
+                const poolLabel = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
+
+                const stats = buildPoolAnalysisStats(mData, talentsForPool);
+                const prompt = buildPoolAnalysisPrompt(poolLabel, stats);
+                const analysis = await callPoolAiProxy(prompt);
+
+                contentEl.innerHTML = renderMarkdownToHtml(analysis);
+                contentEl.classList.remove('hidden');
+            } catch (error) {
+                console.error("Erreur analyse IA du pool :", error);
+                errorEl.textContent = "Impossible de générer l'analyse : " + (error && error.message ? error.message : 'erreur inconnue.');
+                errorEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        });
 
         // ============================================================================
         // STATISTIQUES DÉTAILLÉES DES CONTRATS PAR POOL (Étape C, cf. Hercules
