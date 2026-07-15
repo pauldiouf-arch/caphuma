@@ -652,10 +652,23 @@
         // l'information soit encore saisie. Décision explicite de l'utilisateur,
         // par analogie avec la règle "jamais de dévalidation automatique" :
         //   - contract_status === 'ending' (confirmé "Se termine") → sortie automatique
-        //     (même traitement qu'une sortie normale : archivage + poste vacant).
+        //     (archivage), PUIS :
+        //       • si un futur occupant est déjà identifié (future_talent_id) → rotation
+        //         automatique : il devient l'occupant, avec son propre contrat (dates
+        //         future_contract_start_date/end_date déjà saisies à l'avance) — point
+        //         ouvert historique du Master Context ("rotation automatique du futur
+        //         occupant"), jamais construit jusqu'ici, cf. Hercules
+        //         positions/mutations.ts : processExpiredContracts.
+        //       • sinon → poste vacant (comportement inchangé).
         //   - tout autre cas (ongoing/renewable/non précisé) → aucune écriture
         //     automatique, seulement un signalement visuel (badge rouge) dans
         //     renderMissions(), à charge de l'utilisateur de mettre à jour manuellement.
+        //
+        // Écart assumé par rapport à Hercules : le contract_status du poste est
+        // explicitement remis à null lors d'une rotation (plutôt que silencieusement
+        // hérité de l'ancien contrat, ce qui afficherait "Se termine" sur un contrat qui
+        // vient de démarrer) — cohérent avec la philosophie du site : toute confirmation
+        // de statut de contrat reste une décision humaine.
         async function processExpiredMissions() {
             const now = Date.now();
             const toProcess = currentMissions.filter(m =>
@@ -667,24 +680,51 @@
 
             if (toProcess.length === 0) return;
 
-            let processedCount = 0;
+            let rotatedCount = 0;
+            let vacatedCount = 0;
             for (const mission of toProcess) {
                 try {
                     await archiveOutgoingOccupant(mission);
-                    const { data, error } = await supabaseClient
-                        .from('missions')
-                        .update({ status: 'vacant', occupant_id: null })
-                        .eq('id', mission.id)
-                        .select('id');
-                    if (error) throw error;
-                    if (data && data.length > 0) processedCount++;
+
+                    if (mission.future_talent_id) {
+                        const { data, error } = await supabaseClient
+                            .from('missions')
+                            .update({
+                                status: 'occupied',
+                                occupant_id: mission.future_talent_id,
+                                contract_start_date: mission.future_contract_start_date || null,
+                                contract_end_date: mission.future_contract_end_date || null,
+                                contract_status: null,
+                                future_talent_id: null,
+                                future_contract_start_date: null,
+                                future_contract_end_date: null
+                            })
+                            .eq('id', mission.id)
+                            .select('id');
+                        if (error) throw error;
+                        if (data && data.length > 0) {
+                            await markIncomingOccupant(mission.future_talent_id);
+                            rotatedCount++;
+                        }
+                    } else {
+                        const { data, error } = await supabaseClient
+                            .from('missions')
+                            .update({ status: 'vacant', occupant_id: null })
+                            .eq('id', mission.id)
+                            .select('id');
+                        if (error) throw error;
+                        if (data && data.length > 0) vacatedCount++;
+                    }
                 } catch (error) {
                     console.error("Erreur de traitement automatique du contrat expiré :", mission.id, error);
                 }
             }
 
-            if (processedCount > 0) {
-                toastMessage(`${processedCount} poste(s) automatiquement libéré(s) suite à une fin de contrat confirmée.`, 'success');
+            if (rotatedCount > 0 || vacatedCount > 0) {
+                const parts = [];
+                if (rotatedCount > 0) parts.push(`${rotatedCount} poste(s) automatiquement transféré(s) au futur occupant prévu`);
+                if (vacatedCount > 0) parts.push(`${vacatedCount} poste(s) automatiquement libéré(s)`);
+                toastMessage(parts.join(' · ') + ' suite à une fin de contrat confirmée.', 'success');
                 const { data: refreshed, error: refreshErr } = await supabaseClient
                     .from('missions')
                     .select('*')
