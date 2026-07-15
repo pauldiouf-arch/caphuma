@@ -84,6 +84,33 @@
             <p class="text-sm text-slate-400 mt-1">Réintégrez un talent, transférez-le vers la Liste Rouge, ou supprimez-le définitivement.</p>
         </div>
 
+        <!-- ────────────────────────────────────────────────────────────────────
+             FILTRES (Étape B) — pool, date de début et date de fin de dévalidation
+             ──────────────────────────────────────────────────────────────────── -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Pool</label>
+                    <select id="filterPool" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="">Tous les pools</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Dévalidé à partir du</label>
+                    <input id="filterDateFrom" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Dévalidé jusqu'au</label>
+                    <input id="filterDateTo" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                </div>
+                <div>
+                    <button id="resetFiltersBtn" class="w-full border border-slate-200 hover:bg-slate-50 text-slate-500 px-3 py-2 rounded-lg text-xs font-bold transition-all">
+                        ↺ Réinitialiser les filtres
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <p id="pageError" class="hidden mb-6 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
 
         <div id="poolsContainer" class="space-y-6">
@@ -95,6 +122,19 @@
         <p id="emptyState" class="hidden text-center text-sm text-slate-400 font-semibold py-12">
             ✅ Aucun talent dévalidé actuellement.
         </p>
+
+        <!-- ────────────────────────────────────────────────────────────────────
+             ENCART EXPLICATIF (Étape B) — adapté au fonctionnement réel du site :
+             dévalidation manuelle uniquement, jamais automatique.
+             ──────────────────────────────────────────────────────────────────── -->
+        <div class="mt-8 bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <h3 class="text-sm font-extrabold text-slate-700 mb-2">ℹ️ À propos de cette liste</h3>
+            <ul class="text-xs text-slate-500 space-y-1.5 list-disc list-inside">
+                <li>Un talent est dévalidé <strong>manuellement</strong> par un administrateur ou un recruteur depuis sa fiche, généralement lorsqu'il atteint 24 mois sans mission ALIMA — il n'existe aucune dévalidation automatique sur cette plateforme.</li>
+                <li>Toutes les informations du profil (historique de missions, évaluations, commentaires) restent conservées : réintégrer un talent lui rend son statut normal sans aucune perte de données.</li>
+                <li>Cette liste peut être exportée avec le reste des données du pool depuis la page <a href="extraction.html" class="text-primary font-semibold hover:underline">Extraction</a> (fichier Excel multi-pool).</li>
+            </ul>
+        </div>
 
     </main>
 
@@ -227,6 +267,17 @@
         // ============================================================================
         // 3. CHARGEMENT DES TALENTS DÉVALIDÉS, REGROUPÉS PAR POOL
         // ============================================================================
+        // Données brutes conservées en mémoire pour permettre un filtrage côté client
+        // (pool + plage de dates de dévalidation) sans refaire de requête à chaque
+        // changement de filtre (Étape B).
+        let allPools = [];
+        let allDevalidatedTalents = [];
+
+        const filterPoolSelect = document.getElementById('filterPool');
+        const filterDateFrom = document.getElementById('filterDateFrom');
+        const filterDateTo = document.getElementById('filterDateTo');
+        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+
         async function loadDevalidatedTalents() {
             try {
                 const [poolsRes, talentsRes] = await Promise.all([
@@ -241,16 +292,11 @@
                 if (poolsRes.error) throw poolsRes.error;
                 if (talentsRes.error) throw talentsRes.error;
 
-                const pools = poolsRes.data || [];
-                const talents = talentsRes.data || [];
+                allPools = poolsRes.data || [];
+                allDevalidatedTalents = talentsRes.data || [];
 
-                if (talents.length === 0) {
-                    poolsContainer.innerHTML = '';
-                    emptyState.classList.remove('hidden');
-                    return;
-                }
-
-                renderGroupedByPool(pools, talents);
+                populatePoolFilterOptions();
+                applyFiltersAndRender();
 
             } catch (error) {
                 console.error("Erreur de chargement des dévalidés :", error);
@@ -259,6 +305,74 @@
                 pageError.classList.remove('hidden');
             }
         }
+
+        // Peuple le filtre Pool une seule fois à partir des pools réellement
+        // représentés parmi les talents dévalidés (pas tous les pools du site,
+        // pour éviter des options vides dans le filtre).
+        function populatePoolFilterOptions() {
+            if (filterPoolSelect.dataset.populated === 'true') return;
+
+            const poolIdsPresent = new Set(allDevalidatedTalents.map(t => t.pool).filter(Boolean));
+            const poolLabel = (poolId) => {
+                const found = allPools.find(p => p.pool_id === poolId);
+                return found ? (found.full_name || found.name) : poolId;
+            };
+
+            Array.from(poolIdsPresent).sort().forEach(poolId => {
+                const opt = document.createElement('option');
+                opt.value = poolId;
+                opt.textContent = poolLabel(poolId);
+                filterPoolSelect.appendChild(opt);
+            });
+
+            filterPoolSelect.dataset.populated = 'true';
+        }
+
+        // Applique les filtres actifs (pool, date début, date fin) sur les données
+        // brutes en mémoire, puis (ré)affiche la liste regroupée par pool. Réinitialise
+        // implicitement toute pagination existante à chaque appel (pas de pagination
+        // sur cette page pour l'instant — voir Master Context, chantier section 16).
+        function applyFiltersAndRender() {
+            const poolFilterVal = filterPoolSelect.value;
+            const fromVal = filterDateFrom.value ? new Date(filterDateFrom.value + 'T00:00:00') : null;
+            const toVal = filterDateTo.value ? new Date(filterDateTo.value + 'T23:59:59') : null;
+
+            const filtered = allDevalidatedTalents.filter(t => {
+                if (poolFilterVal && t.pool !== poolFilterVal) return false;
+
+                if (fromVal || toVal) {
+                    if (!t.devalidation_date) return false;
+                    const dDate = new Date(t.devalidation_date);
+                    if (fromVal && dDate < fromVal) return false;
+                    if (toVal && dDate > toVal) return false;
+                }
+
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                poolsContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                emptyState.textContent = allDevalidatedTalents.length === 0
+                    ? '✅ Aucun talent dévalidé actuellement.'
+                    : '🔎 Aucun talent dévalidé ne correspond à ces filtres.';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            renderGroupedByPool(allPools, filtered);
+        }
+
+        filterPoolSelect.addEventListener('change', applyFiltersAndRender);
+        filterDateFrom.addEventListener('change', applyFiltersAndRender);
+        filterDateTo.addEventListener('change', applyFiltersAndRender);
+
+        resetFiltersBtn.addEventListener('click', () => {
+            filterPoolSelect.value = '';
+            filterDateFrom.value = '';
+            filterDateTo.value = '';
+            applyFiltersAndRender();
+        });
 
         function renderGroupedByPool(pools, talents) {
             poolsContainer.innerHTML = '';
