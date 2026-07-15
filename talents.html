@@ -112,8 +112,11 @@
                 </div>
             </div>
 
-            <!-- Filtres avancés (repliables) -->
-            <div id="advancedFiltersPanel" class="hidden space-y-3 pt-3 border-t border-slate-100">
+            <!-- Filtres avancés (repliables) — hauteur plafonnée + défilement interne
+                 (Étape D) : avant ce correctif, un panneau trop grand poussait les derniers
+                 champs (zone géographique, etc.) hors de l'écran sans aucun moyen d'y accéder,
+                 le body de la page étant en overflow-hidden (seule la liste en dessous défilait). -->
+            <div id="advancedFiltersPanel" class="hidden space-y-3 pt-3 border-t border-slate-100 max-h-[55vh] overflow-y-auto pr-1">
                 <div class="bg-primary-light border border-blue-100 rounded-lg p-3 space-y-1.5">
                     <label class="text-xs font-bold text-primary flex items-center gap-1.5">🔎 Recherche par compétences / mots-clés</label>
                     <input id="filterKeyword" type="text" placeholder="Ex : gestion de stock, urgence, leadership, Tchad..." class="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
@@ -196,6 +199,20 @@
         </div>
         <p id="emptyState" class="hidden text-center text-sm text-slate-400 font-semibold py-12">Aucun talent ne correspond à ta recherche.</p>
         <p id="listError" class="hidden mt-4 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
+
+        <!-- Pagination réelle (Étape D, Option A) — visible uniquement en navigation
+             normale (statut/tri simples). Dès qu'une recherche par mot-clé ou un filtre
+             avancé est actif, la page bascule en mode "liste complète" (comme avant
+             cette étape) et ces contrôles se masquent : voir computeIsFullListMode(). -->
+        <div id="paginationControls" class="hidden mt-6 flex items-center justify-between gap-3">
+            <button id="prevPageBtn" type="button" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                ← Page précédente
+            </button>
+            <p class="text-xs font-semibold text-slate-400" id="paginationLabel">Page 1</p>
+            <button id="nextPageBtn" type="button" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                Page suivante →
+            </button>
+        </div>
     </main>
 
     <!-- ═══════════════════════════════════ MODAL FORMULAIRE (6 ONGLETS) ═══════════════════════════════════ -->
@@ -513,11 +530,58 @@
         }
 
         // ============================================================================
-        // 3. CHARGEMENT + RENDU DE LA LISTE
+        // 3. CHARGEMENT + RENDU DE LA LISTE (Étape D, Option A — pagination réelle)
         // ============================================================================
-        let allTalents = [];
+        // Deux modes, choisis à chaque appel de loadTalents() selon les filtres actifs :
+        //   - Mode PAGINÉ (par défaut) : une seule page de PAGE_SIZE talents est demandée
+        //     à Supabase (.range()), filtrée/triée côté serveur (statut + tri simple
+        //     uniquement). C'est le mode normal de navigation.
+        //   - Mode LISTE COMPLÈTE : dès qu'une recherche par mot-clé ou un filtre avancé
+        //     est actif (voir computeIsFullListMode), on revient au comportement d'avant
+        //     cette étape — tout le pool est chargé une fois (mis en cache dans
+        //     allTalents) puis filtré/trié entièrement côté client. Nécessaire car la
+        //     recherche par mot-clé fouille aussi l'historique de missions archivées,
+        //     ce qui ne se traduit pas simplement en requête Supabase paginée.
+        // ============================================================================
+        let allTalents = null; // null = pas encore chargé (chargement paresseux, seulement si le mode liste complète est activé)
+        const PAGE_SIZE = 20;
+        let currentPage = 0;
+        let totalCount = 0;
+        let isFullListMode = false;
+
+        function computeIsFullListMode() {
+            const f = searchFilters;
+            if (f.searchQuery) return true;
+            if (f.keywordFilter) return true;
+            // Le tri "Disponibilité" est calculé à partir de 3 colonnes combinées
+            // (availability_type/availability_date/availability_months) — pas
+            // traduisible en un simple .order() Supabase, donc liste complète.
+            if (f.sortBy === 'availability') return true;
+            if (f.minExpAlima || f.minExpHumanitarian) return true;
+            if (f.availableFrom || f.availableTo) return true;
+            if (f.nationalityFilter || f.countryFilter || f.languagesFilter) return true;
+            if (f.hasVisaFilter || f.hasMissionOpeningFilter || f.hasEmergencyMissionFilter) return true;
+            if (f.interventionContextFilter || f.interventionZoneFilter) return true;
+            return false;
+        }
 
         async function loadTalents() {
+            isFullListMode = computeIsFullListMode();
+
+            if (isFullListMode) {
+                document.getElementById('paginationControls').classList.add('hidden');
+                if (allTalents === null) {
+                    await fetchAllTalents();
+                }
+                applyFiltersAndRender();
+            } else {
+                await fetchPagedTalents();
+            }
+        }
+
+        // Chargement complet (une seule fois, mis en cache) — comportement identique
+        // à celui d'avant l'Étape D, utilisé uniquement en mode liste complète.
+        async function fetchAllTalents() {
             const listEl = document.getElementById('talentsList');
             const errorEl = document.getElementById('listError');
             try {
@@ -526,7 +590,53 @@
                 const { data, error } = await query;
                 if (error) throw error;
                 allTalents = data || [];
-                applyFiltersAndRender();
+            } catch (err) {
+                console.error(err);
+                listEl.innerHTML = '';
+                errorEl.textContent = "Impossible de charger les talents : " + err.message;
+                errorEl.classList.remove('hidden');
+                allTalents = [];
+            }
+        }
+
+        // Chargement paginé côté requête (Étape D, Option A) — ne demande à Supabase
+        // que les PAGE_SIZE lignes de la page courante, filtrées par statut et triées
+        // côté serveur si ces filtres simples sont actifs.
+        async function fetchPagedTalents() {
+            const listEl = document.getElementById('talentsList');
+            const errorEl = document.getElementById('listError');
+            try {
+                const sortColumnMap = {
+                    name: 'last_name',
+                    integration: 'pool_integration_date',
+                    expAlima: 'experience_months_alima',
+                    expHumanitarian: 'experience_months_humanitarian'
+                };
+                const sortColumn = sortColumnMap[searchFilters.sortBy] || 'pool_integration_date';
+                const ascending = searchFilters.sortOrder === 'asc';
+
+                const from = currentPage * PAGE_SIZE;
+                const to = from + PAGE_SIZE - 1;
+
+                let query = supabaseClient
+                    .from('talents')
+                    .select('*', { count: 'exact' })
+                    .order(sortColumn, { ascending })
+                    .range(from, to);
+
+                if (currentPoolId) query = query.eq('pool', currentPoolId);
+                if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
+
+                const { data, error, count } = await query;
+                if (error) throw error;
+
+                totalCount = count || 0;
+                currentFilteredTalents = data || [];
+                renderTalents(currentFilteredTalents);
+                updateSearchSummary();
+                updateResetButtonVisibility();
+                renderPaginationControls();
+
             } catch (err) {
                 console.error(err);
                 listEl.innerHTML = '';
@@ -534,6 +644,36 @@
                 errorEl.classList.remove('hidden');
             }
         }
+
+        function renderPaginationControls() {
+            const controls = document.getElementById('paginationControls');
+            const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+            if (totalCount === 0) {
+                controls.classList.add('hidden');
+                return;
+            }
+            controls.classList.remove('hidden');
+
+            document.getElementById('paginationLabel').textContent = `Page ${currentPage + 1} sur ${totalPages}`;
+            document.getElementById('prevPageBtn').disabled = currentPage === 0;
+            document.getElementById('nextPageBtn').disabled = currentPage >= totalPages - 1;
+        }
+
+        document.getElementById('prevPageBtn').addEventListener('click', () => {
+            if (currentPage > 0) {
+                currentPage -= 1;
+                loadTalents();
+            }
+        });
+
+        document.getElementById('nextPageBtn').addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+            if (currentPage < totalPages - 1) {
+                currentPage += 1;
+                loadTalents();
+            }
+        });
 
         function statusBadge(status) {
             const map = {
@@ -544,6 +684,42 @@
             };
             return map[status] || 'bg-slate-100 text-slate-500 border-slate-200';
         }
+
+        // ============================================================================
+        // HOVER CARD (Étape D) — aperçu rapide au survol du nom : fonction, statut,
+        // disponibilité, expérience ALIMA/humanitaire. Un seul élément DOM réutilisé
+        // et repositionné à chaque survol (voir formatAvailabilityLabel plus bas,
+        // function déclarée donc "hoisted" — utilisable ici malgré l'ordre du fichier).
+        // ============================================================================
+        const talentHoverCard = document.getElementById('talentHoverCard');
+
+        function showHoverCard(t, targetEl) {
+            document.getElementById('hoverCardName').textContent = `${t.first_name || ''} ${t.last_name || ''}`.trim() || '—';
+            document.getElementById('hoverCardFunction').textContent = t.current_function || '—';
+            document.getElementById('hoverCardStatus').textContent = t.status || '—';
+            document.getElementById('hoverCardAvailability').textContent = formatAvailabilityLabel(t);
+            document.getElementById('hoverCardExpAlima').textContent = `${t.experience_months_alima || 0} mois`;
+            document.getElementById('hoverCardExpHum').textContent = `${t.experience_months_humanitarian || 0} mois`;
+
+            const rect = targetEl.getBoundingClientRect();
+            const cardWidth = 288; // correspond à w-72
+            let left = rect.left;
+            if (left + cardWidth > window.innerWidth - 8) {
+                left = window.innerWidth - cardWidth - 8;
+            }
+            talentHoverCard.style.left = Math.max(8, left) + 'px';
+            talentHoverCard.style.top = (rect.bottom + 6) + 'px';
+            talentHoverCard.classList.remove('hidden');
+        }
+
+        function hideHoverCard() {
+            talentHoverCard.classList.add('hidden');
+        }
+
+        // La carte doit disparaître si la liste défile ou si la fenêtre est redimensionnée,
+        // sinon elle resterait affichée au-dessus d'une ligne qui n'est plus la bonne.
+        document.querySelector('main').addEventListener('scroll', hideHoverCard);
+        window.addEventListener('resize', hideHoverCard);
 
         function renderTalents(talents) {
             const listEl = document.getElementById('talentsList');
@@ -583,7 +759,7 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <!-- Nom du talent redirigeant vers la carte d'identité -->
-                            <p class="font-bold text-slate-800 hover:text-primary hover:underline truncate">
+                            <p class="talent-name-hover font-bold text-slate-800 hover:text-primary hover:underline truncate">
                                 ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? '🚩' : ''}
                             </p>
                             <p class="text-xs text-slate-400 truncate">${escapeHtml(t.current_function || t.email || '')}</p>
@@ -617,6 +793,13 @@
                     const idKey = t.id || t._id;
                     window.location.href = `id-card.html?id=${idKey}`;
                 });
+
+                // Hover card (Étape D) : aperçu rapide au survol du nom, sans ouvrir la fiche
+                const nameEl = row.querySelector('.talent-name-hover');
+                if (nameEl) {
+                    nameEl.addEventListener('mouseenter', () => showHoverCard(t, nameEl));
+                    nameEl.addEventListener('mouseleave', hideHoverCard);
+                }
 
                 // Clic sur le bouton d'édition : ouvrir le modal sans déclencher le clic de la ligne
                 // (bouton absent du DOM pour visitor, donc querySelector peut renvoyer null)
@@ -835,21 +1018,41 @@
         function applyFiltersAndRender() {
             currentFilteredTalents = filterAndSortTalents(allTalents, searchFilters);
             renderTalents(currentFilteredTalents);
+            document.getElementById('paginationControls').classList.add('hidden');
+            updateSearchSummary();
+            updateResetButtonVisibility();
+        }
 
+        // Résumé du nombre de talents affichés — formulé différemment selon le mode
+        // actif (liste complète filtrée en mémoire, ou page issue de Supabase).
+        function updateSearchSummary() {
             const summary = document.getElementById('searchResultsSummary');
-            if (currentFilteredTalents.length === allTalents.length) {
-                summary.textContent = `${allTalents.length} talent${allTalents.length > 1 ? 's' : ''} au total`;
+            if (isFullListMode) {
+                if (currentFilteredTalents.length === allTalents.length) {
+                    summary.textContent = `${allTalents.length} talent${allTalents.length > 1 ? 's' : ''} au total`;
+                } else {
+                    summary.textContent = `${currentFilteredTalents.length} talent${currentFilteredTalents.length > 1 ? 's' : ''} trouvé${currentFilteredTalents.length > 1 ? 's' : ''} sur ${allTalents.length} au total`;
+                }
             } else {
-                summary.textContent = `${currentFilteredTalents.length} talent${currentFilteredTalents.length > 1 ? 's' : ''} trouvé${currentFilteredTalents.length > 1 ? 's' : ''} sur ${allTalents.length} au total`;
+                summary.textContent = `${totalCount} talent${totalCount > 1 ? 's' : ''} au total`;
             }
+        }
 
+        function updateResetButtonVisibility() {
             const hasAnyFilter = JSON.stringify(searchFilters) !== JSON.stringify(defaultSearchFilters);
             document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasAnyFilter);
         }
 
+        // Toute modification de filtre repart de la page 1 et redéclenche loadTalents(),
+        // qui décide lui-même du mode (paginé ou liste complète) à appliquer.
+        function onFiltersChanged() {
+            currentPage = 0;
+            loadTalents();
+        }
+
         document.getElementById('searchInput').addEventListener('input', e => {
             searchFilters.searchQuery = e.target.value.trim();
-            applyFiltersAndRender();
+            onFiltersChanged();
         });
 
         document.getElementById('toggleAdvancedBtn').addEventListener('click', () => {
@@ -875,7 +1078,7 @@
             document.getElementById('filterEmergencyMission').value = '';
             document.getElementById('filterContext').value = '';
             document.getElementById('filterZone').value = '';
-            applyFiltersAndRender();
+            onFiltersChanged();
         });
 
         const filterFieldBindings = [
@@ -891,7 +1094,7 @@
             const evt = (el.tagName === 'SELECT') ? 'change' : 'input';
             el.addEventListener(evt, e => {
                 searchFilters[filterKey] = e.target.value;
-                applyFiltersAndRender();
+                onFiltersChanged();
             });
         });
 
@@ -910,13 +1113,43 @@
             return "Non définie";
         }
 
-        document.getElementById('exportPoolExcelBtn').addEventListener('click', () => {
-            if (!currentFilteredTalents.length) {
+        document.getElementById('exportPoolExcelBtn').addEventListener('click', async () => {
+            // En mode paginé, currentFilteredTalents ne contient que la page affichée
+            // (PAGE_SIZE lignes) — on récupère toujours l'intégralité du pool filtré
+            // avant d'exporter, pour ne jamais produire un fichier tronqué silencieusement
+            // (Étape D, Option A). En mode liste complète, currentFilteredTalents est déjà
+            // le résultat complet filtré, rien à refaire.
+            let rowsToExport;
+            if (isFullListMode) {
+                rowsToExport = currentFilteredTalents;
+            } else {
+                try {
+                    const sortColumnMap = {
+                        name: 'last_name',
+                        integration: 'pool_integration_date',
+                        expAlima: 'experience_months_alima',
+                        expHumanitarian: 'experience_months_humanitarian'
+                    };
+                    const sortColumn = sortColumnMap[searchFilters.sortBy] || 'pool_integration_date';
+                    const ascending = searchFilters.sortOrder === 'asc';
+                    let query = supabaseClient.from('talents').select('*').order(sortColumn, { ascending });
+                    if (currentPoolId) query = query.eq('pool', currentPoolId);
+                    if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
+                    const { data, error } = await query;
+                    if (error) throw error;
+                    rowsToExport = data || [];
+                } catch (err) {
+                    alert("Erreur lors de la récupération des données à exporter : " + (err.message || 'erreur inconnue'));
+                    return;
+                }
+            }
+
+            if (!rowsToExport.length) {
                 alert("Aucun talent à exporter avec les filtres actuels.");
                 return;
             }
             try {
-                const rows = currentFilteredTalents.map(t => {
+                const rows = rowsToExport.map(t => {
                     const contexts = (t.intervention_contexts || []).join(', ');
                     const zones = (t.intervention_zones || []).join(', ');
                     const typesProjet = [contexts, zones].filter(Boolean).join(' | ') || 'N/A';
@@ -1455,6 +1688,20 @@
                 saveBtn.textContent = 'Enregistrer';
             }
         });
-    </script>
+    </script>    <!-- ═══════════════════════════════════ HOVER CARD (Étape D) ═══════════════════════════════════
+         Carte d'aperçu rapide au survol du nom d'un talent dans la liste. Un seul élément
+         réutilisé pour toute la liste (repositionné dynamiquement), pour éviter de créer un
+         nœud DOM par ligne. -->
+    <div id="talentHoverCard" class="hidden fixed z-[60] bg-white border border-slate-200 rounded-2xl shadow-xl p-4 w-72 text-sm pointer-events-none">
+        <p class="font-bold text-slate-800 mb-2 truncate" id="hoverCardName">—</p>
+        <div class="space-y-1.5 text-xs">
+            <div class="flex justify-between gap-2"><span class="text-slate-400 shrink-0">Fonction</span><span class="font-semibold text-slate-700 text-right truncate" id="hoverCardFunction">—</span></div>
+            <div class="flex justify-between gap-2"><span class="text-slate-400 shrink-0">Statut</span><span class="font-semibold text-slate-700 text-right truncate" id="hoverCardStatus">—</span></div>
+            <div class="flex justify-between gap-2"><span class="text-slate-400 shrink-0">Disponibilité</span><span class="font-semibold text-slate-700 text-right truncate" id="hoverCardAvailability">—</span></div>
+            <div class="flex justify-between gap-2"><span class="text-slate-400 shrink-0">Exp. ALIMA</span><span class="font-semibold text-slate-700" id="hoverCardExpAlima">—</span></div>
+            <div class="flex justify-between gap-2"><span class="text-slate-400 shrink-0">Exp. humanitaire</span><span class="font-semibold text-slate-700" id="hoverCardExpHum">—</span></div>
+        </div>
+    </div>
+
 </body>
 </html>
