@@ -327,8 +327,20 @@
             </div>
             <p class="text-xs text-slate-400">
                 Chaque lien donne un accès public en lecture seule (fiche "CV", sans les champs RH
-                internes) pendant 30 jours, ou jusqu'à révocation manuelle.
+                internes) pendant la durée choisie ci-dessous, ou jusqu'à révocation manuelle.
             </p>
+
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Durée de validité du prochain lien</label>
+                <select id="share-links-duration" class="w-full rounded-lg border border-slate-200 p-2 text-sm outline-none focus:border-primary">
+                    <option value="1">1 jour</option>
+                    <option value="3">3 jours</option>
+                    <option value="7">1 semaine</option>
+                    <option value="30" selected>30 jours</option>
+                    <option value="custom">Date précise…</option>
+                </select>
+                <input id="share-links-custom-date" type="date" class="hidden w-full mt-1.5 rounded-lg border border-slate-200 p-2 text-sm outline-none focus:border-primary" />
+            </div>
 
             <button id="share-links-generate" type="button" class="w-full bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-all">
                 ＋ Générer un nouveau lien
@@ -1642,6 +1654,9 @@
         function openShareLinksModal() {
             document.getElementById('share-links-modal').classList.remove('hidden');
             document.getElementById('share-links-modal').classList.add('flex');
+            document.getElementById('share-links-duration').value = '30';
+            document.getElementById('share-links-custom-date').value = '';
+            document.getElementById('share-links-custom-date').classList.add('hidden');
             loadShareLinks();
         }
 
@@ -1751,8 +1766,40 @@
             }
         }
 
+        document.getElementById('share-links-duration').addEventListener('change', (e) => {
+            document.getElementById('share-links-custom-date').classList.toggle('hidden', e.target.value !== 'custom');
+        });
+
+        // Calcule la date d'expiration ISO selon le choix du sélecteur de durée —
+        // renvoie null si la sélection est invalide (date précise manquante ou déjà
+        // passée), pour ne jamais créer un lien déjà expiré silencieusement.
+        function computeShareExpiresAt() {
+            const duration = document.getElementById('share-links-duration').value;
+
+            if (duration === 'custom') {
+                const dateVal = document.getElementById('share-links-custom-date').value;
+                if (!dateVal) return { error: "Choisissez une date d'expiration précise." };
+                // Fin de journée (23:59:59) du jour choisi, en heure locale.
+                const expiresAt = new Date(dateVal + 'T23:59:59');
+                if (expiresAt.getTime() <= Date.now()) {
+                    return { error: "La date d'expiration doit être dans le futur." };
+                }
+                return { value: expiresAt.toISOString() };
+            }
+
+            const days = parseInt(duration, 10) || 30;
+            return { value: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() };
+        }
+
         document.getElementById('share-links-generate').addEventListener('click', async () => {
             const btn = document.getElementById('share-links-generate');
+
+            const expiry = computeShareExpiresAt();
+            if (expiry.error) {
+                toastMessage(expiry.error, "error");
+                return;
+            }
+
             btn.disabled = true;
             try {
                 const token = 'st_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -1764,7 +1811,7 @@
                     talent_id: talentId,
                     created_by: currentUserId,
                     created_by_name: document.getElementById('user-display-name').textContent,
-                    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    expires_at: expiry.value,
                     is_revoked: false,
                     view_count: 0
                 });
