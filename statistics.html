@@ -37,34 +37,29 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- En-tête pleine largeur (Navbar commune sans sidebar) -->
+    <!-- En-tête pleine largeur — harmonisé (Étape A, même souci que red_list.html) :
+         plus de nav complète dupliquant le dashboard, juste Retour + titre de page. -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
-                        <span class="text-xl">🧭</span>
-                    </div>
-                    <div>
-                        <span class="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Cap Huma</span>
-                        <span class="text-xs block text-slate-400">ALIMA</span>
+                <div class="flex items-center gap-4">
+                    <a href="dashboard.html" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
+                        <span aria-hidden="true">←</span> Retour
+                    </a>
+                    <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
+                            <span class="text-xl">📊</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-lg text-slate-800">Hub Statistique & IA</span>
+                            <span class="text-xs block text-slate-400">Cap Huma — ALIMA</span>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Liens de navigation conformes à la cartographie de la section 4 -->
-                <nav class="hidden md:flex items-center gap-4 text-sm font-medium">
-                    <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
-                    <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
-                    <a href="extraction.html" id="nav-extraction" class="text-slate-600 hover:text-primary transition-colors hidden">📤 Extraction</a>
-                    <a href="red_list.html" id="nav-redlist" class="text-slate-600 hover:text-primary transition-colors hidden">⚠️ Liste Rouge</a>
-                    <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
-                    <a href="statistics.html" class="text-primary border-b-2 border-primary px-1 py-4">📊 Hub Statistique & IA</a>
-                    <a href="admin.html" id="nav-admin" class="text-slate-600 hover:text-primary transition-colors hidden">🛡️ Admin</a>
-                    <a href="audit_logs.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
-                </nav>
 
                 <div class="flex items-center gap-3">
-                    <span id="user-display-name" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                    <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
                     <button id="logout-btn" class="text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all">Déconnexion</button>
                 </div>
             </div>
@@ -226,6 +221,7 @@
         let expatChartInstance = null;
         let currentUserId = null;
         let currentUserEmail = null;
+        let currentUserRole = null;
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
@@ -282,24 +278,18 @@
         }
 
         async function checkUserRole(userId) {
+            // Étape A : la nav complète a été retirée du header (harmonisation) —
+            // cette fonction ne sert plus qu'à connaître le rôle courant si besoin
+            // ailleurs sur la page (ex. restriction de l'IA, déjà gérée côté serveur
+            // par ai-proxy). Conservée pour compatibilité future, sans manipulation
+            // de liens de nav désormais inexistants.
             try {
                 const { data: user } = await supabaseClient
                     .from('users')
                     .select('role')
                     .eq('id', userId)
                     .maybeSingle();
-                
-                if (user) {
-                    if (user.role === 'admin') {
-                        document.getElementById('nav-extraction').classList.remove('hidden');
-                        document.getElementById('nav-redlist').classList.remove('hidden');
-                        document.getElementById('nav-admin').classList.remove('hidden');
-                        document.getElementById('nav-audit').classList.remove('hidden');
-                    } else if (user.role === 'user') {
-                        document.getElementById('nav-extraction').classList.remove('hidden');
-                        document.getElementById('nav-redlist').classList.remove('hidden');
-                    }
-                }
+                if (user) currentUserRole = user.role;
             } catch (err) {
                 console.error("Erreur de droits :", err);
             }

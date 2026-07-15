@@ -34,37 +34,34 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- En-tête pleine largeur (Navbar commune sans sidebar) -->
+    <!-- En-tête pleine largeur — harmonisé (Étape A) : plus de nav complète dupliquant
+         le dashboard. À gauche : Retour + titre de page. À droite : action principale
+         de la page + user/logout. Inspiré du header red_list Hercules (Retour + action
+         unique), appliqué de façon cohérente sur cette page ET sur statistics.html. -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
-                        <span class="text-xl">🧭</span>
-                    </div>
-                    <div>
-                        <span class="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Cap Huma</span>
-                        <span class="text-xs block text-slate-400">ALIMA</span>
+                <div class="flex items-center gap-4">
+                    <a href="dashboard.html" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
+                        <span aria-hidden="true">←</span> Retour
+                    </a>
+                    <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md">
+                            <span class="text-xl">⚠️</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-lg text-slate-800">Liste Rouge</span>
+                            <span class="text-xs block text-slate-400">Talents signalés — Cap Huma</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Liens de navigation conformes à la cartographie de la section 4.
-                     Lien "Liste Rouge" déjà pointé vers red_list.html et masqué par
-                     défaut (id="nav-redlist"), conformément à l'Étape 3 de la
-                     roadmap (à répercuter sur les 4 fichiers déjà livrés). -->
-                <nav class="hidden md:flex items-center gap-4 text-sm font-medium">
-                    <a href="dashboard.html" class="text-slate-600 hover:text-primary transition-colors">Accueil</a>
-                    <a href="guide.html" class="text-slate-600 hover:text-primary transition-colors">📖 Guide</a>
-                    <a href="extraction.html" id="nav-extraction" class="text-slate-600 hover:text-primary transition-colors hidden">📤 Extraction</a>
-                    <a href="red_list.html" id="nav-redlist" class="text-primary border-b-2 border-primary px-1 py-4 hidden">⚠️ Liste Rouge</a>
-                    <a href="devalidated.html" class="text-slate-600 hover:text-primary transition-colors">⛔ Dévalidés</a>
-                    <a href="statistics.html" class="text-slate-600 hover:text-primary transition-colors">📊 Hub Statistique & IA</a>
-                    <a href="admin.html" id="nav-admin" class="text-slate-600 hover:text-primary transition-colors hidden">🛡️ Admin</a>
-                    <a href="audit_logs.html" id="nav-audit" class="text-slate-600 hover:text-primary transition-colors hidden">📋 Audit</a>
-                </nav>
-
                 <div class="flex items-center gap-3">
-                    <span id="user-display-name" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                    <button id="btn-header-add-redlist" class="hidden sm:flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-sm px-4 py-2 rounded-xl transition-all">
+                        <span>🚨</span> Ajouter à la liste rouge
+                    </button>
+                    <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
                     <button id="logout-btn" class="text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all">Déconnexion</button>
                 </div>
             </div>
@@ -97,7 +94,7 @@
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <div>
-                    <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2"><span>⚠️</span> Liste Rouge</h1>
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>⚠️</span> Talents en liste rouge</h2>
                     <p class="text-sm text-slate-500 mt-1">Talents signalés, avec motif, date et auteur du signalement</p>
                 </div>
                 <div class="text-right">
@@ -106,34 +103,14 @@
                 </div>
             </div>
 
-            <!-- Signalement d'un nouveau talent : sélection pool → talent -->
-            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><span>🚨</span> Signaler un talent</h2>
-                <div class="flex flex-col md:flex-row gap-3 items-start md:items-end">
-                    <div class="flex-1 w-full space-y-1.5">
-                        <label class="text-xs font-bold text-slate-500 uppercase">Pool</label>
-                        <select id="select-pool" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                            <option value="">— Choisir un pool —</option>
-                        </select>
-                    </div>
-                    <div class="flex-1 w-full space-y-1.5">
-                        <label class="text-xs font-bold text-slate-500 uppercase">Talent</label>
-                        <select id="select-talent" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" disabled>
-                            <option value="">— Choisir d'abord un pool —</option>
-                        </select>
-                    </div>
-                    <button id="btn-open-redlist-add" disabled class="w-full md:w-auto shrink-0 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-sm px-5 py-2.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        🚨 Inscrire en Liste Rouge
-                    </button>
-                </div>
-                <p id="select-talent-empty" class="hidden text-xs text-slate-400 mt-2">Tous les talents de ce pool sont déjà en liste rouge, ou ce pool ne contient aucun talent.</p>
-            </div>
-
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <div id="redlist-loading" class="text-sm text-slate-400 py-6 text-center">Chargement de la liste rouge...</div>
                 <div id="redlist-empty" class="hidden text-sm text-slate-400 py-10 text-center flex flex-col items-center gap-2">
                     <span class="text-3xl">✅</span>
                     <span>Aucun talent en liste rouge actuellement.</span>
+                    <button id="btn-empty-add-redlist" class="mt-2 inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
+                        <span>🚨</span> Ajouter un talent à la liste rouge
+                    </button>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -172,31 +149,58 @@
         </div>
     </div>
 
-    <!-- MODALE : Détail du motif complet -->
+    <!-- MODALE : Détail du motif complet + documents justificatifs -->
     <div id="modal-reason" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>📋</span> Motif du signalement</h3>
             <p id="reason-content" class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap"></p>
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase mb-2">Documents justificatifs</p>
+                <div id="reason-documents-list" class="space-y-1.5 text-sm"></div>
+            </div>
             <div class="flex justify-end pt-2">
                 <button id="btn-close-reason" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">Fermer</button>
             </div>
         </div>
     </div>
 
-    <!-- MODALE : Signalement Liste Rouge (identique à id-card.html, pour cohérence UX) -->
+    <!-- MODALE : Signalement Liste Rouge — Étape A : la sélection pool → talent est
+         désormais fusionnée DANS ce dialogue (au lieu d'un sélecteur affiché en
+         permanence sur la page), sur le modèle du AddToRedListDialog de Hercules.
+         Documents justificatifs obligatoires ajoutés (alignement avec Hercules). -->
     <div id="redlist-add-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Signalement Liste Rouge</h3>
-            <p id="redlist-add-talent-name" class="text-sm font-semibold text-slate-700"></p>
-            <p class="text-sm text-slate-500">Indiquez le motif précis et sécuritaire justifiant la mise en Liste Rouge du talent.</p>
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Ajouter à la liste rouge</h3>
+            <p class="text-sm text-slate-500">Signaler un talent qui ne doit pas être recruté. Cette action nécessite une justification et au moins un document justificatif.</p>
+
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Pool *</label>
+                <select id="modal-select-pool" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">— Choisir un pool —</option>
+                </select>
+            </div>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Talent *</label>
+                <select id="modal-select-talent" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" disabled>
+                    <option value="">— Choisir d'abord un pool —</option>
+                </select>
+                <p id="modal-select-talent-empty" class="hidden text-xs text-slate-400">Tous les talents de ce pool sont déjà en liste rouge, ou ce pool ne contient aucun talent.</p>
+            </div>
             <div class="space-y-1.5">
                 <label class="text-xs font-bold text-slate-400 uppercase">Motif / Justification *</label>
                 <textarea id="modal-redlist-add-reason" placeholder="Veuillez consigner les faits de manière précise..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="4" required></textarea>
+                <p class="text-xs text-slate-400">Soyez précis et factuel. Cette information sera visible par tous les responsables RH.</p>
+            </div>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Documents justificatifs *</label>
+                <input id="modal-redlist-add-files" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple class="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary-light file:text-primary file:font-semibold file:text-xs cursor-pointer" />
+                <p class="text-xs text-slate-400">Formats acceptés : PDF, Word, Images (JPG, PNG). Au moins un document est requis. Documents privés, jamais publics.</p>
+                <div id="modal-redlist-files-list" class="space-y-1"></div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button id="modal-redlist-add-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
-                <button id="modal-redlist-add-confirm" class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-4 py-2 rounded-xl flex items-center gap-2">
-                    <span>Inscrire</span>
+                <button id="modal-redlist-add-confirm" disabled class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-4 py-2 rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="modal-redlist-add-confirm-label">Inscrire</span>
                     <div id="redlist-add-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 </button>
             </div>
@@ -214,6 +218,7 @@
         let poolsForSelect = [];
         let talentsInSelectedPool = [];
         let selectedTalentForRedlist = null;
+        let selectedRedlistFiles = [];
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
@@ -291,18 +296,10 @@
                 if (!user) return false;
                 currentUserRole = user.role;
 
-                if (user.role === 'admin') {
-                    document.getElementById('nav-extraction').classList.remove('hidden');
-                    document.getElementById('nav-redlist').classList.remove('hidden');
-                    document.getElementById('nav-admin').classList.remove('hidden');
-                    document.getElementById('nav-audit').classList.remove('hidden');
-                    return true;
-                } else if (user.role === 'user') {
-                    document.getElementById('nav-extraction').classList.remove('hidden');
-                    document.getElementById('nav-redlist').classList.remove('hidden');
-                    return true;
-                }
-                return false;
+                // Étape A : la nav complète a été retirée du header (harmonisation),
+                // il n'y a donc plus de liens à démasquer ici — seul le rôle compte
+                // pour autoriser ou non l'accès à cette page (admin/user uniquement).
+                return user.role === 'admin' || user.role === 'user';
             } catch (err) {
                 console.error(err);
                 return false;
@@ -334,10 +331,13 @@
             return div.innerHTML;
         }
 
-        // ============ SIGNALEMENT D'UN NOUVEAU TALENT ============
+        // ============ SIGNALEMENT D'UN NOUVEAU TALENT (Étape A : tout se passe
+        // désormais dans le dialogue "redlist-add-modal", ouvert depuis le header
+        // ou depuis l'état vide — plus de sélecteur pool/talent affiché en permanence
+        // sur la page) ============
 
         async function loadPoolsForSelect() {
-            const selectPool = document.getElementById('select-pool');
+            const selectPool = document.getElementById('modal-select-pool');
             try {
                 const { data, error } = await supabaseClient
                     .from('pools')
@@ -356,14 +356,75 @@
             }
         }
 
+        function updateModalConfirmState() {
+            const reasonVal = document.getElementById('modal-redlist-add-reason').value.trim();
+            const btn = document.getElementById('modal-redlist-add-confirm');
+            btn.disabled = !(selectedTalentForRedlist && reasonVal && selectedRedlistFiles.length > 0);
+        }
+
+        // Nom de fichier assaini pour le chemin de stockage (pas d'espaces ni de
+        // caractères spéciaux, qui peuvent poser problème dans une URL signée).
+        function sanitizeFileName(name) {
+            return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9.\-]/g, '_');
+        }
+
+        function renderSelectedFilesList() {
+            const list = document.getElementById('modal-redlist-files-list');
+            if (selectedRedlistFiles.length === 0) {
+                list.innerHTML = '';
+                return;
+            }
+            list.innerHTML = selectedRedlistFiles.map((file, idx) => `
+                <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs">
+                    <span class="truncate max-w-[220px]">📄 ${escapeHtml(file.name)} <span class="text-slate-400">(${(file.size / 1024).toFixed(1)} Ko)</span></span>
+                    <button type="button" class="btn-remove-selected-file text-slate-400 hover:text-red-600 font-bold px-1.5" data-idx="${idx}">✕</button>
+                </div>
+            `).join('');
+            document.querySelectorAll('.btn-remove-selected-file').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedRedlistFiles.splice(Number(btn.dataset.idx), 1);
+                    renderSelectedFilesList();
+                    updateModalConfirmState();
+                });
+            });
+        }
+
+        document.getElementById('modal-redlist-add-files').addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                selectedRedlistFiles = selectedRedlistFiles.concat(Array.from(e.target.files));
+                e.target.value = ''; // permet de resélectionner le même fichier si retiré par erreur
+                renderSelectedFilesList();
+                updateModalConfirmState();
+            }
+        });
+
+        // Upload séquentiel vers le bucket privé "red-list-documents". Séquentiel
+        // plutôt qu'en parallèle : en cas d'échec, on s'arrête net et on informe
+        // l'utilisateur, plutôt que de laisser une partie des documents orphelins
+        // sans qu'on sache lesquels ont réussi.
+        async function uploadRedlistDocuments(talentId, files) {
+            const paths = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const path = `${talentId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`;
+                const { error } = await supabaseClient
+                    .storage
+                    .from('red-list-documents')
+                    .upload(path, file, { contentType: file.type || 'application/octet-stream' });
+                if (error) throw new Error(`Échec de l'envoi de "${file.name}" : ${error.message}`);
+                paths.push(path);
+            }
+            return paths;
+        }
+
         async function onPoolSelected(poolCode) {
-            const selectTalent = document.getElementById('select-talent');
-            const emptyMsg = document.getElementById('select-talent-empty');
-            const btnOpen = document.getElementById('btn-open-redlist-add');
+            const selectTalent = document.getElementById('modal-select-talent');
+            const emptyMsg = document.getElementById('modal-select-talent-empty');
 
             selectedTalentForRedlist = null;
-            btnOpen.disabled = true;
             emptyMsg.classList.add('hidden');
+            updateModalConfirmState();
 
             if (!poolCode) {
                 selectTalent.innerHTML = '<option value="">— Choisir d\'abord un pool —</option>';
@@ -404,16 +465,23 @@
         }
 
         function onTalentSelected(talentId) {
-            const btnOpen = document.getElementById('btn-open-redlist-add');
             selectedTalentForRedlist = talentsInSelectedPool.find(t => t.id === talentId) || null;
-            btnOpen.disabled = !selectedTalentForRedlist;
+            updateModalConfirmState();
         }
 
+        // Ouverture du dialogue : réinitialise l'état (pool/talent/motif/fichiers) à
+        // chaque fois, qu'il soit déclenché depuis le header ou depuis l'état "liste vide".
         function openRedlistAddModal() {
-            if (!selectedTalentForRedlist) return;
-            const fullName = `${selectedTalentForRedlist.first_name || ''} ${selectedTalentForRedlist.last_name || ''}`.trim();
-            document.getElementById('redlist-add-talent-name').textContent = fullName;
+            selectedTalentForRedlist = null;
+            selectedRedlistFiles = [];
+            document.getElementById('modal-select-pool').value = '';
+            document.getElementById('modal-select-talent').innerHTML = '<option value="">— Choisir d\'abord un pool —</option>';
+            document.getElementById('modal-select-talent').disabled = true;
+            document.getElementById('modal-select-talent-empty').classList.add('hidden');
             document.getElementById('modal-redlist-add-reason').value = '';
+            document.getElementById('modal-redlist-add-files').value = '';
+            renderSelectedFilesList();
+            updateModalConfirmState();
             document.getElementById('redlist-add-modal').classList.remove('hidden');
         }
 
@@ -423,18 +491,22 @@
 
         document.getElementById('modal-redlist-add-confirm').addEventListener('click', async () => {
             const reasonVal = document.getElementById('modal-redlist-add-reason').value.trim();
-            if (!reasonVal) {
-                toastMessage("Veuillez indiquer le motif d'inscription.", "error");
+            if (!selectedTalentForRedlist || !reasonVal || selectedRedlistFiles.length === 0) {
+                toastMessage("Veuillez choisir un talent, indiquer le motif et joindre au moins un document.", "error");
                 return;
             }
-            if (!selectedTalentForRedlist) return;
 
             const spinner = document.getElementById('redlist-add-spinner');
             const btn = document.getElementById('modal-redlist-add-confirm');
+            const label = document.getElementById('modal-redlist-add-confirm-label');
             btn.disabled = true;
             spinner.classList.remove('hidden');
 
             try {
+                label.textContent = 'Envoi des documents...';
+                const documentPaths = await uploadRedlistDocuments(selectedTalentForRedlist.id, selectedRedlistFiles);
+
+                label.textContent = 'Inscription...';
                 // Format ISO (pas toLocaleDateString) : la colonne est un
                 // timestamptz, un format DD/MM/YYYY serait ambigu à la relecture.
                 const { error } = await supabaseClient
@@ -444,7 +516,8 @@
                         red_list_date: new Date().toISOString(),
                         red_list_reason: reasonVal,
                         red_list_added_by: currentUserId,
-                        red_list_added_by_name: document.getElementById('user-display-name').textContent
+                        red_list_added_by_name: document.getElementById('user-display-name').textContent,
+                        red_list_documents: documentPaths
                     })
                     .eq('id', selectedTalentForRedlist.id);
 
@@ -454,22 +527,22 @@
                 document.getElementById('redlist-add-modal').classList.add('hidden');
                 toastMessage("Talent inscrit en Liste Rouge avec succès.");
 
-                // Rafraîchir la liste rouge + le sélecteur de talents du pool courant
-                const poolCode = document.getElementById('select-pool').value;
                 await loadRedList();
-                if (poolCode) await onPoolSelected(poolCode);
             } catch (e) {
                 console.error(e);
                 toastMessage("Échec de l'inscription : " + e.message, "error");
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('hidden');
+                label.textContent = 'Inscrire';
             }
         });
 
-        document.getElementById('select-pool').addEventListener('change', (e) => onPoolSelected(e.target.value));
-        document.getElementById('select-talent').addEventListener('change', (e) => onTalentSelected(e.target.value));
-        document.getElementById('btn-open-redlist-add').addEventListener('click', openRedlistAddModal);
+        document.getElementById('modal-select-pool').addEventListener('change', (e) => onPoolSelected(e.target.value));
+        document.getElementById('modal-select-talent').addEventListener('change', (e) => onTalentSelected(e.target.value));
+        document.getElementById('modal-redlist-add-reason').addEventListener('input', updateModalConfirmState);
+        document.getElementById('btn-header-add-redlist').addEventListener('click', openRedlistAddModal);
+        document.getElementById('btn-empty-add-redlist').addEventListener('click', openRedlistAddModal);
 
         // ============ CHARGEMENT DE LA LISTE ROUGE ============
 
@@ -484,7 +557,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('talents')
-                    .select('id, first_name, last_name, pool, status, red_list_date, red_list_reason, red_list_added_by_name')
+                    .select('id, first_name, last_name, pool, status, red_list_date, red_list_reason, red_list_added_by_name, red_list_documents')
                     .eq('is_red_listed', true)
                     .order('red_list_date', { ascending: false });
 
@@ -520,6 +593,7 @@
                 const reasonPreview = t.red_list_reason
                     ? (t.red_list_reason.length > 40 ? t.red_list_reason.slice(0, 40) + '…' : t.red_list_reason)
                     : '—';
+                const docCount = Array.isArray(t.red_list_documents) ? t.red_list_documents.length : 0;
 
                 return `
                 <tr class="text-slate-700">
@@ -529,7 +603,7 @@
                     <td class="py-3 pr-4 text-xs text-slate-400">${dateAdded}</td>
                     <td class="py-3 pr-4">
                         ${t.red_list_reason
-                            ? `<button class="btn-view-reason text-xs text-primary hover:underline text-left" data-id="${t.id}">${escapeHtml(reasonPreview)}</button>`
+                            ? `<button class="btn-view-reason text-xs text-primary hover:underline text-left" data-id="${t.id}">${escapeHtml(reasonPreview)}${docCount > 0 ? ` <span class="text-slate-400">📎${docCount}</span>` : ''}</button>`
                             : '<span class="text-xs text-slate-400">—</span>'}
                     </td>
                     <td class="py-3 pr-4 text-xs text-slate-500">${escapeHtml(t.red_list_added_by_name || '—')}</td>
@@ -552,10 +626,41 @@
             });
         }
 
-        function showReasonModal(talentId) {
+        async function showReasonModal(talentId) {
             const talent = redListTalents.find(t => t.id === talentId);
             document.getElementById('reason-content').textContent = (talent && talent.red_list_reason) || '—';
+            const docsList = document.getElementById('reason-documents-list');
+            const paths = (talent && Array.isArray(talent.red_list_documents)) ? talent.red_list_documents : [];
+
+            if (paths.length === 0) {
+                docsList.innerHTML = '<p class="text-xs text-slate-400">Aucun document.</p>';
+            } else {
+                docsList.innerHTML = '<p class="text-xs text-slate-400">Génération des liens...</p>';
+            }
             document.getElementById('modal-reason').classList.remove('hidden');
+
+            if (paths.length === 0) return;
+
+            // Bucket privé : les URLs sont générées à la demande (signées, expiration
+            // courte), jamais stockées en clair ni rendues publiques.
+            try {
+                const links = await Promise.all(paths.map(async (path, idx) => {
+                    const { data, error } = await supabaseClient
+                        .storage
+                        .from('red-list-documents')
+                        .createSignedUrl(path, 300); // 5 minutes, largement suffisant pour un clic
+                    if (error || !data) return null;
+                    const label = path.split('/').pop() || `Document ${idx + 1}`;
+                    return `<a href="${data.signedUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-primary hover:underline">📎 ${escapeHtml(label)}</a>`;
+                }));
+                const validLinks = links.filter(Boolean);
+                docsList.innerHTML = validLinks.length > 0
+                    ? validLinks.join('')
+                    : '<p class="text-xs text-red-500">Impossible de générer les liens des documents.</p>';
+            } catch (e) {
+                console.error(e);
+                docsList.innerHTML = '<p class="text-xs text-red-500">Erreur lors du chargement des documents.</p>';
+            }
         }
         document.getElementById('btn-close-reason').addEventListener('click', () => {
             document.getElementById('modal-reason').classList.add('hidden');
