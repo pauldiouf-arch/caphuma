@@ -88,12 +88,12 @@
             <div class="bg-white border border-slate-200 rounded-2xl p-4">
                 <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Utilisateurs actifs</p>
                 <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statUsers">—</p>
-                <p class="text-xs text-slate-400 mt-1">Sur la période affichée</p>
+                <p class="text-xs text-slate-400 mt-1">7 derniers jours</p>
             </div>
             <div class="bg-white border border-slate-200 rounded-2xl p-4">
                 <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Types d'actions</p>
                 <p class="text-2xl font-extrabold text-slate-800 mt-1" id="statTypes">—</p>
-                <p class="text-xs text-slate-400 mt-1">Différentes actions distinctes</p>
+                <p class="text-xs text-slate-400 mt-1">7 derniers jours</p>
             </div>
         </div>
 
@@ -176,9 +176,24 @@
             </p>
         </div>
 
+        <!-- Pagination réelle côté requête — remplace l'ancien .limit(1000) qui aurait
+             fini par masquer silencieusement les logs les plus anciens à mesure que le
+             journal grossit (correctif demandé explicitement par l'utilisateur). -->
+        <div id="logsPaginationControls" class="hidden flex items-center justify-between gap-3">
+            <button id="logsPrevPageBtn" type="button" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                ← Page précédente
+            </button>
+            <p class="text-xs font-semibold text-slate-400" id="logsPaginationLabel">Page 1</p>
+            <button id="logsNextPageBtn" type="button" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                Page suivante →
+            </button>
+        </div>
+
         <p class="text-[11px] text-slate-400 text-center">
-            Affichage limité aux 1000 entrées les plus récentes. Les logs standard sont purgés
-            automatiquement après 12 mois, les logs critiques après 24 mois (conformité RGPD).
+            Le tableau est paginé (50 actions par page) — utilisez les filtres pour affiner la recherche,
+            ou l'export Excel pour récupérer l'intégralité des actions correspondant aux filtres actifs.
+            Les logs standard sont purgés automatiquement après 12 mois, les logs critiques après 24 mois
+            (conformité RGPD).
         </p>
     </main>
 
@@ -201,7 +216,16 @@
 
         let currentUserId = null;
         let currentUserEmail = null;
-        let allLogs = [];
+
+        // ============================================================================
+        // PAGINATION RÉELLE (correctif demandé explicitement) — remplace l'ancien
+        // .limit(1000) qui aurait fini par masquer silencieusement les logs les plus
+        // anciens. Chaque page ne charge que PAGE_SIZE lignes depuis Supabase.
+        // ============================================================================
+        const PAGE_SIZE = 50;
+        let currentPage = 0;
+        let currentPageLogs = [];       // lignes de la page actuellement affichée
+        let currentFilteredCount = 0;   // nombre total de lignes correspondant aux filtres actifs (toutes pages confondues)
 
         // Échappement HTML systématique de toute donnée provenant de la base
         // avant injection via innerHTML — prévention XSS.
@@ -313,24 +337,108 @@
         }
 
         // ============================================================================
-        // 4. CHARGEMENT DES LOGS (1000 plus récents — voir note en bas de page)
+        // 4. CHARGEMENT — statistiques bornées (jamais tout l'historique) + page courante
         // ============================================================================
         async function loadLogs() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('audit_logs')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(1000);
+            await Promise.all([loadHeaderStats(), fetchPage()]);
+        }
 
+        // "Total actions" : comptage exact sur toute la table sans charger aucune ligne
+        // (head: true) — reste bon marché quel que soit le volume accumulé au fil des
+        // années. "Utilisateurs actifs" / "Types d'actions" : calculés sur une fenêtre
+        // bornée des 7 derniers jours seulement, jamais sur tout l'historique — ce sont
+        // désormais des KPI stables, indépendants des filtres du tableau ci-dessous
+        // (changement de comportement assumé et signalé : avant cette étape, ils
+        // suivaient le filtre actif, ce qui obligeait à charger tout l'historique
+        // correspondant pour les calculer).
+        async function loadHeaderStats() {
+            try {
+                const { count: totalCount, error: totalErr } = await supabaseClient
+                    .from('audit_logs')
+                    .select('*', { count: 'exact', head: true });
+                if (totalErr) throw totalErr;
+                document.getElementById('statTotal').textContent = totalCount || 0;
+
+                const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                const { data: recentLogs, error: recentErr } = await supabaseClient
+                    .from('audit_logs')
+                    .select('user_email, user_id, action')
+                    .gte('created_at', sevenDaysAgoIso);
+                if (recentErr) throw recentErr;
+
+                const recent = recentLogs || [];
+                document.getElementById('statRecent').textContent = recent.length;
+                document.getElementById('statUsers').textContent = new Set(recent.map(l => l.user_email || l.user_id).filter(Boolean)).size;
+                document.getElementById('statTypes').textContent = new Set(recent.map(l => l.action).filter(Boolean)).size;
+            } catch (err) {
+                console.error("Erreur de chargement des statistiques d'audit :", err);
+                // Non bloquant : un échec des cartes KPI n'empêche pas la consultation du tableau.
+            }
+        }
+
+        // Construit la requête Supabase filtrée (action, type d'entité, période/jour
+        // précis) — réutilisée pour la page courante ET pour l'export Excel, afin de ne
+        // jamais avoir deux logiques de filtre différentes à maintenir en parallèle.
+        function buildFilteredLogsQuery(forExport) {
+            const actionFilter = document.getElementById('filterAction').value;
+            const entityTypeFilter = document.getElementById('filterEntityType').value;
+            const periodFilter = document.getElementById('filterPeriod').value;
+            const exactDateFilter = document.getElementById('filterExactDate').value;
+            const exactBounds = exactDateBounds(exactDateFilter);
+            const periodStart = exactBounds ? null : periodStartDate(periodFilter);
+
+            // Le filtre "Jour précis" prend le pas sur "Période" s'il est renseigné.
+            document.getElementById('exactDateHint').classList.toggle('hidden', !exactBounds);
+            document.getElementById('filterPeriod').disabled = !!exactBounds;
+
+            let query = supabaseClient
+                .from('audit_logs')
+                .select('*', forExport ? undefined : { count: 'exact' })
+                .order('created_at', { ascending: false });
+
+            if (actionFilter) query = query.eq('action', actionFilter);
+            if (entityTypeFilter) query = query.eq('entity_type', entityTypeFilter);
+            if (exactBounds) {
+                query = query.gte('created_at', new Date(exactBounds.start).toISOString())
+                              .lte('created_at', new Date(exactBounds.end).toISOString());
+            } else if (periodStart !== null) {
+                query = query.gte('created_at', new Date(periodStart).toISOString());
+            }
+
+            return query;
+        }
+
+        async function fetchPage() {
+            const loadingState = document.getElementById('tableLoadingState');
+            loadingState.classList.remove('hidden');
+            document.getElementById('logsTableBody').innerHTML = '';
+
+            try {
+                const from = currentPage * PAGE_SIZE;
+                const to = from + PAGE_SIZE - 1;
+
+                const { data, error, count } = await buildFilteredLogsQuery(false).range(from, to);
                 if (error) throw error;
-                allLogs = data || [];
-                applyFiltersAndRender();
+
+                currentPageLogs = data || [];
+                currentFilteredCount = count || 0;
+
+                renderTable();
+                renderPaginationControls();
+
+                const hasFilter = !!(
+                    document.getElementById('filterAction').value ||
+                    document.getElementById('filterEntityType').value ||
+                    document.getElementById('filterPeriod').value ||
+                    document.getElementById('filterExactDate').value
+                );
+                document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasFilter);
+
             } catch (err) {
                 console.error(err);
                 pageError.textContent = "Impossible de charger le journal d'audit : " + (err && err.message ? err.message : 'erreur inconnue.');
                 pageError.classList.remove('hidden');
-                document.getElementById('tableLoadingState').classList.add('hidden');
+                loadingState.classList.add('hidden');
             }
         }
 
@@ -361,54 +469,36 @@
             return { start, end };
         }
 
-        function applyFiltersAndRender() {
-            const actionFilter = document.getElementById('filterAction').value;
-            const entityTypeFilter = document.getElementById('filterEntityType').value;
-            const periodFilter = document.getElementById('filterPeriod').value;
-            const exactDateFilter = document.getElementById('filterExactDate').value;
-            const exactBounds = exactDateBounds(exactDateFilter);
-            const periodStart = exactBounds ? null : periodStartDate(periodFilter);
+        function renderPaginationControls() {
+            const controls = document.getElementById('logsPaginationControls');
+            const totalPages = Math.max(1, Math.ceil(currentFilteredCount / PAGE_SIZE));
 
-            // Le filtre "Jour précis" prend le pas sur "Période" s'il est renseigné —
-            // indication visuelle pour éviter toute confusion sur le filtre réellement actif.
-            document.getElementById('exactDateHint').classList.toggle('hidden', !exactBounds);
-            document.getElementById('filterPeriod').disabled = !!exactBounds;
-
-            let filtered = allLogs;
-            if (actionFilter) filtered = filtered.filter(l => l.action === actionFilter);
-            if (entityTypeFilter) filtered = filtered.filter(l => l.entity_type === entityTypeFilter);
-            if (exactBounds) {
-                filtered = filtered.filter(l => {
-                    if (!l.created_at) return false;
-                    const ts = new Date(l.created_at).getTime();
-                    return ts >= exactBounds.start && ts <= exactBounds.end;
-                });
-            } else if (periodStart !== null) {
-                filtered = filtered.filter(l => l.created_at && new Date(l.created_at).getTime() >= periodStart);
+            if (currentFilteredCount === 0) {
+                controls.classList.add('hidden');
+                return;
             }
-
-            renderStats(filtered);
-            renderTable(filtered);
-
-            const hasFilter = !!(actionFilter || entityTypeFilter || periodFilter || exactDateFilter);
-            document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasFilter);
+            controls.classList.remove('hidden');
+            document.getElementById('logsPaginationLabel').textContent = `Page ${currentPage + 1} sur ${totalPages}`;
+            document.getElementById('logsPrevPageBtn').disabled = currentPage === 0;
+            document.getElementById('logsNextPageBtn').disabled = currentPage >= totalPages - 1;
         }
 
-        function renderStats(logs) {
-            document.getElementById('statTotal').textContent = allLogs.length;
+        document.getElementById('logsPrevPageBtn').addEventListener('click', () => {
+            if (currentPage > 0) {
+                currentPage -= 1;
+                fetchPage();
+            }
+        });
 
-            const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-            const recentCount = allLogs.filter(l => l.created_at && new Date(l.created_at).getTime() >= sevenDaysAgo).length;
-            document.getElementById('statRecent').textContent = recentCount;
+        document.getElementById('logsNextPageBtn').addEventListener('click', () => {
+            const totalPages = Math.max(1, Math.ceil(currentFilteredCount / PAGE_SIZE));
+            if (currentPage < totalPages - 1) {
+                currentPage += 1;
+                fetchPage();
+            }
+        });
 
-            const uniqueUsers = new Set(logs.map(l => l.user_email || l.user_id).filter(Boolean));
-            document.getElementById('statUsers').textContent = uniqueUsers.size;
-
-            const uniqueActions = new Set(logs.map(l => l.action).filter(Boolean));
-            document.getElementById('statTypes').textContent = uniqueActions.size;
-        }
-
-        function renderTable(logs) {
+        function renderTable() {
             const tbody = document.getElementById('logsTableBody');
             const emptyState = document.getElementById('tableEmptyState');
             const loadingState = document.getElementById('tableLoadingState');
@@ -417,19 +507,17 @@
             loadingState.classList.add('hidden');
             tbody.innerHTML = '';
 
-            countLabel.textContent = logs.length === allLogs.length
-                ? `${logs.length} action${logs.length > 1 ? 's' : ''}`
-                : `${logs.length} sur ${allLogs.length} action${allLogs.length > 1 ? 's' : ''}`;
+            countLabel.textContent = `${currentFilteredCount} action${currentFilteredCount > 1 ? 's' : ''} correspondant aux filtres`;
 
-            if (logs.length === 0) {
+            if (currentPageLogs.length === 0) {
                 emptyState.classList.remove('hidden');
                 return;
             }
             emptyState.classList.add('hidden');
 
-            // Affichage limité aux 200 premières lignes filtrées pour rester fluide ;
-            // l'export Excel, lui, exporte l'intégralité du résultat filtré.
-            logs.slice(0, 200).forEach(log => {
+            // Chaque page ne contient déjà que PAGE_SIZE lignes (requête .range() côté
+            // serveur) — plus besoin de tronquer côté client comme avant cette étape.
+            currentPageLogs.forEach(log => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors';
                 const badgeClass = ACTION_BADGE_CLASS[log.action] || 'bg-slate-100 text-slate-600 border-slate-200';
@@ -443,16 +531,13 @@
                 `;
                 tbody.appendChild(tr);
             });
-
-            if (logs.length > 200) {
-                const trMore = document.createElement('tr');
-                trMore.innerHTML = `<td colspan="6" class="px-4 py-3 text-center text-xs text-slate-400 italic">... et ${logs.length - 200} action(s) supplémentaire(s), affinez les filtres ou utilisez l'export Excel pour tout voir.</td>`;
-                tbody.appendChild(trMore);
-            }
         }
 
         ['filterAction', 'filterEntityType', 'filterPeriod', 'filterExactDate'].forEach(id => {
-            document.getElementById(id).addEventListener('change', applyFiltersAndRender);
+            document.getElementById(id).addEventListener('change', () => {
+                currentPage = 0;
+                fetchPage();
+            });
         });
 
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {
@@ -460,39 +545,36 @@
             document.getElementById('filterEntityType').value = '';
             document.getElementById('filterPeriod').value = '';
             document.getElementById('filterExactDate').value = '';
-            applyFiltersAndRender();
+            currentPage = 0;
+            fetchPage();
         });
 
         // ============================================================================
-        // 6. EXPORT EXCEL (résultat filtré actuel, pas seulement les 200 lignes affichées)
+        // 6. EXPORT EXCEL — récupère TOUJOURS l'intégralité du résultat filtré depuis
+        // Supabase (pas seulement la page affichée), avec les mêmes filtres que le
+        // tableau (buildFilteredLogsQuery, sans .range()). Confirmation demandée si le
+        // volume est important, pour éviter un export non désiré sur tout l'historique.
         // ============================================================================
-        document.getElementById('exportBtn').addEventListener('click', () => {
-            const actionFilter = document.getElementById('filterAction').value;
-            const entityTypeFilter = document.getElementById('filterEntityType').value;
-            const periodFilter = document.getElementById('filterPeriod').value;
-            const exactDateFilter = document.getElementById('filterExactDate').value;
-            const exactBounds = exactDateBounds(exactDateFilter);
-            const periodStart = exactBounds ? null : periodStartDate(periodFilter);
-
-            let filtered = allLogs;
-            if (actionFilter) filtered = filtered.filter(l => l.action === actionFilter);
-            if (entityTypeFilter) filtered = filtered.filter(l => l.entity_type === entityTypeFilter);
-            if (exactBounds) {
-                filtered = filtered.filter(l => {
-                    if (!l.created_at) return false;
-                    const ts = new Date(l.created_at).getTime();
-                    return ts >= exactBounds.start && ts <= exactBounds.end;
-                });
-            } else if (periodStart !== null) {
-                filtered = filtered.filter(l => l.created_at && new Date(l.created_at).getTime() >= periodStart);
-            }
-
-            if (filtered.length === 0) {
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            if (currentFilteredCount === 0) {
                 alert("Aucune action à exporter avec les filtres actuels.");
                 return;
             }
+            if (currentFilteredCount > 5000) {
+                const proceed = confirm(`Cet export contient ${currentFilteredCount} lignes et peut prendre du temps à générer. Continuer ?`);
+                if (!proceed) return;
+            }
 
             try {
+                const { data, error } = await buildFilteredLogsQuery(true);
+                if (error) throw error;
+                const filtered = data || [];
+
+                if (filtered.length === 0) {
+                    alert("Aucune action à exporter avec les filtres actuels.");
+                    return;
+                }
+
                 const rows = filtered.map(log => ({
                     'Date': fmtDateTime(log.created_at),
                     'Utilisateur': log.user_name || log.user_email || 'Inconnu',
