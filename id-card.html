@@ -1388,8 +1388,10 @@
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
                 btnRedlist.classList.add('hidden');
+                document.getElementById('share-btn').classList.add('hidden');
             } else {
                 btnRedlist.classList.remove('hidden');
+                document.getElementById('share-btn').classList.remove('hidden');
             }
 
             // Suppression définitive : réservée admin, et uniquement pour un talent ACTIF.
@@ -1411,13 +1413,17 @@
             document.getElementById('share-btn').onclick = async () => {
                 try {
                     const token = 'st_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                    // Bug corrigé (session sécurité) : created_at retiré du payload (la
+                    // colonne a un DEFAULT now() côté base, pas besoin de le fixer côté
+                    // client) et expires_at envoyé en ISO string plutôt qu'en timestamp
+                    // JS numérique — la colonne est de type "timestamp with time zone",
+                    // qui refuse un nombre brut.
                     const { error } = await supabaseClient.from('share_tokens').insert({
                         token,
                         talent_id: talentId,
                         created_by: currentUserId,
                         created_by_name: document.getElementById('user-display-name').textContent,
-                        created_at: Date.now(),
-                        expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
+                        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                         is_revoked: false,
                         view_count: 0
                     });
@@ -1427,6 +1433,8 @@
                     const shareUrl = `${window.location.origin}/shared-talent.html?token=${token}`;
                     await navigator.clipboard.writeText(shareUrl);
                     toastMessage("Lien de partage généré et copié dans le presse-papiers !", "success");
+                    const fullNameLogShare = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
+                    await logAuditAction('create', 'share_link', talentId, fullNameLogShare, null);
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de la génération du lien de partage.", "error");
