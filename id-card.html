@@ -242,6 +242,17 @@
                         <p class="text-sm text-slate-500 italic">Aucun historique de mission disponible pour le moment.</p>
                     </div>
                 </div>
+
+                <!-- Section Historique des pools (changement de pool au fil du temps) -->
+                <div class="border-t border-slate-100 pt-6 space-y-4 no-print">
+                    <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <span>🔀</span> Historique des pools
+                    </h2>
+
+                    <div id="pool-history-container" class="space-y-3">
+                        <p class="text-sm text-slate-500 italic">Aucun changement de pool enregistré pour le moment.</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Footer confidentiel -->
@@ -259,6 +270,9 @@
                 <a id="btn-manage-missions" href="#" class="bg-primary hover:bg-primary-dark text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all inline-flex items-center gap-1.5">
                     🧭 Gérer les postes du pool
                 </a>
+                <button id="btn-change-pool" class="bg-blue-50 hover:bg-blue-100 border border-blue-200 text-primary font-semibold text-xs px-4 py-2 rounded-xl transition-all">
+                    🔀 Changer de pool
+                </button>
                 <button id="btn-devalidate" class="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
                     ⛔ Dévalider le talent
                 </button>
@@ -310,6 +324,28 @@
             <div class="flex justify-end gap-2 pt-2">
                 <button id="modal-redlist-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
                 <button id="modal-redlist-confirm" class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-4 py-2 rounded-xl">Inscrire</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Changement de pool -->
+    <div id="pool-change-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-primary flex items-center gap-2">🔀 Changer de pool</h3>
+            <p class="text-sm text-slate-500">
+                Pool actuel : <span class="font-semibold text-slate-700" id="pool-change-current">—</span>.
+                Le changement est enregistré dans l'historique du talent avec la date du jour.
+            </p>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-400 uppercase">Nouveau pool *</label>
+                <select id="modal-pool-select" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                    <option value="">Chargement des pools...</option>
+                </select>
+            </div>
+            <p id="pool-change-error" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="modal-pool-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="modal-pool-confirm" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-4 py-2 rounded-xl">Confirmer le changement</button>
             </div>
         </div>
     </div>
@@ -516,11 +552,58 @@
 
                 renderTalentCard();
                 await loadComments();
+                await loadPoolHistory();
             } catch (err) {
                 console.error("Erreur complète :", err);
                 showError(err.message || "Erreur lors du chargement des données.");
             }
         }
+
+        // ============================================================================
+        // HISTORIQUE DES POOLS — changement de pool au fil du temps (carrière du talent)
+        // ============================================================================
+        async function loadPoolHistory() {
+            const container = document.getElementById('pool-history-container');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('pool_history')
+                    .select('from_pool, to_pool, changed_at, changed_by_name')
+                    .eq('talent_id', talentId)
+                    .order('changed_at', { ascending: false });
+
+                if (error) throw error;
+                renderPoolHistory(data || []);
+            } catch (err) {
+                console.error("Erreur de chargement de l'historique des pools :", err);
+                container.innerHTML = '<p class="text-sm text-slate-400 italic">Historique indisponible pour le moment.</p>';
+            }
+        }
+
+        function renderPoolHistory(entries) {
+            const container = document.getElementById('pool-history-container');
+            if (!entries || entries.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-500 italic">Aucun changement de pool enregistré pour le moment.</p>';
+                return;
+            }
+
+            container.innerHTML = entries.map(e => {
+                const dateStr = e.changed_at ? new Date(e.changed_at).toLocaleDateString('fr-FR') : '—';
+                return `
+                <div class="flex items-start gap-3 border-l-2 border-primary/30 pl-4">
+                    <div class="flex-1">
+                        <p class="text-sm text-slate-700">
+                            <span class="font-semibold">${escapeHtml(e.from_pool || '—')}</span>
+                            <span class="text-slate-400 mx-1">→</span>
+                            <span class="font-semibold text-primary">${escapeHtml(e.to_pool)}</span>
+                        </p>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            Le ${dateStr}${e.changed_by_name ? ` · par ${escapeHtml(e.changed_by_name)}` : ''}
+                        </p>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
 
         function calculateMonthsWithoutMission(talent) {
             // Lecture robuste des deux nommages (snake_case et camelCase)
@@ -1392,9 +1475,11 @@
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
                 btnRedlist.classList.add('hidden');
+                document.getElementById('btn-change-pool').classList.add('hidden');
                 document.getElementById('share-btn').classList.add('hidden');
             } else {
                 btnRedlist.classList.remove('hidden');
+                document.getElementById('btn-change-pool').classList.remove('hidden');
                 document.getElementById('share-btn').classList.remove('hidden');
             }
 
@@ -1557,6 +1642,86 @@
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de l'inscription.", "error");
+                }
+            };
+
+            // 🔀 Changer de pool — enregistre le changement dans pool_history avant de
+            // mettre à jour talents.pool, pour garder une trace "de X vers Y à telle date".
+            const poolChangeModal = document.getElementById('pool-change-modal');
+            document.getElementById('btn-change-pool').onclick = async () => {
+                document.getElementById('pool-change-error').classList.add('hidden');
+                document.getElementById('pool-change-current').textContent = talent.pool || '—';
+                const select = document.getElementById('modal-pool-select');
+                select.innerHTML = '<option value="">Chargement des pools...</option>';
+                poolChangeModal.classList.remove('hidden');
+
+                try {
+                    const { data: pools, error } = await supabaseClient
+                        .from('pools')
+                        .select('pool_id, name, full_name')
+                        .order('name', { ascending: true });
+                    if (error) throw error;
+
+                    select.innerHTML = '<option value="">— Choisir un pool —</option>';
+                    (pools || [])
+                        .filter(p => p.pool_id !== talent.pool)
+                        .forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p.pool_id;
+                            opt.textContent = p.full_name || p.name;
+                            select.appendChild(opt);
+                        });
+                } catch (err) {
+                    console.error(err);
+                    select.innerHTML = '<option value="">Erreur de chargement des pools</option>';
+                }
+            };
+
+            document.getElementById('modal-pool-cancel').onclick = () => poolChangeModal.classList.add('hidden');
+
+            document.getElementById('modal-pool-confirm').onclick = async () => {
+                const errorEl = document.getElementById('pool-change-error');
+                errorEl.classList.add('hidden');
+                const newPool = document.getElementById('modal-pool-select').value;
+                if (!newPool) {
+                    errorEl.textContent = "Veuillez choisir un pool de destination.";
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+                const previousPool = talent.pool || null;
+
+                try {
+                    // 1. Historique d'abord (source de vérité de "qui a changé quoi, quand"),
+                    //    puis mise à jour du talent — dans cet ordre, si l'étape 2 échoue on
+                    //    garde au moins une trace de la tentative plutôt que l'inverse.
+                    const { error: histError } = await supabaseClient.from('pool_history').insert({
+                        talent_id: talentId,
+                        from_pool: previousPool,
+                        to_pool: newPool,
+                        changed_by: currentUserId,
+                        changed_by_name: currentUserName || currentUserEmail
+                    });
+                    if (histError) throw histError;
+
+                    const { data, error } = await supabaseClient
+                        .from('talents')
+                        .update({ pool: newPool })
+                        .eq('id', talentId)
+                        .select('id');
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("La mise à jour n'a affecté aucune ligne (policy RLS ?).");
+                    }
+
+                    poolChangeModal.classList.add('hidden');
+                    toastMessage("Pool mis à jour.", "success");
+                    const fullNameLogPool = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
+                    await logAuditAction('update', 'talent', talentId, fullNameLogPool, `Changement de pool : ${previousPool || '—'} → ${newPool}`);
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    errorEl.textContent = "Échec du changement de pool : " + (err.message || 'erreur inconnue');
+                    errorEl.classList.remove('hidden');
                 }
             };
 
