@@ -40,7 +40,7 @@
          le dashboard. À gauche : Retour + titre de page. À droite : action principale
          de la page + user/logout. Inspiré du header red_list Hercules (Retour + action
          unique), appliqué de façon cohérente sur cette page ET sur statistics.html. -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <header id="pageHeader" style="display:none;" class="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center gap-4">
@@ -268,6 +268,7 @@
                 currentUserEmail = s.email;
                 currentUserName = s.name;
                 currentUserRole = s.role;
+                document.getElementById('pageHeader').style.display = '';
 
                 // Page réservée admin + user ("recruteur"), visitor exclu.
                 const allowed = (s.role === 'admin' || s.role === 'user');
