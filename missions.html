@@ -10,6 +10,8 @@
 
     <!-- Supabase CDN (Standard Non-Module) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="shared/caphuma-utils.js"></script>
+    <script src="shared/caphuma-auth.js"></script>
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -410,15 +412,6 @@
 
         // Échappement HTML systématique de toute donnée venant de la base
         // avant injection via innerHTML — prévention XSS (audit sécurité, cf. Master Context section 7).
-        function escapeHtml(value) {
-            if (value === null || value === undefined) return '';
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
 
         function toastMessage(message, type) {
             const toast = document.getElementById('toast');
@@ -460,57 +453,35 @@
         // eux-mêmes sont tracées ici.
         // ============================================================================
         async function logAuditAction(action, entityType, entityId, entityName, details) {
-            try {
-                await supabaseClient.from('audit_logs').insert({
-                    user_id: currentUserId,
-                    user_email: currentUserEmail,
-                    user_name: null,
-                    action: action,
-                    entity_type: entityType,
-                    entity_id: entityId || null,
-                    entity_name: entityName || null,
-                    details: details || null
-                });
-            } catch (err) {
-                console.warn("[Audit] Échec de l'enregistrement du log :", err);
-            }
+            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
+            // le fait que user_name n'était jamais transmis sur certaines pages.
+            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
+            await capHumaLogAudit(
+                supabaseClient,
+                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
+                action, entityType, entityId, entityName, details
+            );
         }
 
         // Libellés d'affichage des valeurs stockées (jamais de valeur brute affichée à l'utilisateur)
-        const STATUS_LABELS = { occupied: '🟢 Occupé', recruiting: '🟡 En recrutement', vacant: '⚪ Vacant' };
+        // STATUS_LABELS, DESK_LABELS, CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS
+        // sont désormais fournis par shared/caphuma-utils.js (valeurs identiques).
         const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
-        const CANDIDATE_TYPE_LABELS = { expat: 'Expatrié', nat: 'National' };
-        const DESK_LABELS = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
-        const CONTRACT_STATUS_LABELS = { ongoing: 'En cours', renewable: 'Renouvelable', ending: 'Se termine' };
 
         // ============================================================================
         // 2. GARDE DE SESSION (identique au pattern de dashboard.html)
         // ============================================================================
         async function checkSession() {
             try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
+                const s = await capHumaInitSession(supabaseClient);
 
-                if (!session) {
-                    throw new Error("Session absente ou expirée.");
-                }
-
-                currentUserId = session.user.id;
-                currentUserEmail = session.user.email || null;
+                currentUserId = s.userId;
+                currentUserEmail = s.email;
+                currentUserName = s.name;
                 document.getElementById('user-display-name').textContent = currentUserEmail;
 
-                const { data: profiles, error: profileError } = await supabaseClient
-                    .from('users')
-                    .select('role, is_active')
-                    .eq('id', currentUserId);
-
-                if (!profileError && profiles && profiles.length > 0) {
-                    const profile = profiles[0];
-                    if (profile.is_active === false) throw new Error("Compte désactivé.");
-                    currentUserRole = profile.role;
-                    userSubtitle.textContent = `Connecté en tant que ${profile.role || 'utilisateur'}`;
-                } else {
-                    userSubtitle.textContent = 'Gestion des postes';
-                }
+                currentUserRole = s.role;
+                userSubtitle.textContent = s.role ? `Connecté en tant que ${s.role}` : 'Gestion des postes';
 
                 // Édition réservée à admin + user (recruteur) ; visitor en lecture seule.
                 if (currentUserRole === 'admin' || currentUserRole === 'user') {

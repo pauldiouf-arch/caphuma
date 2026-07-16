@@ -10,6 +10,8 @@
 
     <!-- Supabase CDN (Standard Non-Module) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="shared/caphuma-utils.js"></script>
+    <script src="shared/caphuma-auth.js"></script>
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -181,35 +183,20 @@
 
         // Échappement HTML systématique de toute donnée provenant de la base
         // avant injection via innerHTML — prévention XSS.
-        function escapeHtml(value) {
-            if (value === null || value === undefined) return '';
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
 
         // ============================================================================
         // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         async function logAuditAction(action, entityType, entityId, entityName, details) {
-            try {
-                await supabaseClient.from('audit_logs').insert({
-                    user_id: currentUserId,
-                    user_email: currentUserEmail,
-                    user_name: currentUserName,
-                    action: action,
-                    entity_type: entityType,
-                    entity_id: entityId || null,
-                    entity_name: entityName || null,
-                    details: details || null
-                });
-            } catch (err) {
-                console.warn("[Audit] Échec de l'enregistrement du log :", err);
-            }
+            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
+            // le fait que user_name n'était jamais transmis sur certaines pages.
+            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
+            await capHumaLogAudit(
+                supabaseClient,
+                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
+                action, entityType, entityId, entityName, details
+            );
         }
 
         // ============================================================================
@@ -217,30 +204,13 @@
         // ============================================================================
         async function checkSession() {
             try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
+                const s = await capHumaInitSession(supabaseClient);
 
-                if (!session) {
-                    throw new Error("Session absente ou expirée.");
-                }
-
-                currentUserId = session.user.id;
-                currentUserEmail = session.user.email || null;
+                currentUserId = s.userId;
+                currentUserEmail = s.email;
                 document.getElementById('user-display-name').textContent = currentUserEmail;
-
-                const { data: profiles, error: profileError } = await supabaseClient
-                    .from('users')
-                    .select('role, name, is_active')
-                    .eq('id', currentUserId);
-
-                if (!profileError && profiles && profiles.length > 0) {
-                    const profile = profiles[0];
-                    if (profile.is_active === false) throw new Error("Compte désactivé.");
-                    currentUserRole = profile.role;
-                    currentUserName = profile.name || session.user.email || 'Inconnu';
-                } else {
-                    currentUserRole = null;
-                    currentUserName = session.user.email || 'Inconnu';
-                }
+                currentUserRole = s.role;
+                currentUserName = s.name;
 
                 // Page réservée admin + user (recruteur), bloquée pour visitor
                 if (currentUserRole === 'visitor') {

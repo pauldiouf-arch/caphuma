@@ -10,6 +10,8 @@
 
     <!-- Supabase JS Client via CDN pour la communication BDD -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="shared/caphuma-utils.js"></script>
+    <script src="shared/caphuma-auth.js"></script>
 
     <!-- Polices -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -276,20 +278,14 @@
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         async function logAuditAction(action, entityType, entityId, entityName, details) {
-            try {
-                await supabaseClient.from('audit_logs').insert({
-                    user_id: currentUserId,
-                    user_email: currentUserEmail,
-                    user_name: null,
-                    action: action,
-                    entity_type: entityType,
-                    entity_id: entityId || null,
-                    entity_name: entityName || null,
-                    details: details || null
-                });
-            } catch (err) {
-                console.warn("[Audit] Échec de l'enregistrement du log :", err);
-            }
+            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
+            // le fait que user_name n'était jamais transmis sur certaines pages.
+            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
+            await capHumaLogAudit(
+                supabaseClient,
+                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
+                action, entityType, entityId, entityName, details
+            );
         }
 
         // ============ SESSION & RÔLE ============
@@ -300,18 +296,20 @@
                 return;
             }
             try {
-                const { data: { session }, error } = await supabaseClient.auth.getSession();
-                if (error || !session) {
+                let s;
+                try {
+                    s = await capHumaInitSession(supabaseClient);
+                } catch (sessionErr) {
                     window.location.replace('login.html');
                     return;
                 }
 
-                document.getElementById('user-display-name').textContent = session.user.email;
-                currentUserId = session.user.id;
-                currentUserEmail = session.user.email || null;
+                document.getElementById('user-display-name').textContent = s.email;
+                currentUserId = s.userId;
+                currentUserEmail = s.email;
+                currentUserName = s.name;
 
-                const isAdmin = await checkUserRole(session.user.id);
-                if (!isAdmin) {
+                if (s.role !== 'admin') {
                     document.getElementById('access-denied-banner').classList.remove('hidden');
                     setTimeout(() => window.location.replace('dashboard.html'), 2500);
                     return;
@@ -322,25 +320,6 @@
             } catch (e) {
                 console.error(e);
                 showError("Erreur d'authentification ou problème réseau.");
-            }
-        }
-
-        // Vérifie le rôle de l'utilisateur connecté. Retourne true si le rôle est
-        // admin (accès autorisé à cette page). Étape A : la nav complète a été
-        // retirée du header (harmonisation), il n'y a donc plus de liens à
-        // démasquer ici.
-        async function checkUserRole(userId) {
-            try {
-                const { data: user } = await supabaseClient
-                    .from('users')
-                    .select('role')
-                    .eq('id', userId)
-                    .maybeSingle();
-
-                return !!(user && user.role === 'admin');
-            } catch (err) {
-                console.error(err);
-                return false;
             }
         }
 
@@ -798,11 +777,6 @@
 
         // ============ UTILITAIRES ============
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str == null ? '' : String(str);
-            return div.innerHTML;
-        }
 
         // ============ INITIALISATION ============
 

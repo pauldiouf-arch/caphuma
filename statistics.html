@@ -13,6 +13,8 @@
     
     <!-- Supabase JS Client via CDN pour la communication BDD -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="shared/caphuma-utils.js"></script>
+    <script src="shared/caphuma-auth.js"></script>
     
     <!-- Polices -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -300,15 +302,6 @@
         // injection via innerHTML — prévention XSS (Master Context, règle de méthode
         // n°12). Absente jusqu'ici sur cette page faute d'innerHTML utilisant des
         // données de la base ; ajoutée avec les statistiques de contrats (Étape C).
-        function escapeHtml(value) {
-            if (value === null || value === undefined) return '';
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
 
         const SUPABASE_URL = localStorage.getItem('supabase_url');
         const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
@@ -325,20 +318,14 @@
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         async function logAuditAction(action, entityType, entityId, entityName, details) {
-            try {
-                await supabaseClient.from('audit_logs').insert({
-                    user_id: currentUserId,
-                    user_email: currentUserEmail,
-                    user_name: null,
-                    action: action,
-                    entity_type: entityType,
-                    entity_id: entityId || null,
-                    entity_name: entityName || null,
-                    details: details || null
-                });
-            } catch (err) {
-                console.warn("[Audit] Échec de l'enregistrement du log :", err);
-            }
+            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
+            // le fait que user_name n'était jamais transmis sur certaines pages.
+            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
+            await capHumaLogAudit(
+                supabaseClient,
+                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
+                action, entityType, entityId, entityName, details
+            );
         }
 
         async function checkSession() {
@@ -347,38 +334,23 @@
                 return;
             }
             try {
-                const { data: { session }, error } = await supabaseClient.auth.getSession();
-                if (error || !session) {
+                let s;
+                try {
+                    s = await capHumaInitSession(supabaseClient);
+                } catch (sessionErr) {
                     window.location.replace('login.html');
                     return;
                 }
-                
-                document.getElementById('user-display-name').textContent = session.user.email;
-                currentUserId = session.user.id;
-                currentUserEmail = session.user.email || null;
-                await checkUserRole(session.user.id);
+
+                document.getElementById('user-display-name').textContent = s.email;
+                currentUserId = s.userId;
+                currentUserEmail = s.email;
+                currentUserName = s.name;
+                currentUserRole = s.role;
                 await initHub();
             } catch (e) {
                 console.error(e);
                 showError("Erreur d'authentification ou problème réseau.");
-            }
-        }
-
-        async function checkUserRole(userId) {
-            // Étape A : la nav complète a été retirée du header (harmonisation) —
-            // cette fonction ne sert plus qu'à connaître le rôle courant si besoin
-            // ailleurs sur la page (ex. restriction de l'IA, déjà gérée côté serveur
-            // par ai-proxy). Conservée pour compatibilité future, sans manipulation
-            // de liens de nav désormais inexistants.
-            try {
-                const { data: user } = await supabaseClient
-                    .from('users')
-                    .select('role')
-                    .eq('id', userId)
-                    .maybeSingle();
-                if (user) currentUserRole = user.role;
-            } catch (err) {
-                console.error("Erreur de droits :", err);
             }
         }
 
