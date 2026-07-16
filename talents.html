@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Professionnels - Cap Huma</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="shared/caphuma-utils.js"></script>
     <script src="shared/caphuma-auth.js"></script>
@@ -16,19 +16,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        primary: { DEFAULT: '#1d4ed8', dark: '#1e3a8a', light: '#eff6ff' },
-                        accent: { DEFAULT: '#ea580c', dark: '#c2410c', light: '#fff7ed' }
-                    }
-                }
-            }
+    <style type="text/tailwindcss">
+        @theme {
+            --font-sans: 'Inter', sans-serif;
+            --color-primary: #1d4ed8;
+            --color-primary-dark: #1e3a8a;
+            --color-primary-light: #eff6ff;
+            --color-accent: #ea580c;
+            --color-accent-dark: #c2410c;
+            --color-accent-light: #fff7ed;
         }
-    </script>
+    </style>
     <style>
         .tag-chip { display: inline-flex; align-items: center; gap: 4px; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
         .tag-chip button { color: #1d4ed8; opacity: 0.6; }
