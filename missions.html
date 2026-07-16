@@ -182,6 +182,7 @@
             <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
             <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
         </div>
+        <div id="missionsPagination" class="mt-4"></div>
 
         <p id="missionsEmpty" class="hidden text-center text-sm text-slate-400 py-12">Aucun poste enregistré pour ce pool pour le moment.</p>
 
@@ -442,6 +443,8 @@
         let currentUserEmail = null;
         let currentUserRole = null;
         let currentMissions = [];
+        let missionsPage = 1;
+        const MISSIONS_PAGE_SIZE = 12;
         let poolTalents = []; // talents du pool, pour les listes déroulantes occupant / futur occupant
         let talentNameById = {};
 
@@ -595,6 +598,7 @@
                 if (error) throw error;
 
                 currentMissions = missions || [];
+                missionsPage = 1;
 
                 // Contrats expirés avec statut confirmé "Se termine" : traitement
                 // automatique. Les autres restent occupés, signalés visuellement dans
@@ -845,16 +849,27 @@
         // ============================================================================
         function renderMissions() {
             missionsGrid.innerHTML = '';
+            const paginationEl = document.getElementById('missionsPagination');
 
             if (currentMissions.length === 0) {
                 missionsEmpty.classList.remove('hidden');
+                paginationEl.innerHTML = '';
                 return;
             }
             missionsEmpty.classList.add('hidden');
 
+            // Pagination côté AFFICHAGE uniquement (le pool entier reste chargé en
+            // mémoire pour les statistiques et la rotation automatique des contrats,
+            // qui ont besoin de l'ensemble des postes du pool) — évite simplement de
+            // construire des centaines de cartes DOM d'un coup sur un gros pool.
+            const totalPages = Math.max(1, Math.ceil(currentMissions.length / MISSIONS_PAGE_SIZE));
+            if (missionsPage > totalPages) missionsPage = totalPages;
+            const start = (missionsPage - 1) * MISSIONS_PAGE_SIZE;
+            const pageMissions = currentMissions.slice(start, start + MISSIONS_PAGE_SIZE);
+
             const canEdit = currentUserRole === 'admin' || currentUserRole === 'user';
 
-            currentMissions.forEach(mission => {
+            pageMissions.forEach(mission => {
                 const statusLabel = STATUS_LABELS[mission.status] || mission.status || '—';
                 const occupantName = mission.occupant_id ? (talentNameById[mission.occupant_id] || 'Talent introuvable') : null;
                 const futureName = mission.future_talent_id ? (talentNameById[mission.future_talent_id] || 'Talent introuvable') : null;
@@ -909,6 +924,11 @@
                 missionsGrid.appendChild(card);
             });
 
+            paginationEl.innerHTML = renderPaginationControls(
+                missionsPage, totalPages, currentMissions.length,
+                'goToMissionsPage(missionsPage - 1)', 'goToMissionsPage(missionsPage + 1)'
+            );
+
             document.querySelectorAll('.editMissionBtn').forEach(btn => {
                 btn.addEventListener('click', () => openEditModal(btn.dataset.id));
             });
@@ -937,6 +957,12 @@
                 console.error("Erreur de resynchronisation :", error);
                 toastMessage("Échec de la resynchronisation : " + (error && error.message ? error.message : 'erreur inconnue.'), 'error');
             }
+        }
+
+        function goToMissionsPage(page) {
+            if (page < 1) return;
+            missionsPage = page;
+            renderMissions();
         }
 
         function formatDate(isoDate) {

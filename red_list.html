@@ -131,6 +131,7 @@
                         <tbody id="redlist-tbody" class="divide-y divide-slate-100"></tbody>
                     </table>
                 </div>
+                <div id="redlist-pagination" class="hidden mt-4 pt-3 border-t border-slate-100"></div>
             </div>
         </div>
     </main>
@@ -213,6 +214,8 @@
     <script>
         let supabaseClient = null;
         let redListTalents = [];
+        let redListPage = 1;
+        const REDLIST_PAGE_SIZE = 20;
         let pendingConfirmAction = null;
         let currentUserRole = null;
         let currentUserId = null;
@@ -517,31 +520,54 @@
 
         // ============ CHARGEMENT DE LA LISTE ROUGE ============
 
-        async function loadRedList() {
+        async function loadRedList(page) {
+            if (typeof page === 'number') redListPage = page;
+
             const loading = document.getElementById('redlist-loading');
             const empty = document.getElementById('redlist-empty');
             const table = document.getElementById('redlist-table');
+            const pagination = document.getElementById('redlist-pagination');
             loading.classList.remove('hidden');
             empty.classList.add('hidden');
             table.classList.add('hidden');
+            pagination.classList.add('hidden');
 
             try {
-                const { data, error } = await supabaseClient
-                    .from('talents')
-                    .select('id, first_name, last_name, pool, status, red_list_date, red_list_reason, red_list_added_by_name, red_list_documents')
-                    .eq('is_red_listed', true)
-                    .order('red_list_date', { ascending: false });
+                // Pagination réelle côté requête (.range() + count: exact), sur le
+                // modèle déjà validé sur talents.html / audit_logs.html — évite de
+                // charger l'intégralité de la Liste Rouge en mémoire à chaque visite.
+                const result = await paginateQuery(
+                    (c) => c.from('talents')
+                        .select('id, first_name, last_name, pool, status, red_list_date, red_list_reason, red_list_added_by_name, red_list_documents', { count: 'exact' })
+                        .eq('is_red_listed', true)
+                        .order('red_list_date', { ascending: false }),
+                    supabaseClient,
+                    redListPage,
+                    REDLIST_PAGE_SIZE
+                );
 
-                if (error) throw error;
-                redListTalents = data || [];
-                document.getElementById('redlist-count').textContent = redListTalents.length;
+                redListTalents = result.data;
+                document.getElementById('redlist-count').textContent = result.count;
                 renderRedList();
+
+                if (result.count > 0) {
+                    pagination.innerHTML = renderPaginationControls(
+                        result.page, result.totalPages, result.count,
+                        'goToRedListPage(redListPage - 1)', 'goToRedListPage(redListPage + 1)'
+                    );
+                    pagination.classList.remove('hidden');
+                }
             } catch (e) {
                 console.error(e);
                 showError("Impossible de charger la liste rouge : " + e.message);
             } finally {
                 loading.classList.add('hidden');
             }
+        }
+
+        function goToRedListPage(page) {
+            if (page < 1) return;
+            loadRedList(page);
         }
 
         function renderRedList() {

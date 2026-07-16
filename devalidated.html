@@ -235,39 +235,55 @@
         });
 
         // ============================================================================
-        // 3. CHARGEMENT DES TALENTS DÉVALIDÉS, REGROUPÉS PAR POOL
+        // 3. CHARGEMENT DES TALENTS DÉVALIDÉS
         // ============================================================================
-        // Données brutes conservées en mémoire pour permettre un filtrage côté client
-        // (pool + plage de dates de dévalidation) sans refaire de requête à chaque
-        // changement de filtre (Étape B).
+        // Deux modes, sur le modèle déjà validé sur talents.html (Option A) :
+        //  - Aucun filtre actif  → pagination réelle côté requête (20/page), liste
+        //    plate triée par date de dévalidation, la plus simple et la plus rapide
+        //    pour la navigation courante.
+        //  - Un filtre actif (pool et/ou dates) → bascule vers le chargement complet
+        //    des talents dévalidés, regroupés par pool comme avant la refonte (le
+        //    filtrage par date n'est pas traduisible simplement en requête paginée
+        //    combinée à un regroupement visuel par pool).
         let allPools = [];
-        let allDevalidatedTalents = [];
+        let allDevalidatedTalents = []; // uniquement rempli en mode "filtre actif"
+        let devalidatedPage = 1;
+        const DEVALIDATED_PAGE_SIZE = 20;
 
         const filterPoolSelect = document.getElementById('filterPool');
         const filterDateFrom = document.getElementById('filterDateFrom');
         const filterDateTo = document.getElementById('filterDateTo');
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const paginationContainer = document.createElement('div');
+        paginationContainer.id = 'devalidatedPagination';
+        paginationContainer.className = 'mt-4';
+        poolsContainer.insertAdjacentElement('afterend', paginationContainer);
 
-        async function loadDevalidatedTalents() {
+        function hasActiveFilters() {
+            return !!(filterPoolSelect.value || filterDateFrom.value || filterDateTo.value);
+        }
+
+        function poolLabel(poolId) {
+            const found = allPools.find(p => p.pool_id === poolId);
+            return found ? (found.full_name || found.name) : (poolId || '—');
+        }
+
+        async function loadDevalidatedTalents(page) {
             try {
-                const [poolsRes, talentsRes] = await Promise.all([
-                    supabaseClient.from('pools').select('pool_id, name, full_name').order('name', { ascending: true }),
-                    supabaseClient
-                        .from('talents')
-                        .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission')
-                        .eq('is_valid', false)
-                        .order('devalidation_date', { ascending: false })
-                ]);
+                // Liste des pools chargée une seule fois (sert au filtre + aux libellés).
+                if (allPools.length === 0) {
+                    const poolsRes = await supabaseClient.from('pools').select('pool_id, name, full_name').order('name', { ascending: true });
+                    if (poolsRes.error) throw poolsRes.error;
+                    allPools = poolsRes.data || [];
+                    populatePoolFilterOptions();
+                }
 
-                if (poolsRes.error) throw poolsRes.error;
-                if (talentsRes.error) throw talentsRes.error;
-
-                allPools = poolsRes.data || [];
-                allDevalidatedTalents = talentsRes.data || [];
-
-                populatePoolFilterOptions();
-                applyFiltersAndRender();
-
+                if (hasActiveFilters()) {
+                    paginationContainer.innerHTML = '';
+                    await loadAndRenderFiltered();
+                } else {
+                    await loadAndRenderPaged(page || devalidatedPage);
+                }
             } catch (error) {
                 console.error("Erreur de chargement des dévalidés :", error);
                 poolsContainer.innerHTML = '';
@@ -276,22 +292,63 @@
             }
         }
 
-        // Peuple le filtre Pool une seule fois à partir des pools réellement
-        // représentés parmi les talents dévalidés (pas tous les pools du site,
-        // pour éviter des options vides dans le filtre).
+        // Mode par défaut (aucun filtre) : pagination réelle, liste plate.
+        async function loadAndRenderPaged(page) {
+            devalidatedPage = page;
+            const result = await paginateQuery(
+                (c) => c.from('talents')
+                    .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission', { count: 'exact' })
+                    .eq('is_valid', false)
+                    .order('devalidation_date', { ascending: false }),
+                supabaseClient,
+                devalidatedPage,
+                DEVALIDATED_PAGE_SIZE
+            );
+
+            poolsContainer.innerHTML = '';
+            if (result.count === 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.textContent = '✅ Aucun talent dévalidé actuellement.';
+                paginationContainer.innerHTML = '';
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            const list = document.createElement('div');
+            list.className = "bg-white border border-slate-200 rounded-2xl shadow-sm divide-y divide-slate-100 overflow-hidden";
+            result.data.forEach(t => list.appendChild(renderTalentRow(t, poolLabel(t.pool))));
+            poolsContainer.appendChild(list);
+
+            paginationContainer.innerHTML = renderPaginationControls(
+                result.page, result.totalPages, result.count,
+                'loadDevalidatedTalents(devalidatedPage - 1)', 'loadDevalidatedTalents(devalidatedPage + 1)'
+            );
+        }
+
+        // Mode filtré : comportement identique à avant la refonte (chargement complet,
+        // regroupement par pool), simplement renommé pour plus de clarté.
+        async function loadAndRenderFiltered() {
+            const { data, error } = await supabaseClient
+                .from('talents')
+                .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission')
+                .eq('is_valid', false)
+                .order('devalidation_date', { ascending: false });
+
+            if (error) throw error;
+            allDevalidatedTalents = data || [];
+            applyFiltersAndRender();
+        }
+
+        // Peuple le filtre Pool à partir de l'ensemble des pools existants (et non plus
+        // uniquement ceux représentés parmi les dévalidés, pour rester disponible même
+        // en mode paginé où l'ensemble complet n'est pas chargé en mémoire).
         function populatePoolFilterOptions() {
             if (filterPoolSelect.dataset.populated === 'true') return;
 
-            const poolIdsPresent = new Set(allDevalidatedTalents.map(t => t.pool).filter(Boolean));
-            const poolLabel = (poolId) => {
-                const found = allPools.find(p => p.pool_id === poolId);
-                return found ? (found.full_name || found.name) : poolId;
-            };
-
-            Array.from(poolIdsPresent).sort().forEach(poolId => {
+            allPools.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(p => {
                 const opt = document.createElement('option');
-                opt.value = poolId;
-                opt.textContent = poolLabel(poolId);
+                opt.value = p.pool_id;
+                opt.textContent = p.full_name || p.name;
                 filterPoolSelect.appendChild(opt);
             });
 
@@ -299,9 +356,8 @@
         }
 
         // Applique les filtres actifs (pool, date début, date fin) sur les données
-        // brutes en mémoire, puis (ré)affiche la liste regroupée par pool. Réinitialise
-        // implicitement toute pagination existante à chaque appel (pas de pagination
-        // sur cette page pour l'instant — voir Master Context, chantier section 16).
+        // brutes en mémoire (mode filtré uniquement), puis (ré)affiche la liste
+        // regroupée par pool.
         function applyFiltersAndRender() {
             const poolFilterVal = filterPoolSelect.value;
             const fromVal = filterDateFrom.value ? new Date(filterDateFrom.value + 'T00:00:00') : null;
@@ -333,15 +389,16 @@
             renderGroupedByPool(allPools, filtered);
         }
 
-        filterPoolSelect.addEventListener('change', applyFiltersAndRender);
-        filterDateFrom.addEventListener('change', applyFiltersAndRender);
-        filterDateTo.addEventListener('change', applyFiltersAndRender);
+        filterPoolSelect.addEventListener('change', () => loadDevalidatedTalents());
+        filterDateFrom.addEventListener('change', () => loadDevalidatedTalents());
+        filterDateTo.addEventListener('change', () => loadDevalidatedTalents());
 
         resetFiltersBtn.addEventListener('click', () => {
             filterPoolSelect.value = '';
             filterDateFrom.value = '';
             filterDateTo.value = '';
-            applyFiltersAndRender();
+            devalidatedPage = 1;
+            loadDevalidatedTalents(1);
         });
 
         function renderGroupedByPool(pools, talents) {
@@ -354,11 +411,6 @@
                 if (!grouped[key]) grouped[key] = [];
                 grouped[key].push(t);
             });
-
-            const poolLabel = (poolId) => {
-                const found = pools.find(p => p.pool_id === poolId);
-                return found ? (found.full_name || found.name) : poolId;
-            };
 
             Object.keys(grouped).forEach(poolId => {
                 const section = document.createElement('div');
@@ -384,7 +436,7 @@
             });
         }
 
-        function renderTalentRow(t) {
+        function renderTalentRow(t, poolLabelText) {
             const row = document.createElement('div');
             row.className = "px-5 py-4 flex flex-wrap items-center justify-between gap-3";
 
@@ -396,11 +448,16 @@
                 ? `<span class="ml-2 text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 rounded px-1.5 py-0.5">Déjà en Liste Rouge</span>`
                 : '';
 
+            const poolBadge = poolLabelText
+                ? `<span class="ml-2 text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">${escapeHtml(poolLabelText)}</span>`
+                : '';
+
             row.innerHTML = `
                 <div>
                     <a href="id-card.html?id=${encodeURIComponent(t.id)}" class="font-bold text-sm text-slate-800 hover:text-primary transition-all">
                         ${escapeHtml(t.first_name)} ${escapeHtml(t.last_name)}
                     </a>
+                    ${poolBadge}
                     ${redListBadge}
                     <p class="text-xs text-slate-400 mt-0.5">
                         Dévalidé le ${dateStr}
