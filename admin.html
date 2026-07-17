@@ -496,7 +496,9 @@
                 icon: "🔑",
                 onConfirm: async () => {
                     const result = await callManageUsers('reset_password', { userId });
-                    await logAuditAction('update', 'user', userId, null, "Réinitialisation du code d'accès");
+                    // Journalisation retirée d'ici le 17/07/2026 : manage-users l'écrit
+                    // désormais lui-même côté serveur (garanti, quel que soit le chemin
+                    // d'appel) — la laisser ici aurait créé une ligne en double.
                     showAccessCodeModal(result.accessCode);
                     toastMessage("Code d'accès réinitialisé avec succès.");
                 }
@@ -511,7 +513,9 @@
                 icon: "🗑️",
                 onConfirm: async () => {
                     await callManageUsers('delete', { userId });
-                    await logAuditAction('delete', 'user', userId, email, null);
+                    // Journalisation retirée d'ici le 17/07/2026 : manage-users l'écrit
+                    // désormais lui-même côté serveur, avant même la suppression de la
+                    // ligne 'users' — la laisser ici aurait créé une ligne en double.
                     toastMessage("Compte supprimé avec succès.");
                     await loadAccounts();
                 }
@@ -546,7 +550,9 @@
                 // Paramètre envoyé à l'Edge Function : fullName, mappé sur la
                 // colonne 'name' en base (voir section 8 du Master Context).
                 const result = await callManageUsers('create', { email, role, fullName });
-                await logAuditAction('create', 'user', result && result.userId ? result.userId : null, fullName || email, `Rôle : ${role}`);
+                // Journalisation retirée d'ici le 17/07/2026 : manage-users l'écrit
+                // désormais lui-même côté serveur — la laisser ici aurait créé une
+                // ligne en double.
                 document.getElementById('modal-create-account').classList.add('hidden');
                 showAccessCodeModal(result.accessCode);
                 toastMessage("Compte créé avec succès.");
