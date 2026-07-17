@@ -599,14 +599,14 @@
                     <td class="py-3 pr-4 text-xs text-slate-400">${dateAdded}</td>
                     <td class="py-3 pr-4">
                         ${t.red_list_reason
-                            ? `<button class="btn-view-reason text-xs text-primary hover:underline text-left" data-id="${t.id}">${escapeHtml(reasonPreview)}${docCount > 0 ? ` <span class="text-slate-400">📎${docCount}</span>` : ''}</button>`
+                            ? `<button class="btn-view-reason text-xs text-primary hover:underline text-left" data-id="${escapeHtml(t.id)}">${escapeHtml(reasonPreview)}${docCount > 0 ? ` <span class="text-slate-400">📎${docCount}</span>` : ''}</button>`
                             : '<span class="text-xs text-slate-400">—</span>'}
                     </td>
                     <td class="py-3 pr-4 text-xs text-slate-500">${escapeHtml(t.red_list_added_by_name || '—')}</td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5 flex-wrap">
-                            <a href="id-card.html?id=${t.id}" class="text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Voir la fiche</a>
-                            <button class="btn-remove-redlist text-xs font-semibold text-green-600 hover:bg-green-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${t.id}" data-name="${escapeHtml(fullName)}">
+                            <a href="id-card.html?id=${escapeHtml(t.id)}" class="text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Voir la fiche</a>
+                            <button class="btn-remove-redlist text-xs font-semibold text-green-600 hover:bg-green-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${escapeHtml(t.id)}" data-name="${escapeHtml(fullName)}">
                                 Retirer
                             </button>
                         </div>

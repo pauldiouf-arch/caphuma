@@ -9,7 +9,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     
     <!-- Chart.js via CDN pour le rendu des graphiques -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Version figée le 17/07/2026 (même logique que supabase-js, §6.5 de la
+         présentation) : auparavant chargée SANS AUCUNE version (toujours la
+         dernière publiée), contrairement à supabase-js déjà figé — corrigé ici.
+         4.4.4 = version stable connue de Chart.js v4, API identique à celle
+         utilisée dans ce fichier (type: 'pie'/'bar'/'doughnut', options
+         responsive/legend/scales). À re-vérifier une fois par an (cf. Guide
+         de Maintenance, §2.2) plutôt que de laisser filer automatiquement. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4"></script>
     
     <!-- Supabase JS Client via CDN pour la communication BDD -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.6"></script>
