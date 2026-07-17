@@ -41,7 +41,7 @@
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center gap-4">
-                    <a href="admin.html" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
+                    <a href="dashboard.html" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
                         <span aria-hidden="true">←</span> Retour
                     </a>
                     <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
@@ -153,6 +153,7 @@
 
                 document.getElementById('user-display-name').textContent = s.email;
                 document.getElementById('pageContent').classList.remove('hidden');
+                await loadReferenceData();
 
             } catch (err) {
                 window.location.replace('login.html');
@@ -166,19 +167,311 @@
         });
 
         // ============================================================================
-        // Sélection du fichier — la lecture/validation réelle arrive à l'étape 2 de
-        // notre feuille de route. Pour l'instant, on confirme juste que le fichier est
-        // bien reçu par le navigateur.
+        // ÉTAPE 2 — Lecture réelle du fichier, validation ligne par ligne, aperçu.
+        // Aucune écriture en base à ce stade : l'insertion réelle est l'étape suivante.
         // ============================================================================
-        document.getElementById('importFileInput').addEventListener('change', (e) => {
+        let cachedPools = [];
+        let cachedExistingEmails = new Set();
+        let lastParsedRows = [];
+
+        const EDU_LEVELS_VALID = new Set(['none','bac','bac+1','bac+2','bac+3','bac+4','bac+5','bac+6','bac+7','bac+8+']);
+        const MISSIONS_LABEL_TO_ENUM = { '0 mission': 'none', '1 mission': 'one', '2 missions': 'two', '3 missions et +': 'three_plus' };
+        const AVAILABILITY_LABEL_TO_ENUM = { 'Immédiate': 'asap', 'Date précise': 'date', 'Préavis': 'notice' };
+        const HAS_VISA_LABEL_TO_BOOL = { 'Oui': true, 'Non': false };
+        const EXAMPLE_ROW_EMAIL = 'awa.ndiaye@example.com';
+
+        // Correspond exactement à la ligne 2 (noms techniques) du modèle livré —
+        // ne pas modifier sans mettre à jour le modèle Excel en parallèle.
+        const IMPORT_COLUMNS = [
+            'first_name', 'last_name', 'email', 'pool', 'gender', 'nationality',
+            'country_of_residence', 'current_function', 'education_level', 'education_specialty',
+            'languages', 'other_languages', 'key_skills', 'intervention_contexts', 'intervention_zones',
+            'has_visa', 'pool_integration_date', 'experience_months_alima', 'experience_months_humanitarian',
+            'number_of_alima_missions', 'availability_type', 'availability_date', 'availability_months', 'status'
+        ];
+
+        async function loadReferenceData() {
+            try {
+                const { data, error } = await supabaseClient.from('pools').select('pool_id, name');
+                if (error) throw error;
+                cachedPools = data || [];
+            } catch (err) {
+                console.error('[Import] Erreur de chargement des pools :', err);
+            }
+            try {
+                const { data, error } = await supabaseClient.from('talents').select('email');
+                if (error) throw error;
+                cachedExistingEmails = new Set((data || []).map(t => (t.email || '').trim().toLowerCase()).filter(Boolean));
+            } catch (err) {
+                console.error('[Import] Erreur de chargement des emails existants :', err);
+            }
+        }
+
+        function splitMultiValue(raw) {
+            if (!raw || typeof raw !== 'string') return [];
+            return raw.split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        function parseDateCell(raw) {
+            if (!raw) return null;
+            if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+            const d = new Date(raw);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function toISODate(d) {
+            return d.toISOString().slice(0, 10);
+        }
+
+        function validateAndNormalizeRow(raw, rowNumber, seenEmailsInFile) {
+            const errors = [];
+            const get = (key) => {
+                const v = raw[key];
+                return typeof v === 'string' ? v.trim() : v;
+            };
+
+            const firstName = get('first_name');
+            const lastName = get('last_name');
+            const email = get('email');
+            const pool = get('pool');
+
+            if (!firstName) errors.push('Prénom manquant');
+            if (!lastName) errors.push('Nom manquant');
+            if (!email) errors.push('Email manquant');
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email au format invalide');
+            if (!pool) errors.push('Code Pool manquant');
+            else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
+                errors.push(`Pool "${pool}" inconnu`);
+            }
+
+            const emailLower = (email || '').toString().toLowerCase();
+            if (email) {
+                if (seenEmailsInFile.has(emailLower)) errors.push('Email en double dans le fichier');
+                else seenEmailsInFile.add(emailLower);
+                if (cachedExistingEmails.has(emailLower)) errors.push('Un talent avec cet email existe déjà');
+            }
+
+            const gender = get('gender');
+            if (gender && gender !== 'H' && gender !== 'F') errors.push(`Genre "${gender}" invalide`);
+
+            const eduLevel = get('education_level');
+            if (eduLevel && !EDU_LEVELS_VALID.has(eduLevel)) errors.push(`Niveau d'études "${eduLevel}" invalide`);
+
+            let hasVisa = null;
+            const hasVisaRaw = get('has_visa');
+            if (hasVisaRaw) {
+                if (!(hasVisaRaw in HAS_VISA_LABEL_TO_BOOL)) errors.push(`Visa "${hasVisaRaw}" invalide`);
+                else hasVisa = HAS_VISA_LABEL_TO_BOOL[hasVisaRaw];
+            }
+
+            let missionsEnum = null;
+            const missionsRaw = get('number_of_alima_missions');
+            if (missionsRaw) {
+                if (!(missionsRaw in MISSIONS_LABEL_TO_ENUM)) errors.push(`Missions "${missionsRaw}" invalide`);
+                else missionsEnum = MISSIONS_LABEL_TO_ENUM[missionsRaw];
+            }
+
+            let availType = null;
+            const availTypeRaw = get('availability_type');
+            if (availTypeRaw) {
+                if (!(availTypeRaw in AVAILABILITY_LABEL_TO_ENUM)) errors.push(`Disponibilité "${availTypeRaw}" invalide`);
+                else availType = AVAILABILITY_LABEL_TO_ENUM[availTypeRaw];
+            }
+
+            let availDate = null;
+            if (availType === 'date') {
+                availDate = parseDateCell(raw['availability_date']);
+                if (!availDate) errors.push('Date de disponibilité requise (type = Date précise)');
+            }
+
+            let availMonths = null;
+            const availMonthsRaw = get('availability_months');
+            if (availType === 'notice') {
+                availMonths = Number(availMonthsRaw);
+                if (availMonthsRaw === '' || availMonthsRaw == null || isNaN(availMonths)) errors.push('Préavis (mois) requis (type = Préavis)');
+            } else if (availMonthsRaw !== '' && availMonthsRaw != null) {
+                const n = Number(availMonthsRaw);
+                if (isNaN(n)) errors.push('Préavis (mois) doit être numérique');
+                else availMonths = n;
+            }
+
+            let poolIntegrationDate = null;
+            if (raw['pool_integration_date']) {
+                poolIntegrationDate = parseDateCell(raw['pool_integration_date']);
+                if (!poolIntegrationDate) errors.push("Date d'intégration invalide");
+            }
+
+            let expAlima = null;
+            const expAlimaRaw = get('experience_months_alima');
+            if (expAlimaRaw !== '' && expAlimaRaw != null) {
+                expAlima = Number(expAlimaRaw);
+                if (isNaN(expAlima)) errors.push('Expérience ALIMA (mois) doit être numérique');
+            }
+
+            let expHum = null;
+            const expHumRaw = get('experience_months_humanitarian');
+            if (expHumRaw !== '' && expHumRaw != null) {
+                expHum = Number(expHumRaw);
+                if (isNaN(expHum)) errors.push('Expérience humanitaire (mois) doit être numérique');
+            }
+
+            const normalized = {
+                first_name: firstName || null,
+                last_name: lastName || null,
+                email: email || null,
+                pool: pool ? String(pool).toUpperCase() : null,
+                gender: gender || null,
+                nationality: get('nationality') || null,
+                country_of_residence: get('country_of_residence') || null,
+                current_function: get('current_function') || null,
+                education_level: eduLevel || null,
+                education_specialty: get('education_specialty') || null,
+                languages: splitMultiValue(get('languages')),
+                other_languages: splitMultiValue(get('other_languages')),
+                key_skills: splitMultiValue(get('key_skills')),
+                intervention_contexts: splitMultiValue(get('intervention_contexts')),
+                intervention_zones: splitMultiValue(get('intervention_zones')),
+                has_visa: hasVisa,
+                pool_integration_date: poolIntegrationDate ? toISODate(poolIntegrationDate) : null,
+                experience_months_alima: expAlima,
+                experience_months_humanitarian: expHum,
+                number_of_alima_missions: missionsEnum,
+                availability_type: availType,
+                availability_date: availDate ? toISODate(availDate) : null,
+                availability_months: availMonths
+            };
+
+            return { rowNumber, errors, normalized };
+        }
+
+        function parseWorkbook(arrayBuffer) {
+            const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+            const sheetName = wb.SheetNames.includes('Modèle Import Talents') ? 'Modèle Import Talents' : wb.SheetNames[wb.SheetNames.length - 1];
+            const sheet = wb.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+            if (rows.length < 2) return { error: 'Fichier vide ou format inattendu.' };
+
+            const techHeaderRow = rows[1]; // ligne 2 = noms techniques
+            const colIndex = {};
+            IMPORT_COLUMNS.forEach(col => {
+                const idx = techHeaderRow.findIndex(h => String(h).trim() === col);
+                if (idx !== -1) colIndex[col] = idx;
+            });
+
+            if (colIndex.first_name === undefined || colIndex.email === undefined || colIndex.pool === undefined) {
+                return { error: "Colonnes attendues introuvables — utilisez le modèle fourni sans modifier l'ordre des colonnes." };
+            }
+
+            const dataRows = rows.slice(2); // données à partir de la ligne 3 (index 2)
+            const parsed = [];
+            const seenEmailsInFile = new Set();
+            let excelRowNum = 3;
+
+            dataRows.forEach(r => {
+                const isEmptyRow = r.every(cell => cell === '' || cell == null);
+                if (isEmptyRow) { excelRowNum++; return; }
+
+                const raw = {};
+                IMPORT_COLUMNS.forEach(col => {
+                    raw[col] = colIndex[col] !== undefined ? r[colIndex[col]] : '';
+                });
+
+                // Ignore silencieusement la ligne d'exemple si elle n'a pas été supprimée
+                if (String(raw.email).trim().toLowerCase() === EXAMPLE_ROW_EMAIL) {
+                    excelRowNum++;
+                    return;
+                }
+
+                parsed.push(validateAndNormalizeRow(raw, excelRowNum, seenEmailsInFile));
+                excelRowNum++;
+            });
+
+            return { rows: parsed };
+        }
+
+        function renderPreview(parsedRows) {
+            const card = document.getElementById('previewCard');
+            const content = document.getElementById('previewContent');
+            card.classList.remove('hidden');
+
+            const validRows = parsedRows.filter(r => r.errors.length === 0);
+            const invalidRows = parsedRows.filter(r => r.errors.length > 0);
+
+            content.innerHTML = `
+                <div class="flex gap-4 mb-4">
+                    <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5">
+                        <p class="text-lg font-extrabold text-emerald-700">${validRows.length}</p>
+                        <p class="text-[10px] font-semibold text-emerald-500 uppercase">Ligne(s) valide(s)</p>
+                    </div>
+                    <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
+                        <p class="text-lg font-extrabold text-red-700">${invalidRows.length}</p>
+                        <p class="text-[10px] font-semibold text-red-500 uppercase">Ligne(s) en erreur</p>
+                    </div>
+                </div>
+                <div class="max-h-96 overflow-y-auto border border-slate-100 rounded-xl">
+                    <table class="w-full text-xs">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="text-left px-3 py-2 font-bold text-slate-500">Ligne</th>
+                                <th class="text-left px-3 py-2 font-bold text-slate-500">Nom</th>
+                                <th class="text-left px-3 py-2 font-bold text-slate-500">Email</th>
+                                <th class="text-left px-3 py-2 font-bold text-slate-500">Pool</th>
+                                <th class="text-left px-3 py-2 font-bold text-slate-500">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${parsedRows.map(r => `
+                                <tr class="border-t border-slate-100 ${r.errors.length > 0 ? 'bg-red-50/50' : ''}">
+                                    <td class="px-3 py-2 text-slate-400">${r.rowNumber}</td>
+                                    <td class="px-3 py-2">${escapeHtml(((r.normalized.first_name || '') + ' ' + (r.normalized.last_name || '')).trim())}</td>
+                                    <td class="px-3 py-2">${escapeHtml(r.normalized.email || '')}</td>
+                                    <td class="px-3 py-2">${escapeHtml(r.normalized.pool || '')}</td>
+                                    <td class="px-3 py-2">
+                                        ${r.errors.length === 0
+                                            ? '<span class="text-emerald-600 font-semibold">✅ Valide</span>'
+                                            : `<span class="text-red-600 font-semibold">❌ ${escapeHtml(r.errors.join(' · '))}</span>`}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-slate-400 mt-4 italic">L'insertion réelle en base sera ajoutée à l'étape suivante — cet aperçu ne modifie encore rien.</p>
+            `;
+        }
+
+        document.getElementById('importFileInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             const statusMsg = document.getElementById('fileStatusMsg');
-            if (!file) {
-                statusMsg.textContent = '';
-                return;
+            document.getElementById('previewCard').classList.add('hidden');
+            if (!file) { statusMsg.textContent = ''; return; }
+
+            statusMsg.textContent = 'Lecture du fichier en cours...';
+            statusMsg.className = 'text-xs text-slate-400 mt-2';
+
+            try {
+                const buffer = await file.arrayBuffer();
+                const result = parseWorkbook(buffer);
+                if (result.error) {
+                    statusMsg.textContent = result.error;
+                    statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
+                    return;
+                }
+                lastParsedRows = result.rows;
+                if (lastParsedRows.length === 0) {
+                    statusMsg.textContent = 'Aucune ligne de données trouvée dans le fichier.';
+                    statusMsg.className = 'text-xs text-amber-600 font-semibold mt-2';
+                    return;
+                }
+                statusMsg.textContent = `${lastParsedRows.length} ligne(s) lue(s) — voir l'aperçu ci-dessous.`;
+                statusMsg.className = 'text-xs text-emerald-600 font-semibold mt-2';
+                renderPreview(lastParsedRows);
+            } catch (err) {
+                console.error('[Import] Erreur de lecture du fichier :', err);
+                statusMsg.textContent = "Impossible de lire ce fichier — vérifiez qu'il s'agit bien d'un .xlsx basé sur le modèle fourni.";
+                statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
             }
-            statusMsg.textContent = `Fichier reçu : ${file.name} — la lecture et l'aperçu seront ajoutés à l'étape suivante.`;
-            statusMsg.className = 'text-xs text-emerald-600 font-semibold mt-2';
         });
 
         window.addEventListener('DOMContentLoaded', () => checkSession());
