@@ -164,6 +164,45 @@
             </div>
         </div>
 
+        <!-- Section des Graphiques de diversité (genre / nationalité) — ajoutée pour tenir
+             la promesse de la présentation générale ("Tableaux de bord par pool : diversité —
+             genre, nationalités, langues"), qui n'était jusqu'ici couverte que par le texte de
+             l'analyse IA, jamais par un graphique visible en permanence. Calculés sur les mêmes
+             "talents actifs" (valides, non Liste Rouge) que buildPoolAnalysisStats(), pour rester
+             cohérents avec ce que dit l'analyse IA du même pool. Visibles en vue globale ET par
+             pool (contrairement aux statistiques détaillées de contrats et à l'analyse IA par
+             pool, réservées à la vue par pool). -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Graphique 3 : Répartition par genre -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span>🚻</span> Répartition par Genre
+                </h3>
+                <div class="h-64 flex items-center justify-center relative">
+                    <canvas id="genderChart"></canvas>
+                    <div id="genderChartEmptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center px-6 gap-2">
+                        <span class="text-3xl">🗂️</span>
+                        <p class="text-sm font-semibold text-slate-500">Aucun talent dans cette sélection</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graphique 4 : Répartition par nationalité -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span>🌐</span> Répartition par Nationalité
+                </h3>
+                <p class="text-xs text-slate-400 -mt-3 mb-3" id="nationalityChartSub">Top nationalités du pool (les autres sont regroupées sous « Autres »)</p>
+                <div class="h-64 flex items-center justify-center relative">
+                    <canvas id="nationalityChart"></canvas>
+                    <div id="nationalityChartEmptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center px-6 gap-2">
+                        <span class="text-3xl">🗂️</span>
+                        <p class="text-sm font-semibold text-slate-500">Aucun talent dans cette sélection</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Statistiques détaillées des contrats (Étape C, cf. Hercules positions/stats.ts :
              getDetailedPositionStats). Visible UNIQUEMENT en vue par pool — jamais sur la vue
              globale, qui reste inchangée par décision explicite de l'utilisateur (Master Context,
@@ -292,6 +331,8 @@
         let rawMissions = [];
         let statusChartInstance = null;
         let expatChartInstance = null;
+        let genderChartInstance = null;
+        let nationalityChartInstance = null;
         let currentUserId = null;
         let currentUserEmail = null;
         let currentUserRole = null;
@@ -515,6 +556,18 @@
                 const unclassifiedCount = totalPositions - (expatCount + nationalCount);
                 renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
             }
+
+            // Graphiques de diversité (genre / nationalité) — cf. section 3.4 de la
+            // présentation générale. Calculés sur les "talents actifs" (valides, non
+            // Liste Rouge) uniquement, comme buildPoolAnalysisStats() plus bas, pour que
+            // le graphique et le texte de l'analyse IA du même pool racontent toujours la
+            // même chose. `talents` est déjà filtré par pool/global en tête de fonction.
+            const activeTalentsForDiversity = talents.filter(t => {
+                const isVal = t.isValid !== false && t.is_valid !== false;
+                const isRed = t.isRedListed || t.is_red_listed;
+                return isVal && !isRed;
+            });
+            updateDiversityCharts(activeTalentsForDiversity);
 
             updateDetailedContractStats(selectorValue, mData);
             updatePoolAiAnalysisVisibility(selectorValue, talents, mData);
@@ -923,6 +976,120 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+
+        // ============================================================================
+        // GRAPHIQUES DE DIVERSITÉ (genre / nationalité) — comptages agrégés uniquement,
+        // jamais une ligne "talent par talent" affichée : cohérent avec le choix déjà
+        // fait pour l'analyse IA (buildPoolAnalysisStats, genderDistribution /
+        // nationalityDistribution) et avec la décision utilisateur de ne jamais exposer
+        // de donnée nominative sur cette page.
+        // ============================================================================
+        const NATIONALITY_CHART_TOP_N = 8;
+
+        function updateDiversityCharts(activeTalents) {
+            if (activeTalents.length === 0) {
+                document.getElementById('genderChart').classList.add('hidden');
+                document.getElementById('genderChartEmptyState').classList.remove('hidden');
+                if (genderChartInstance) { genderChartInstance.destroy(); genderChartInstance = null; }
+
+                document.getElementById('nationalityChart').classList.add('hidden');
+                document.getElementById('nationalityChartEmptyState').classList.remove('hidden');
+                if (nationalityChartInstance) { nationalityChartInstance.destroy(); nationalityChartInstance = null; }
+                return;
+            }
+
+            document.getElementById('genderChart').classList.remove('hidden');
+            document.getElementById('genderChartEmptyState').classList.add('hidden');
+            document.getElementById('nationalityChart').classList.remove('hidden');
+            document.getElementById('nationalityChartEmptyState').classList.add('hidden');
+
+            // Genre — mêmes 3 catégories que buildPoolAnalysisStats (H / F / non renseigné),
+            // 'gender' ne portant que ces valeurs dans le schéma réel (§4.2 du dossier de
+            // passation technique).
+            const genderDist = { hommes: 0, femmes: 0, nonRenseigne: 0 };
+            activeTalents.forEach(t => {
+                if (t.gender === 'H') genderDist.hommes++;
+                else if (t.gender === 'F') genderDist.femmes++;
+                else genderDist.nonRenseigne++;
+            });
+            renderGenderChart(genderDist);
+
+            // Nationalité — pas de nombre de valeurs distinctes borné (texte libre en base),
+            // donc jamais un camembert/une barre par nationalité sans limite : on garde les
+            // NATIONALITY_CHART_TOP_N plus représentées et on regroupe le reste sous "Autres",
+            // plus un bucket "Non renseigné" séparé et explicite (jamais fondu silencieusement
+            // dans une autre catégorie).
+            const counts = {};
+            let nonRenseigne = 0;
+            activeTalents.forEach(t => {
+                if (!t.nationality) { nonRenseigne++; return; }
+                counts[t.nationality] = (counts[t.nationality] || 0) + 1;
+            });
+            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            const top = sorted.slice(0, NATIONALITY_CHART_TOP_N);
+            const othersTotal = sorted.slice(NATIONALITY_CHART_TOP_N).reduce((sum, [, c]) => sum + c, 0);
+            renderNationalityChart(top, othersTotal, nonRenseigne);
+
+            const subEl = document.getElementById('nationalityChartSub');
+            subEl.textContent = sorted.length > NATIONALITY_CHART_TOP_N
+                ? `Top ${NATIONALITY_CHART_TOP_N} nationalités du pool (${sorted.length - NATIONALITY_CHART_TOP_N} autres regroupées sous « Autres »)`
+                : 'Nationalités du pool';
+        }
+
+        function renderGenderChart(dist) {
+            if (genderChartInstance) genderChartInstance.destroy();
+            const ctx = document.getElementById('genderChart').getContext('2d');
+            genderChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Femmes', 'Hommes', 'Non renseigné'],
+                    datasets: [{
+                        data: [dist.femmes, dist.hommes, dist.nonRenseigne],
+                        backgroundColor: ['#ea580c', '#1d4ed8', '#cbd5e1'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function renderNationalityChart(topEntries, othersTotal, nonRenseigne) {
+            if (nationalityChartInstance) nationalityChartInstance.destroy();
+            const ctx = document.getElementById('nationalityChart').getContext('2d');
+
+            const labels = topEntries.map(([nat]) => nat);
+            const values = topEntries.map(([, count]) => count);
+            if (othersTotal > 0) { labels.push('Autres'); values.push(othersTotal); }
+            if (nonRenseigne > 0) { labels.push('Non renseigné'); values.push(nonRenseigne); }
+
+            nationalityChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    // Pas d'escapeHtml() ici : Chart.js dessine le texte directement sur un
+                    // <canvas> (pas d'innerHTML), donc aucun risque XSS — et escapeHtml()
+                    // afficherait à tort des entités littérales (ex. "Côte d&#039;Ivoire").
+                    labels: labels,
+                    datasets: [{
+                        label: 'Talents',
+                        data: values,
+                        backgroundColor: labels.map(l => (l === 'Autres' || l === 'Non renseigné') ? '#cbd5e1' : '#1d4ed8'),
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
                 }
             });
         }
