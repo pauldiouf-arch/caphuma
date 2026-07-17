@@ -77,6 +77,48 @@
                     </a>
                 </span>
 
+                <span class="relative">
+                    <button id="notifBellBtn" type="button" class="hidden relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Notifications">
+                        <span class="text-lg">🔔</span>
+                        <span id="notifBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center"></span>
+                    </button>
+
+                    <!-- Panneau de notifications (dropdown, pas une modale plein écran) -->
+                    <div id="notifPanel" class="hidden absolute right-0 top-12 w-96 max-h-[32rem] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50">
+                        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                            <h3 class="font-bold text-slate-800 text-sm">🔔 Mes notifications</h3>
+                            <button id="notifSettingsToggleBtn" type="button" class="text-xs font-semibold text-primary hover:underline">Préférences</button>
+                        </div>
+
+                        <!-- Bloc préférences, masqué par défaut -->
+                        <div id="notifSettingsBlock" class="hidden p-4 border-b border-slate-100 bg-slate-50 space-y-3">
+                            <label class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                <input type="checkbox" id="notifEnabledCheckbox" class="rounded border-slate-300">
+                                Activer les notifications
+                            </label>
+                            <div id="notifPoolScopeBlock" class="space-y-2">
+                                <label class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="notifScope" id="notifScopeAll" value="all" checked>
+                                    Tous mes pools
+                                </label>
+                                <label class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="notifScope" id="notifScopeCustom" value="custom">
+                                    Choisir les pools à suivre
+                                </label>
+                                <div id="notifPoolChecklist" class="hidden ml-5 space-y-1.5 max-h-32 overflow-y-auto"></div>
+                            </div>
+                            <button id="notifSavePrefsBtn" type="button" class="w-full bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2 rounded-lg transition-all">
+                                Enregistrer
+                            </button>
+                        </div>
+
+                        <!-- Liste des alertes -->
+                        <div id="notifAlertsList" class="p-4 space-y-4 text-sm text-slate-600">
+                            <p class="text-xs text-slate-400 text-center py-4">Chargement...</p>
+                        </div>
+                    </div>
+                </span>
+
                 <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
@@ -132,6 +174,7 @@
         const userSubtitle = document.getElementById('userSubtitle');
         const archivedToggleContainer = document.getElementById('archivedToggleContainer');
         const archivedToggleBtn = document.getElementById('archivedToggleBtn');
+        let currentUserRole = null;
 
         archivedToggleBtn.addEventListener('click', function () {
             showArchivedPools = !showArchivedPools;
@@ -159,6 +202,16 @@
         let currentUserEmail = null;
 
         // ============================================================================
+        // NOTIFICATIONS (dans l'app uniquement, aucun email) — préférences stockées
+        // dans notification_preferences, alertes calculées à chaque ouverture du
+        // tableau de bord. Jamais affiché pour un visitor (pas concerné par le
+        // suivi RH). pool_scope null = tous les pools de l'utilisateur.
+        // ============================================================================
+        let notifPrefs = { enabled: true, pool_scope: null };
+        const NOTIF_DEVALIDATION_RISK_MONTHS = 20; // aligné sur statistics.html
+        const NOTIF_CONTRACT_WINDOWS = [30, 60, 90]; // jours
+
+        // ============================================================================
         // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
@@ -184,6 +237,7 @@
                 currentUserName = s.name;
 
                 if (s.role) {
+                    currentUserRole = s.role;
                     userSubtitle.textContent = `Connecté en tant que ${s.role || 'utilisateur'}`;
 
                     // Affichage conditionnel des boutons réservés aux admins
@@ -196,6 +250,10 @@
                         document.getElementById('navExtraction').classList.add('hidden');
                         document.getElementById('navRedList').classList.add('hidden');
                         document.getElementById('navDevalidated').classList.add('hidden');
+                    } else {
+                        // Notifications réservées à admin/user — jamais visitor, non concerné
+                        // par le suivi RH (échéances, dévalidation, etc.)
+                        document.getElementById('notifBellBtn').classList.remove('hidden');
                     }
                 } else {
                     userSubtitle.textContent = 'Tableau de bord';
@@ -203,6 +261,9 @@
 
                 appBody.style.display = 'flex';
                 await loadPools();
+                if (currentUserRole && currentUserRole !== 'visitor') {
+                    await initNotifications();
+                }
 
             } catch (error) {
                 console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
@@ -316,6 +377,264 @@
                 console.error("Erreur de récupération des KPIs postes :", error);
             }
         }
+
+        // ============================================================================
+        // 3 TER. NOTIFICATIONS — préférences + calcul des alertes (dans l'app uniquement)
+        // ============================================================================
+        function notifToast(msg, type) {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-5 right-5 px-5 py-3 rounded-2xl shadow-xl text-white font-semibold text-xs z-[100] transition-all transform translate-y-10 opacity-0 duration-300 ${
+                type === 'error' ? 'bg-red-600' : 'bg-emerald-600'
+            }`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 50);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function loadNotificationPrefs() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('notification_preferences')
+                    .select('enabled, pool_scope')
+                    .eq('user_id', currentUserId)
+                    .maybeSingle();
+                if (error) throw error;
+                if (data) {
+                    notifPrefs = { enabled: data.enabled !== false, pool_scope: data.pool_scope || null };
+                }
+                // Si aucune ligne n'existe encore, notifPrefs garde sa valeur par défaut
+                // (activé, tous les pools) — pas d'insertion tant que l'utilisateur n'a
+                // rien modifié lui-même.
+            } catch (err) {
+                console.warn('[Notifications] Préférences non chargées, valeurs par défaut utilisées :', err);
+            }
+        }
+
+        async function saveNotificationPrefs() {
+            try {
+                const { error } = await supabaseClient
+                    .from('notification_preferences')
+                    .upsert({
+                        user_id: currentUserId,
+                        enabled: notifPrefs.enabled,
+                        pool_scope: notifPrefs.pool_scope,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'user_id' });
+                if (error) throw error;
+                notifToast('Préférences enregistrées.');
+            } catch (err) {
+                console.error('[Notifications] Échec de l\'enregistrement :', err);
+                notifToast("Échec de l'enregistrement des préférences.", 'error');
+            }
+        }
+
+        // Récupère les colonnes nécessaires au calcul des alertes — requêtes séparées
+        // de loadPoolStats() volontairement (celle-ci reste inchangée, déjà testée),
+        // pour ne prendre aucun risque de régression sur les KPI des cartes de pool.
+        async function loadNotificationData() {
+            const result = { talents: [], missions: [] };
+            try {
+                const { data, error } = await supabaseClient
+                    .from('talents')
+                    .select('pool, is_valid, is_red_listed, months_without_mission, availability_type, availability_date, availability_months');
+                if (error) throw error;
+                result.talents = data || [];
+            } catch (err) {
+                console.error('[Notifications] Erreur de chargement des talents :', err);
+            }
+            try {
+                const { data, error } = await supabaseClient
+                    .from('missions')
+                    .select('pool, pool_id, status, contract_end_date, contract_status');
+                if (error) throw error;
+                result.missions = data || [];
+            } catch (err) {
+                console.error('[Notifications] Erreur de chargement des postes :', err);
+            }
+            return result;
+        }
+
+        // pool_scope null = tous les pools ; sinon tableau de pool_id à garder.
+        function computeNotificationAlerts(talents, missions, poolScope) {
+            const inScope = (poolId) => !poolScope || poolScope.includes(poolId);
+            const now = Date.now();
+
+            const alerts = { contracts: [], available: [], atRisk: [], vacancies: [] };
+
+            // Contrats arrivant à échéance (30/60/90j) — postes occupés uniquement
+            missions.forEach(m => {
+                const effectivePool = m.pool || m.pool_id;
+                if (!effectivePool || !inScope(effectivePool)) return;
+                if (m.status !== 'occupied' || !m.contract_end_date) return;
+                const endTime = new Date(m.contract_end_date).getTime();
+                const daysLeft = Math.ceil((endTime - now) / (24 * 60 * 60 * 1000));
+                if (daysLeft < 0) return;
+                const window = NOTIF_CONTRACT_WINDOWS.find(w => daysLeft <= w);
+                if (window) {
+                    alerts.contracts.push({ pool: effectivePool, daysLeft, window });
+                }
+            });
+
+            // Postes vacants ou en recrutement
+            missions.forEach(m => {
+                const effectivePool = m.pool || m.pool_id;
+                if (!effectivePool || !inScope(effectivePool)) return;
+                if (m.status === 'vacant' || m.status === 'recruiting') {
+                    alerts.vacancies.push({ pool: effectivePool, status: m.status });
+                }
+            });
+
+            // Talents actifs uniquement (valides, non Liste Rouge) pour les 2 catégories suivantes
+            const activeTalents = talents.filter(t => {
+                if (!t.pool || !inScope(t.pool)) return false;
+                return t.is_valid !== false && !t.is_red_listed;
+            });
+
+            // Disponibles maintenant — NOTE : détecte "disponible à l'instant T", pas
+            // "nouvellement devenu disponible depuis la dernière visite" (ça demanderait
+            // de mémoriser un état précédent par utilisateur — hors scope de cette
+            // première version, à envisager en phase 2 si besoin).
+            activeTalents.forEach(t => {
+                let availableNow = false;
+                if (t.availability_type === 'asap') availableNow = true;
+                else if (t.availability_type === 'date' && t.availability_date) {
+                    availableNow = new Date(t.availability_date).getTime() <= now;
+                }
+                if (availableNow) alerts.available.push({ pool: t.pool });
+            });
+
+            // Risque de dévalidation (≥20 mois sans mission)
+            activeTalents.forEach(t => {
+                if ((t.months_without_mission || 0) >= NOTIF_DEVALIDATION_RISK_MONTHS) {
+                    alerts.atRisk.push({ pool: t.pool });
+                }
+            });
+
+            return alerts;
+        }
+
+        function notifTotalCount(alerts) {
+            return alerts.contracts.length + alerts.available.length + alerts.atRisk.length + alerts.vacancies.length;
+        }
+
+        function renderNotifBadgeAndList(alerts) {
+            const badge = document.getElementById('notifBadge');
+            const total = notifTotalCount(alerts);
+
+            if (!notifPrefs.enabled || total === 0) {
+                badge.classList.add('hidden');
+            } else {
+                badge.textContent = total > 99 ? '99+' : String(total);
+                badge.classList.remove('hidden');
+            }
+
+            const listEl = document.getElementById('notifAlertsList');
+
+            if (!notifPrefs.enabled) {
+                listEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Notifications désactivées — activez-les dans « Préférences ».</p>';
+                return;
+            }
+
+            if (total === 0) {
+                listEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Aucune alerte pour le moment 👍</p>';
+                return;
+            }
+
+            const sections = [
+                { key: 'contracts', icon: '📅', title: 'Contrats arrivant à échéance', render: a => `Pool ${escapeHtml(a.pool)} — fin dans ${a.daysLeft} jour${a.daysLeft > 1 ? 's' : ''} (≤ ${a.window}j)` },
+                { key: 'available', icon: '✅', title: 'Talents disponibles', render: a => `Pool ${escapeHtml(a.pool)} — talent disponible dès maintenant` },
+                { key: 'atRisk', icon: '⚠️', title: 'Risque de dévalidation (≥20 mois)', render: a => `Pool ${escapeHtml(a.pool)} — talent à risque` },
+                { key: 'vacancies', icon: '🟡', title: 'Postes vacants / en recrutement', render: a => `Pool ${escapeHtml(a.pool)} — ${a.status === 'vacant' ? 'vacant' : 'en recrutement'}` }
+            ];
+
+            listEl.innerHTML = sections
+                .filter(s => alerts[s.key].length > 0)
+                .map(s => `
+                    <div>
+                        <p class="text-xs font-bold text-slate-700 mb-1.5">${s.icon} ${s.title} (${alerts[s.key].length})</p>
+                        <ul class="space-y-1">
+                            ${alerts[s.key].slice(0, 8).map(a => `<li class="text-[11px] text-slate-500 pl-1">${s.render(a)}</li>`).join('')}
+                            ${alerts[s.key].length > 8 ? `<li class="text-[11px] text-slate-400 italic pl-1">+ ${alerts[s.key].length - 8} autre(s)</li>` : ''}
+                        </ul>
+                    </div>
+                `).join('');
+        }
+
+        function renderNotifPoolChecklist() {
+            const container = document.getElementById('notifPoolChecklist');
+            const selected = notifPrefs.pool_scope || [];
+            container.innerHTML = currentPools.map(p => `
+                <label class="flex items-center gap-2 text-[11px] text-slate-600">
+                    <input type="checkbox" class="notif-pool-checkbox rounded border-slate-300" value="${escapeHtml(p.pool_id)}" ${selected.includes(p.pool_id) ? 'checked' : ''}>
+                    ${escapeHtml(p.name || p.pool_id)}
+                </label>
+            `).join('');
+        }
+
+        function applyNotifSettingsToForm() {
+            document.getElementById('notifEnabledCheckbox').checked = notifPrefs.enabled;
+            const isCustom = Array.isArray(notifPrefs.pool_scope);
+            document.getElementById('notifScopeAll').checked = !isCustom;
+            document.getElementById('notifScopeCustom').checked = isCustom;
+            document.getElementById('notifPoolChecklist').classList.toggle('hidden', !isCustom);
+            renderNotifPoolChecklist();
+        }
+
+        let notifAlertsCache = { contracts: [], available: [], atRisk: [], vacancies: [] };
+
+        async function initNotifications() {
+            await loadNotificationPrefs();
+            applyNotifSettingsToForm();
+
+            const { talents, missions } = await loadNotificationData();
+            notifAlertsCache = computeNotificationAlerts(talents, missions, notifPrefs.pool_scope);
+            renderNotifBadgeAndList(notifAlertsCache);
+        }
+
+        // ---- Interactions du panneau ----
+        const notifBellBtn = document.getElementById('notifBellBtn');
+        const notifPanel = document.getElementById('notifPanel');
+        const notifSettingsBlock = document.getElementById('notifSettingsBlock');
+
+        notifBellBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notifPanel.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!notifPanel.classList.contains('hidden') && !notifPanel.contains(e.target) && e.target !== notifBellBtn) {
+                notifPanel.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('notifSettingsToggleBtn').addEventListener('click', () => {
+            notifSettingsBlock.classList.toggle('hidden');
+        });
+
+        document.getElementById('notifScopeAll').addEventListener('change', () => {
+            document.getElementById('notifPoolChecklist').classList.add('hidden');
+        });
+        document.getElementById('notifScopeCustom').addEventListener('change', () => {
+            document.getElementById('notifPoolChecklist').classList.remove('hidden');
+        });
+
+        document.getElementById('notifSavePrefsBtn').addEventListener('click', async () => {
+            const enabled = document.getElementById('notifEnabledCheckbox').checked;
+            const isCustom = document.getElementById('notifScopeCustom').checked;
+            let poolScope = null;
+            if (isCustom) {
+                poolScope = Array.from(document.querySelectorAll('.notif-pool-checkbox:checked')).map(cb => cb.value);
+            }
+            notifPrefs = { enabled, pool_scope: poolScope };
+            await saveNotificationPrefs();
+            const { talents, missions } = await loadNotificationData();
+            notifAlertsCache = computeNotificationAlerts(talents, missions, notifPrefs.pool_scope);
+            renderNotifBadgeAndList(notifAlertsCache);
+        });
 
         function poolIcon(poolId) {
             const icons = {
