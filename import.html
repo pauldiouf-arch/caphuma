@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import de talents - Cap Huma</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <!-- Supabase JS Client via CDN (version figée, cf. §6.5 de la présentation) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.6"></script>
+    <script src="shared/caphuma-utils.js"></script>
+    <script src="shared/caphuma-auth.js"></script>
+
+    <!-- SheetJS (lecture du fichier .xlsx) — version figée dès le départ,
+         leçon retenue de l'audit sécurité du 17/07/2026 (ne jamais charger
+         une dépendance sans version exacte). -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style type="text/tailwindcss">
+        @theme {
+            --font-sans: 'Inter', sans-serif;
+            --color-primary: #1d4ed8;
+            --color-primary-dark: #1e3a8a;
+            --color-primary-light: #eff6ff;
+            --color-accent: #ea580c;
+            --color-accent-dark: #c2410c;
+            --color-accent-light: #fff7ed;
+        }
+    </style>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-4">
+                    <a href="admin.html" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
+                        <span aria-hidden="true">←</span> Retour
+                    </a>
+                    <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark text-white shadow-md">
+                            <span class="text-xl">📥</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-lg text-slate-800">Import de talents</span>
+                            <span class="text-xs block text-slate-400">Cap Huma — ALIMA</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                    <button id="logout-btn" class="text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all">Déconnexion</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Message d'accès refusé (affiché uniquement si l'utilisateur n'est pas admin) -->
+        <div id="accessDeniedBanner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
+            <h3 class="font-semibold text-red-800">Accès réservé</h3>
+            <p class="text-sm text-red-700 mt-1">L'import en masse est réservé aux administrateurs.</p>
+        </div>
+
+        <div id="pageContent" class="hidden space-y-6">
+
+            <!-- Étape A : télécharger le modèle -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
+                    <span>1️⃣</span> Téléchargez le modèle
+                </h2>
+                <p class="text-sm text-slate-500 mb-4">
+                    Remplissez ce fichier Excel avec vos talents (une ligne par talent), en suivant les
+                    instructions de son premier onglet, puis déposez-le ci-dessous.
+                </p>
+                <a href="templates/Cap_Huma_Modele_Import_Talents.xlsx" download
+                   class="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all">
+                    ⬇️ Télécharger le modèle Excel
+                </a>
+            </div>
+
+            <!-- Étape B : déposer le fichier rempli -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
+                    <span>2️⃣</span> Déposez votre fichier rempli
+                </h2>
+                <p class="text-sm text-slate-500 mb-4">
+                    Uniquement le format <code class="bg-slate-100 px-1 rounded">.xlsx</code> — celui du
+                    modèle téléchargé ci-dessus.
+                </p>
+                <input type="file" id="importFileInput" accept=".xlsx"
+                       class="block w-full text-sm text-slate-600 border border-slate-200 rounded-xl cursor-pointer bg-slate-50 focus:outline-none file:mr-4 file:py-2.5 file:px-4 file:rounded-l-xl file:border-0 file:text-sm file:font-bold file:bg-primary file:text-white hover:file:bg-primary-dark">
+                <p id="fileStatusMsg" class="text-xs text-slate-400 mt-2"></p>
+            </div>
+
+            <!-- Étape C : aperçu (construit à l'étape 2 de notre feuille de route) -->
+            <div id="previewCard" class="hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+                    <span>3️⃣</span> Aperçu avant import
+                </h2>
+                <div id="previewContent" class="text-sm text-slate-500">
+                    <!-- Rempli à l'étape 2 -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = localStorage.getItem('supabase_url');
+        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+        let supabaseClient = null;
+        let currentUserId = null;
+        let currentUserEmail = null;
+        let currentUserName = null;
+
+        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            await capHumaLogAudit(
+                supabaseClient,
+                { userId: currentUserId, userEmail: currentUserEmail, userName: currentUserName },
+                action, entityType, entityId, entityName, details
+            );
+        }
+
+        async function checkSession() {
+            if (!supabaseClient) {
+                window.location.replace('login.html');
+                return;
+            }
+            try {
+                const s = await capHumaInitSession(supabaseClient);
+                currentUserId = s.userId;
+                currentUserEmail = s.email;
+                currentUserName = s.name;
+
+                if (s.role !== 'admin') {
+                    document.getElementById('accessDeniedBanner').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('user-display-name').textContent = s.email;
+                document.getElementById('pageContent').classList.remove('hidden');
+
+            } catch (err) {
+                window.location.replace('login.html');
+            }
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            if (supabaseClient) await supabaseClient.auth.signOut();
+            window.location.replace('login.html');
+        });
+
+        // ============================================================================
+        // Sélection du fichier — la lecture/validation réelle arrive à l'étape 2 de
+        // notre feuille de route. Pour l'instant, on confirme juste que le fichier est
+        // bien reçu par le navigateur.
+        // ============================================================================
+        document.getElementById('importFileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const statusMsg = document.getElementById('fileStatusMsg');
+            if (!file) {
+                statusMsg.textContent = '';
+                return;
+            }
+            statusMsg.textContent = `Fichier reçu : ${file.name} — la lecture et l'aperçu seront ajoutés à l'étape suivante.`;
+            statusMsg.className = 'text-xs text-emerald-600 font-semibold mt-2';
+        });
+
+        window.addEventListener('DOMContentLoaded', () => checkSession());
+    </script>
+</body>
+</html>
