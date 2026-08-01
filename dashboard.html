@@ -194,7 +194,11 @@
             { pool_id: 'ADMIN', name: 'ADMIN', full_name: 'Pool Administration', is_archived: false }
         ];
 
-        // Seuil "à risque" aligné sur talents.html (surlignage rouge ≥24 mois sans mission)
+        // Seuil "à risque" aligné sur talents.html (surlignage rouge ≥24 mois sans mission).
+        // ⚠️ Depuis l'optimisation des cartes de pool (fonction SQL get_pool_talent_stats()),
+        // ce seuil est DUPLIQUÉ côté base (valeur 24 codée en dur dans la fonction SQL).
+        // Cette constante JS n'est donc plus utilisée que par le reste de la page (notifications,
+        // etc.) — si ce seuil change un jour, il faut le changer ICI ET dans la fonction SQL.
         const MONTHS_WITHOUT_MISSION_RISK_THRESHOLD = 24;
 
         // État en mémoire : liste brute des pools, KPIs calculés par pool, affichage des archivés
@@ -317,34 +321,26 @@
             poolStats = {};
 
             // 1. KPIs talents (effectif / dispo / à risque)
+            // ⚡ Optimisation : calcul fait côté serveur par la fonction SQL
+            // get_pool_talent_stats() (au lieu de rapatrier tous les talents dans le
+            // navigateur pour les compter ici). Le seuil "à risque" (24 mois) et le
+            // statut "En attente de poste" sont désormais définis dans la fonction SQL —
+            // voir MONTHS_WITHOUT_MISSION_RISK_THRESHOLD ci-dessus si ce seuil doit un
+            // jour être changé (il faudra le changer aux deux endroits, SQL et JS, car
+            // ce seuil sert aussi ailleurs sur cette page).
             try {
-                // Colonnes strictement nécessaires (règle perf section 2 bis.2 du Master Context)
-                const { data: talents, error } = await supabaseClient
-                    .from('talents')
-                    .select('pool, is_valid, is_red_listed, status, months_without_mission');
+                const { data: rows, error } = await supabaseClient.rpc('get_pool_talent_stats');
 
                 if (error) throw error;
 
-                (talents || []).forEach(talent => {
-                    if (!talent.pool) return;
-
-                    if (!poolStats[talent.pool]) {
-                        poolStats[talent.pool] = { active: 0, available: 0, atRisk: 0, positions: 0 };
+                (rows || []).forEach(row => {
+                    if (!row.pool_id) return;
+                    if (!poolStats[row.pool_id]) {
+                        poolStats[row.pool_id] = { active: 0, available: 0, atRisk: 0, positions: 0 };
                     }
-
-                    // Un talent "actif" = validé et pas en liste rouge
-                    const isActive = talent.is_valid !== false && !talent.is_red_listed;
-                    if (!isActive) return;
-
-                    poolStats[talent.pool].active++;
-
-                    if (talent.status === 'En attente de poste') {
-                        poolStats[talent.pool].available++;
-                    }
-
-                    if ((talent.months_without_mission || 0) >= MONTHS_WITHOUT_MISSION_RISK_THRESHOLD) {
-                        poolStats[talent.pool].atRisk++;
-                    }
+                    poolStats[row.pool_id].active = row.active || 0;
+                    poolStats[row.pool_id].available = row.available || 0;
+                    poolStats[row.pool_id].atRisk = row.at_risk || 0;
                 });
 
             } catch (error) {
@@ -353,27 +349,20 @@
             }
 
             // 2. KPI postes (nombre total de missions du pool, tous statuts confondus)
-            // ⚠️ Incohérence de schéma découverte cette session : la contrainte FK réelle
-            // porte sur la colonne "pool" (missions_pool_fkey → pools.pool_id), mais l'unique
-            // enregistrement réel observé avait "pool_id" rempli et "pool" vide. Aucune des deux
-            // colonnes n'est donc fiable à 100% tant que ce n'est pas tranché avec l'utilisateur
-            // (voir Master Context, Étape 5) → on lit les deux et on prend celle qui est renseignée.
+            // ⚡ Optimisation : calcul fait côté serveur par la fonction SQL
+            // get_pool_mission_counts(), qui gère déjà elle-même l'incohérence
+            // "pool" vs "pool_id" (coalesce), documentée précédemment ici même.
             try {
-                const { data: missions, error } = await supabaseClient
-                    .from('missions')
-                    .select('pool, pool_id');
+                const { data: rows, error } = await supabaseClient.rpc('get_pool_mission_counts');
 
                 if (error) throw error;
 
-                (missions || []).forEach(mission => {
-                    const effectivePoolId = mission.pool || mission.pool_id;
-                    if (!effectivePoolId) return;
-
-                    if (!poolStats[effectivePoolId]) {
-                        poolStats[effectivePoolId] = { active: 0, available: 0, atRisk: 0, positions: 0 };
+                (rows || []).forEach(row => {
+                    if (!row.pool_id) return;
+                    if (!poolStats[row.pool_id]) {
+                        poolStats[row.pool_id] = { active: 0, available: 0, atRisk: 0, positions: 0 };
                     }
-
-                    poolStats[effectivePoolId].positions++;
+                    poolStats[row.pool_id].positions = row.positions || 0;
                 });
 
             } catch (error) {
