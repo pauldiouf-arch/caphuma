@@ -457,22 +457,25 @@
         }
 
         async function loadRawData() {
-            // Colonnes étendues par rapport à avant l'Étape E : experience_months_alima,
-            // experience_months_humanitarian, availability_type/date/months — nécessaires
-            // à l'analyse IA par pool reconstruite ici (ex-missions.html), sans requête
-            // supplémentaire dédiée. Purement additif : aucune colonne retirée, le calcul
-            // des KPI du Hub global n'est pas modifié.
-            // Colonnes étendues une seconde fois (demande explicite de l'utilisateur) :
-            // gender, nationality, languages — pour enrichir l'analyse IA par pool de
-            // répartitions agrégées (jamais de valeur individuelle envoyée à l'IA, voir
-            // buildPoolAnalysisStats). Toujours additif, KPI du Hub global inchangés.
+            // ⚡ Optimisation (grep exhaustif du fichier pour vérifier que chaque colonne
+            // ci-dessous est bien lue quelque part sur cette page avant de la retirer/garder) :
+            // - talents : liste inchangée sauf `experience_months_humanitarian`, retirée
+            //   car jamais utilisée nulle part dans ce fichier (vérifié par grep).
+            // - missions : passage de select('*') à une liste explicite des colonnes
+            //   réellement utilisées (KPIs, 4 graphiques, stats détaillées de contrats,
+            //   analyse IA globale et par pool). `candidate_type` confirmé présent en
+            //   base (vérifié en direct avant ce changement, cf. information_schema) —
+            //   la détection "colonne absente vs vide" plus bas (hasCandidateTypeColumn)
+            //   continue donc de fonctionner à l'identique.
             const { data: talents, error: et } = await supabaseClient
                 .from('talents')
-                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, experience_months_humanitarian, availability_type, availability_date, availability_months, gender, nationality, languages');
+                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality, languages');
             if (et) throw et;
             rawTalents = talents || [];
 
-            const { data: mData, error: em } = await supabaseClient.from('missions').select('*');
+            const { data: mData, error: em } = await supabaseClient
+                .from('missions')
+                .select('pool, pool_id, status, candidate_type, contract_start_date, contract_end_date, contract_status, country, desk, future_talent_id');
             if (em) throw em;
             rawMissions = mData || [];
         }
