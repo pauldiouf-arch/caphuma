@@ -215,8 +215,13 @@
         // suivi RH). pool_scope null = tous les pools de l'utilisateur.
         // ============================================================================
         let notifPrefs = { enabled: true, pool_scope: null };
+        // ⚠️ Depuis l'optimisation des notifications (fonction SQL get_notification_alerts()),
+        // ces deux seuils sont DUPLIQUÉS côté base (valeurs codées en dur dans la fonction SQL).
+        // Ils ne sont plus utilisés que comme documentation ici — si l'un d'eux change un jour,
+        // il faut le changer ICI ET dans la fonction SQL.
         const NOTIF_DEVALIDATION_RISK_MONTHS = 20; // aligné sur statistics.html
         const NOTIF_CONTRACT_WINDOWS = [30, 60, 90]; // jours
+
 
         // ============================================================================
         // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
@@ -424,88 +429,39 @@
             }
         }
 
-        // Récupère les colonnes nécessaires au calcul des alertes — requêtes séparées
-        // de loadPoolStats() volontairement (celle-ci reste inchangée, déjà testée),
-        // pour ne prendre aucun risque de régression sur les KPI des cartes de pool.
-        async function loadNotificationData() {
-            const result = { talents: [], missions: [] };
-            try {
-                const { data, error } = await supabaseClient
-                    .from('talents')
-                    .select('pool, is_valid, is_red_listed, months_without_mission, availability_type, availability_date, availability_months');
-                if (error) throw error;
-                result.talents = data || [];
-            } catch (err) {
-                console.error('[Notifications] Erreur de chargement des talents :', err);
-            }
-            try {
-                const { data, error } = await supabaseClient
-                    .from('missions')
-                    .select('pool, pool_id, status, contract_end_date, contract_status');
-                if (error) throw error;
-                result.missions = data || [];
-            } catch (err) {
-                console.error('[Notifications] Erreur de chargement des postes :', err);
-            }
-            return result;
-        }
-
+        // ⚡ Optimisation : calcul fait côté serveur par la fonction SQL
+        // get_notification_alerts(), qui reprend exactement la même logique que
+        // l'ancien computeNotificationAlerts() (mêmes seuils, mêmes fenêtres de
+        // contrat, même gestion pool/pool_id) — voir NOTIF_DEVALIDATION_RISK_MONTHS
+        // et NOTIF_CONTRACT_WINDOWS ci-dessus si ces valeurs doivent changer un jour.
+        // Le filtre par pool (poolScope) est désormais fait par la base elle-même,
+        // au lieu d'être fait après coup ici — la base ne renvoie que les alertes
+        // qui concernent les pools suivis par l'utilisateur.
+        //
         // pool_scope null = tous les pools ; sinon tableau de pool_id à garder.
-        function computeNotificationAlerts(talents, missions, poolScope) {
-            const inScope = (poolId) => !poolScope || poolScope.includes(poolId);
-            const now = Date.now();
-
+        async function loadNotificationAlerts(poolScope) {
             const alerts = { contracts: [], available: [], atRisk: [], vacancies: [] };
+            try {
+                const { data: rows, error } = await supabaseClient.rpc('get_notification_alerts', {
+                    p_pool_scope: poolScope || null
+                });
+                if (error) throw error;
 
-            // Contrats arrivant à échéance (30/60/90j) — postes occupés uniquement
-            missions.forEach(m => {
-                const effectivePool = m.pool || m.pool_id;
-                if (!effectivePool || !inScope(effectivePool)) return;
-                if (m.status !== 'occupied' || !m.contract_end_date) return;
-                const endTime = new Date(m.contract_end_date).getTime();
-                const daysLeft = Math.ceil((endTime - now) / (24 * 60 * 60 * 1000));
-                if (daysLeft < 0) return;
-                const window = NOTIF_CONTRACT_WINDOWS.find(w => daysLeft <= w);
-                if (window) {
-                    alerts.contracts.push({ pool: effectivePool, daysLeft, window });
-                }
-            });
-
-            // Postes vacants ou en recrutement
-            missions.forEach(m => {
-                const effectivePool = m.pool || m.pool_id;
-                if (!effectivePool || !inScope(effectivePool)) return;
-                if (m.status === 'vacant' || m.status === 'recruiting') {
-                    alerts.vacancies.push({ pool: effectivePool, status: m.status });
-                }
-            });
-
-            // Talents actifs uniquement (valides, non Liste Rouge) pour les 2 catégories suivantes
-            const activeTalents = talents.filter(t => {
-                if (!t.pool || !inScope(t.pool)) return false;
-                return t.is_valid !== false && !t.is_red_listed;
-            });
-
-            // Disponibles maintenant — NOTE : détecte "disponible à l'instant T", pas
-            // "nouvellement devenu disponible depuis la dernière visite" (ça demanderait
-            // de mémoriser un état précédent par utilisateur — hors scope de cette
-            // première version, à envisager en phase 2 si besoin).
-            activeTalents.forEach(t => {
-                let availableNow = false;
-                if (t.availability_type === 'asap') availableNow = true;
-                else if (t.availability_type === 'date' && t.availability_date) {
-                    availableNow = new Date(t.availability_date).getTime() <= now;
-                }
-                if (availableNow) alerts.available.push({ pool: t.pool });
-            });
-
-            // Risque de dévalidation (≥20 mois sans mission)
-            activeTalents.forEach(t => {
-                if ((t.months_without_mission || 0) >= NOTIF_DEVALIDATION_RISK_MONTHS) {
-                    alerts.atRisk.push({ pool: t.pool });
-                }
-            });
-
+                (rows || []).forEach(row => {
+                    if (row.alert_type === 'contract') {
+                        alerts.contracts.push({ pool: row.pool_id, daysLeft: row.days_left, window: row.contract_window });
+                    } else if (row.alert_type === 'vacancy') {
+                        alerts.vacancies.push({ pool: row.pool_id, status: row.status });
+                    } else if (row.alert_type === 'available') {
+                        alerts.available.push({ pool: row.pool_id });
+                    } else if (row.alert_type === 'at_risk') {
+                        alerts.atRisk.push({ pool: row.pool_id });
+                    }
+                });
+            } catch (err) {
+                // Ne bloque jamais l'affichage du dashboard : la cloche reste vide en cas d'échec
+                console.error('[Notifications] Erreur de récupération des alertes :', err);
+            }
             return alerts;
         }
 
@@ -582,8 +538,7 @@
             await loadNotificationPrefs();
             applyNotifSettingsToForm();
 
-            const { talents, missions } = await loadNotificationData();
-            notifAlertsCache = computeNotificationAlerts(talents, missions, notifPrefs.pool_scope);
+            notifAlertsCache = await loadNotificationAlerts(notifPrefs.pool_scope);
             renderNotifBadgeAndList(notifAlertsCache);
         }
 
@@ -623,8 +578,7 @@
             }
             notifPrefs = { enabled, pool_scope: poolScope };
             await saveNotificationPrefs();
-            const { talents, missions } = await loadNotificationData();
-            notifAlertsCache = computeNotificationAlerts(talents, missions, notifPrefs.pool_scope);
+            notifAlertsCache = await loadNotificationAlerts(notifPrefs.pool_scope);
             renderNotifBadgeAndList(notifAlertsCache);
         });
 
