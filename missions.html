@@ -433,6 +433,14 @@
         let currentMissions = [];
         let missionsPage = 1;
         const MISSIONS_PAGE_SIZE = 12;
+        // ⚡ Optimisation : liste explicite des colonnes de "missions" réellement utilisées
+        // dans ce fichier (vérifiée par grep exhaustif sur tout le fichier), utilisée à la
+        // place de select('*') aux 2 endroits qui chargent la liste complète du pool
+        // (loadMissions() + rafraîchissement après rotation automatique dans
+        // processExpiredMissions()). Centralisée ici pour que les deux endroits restent
+        // toujours synchronisés — si un jour un champ manque après l'ajout d'une nouvelle
+        // fonctionnalité, il suffit de l'ajouter ICI, aux deux requêtes à la fois.
+        const MISSIONS_COLUMNS = 'id, title, pool, pool_level, status, country, location, project_name, candidate_type, desk, occupant_id, contract_start_date, contract_end_date, contract_status, future_talent_id, future_contract_start_date, future_contract_end_date';
         let poolTalents = []; // talents du pool, pour les listes déroulantes occupant / futur occupant
         let talentNameById = {};
 
@@ -573,13 +581,13 @@
             try {
                 missionsError.classList.add('hidden');
 
-                // select('*') volontairement conservé : la liste alimente directement la
-                // modale d'édition complète du même enregistrement (même justification que
-                // talents.html, cf. Master Context section 8.2 cas n°2). Schéma intégralement
-                // vérifié (section 5), donc sans risque de colonne manquante.
+                // ⚡ Optimisation : liste explicite de colonnes (MISSIONS_COLUMNS ci-dessus)
+                // au lieu de select('*') — la modale d'édition continue de se remplir
+                // directement depuis cette liste (même logique qu'avant), juste avec
+                // uniquement les colonnes qu'elle utilise réellement.
                 const { data: missions, error } = await supabaseClient
                     .from('missions')
-                    .select('*')
+                    .select(MISSIONS_COLUMNS)
                     .eq('pool', currentPoolId)
                     .order('title', { ascending: true });
 
@@ -690,7 +698,7 @@
                 toastMessage(parts.join(' · ') + ' suite à une fin de contrat confirmée.', 'success');
                 const { data: refreshed, error: refreshErr } = await supabaseClient
                     .from('missions')
-                    .select('*')
+                    .select(MISSIONS_COLUMNS)
                     .eq('pool', currentPoolId)
                     .order('title', { ascending: true });
                 if (!refreshErr) currentMissions = refreshed || currentMissions;
