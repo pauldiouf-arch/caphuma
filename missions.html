@@ -403,14 +403,11 @@
         // Échappement HTML systématique de toute donnée venant de la base
         // avant injection via innerHTML — prévention XSS (audit sécurité, cf. Master Context section 7).
 
-        function toastMessage(message, type) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-bold shadow-lg '
-                + (type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white');
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3500);
-        }
+        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js.
+        // ⚠️ Changement de mécanisme : cette page réutilisait un <div id="toast">
+        // statique (toujours présent dans le HTML, désormais inutilisé mais
+        // inoffensif) ; la version partagée crée son propre élément à chaque
+        // appel, comme les 5 autres pages (voir MC13 Addendum, point A3).
 
         // Récupération du pool depuis l'URL (ex. missions.html?pool=COLOG)
         const urlParams = new URLSearchParams(window.location.search);

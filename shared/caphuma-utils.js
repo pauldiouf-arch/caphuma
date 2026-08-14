@@ -177,3 +177,35 @@ function calculateMonthsWithoutMission(talent) {
     const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
     return Math.max(0, diffMonths);
 }
+
+// ----------------------------------------------------------------------------
+// 5. NOTIFICATION VISUELLE (toast)
+// ----------------------------------------------------------------------------
+// Existait en 3 versions divergentes sur 6 pages avant cette factorisation
+// (z-index 50 vs 70, durée 3000 vs 3500 ms, et missions.html réutilisait un
+// <div id="toast"> statique au lieu d'en créer un dynamiquement). Version
+// retenue : création dynamique (comme 5 pages sur 6), z-index 70 (le plus sûr
+// — un toast masqué par une modale serait pire qu'un défaut esthétique) et
+// 3500 ms (déjà majoritaire). Choix validé avec l'utilisateur.
+//
+// missions.html gardait un <div id="toast"> devenu inutile dans son HTML :
+// laissé en place (masqué, inoffensif) plutôt que retiré, pour limiter le
+// risque de cette modification.
+/**
+ * Affiche une notification temporaire en bas à droite de l'écran.
+ * @param {string} msg   Le texte à afficher
+ * @param {string} [type="success"]  "success" (vert) ou toute autre valeur (rouge)
+ */
+function toastMessage(msg, type = "success") {
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
+        type === 'success' ? 'bg-green-600' : 'bg-red-600'
+    }`;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
+    setTimeout(() => {
+        toast.classList.add('translate-y-10', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}

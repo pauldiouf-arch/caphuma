@@ -329,19 +329,8 @@
             document.getElementById('error-banner').classList.remove('hidden');
         }
 
-        function toastMessage(msg, type = "success") {
-            const toast = document.createElement('div');
-            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
-                type === 'success' ? 'bg-green-600' : 'bg-red-600'
-            }`;
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
-            setTimeout(() => {
-                toast.classList.add('translate-y-10', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
+        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js
+        // (comportement identique — cette page avait déjà cette version).
 
         // ============ APPEL SÉCURISÉ À manage-users ============
         // Rappel section 2 du Master Context : le header 'apikey' est

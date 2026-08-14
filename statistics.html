@@ -1219,19 +1219,9 @@ Données consolidées du pool (${statsSummary.pool}) :
             }
         }
 
-        function toastMessage(msg, type = "success") {
-            const toast = document.createElement('div');
-            toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-50 transform translate-y-10 opacity-0 duration-300 ${
-                type === 'success' ? 'bg-green-600' : 'bg-red-600'
-            }`;
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
-            setTimeout(() => {
-                toast.classList.add('translate-y-10', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
+        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js.
+        // ⚠️ Petit changement : z-index 50→70 et durée 3000→3500ms (harmonisé
+        // avec la majorité des pages — voir MC13 Addendum, point A3).
 
         document.getElementById('ai-generate-btn').addEventListener('click', () => generateAIReport());
         document.getElementById('ai-clear-btn').addEventListener('click', () => {
