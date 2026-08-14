@@ -209,3 +209,28 @@ function toastMessage(msg, type = "success") {
         setTimeout(() => toast.remove(), 300);
     }, 3500);
 }
+
+// ----------------------------------------------------------------------------
+// 6. BANNIÈRE D'ERREUR
+// ----------------------------------------------------------------------------
+// Existait en 4 versions sur les pages internes (admin, id-card, red_list,
+// statistics) — 3 identiques, 1 (id-card) avec en plus un scroll vers le haut
+// de la page pour garantir que l'erreur est vue. Version retenue : AVEC le
+// scroll (choix validé avec l'utilisateur, meilleur pour l'expérience client).
+//
+// ⚠️ shared-talent.html a AUSSI une fonction showError(), mais ce n'est pas la
+// même : signature différente (title + message), cible des éléments HTML
+// différents (page d'erreur plein écran, pas une bannière). Volontairement
+// NON factorisée ici — laissée locale à cette page.
+/**
+ * Affiche la bannière d'erreur générique (#error-banner / #error-message)
+ * et fait remonter la page en haut pour garantir sa visibilité.
+ * @param {string} msg  Le message d'erreur à afficher
+ */
+function showError(msg) {
+    const banner = document.getElementById('error-banner');
+    const txt = document.getElementById('error-message');
+    txt.textContent = msg;
+    banner.classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}

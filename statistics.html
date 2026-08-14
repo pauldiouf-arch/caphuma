@@ -402,12 +402,9 @@
             }
         }
 
-        function showError(msg) {
-            const banner = document.getElementById('error-banner');
-            const txt = document.getElementById('error-message');
-            txt.textContent = msg;
-            banner.classList.remove('hidden');
-        }
+        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
+        // ⚠️ Petit changement : fait maintenant remonter la page en haut en plus
+        // d'afficher la bannière (harmonisé avec id-card.html — MC13 Addendum A3).
 
         async function initHub() {
             try {

@@ -324,10 +324,9 @@
             }
         }
 
-        function showError(msg) {
-            document.getElementById('error-message').textContent = msg;
-            document.getElementById('error-banner').classList.remove('hidden');
-        }
+        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
+        // ⚠️ Petit changement : fait maintenant remonter la page en haut en plus
+        // d'afficher la bannière (harmonisé avec id-card.html — MC13 Addendum A3).
 
         // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js
         // (comportement identique — cette page avait déjà cette version).

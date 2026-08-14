@@ -502,13 +502,8 @@
         // checkUserRole() a été retirée : shared/caphuma-auth.js (capHumaInitSession)
         // fournit désormais role + name directement dans checkSession() ci-dessus.
 
-        function showError(msg) {
-            const banner = document.getElementById('error-banner');
-            const txt = document.getElementById('error-message');
-            txt.textContent = msg;
-            banner.classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js
+        // (comportement identique — cette page avait déjà cette version).
 
         async function loadTalentData() {
             try {
