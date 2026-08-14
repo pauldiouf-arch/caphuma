@@ -480,22 +480,10 @@
             rawMissions = mData || [];
         }
 
-        function calculateMonthsWithoutMission(talent) {
-            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
-            const status = talent.status;
-            
-            if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
-                return talent.months_without_mission || 0;
-            }
-
-            const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
-            if (!refDateStr) return 0;
-            
-            const refDate = new Date(refDateStr);
-            const now = new Date();
-            const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
-            return Math.max(0, diffMonths);
-        }
+        // calculateMonthsWithoutMission() a été retirée d'ici : elle vient désormais
+        // de shared/caphuma-utils.js (chargé ligne 23), qui est l'unique source pour
+        // les 3 pages concernées (bug 55, MC13 Addendum §2 U1). Comportement
+        // strictement identique — cette page utilisait déjà la méthode calendaire.
 
         function updateStatistics() {
             const selectorValue = document.getElementById('pool-selector').value;
