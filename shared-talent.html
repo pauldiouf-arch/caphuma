@@ -9,6 +9,7 @@
     <script src="shared/vendor/tailwind-browser-4.js"></script>
     <!-- Supabase JS Client via CDN -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
     <script src="shared/caphuma-auth.js"></script>
 
@@ -133,15 +134,12 @@
     </main>
 
     <script>
-        // ============================================================================
-        // CONFIGURATION SUPABASE — codée en dur (même exception que index.html/
-        // login.html, décision validée avec l'utilisateur pour ces points d'entrée
-        // publics). Un visiteur externe arrive directement sur cette page via un
-        // lien de partage, sans jamais passer par index.html : le pont localStorage
-        // ne peut donc pas être utilisé ici.
-        // ============================================================================
-        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
+        // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
+        // (chargé dans le <head>), qui est la source unique pour les 15 pages.
+        // Voir MC13 Addendum §1.5 (U3) : ceci remplace l'ancienne copie
+        // indépendante qui existait ici (cette page ne pouvait pas compter sur
+        // le pont localStorage — elle a maintenant le même fichier partagé que
+        // toutes les autres pages).
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
