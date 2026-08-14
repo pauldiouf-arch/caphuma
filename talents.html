@@ -1278,19 +1278,13 @@
         // ============================================================================
         const DEVALIDATION_MAX_MONTHS = 24;
 
-        function calculateMonthsWithoutMission(talent) {
-            const now = Date.now();
-            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
-            
-            if (isCurrentlyOnMission || talent.status === 'En poste ALIMA') {
-                return talent.months_without_mission || 0;
-            }
-            const refDateStr = talent.last_mission_end_date || talent.pool_integration_date;
-            if (refDateStr) {
-                return Math.max(0, Math.floor((now - new Date(refDateStr).getTime()) / (1000 * 60 * 60 * 24 * 30)));
-            }
-            return 0;
-        }
+        // calculateMonthsWithoutMission() a été retirée d'ici : cette page avait
+        // l'ANCIENNE méthode (tranches de 30 jours, bug 55 MC13 §4). Elle vient
+        // désormais de shared/caphuma-utils.js (chargé ligne 10), qui utilise la
+        // méthode calendaire correcte — la même que statistics.html et id-card.html.
+        // ⚠️ Les chiffres affichés sur cette page vont légèrement BAISSER par
+        // rapport à avant (l'ancienne méthode surestimait). Ce n'est pas une
+        // régression : c'était cette page qui avait tort.
 
         // Une prolongation est active tant que devalidation_extension_until est dans le futur.
         function hasActiveExtension(talent) {

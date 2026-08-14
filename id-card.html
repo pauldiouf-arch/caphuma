@@ -603,23 +603,9 @@
         }
 
 
-        function calculateMonthsWithoutMission(talent) {
-            // Lecture robuste des deux nommages (snake_case et camelCase)
-            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
-            const status = talent.status;
-            
-            if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
-                return talent.months_without_mission || 0;
-            }
-
-            const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
-            if (!refDateStr) return 0;
-            
-            const refDate = new Date(refDateStr);
-            const now = new Date();
-            const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
-            return Math.max(0, diffMonths);
-        }
+        // calculateMonthsWithoutMission() a été retirée d'ici : elle vient désormais
+        // de shared/caphuma-utils.js (chargé ligne 12). Comportement strictement
+        // identique — cette page utilisait déjà la méthode calendaire.
 
         function renderTalentCard() {
             // Lecture robuste et sécurisée des propriétés en snake_case et camelCase
