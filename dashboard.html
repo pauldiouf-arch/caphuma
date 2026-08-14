@@ -189,11 +189,53 @@
         // avant injection via innerHTML — prévention XSS (audit sécurité).
 
         // Pools de secours si la table Supabase est vide ou inaccessible
+        // CORRIGÉ le 14/08/2026 : ADMIN n'existe pas réellement (voir Dossier
+        // technique §4.6), remplacé par les 7 vrais pools actuels (extraits en
+        // direct de la table `pools` le 14/08/2026 — la doc de juillet n'en
+        // listait que 4, incomplète/périmée depuis). Ce tableau ne sert
+        // désormais plus que de tout dernier recours : voir getFallbackPools()
+        // ci-dessous, qui privilégie un cache local mis à jour automatiquement.
         const FALLBACK_POOLS = [
-            { pool_id: 'COLOG', name: 'COLOG', full_name: 'Pool Logistique', is_archived: false },
-            { pool_id: 'COMED', name: 'COMED', full_name: 'Pool Médical', is_archived: false },
-            { pool_id: 'ADMIN', name: 'ADMIN', full_name: 'Pool Administration', is_archived: false }
+            { pool_id: 'CDM', name: 'CDM', full_name: 'Chef de mission', is_archived: false },
+            { pool_id: 'COFIN', name: 'COFIN', full_name: 'Coordinateur Financier', is_archived: false },
+            { pool_id: 'COFIRH', name: 'COFIRH', full_name: 'Coordinateur RH et Financier', is_archived: false },
+            { pool_id: 'COLOG', name: 'COLOG', full_name: 'Coordinateur Logistique', is_archived: false },
+            { pool_id: 'COMED', name: 'COMED', full_name: 'Coordinateur Médical', is_archived: false },
+            { pool_id: 'CORH', name: 'CORH', full_name: 'Coordinateur RH', is_archived: false },
+            { pool_id: 'RRB', name: 'RRB', full_name: 'Responsable Relation Bailleurs', is_archived: false }
         ];
+
+        // ============================================================================
+        // AJOUT DU 14/08/2026 : cache local des pools (pérennise le fallback)
+        // ----------------------------------------------------------------------------
+        // Problème résolu : FALLBACK_POOLS ci-dessus est un tableau codé en dur —
+        // il devient périmé dès qu'un pool est créé/modifié depuis admin.html
+        // (c'est exactement ce qui s'est produit avec ADMIN/COFIN/CDM). Plutôt que
+        // de compter sur une mise à jour manuelle de ce fichier à chaque nouveau
+        // pool, on mémorise dans le navigateur (localStorage) la dernière liste
+        // RÉELLEMENT reçue de Supabase avec succès, et on l'utilise en priorité si
+        // un chargement échoue. FALLBACK_POOLS ne sert plus alors que de tout
+        // dernier recours (aucun chargement jamais réussi sur ce navigateur).
+        // ============================================================================
+        const FALLBACK_POOLS_CACHE_KEY = 'caphuma_pools_fallback_cache';
+
+        /**
+         * Retourne le meilleur fallback disponible : le cache local (dernière
+         * liste réelle vue avec succès) s'il existe et n'est pas vide, sinon le
+         * tableau codé en dur FALLBACK_POOLS en tout dernier recours.
+         */
+        function getFallbackPools() {
+            try {
+                const cached = localStorage.getItem(FALLBACK_POOLS_CACHE_KEY);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (err) {
+                console.warn("[Pools] Échec de lecture du cache local :", err);
+            }
+            return FALLBACK_POOLS;
+        }
 
         // Seuil "à risque" aligné sur talents.html (surlignage rouge ≥24 mois sans mission).
         // ⚠️ Depuis l'optimisation des cartes de pool (fonction SQL get_pool_talent_stats()),
@@ -308,12 +350,23 @@
 
                 if (error) throw error;
 
-                currentPools = pools && pools.length > 0 ? pools : FALLBACK_POOLS;
+                if (pools && pools.length > 0) {
+                    currentPools = pools;
+                    // Chargement réussi : on mémorise cette liste comme référence
+                    // pour un futur échec éventuel (voir getFallbackPools() ci-dessus).
+                    try {
+                        localStorage.setItem(FALLBACK_POOLS_CACHE_KEY, JSON.stringify(pools));
+                    } catch (storageErr) {
+                        console.warn("[Pools] Échec de la mise en cache locale :", storageErr);
+                    }
+                } else {
+                    currentPools = getFallbackPools();
+                }
 
             } catch (error) {
                 console.error("Erreur de récupération des pools :", error);
-                currentPools = FALLBACK_POOLS;
-                poolsError.textContent = "Impossible de charger les pools depuis Supabase — affichage des pools par défaut.";
+                currentPools = getFallbackPools();
+                poolsError.textContent = "Impossible de charger les pools depuis Supabase — affichage des derniers pools connus.";
                 poolsError.classList.remove('hidden');
             }
 
