@@ -20,6 +20,7 @@
     
     <!-- Supabase JS Client via CDN pour la communication BDD -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
     <script src="shared/caphuma-auth.js"></script>
     
@@ -350,8 +351,8 @@
         // n°12). Absente jusqu'ici sur cette page faute d'innerHTML utilisant des
         // données de la base ; ajoutée avec les statistiques de contrats (Étape C).
 
-        const SUPABASE_URL = localStorage.getItem('supabase_url');
-        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
+        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
         // La clé IA ne vit plus jamais côté client (ni localStorage, ni variable
         // visible en console) — l'appel passe désormais par la Edge Function
         // sécurisée ai-proxy, qui détient seule la clé côté serveur.

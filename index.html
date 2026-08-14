@@ -11,6 +11,9 @@
     <!-- Supabase CDN (Standard Non-Module) -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
 
+    <!-- Configuration Supabase partagée (source unique — remplace le pont localStorage) -->
+    <script src="shared/caphuma-config.js"></script>
+
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,23 +55,9 @@
 
     <script>
         // ============================================================================
-        // CONFIGURATION SUPABASE — codée en dur (décision validée avec l'utilisateur).
-        // La clé "anon" / "publishable" est conçue par Supabase pour être publique :
-        // la sécurité réelle repose sur les policies RLS + les GRANT SQL côté serveur,
-        // pas sur le secret de cette clé. Aucune donnée sensible n'est exposée ici.
-        //
-        // ⚠️ À REMPLACER avant déploiement par les vraies valeurs du projet Supabase :
-        // ============================================================================
-        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
-
-        // On les écrit dans le localStorage pour que TOUTES les autres pages déjà
-        // livrées (dashboard.html, talents.html, admin.html, etc.), qui lisent encore
-        // supabase_url / supabase_anon_key depuis le localStorage, continuent de
-        // fonctionner sans modification. Ce pont sera retiré si ces pages sont un
-        // jour toutes migrées vers la config en dur.
-        localStorage.setItem('supabase_url', SUPABASE_URL);
-        localStorage.setItem('supabase_anon_key', SUPABASE_ANON_KEY);
+        // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
+        // (chargé dans le <head>), qui est la source unique pour les 15 pages.
+        // Voir MC13 Addendum §1.5 (U3) : ceci remplace l'ancien pont localStorage.
 
         const bootError = document.getElementById('bootError');
 

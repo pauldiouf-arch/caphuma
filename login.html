@@ -15,6 +15,9 @@
          version inchangée (2.110.6). -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
 
+    <!-- Configuration Supabase partagée (source unique — remplace le pont localStorage) -->
+    <script src="shared/caphuma-config.js"></script>
+
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -71,22 +74,9 @@
 
     <script>
         // ============================================================================
-        // CONFIGURATION SUPABASE — codée en dur (même valeurs que index.html).
-        // La clé "anon" / "publishable" est publique par conception Supabase ;
-        // la sécurité réelle repose sur RLS + GRANT côté serveur.
-        //
-        // ⚠️ À REMPLACER avant déploiement par les vraies valeurs du projet Supabase :
-        // ============================================================================
-        const SUPABASE_URL = "https://bhjycotcmkqiumukkkih.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_mtQU2zMhbkCPZjgCX3Z4hw_POMFm_ml";
-
-        // Pont de compatibilité : on alimente le localStorage pour que les autres
-        // pages déjà livrées (qui lisent encore supabase_url / supabase_anon_key
-        // depuis le localStorage) continuent de fonctionner sans modification,
-        // même si l'utilisateur arrive directement sur login.html sans être
-        // passé par index.html au préalable.
-        localStorage.setItem('supabase_url', SUPABASE_URL);
-        localStorage.setItem('supabase_anon_key', SUPABASE_ANON_KEY);
+        // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
+        // (chargé dans le <head>), qui est la source unique pour les 15 pages.
+        // Voir MC13 Addendum §1.5 (U3) : ceci remplace l'ancien pont localStorage.
 
         const appBody = document.getElementById('appBody');
         const { createClient } = supabase;

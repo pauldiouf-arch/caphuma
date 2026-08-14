@@ -10,6 +10,7 @@
 
     <!-- Supabase CDN (Standard Non-Module) -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
     <script src="shared/caphuma-auth.js"></script>
 
@@ -149,8 +150,8 @@
         // ============================================================================
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, pont de compatibilité)
         // ============================================================================
-        const SUPABASE_URL = localStorage.getItem('supabase_url');
-        const SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
+        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
+        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
