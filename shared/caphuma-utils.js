@@ -136,3 +136,44 @@ function renderPaginationControls(page, totalPages, count, prevOnclick, nextOncl
             </div>
         </div>`;
 }
+
+// ----------------------------------------------------------------------------
+// 4. CALCUL MÉTIER : ANCIENNETÉ SANS MISSION
+// ----------------------------------------------------------------------------
+// Corrige le bug n°55 (MC13 §4) : cette fonction existait en 3 copies légèrement
+// différentes (id-card.html, statistics.html, talents.html). Deux versions
+// calculaient en MOIS CALENDAIRES (année×12 + mois, la méthode correcte),
+// une troisième (talents.html) calculait en tranches de 30 jours, ce qui
+// surestime légèrement le nombre de mois (une année de 30 jours = 12,17 mois).
+//
+// Version retenue ici : la méthode calendaire, avec la lecture la plus robuste
+// des deux nommages de champs (snake_case ET camelCase) trouvée entre les
+// 3 copies d'origine.
+//
+// ⚠️ Après cette correction, talents.html verra ses chiffres LÉGÈREMENT BAISSER
+// par rapport à avant (c'était elle qui surestimait) — ce n'est pas une
+// régression, voir MC13 Addendum §2 (U1).
+/**
+ * Calcule le nombre de mois calendaires écoulés depuis la fin de la dernière
+ * mission (ou l'entrée en pool si aucune mission), pour un talent qui n'est
+ * pas actuellement en poste.
+ *
+ * @param {Object} talent  Un enregistrement de la table `talents`
+ * @returns {number} Nombre de mois (0 si en poste ALIMA ou si aucune date de référence)
+ */
+function calculateMonthsWithoutMission(talent) {
+    const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+    const status = talent.status;
+
+    if (status === 'En poste ALIMA' || isCurrentlyOnMission) {
+        return talent.months_without_mission || 0;
+    }
+
+    const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
+    if (!refDateStr) return 0;
+
+    const refDate = new Date(refDateStr);
+    const now = new Date();
+    const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+    return Math.max(0, diffMonths);
+}
