@@ -1168,7 +1168,7 @@
                 });
             }
 
-            return {
+            const payload = {
                 pool: selectorValue,
                 totalTalents: talents.length,
                 talentsActifs: talents.filter(t => t.isValid !== false && t.is_valid !== false).length,
@@ -1188,6 +1188,64 @@
                 proportionExpat: mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length,
                 proportionNational: mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length
             };
+
+            // ------------------------------------------------------------------
+            // VENTILATION PAR POOL — vue globale uniquement (18/08/2026, A2 étape 3)
+            // ------------------------------------------------------------------
+            // Motif : en vue globale, cette fonction ne renvoyait QUE des totaux
+            // fusionnés (pool: "global"). L'IA n'avait donc aucune donnée par pool et
+            // ne pouvait ni les nommer, ni les comparer, ni désigner le plus à risque —
+            // constat de l'utilisateur le 18/08/2026, confirmé dans le code. Ce n'était
+            // pas un défaut de formulation du prompt : la donnée était absente.
+            //
+            // Ce qui est ajouté : uniquement des COMPTAGES par pool, plus le nom du
+            // pool. Un pool est une catégorie de poste (Coordinateur Logistique, Chef
+            // de mission...), pas une personne — aucune donnée à caractère personnel.
+            //
+            // Ce qui n'est PAS ajouté, volontairement : genre, nationalités et langues
+            // par pool. Ces répartitions restent réservées à l'analyse d'un pool
+            // précis, où elles sont soumises au seuil AI_DIVERSITY_MIN_ACTIVE_TALENTS.
+            // Les ajouter ici reviendrait à contourner ce seuil pour les 7 pools d'un
+            // seul appel. Ne pas "compléter" ce bloc par symétrie sans repasser par la
+            // décision de l'utilisateur (règle 16).
+            if (selectorValue === 'global') {
+                const poolsVentiles = poolList.map(p => {
+                    const code = (p.pool_id || p.poolId || '').toUpperCase();
+                    if (!code) return null;
+
+                    const tPool = rawTalents.filter(t => (t.pool || '').toUpperCase() === code);
+                    const mPool = rawMissions.filter(m => {
+                        const mp = (m.pool_id || m.poolId || m.pool || '').toUpperCase();
+                        return mp === code;
+                    });
+
+                    return {
+                        pool: code,
+                        nom: p.full_name || p.name || code,
+                        totalTalents: tPool.length,
+                        talentsActifs: tPool.filter(t => t.isValid !== false && t.is_valid !== false).length,
+                        talentsDisponibles: tPool.filter(t => {
+                            const isVal = t.isValid !== false && t.is_valid !== false;
+                            const isRed = t.isRedListed || t.is_red_listed;
+                            return isVal && !isRed && t.status === 'En attente de poste';
+                        }).length,
+                        talentsARisque: tPool.filter(t => {
+                            const isVal = t.isValid !== false && t.is_valid !== false;
+                            return isVal && calculateMonthsWithoutMission(t) >= 20;
+                        }).length,
+                        totalPostes: mPool.length,
+                        postesOccupes: mPool.filter(m => m.status === 'occupied').length,
+                        postesEnRecrutement: mPool.filter(m => m.status === 'recruiting').length,
+                        postesVacants: mPool.filter(m => m.status === 'vacant').length
+                    };
+                }).filter(Boolean);
+
+                if (poolsVentiles.length > 0) {
+                    payload.repartitionParPool = poolsVentiles;
+                }
+            }
+
+            return payload;
         }
 
         // Convertisseur basique Markdown pour rendu premium de l'analyse IA
@@ -1244,6 +1302,24 @@ Données consolidées du pool (${statsSummary.pool}) :
 
             const finalQuery = customQuery.trim() || promptInput.value.trim() || "";
 
+            // Ventilation par pool — vue globale uniquement (18/08/2026, A2 étape 3).
+            // Sans ce bloc, l'IA ne dispose que de totaux fusionnés et ne peut ni citer
+            // un pool par son nom ni en comparer deux. Rendue sous forme de tableau
+            // lisible plutôt qu'en JSON brut : le reste de ce prompt est déjà en texte,
+            // et un format homogène donne de meilleures réponses qu'un mélange des deux.
+            let ventilationBloc = "";
+            if (Array.isArray(statsSummary.repartitionParPool) && statsSummary.repartitionParPool.length > 0) {
+                const lignes = statsSummary.repartitionParPool.map(p =>
+                    `- ${p.pool} (${p.nom}) : ${p.totalTalents} talents dont ${p.talentsActifs} actifs, ` +
+                    `${p.talentsDisponibles} disponibles, ${p.talentsARisque} à risque de dévalidation ; ` +
+                    `${p.totalPostes} postes dont ${p.postesOccupes} occupés, ${p.postesVacants} vacants, ` +
+                    `${p.postesEnRecrutement} en recrutement`
+                ).join("\n");
+
+                ventilationBloc = `\n\nDétail par pool (utilise ces noms de pool dans ta réponse ` +
+                    `quand tu compares ou désignes un pool précis) :\n${lignes}`;
+            }
+
             // Chantier A2 (18/08/2026) — la question passe EN TÊTE du prompt.
             // Avant : 30 lignes de cadrage + 10 chiffres identiques d'un clic à l'autre,
             // puis la question en dernier — elle pesait trop peu face au reste, d'où des
@@ -1257,7 +1333,7 @@ Données consolidées du pool (${statsSummary.pool}) :
                 : `Analyse la santé du pool et formule des recommandations, à partir des ` +
                   `données ci-dessous.`;
 
-            const fullPrompt = `${objectif}\n\n${systemContext}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
+            const fullPrompt = `${objectif}\n\n${systemContext}${ventilationBloc}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
 
             try {
                 // Appel à la Edge Function générique ai-proxy (partagée avec missions.html) —
