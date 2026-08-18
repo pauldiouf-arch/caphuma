@@ -621,6 +621,21 @@
                 if (currentPoolId) query = query.eq('pool', currentPoolId);
                 if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
 
+                // Filtre "Validité" (ajouté le 18/08/2026, corrigé le même jour) : doit
+                // être répété ici, côté serveur, car ce mode paginé est celui utilisé
+                // par défaut (pas de recherche/filtre avancé actif) — le filtrage fait
+                // dans filterAndSortTalents() ne s'applique, lui, qu'au mode "liste
+                // complète". Tolère NULL comme le fait le filtre client (is_valid/
+                // is_red_listed ont un défaut mais une ancienne ligne pourrait ne pas
+                // l'avoir) : "actif" = is_valid pas explicitement false ET is_red_listed
+                // pas explicitement true.
+                if (searchFilters.validityFilter === 'active') {
+                    query = query.or('is_valid.is.null,is_valid.eq.true')
+                                 .or('is_red_listed.is.null,is_red_listed.eq.false');
+                } else if (searchFilters.validityFilter === 'devalidated') {
+                    query = query.eq('is_valid', false);
+                }
+
                 const { data, error, count } = await query;
                 if (error) throw error;
 
