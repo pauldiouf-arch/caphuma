@@ -237,12 +237,14 @@
             return FALLBACK_POOLS;
         }
 
-        // Seuil "à risque" aligné sur talents.html (surlignage rouge ≥24 mois sans mission).
-        // ⚠️ Depuis l'optimisation des cartes de pool (fonction SQL get_pool_talent_stats()),
-        // ce seuil est DUPLIQUÉ côté base (valeur 24 codée en dur dans la fonction SQL).
-        // Cette constante JS n'est donc plus utilisée que par le reste de la page (notifications,
-        // etc.) — si ce seuil change un jour, il faut le changer ICI ET dans la fonction SQL.
-        const MONTHS_WITHOUT_MISSION_RISK_THRESHOLD = 24;
+        // Seuil "à risque" (24 mois) : vient désormais de shared/caphuma-utils.js
+        // (DEVALIDATION_MAX_MONTHS), au lieu d'une constante locale à cette page —
+        // centralisation du 18/08/2026, voir cette même constante pour l'historique.
+        // ⚠️ Reste néanmoins DUPLIQUÉ côté base : la fonction SQL
+        // get_pool_talent_stats() a sa propre copie figée (le SQL ne peut pas lire
+        // une constante JS) — si ce seuil change un jour, il faut le changer aux
+        // DEUX endroits, ici (DEVALIDATION_MAX_MONTHS dans caphuma-utils.js) ET dans
+        // la fonction SQL (voir sql/schema_snapshot_2026-08-18.sql §8).
 
         // État en mémoire : liste brute des pools, KPIs calculés par pool, affichage des archivés
         let currentPools = [];
@@ -259,11 +261,17 @@
         // suivi RH). pool_scope null = tous les pools de l'utilisateur.
         // ============================================================================
         let notifPrefs = { enabled: true, pool_scope: null };
-        // ⚠️ Depuis l'optimisation des notifications (fonction SQL get_notification_alerts()),
-        // ces deux seuils sont DUPLIQUÉS côté base (valeurs codées en dur dans la fonction SQL).
-        // Ils ne sont plus utilisés que comme documentation ici — si l'un d'eux change un jour,
-        // il faut le changer ICI ET dans la fonction SQL.
-        const NOTIF_DEVALIDATION_RISK_MONTHS = 20; // aligné sur statistics.html
+        // Seuil de risque de dévalidation (20 mois) : vient désormais de
+        // shared/caphuma-utils.js (DEVALIDATION_AT_RISK_MONTHS) — centralisation du
+        // 18/08/2026, avant dupliqué ici sous un autre nom (NOTIF_DEVALIDATION_RISK_MONTHS).
+        // ⚠️ Reste DUPLIQUÉ côté base : get_notification_alerts() a sa propre copie
+        // figée — si ce seuil change, changer aux DEUX endroits (voir
+        // sql/schema_snapshot_2026-08-18.sql §8).
+        //
+        // NOTIF_CONTRACT_WINDOWS (fenêtres de contrat, en JOURS) n'est PAS concernée
+        // par cette centralisation : famille de valeur différente (jours, pas mois),
+        // non dupliquée ailleurs en JS — seule sa copie dans get_notification_alerts()
+        // (SQL) reste une duplication résiduelle, mineure, non traitée ici.
         const NOTIF_CONTRACT_WINDOWS = [30, 60, 90]; // jours
 
 
@@ -385,9 +393,8 @@
             // get_pool_talent_stats() (au lieu de rapatrier tous les talents dans le
             // navigateur pour les compter ici). Le seuil "à risque" (24 mois) et le
             // statut "En attente de poste" sont désormais définis dans la fonction SQL —
-            // voir MONTHS_WITHOUT_MISSION_RISK_THRESHOLD ci-dessus si ce seuil doit un
-            // jour être changé (il faudra le changer aux deux endroits, SQL et JS, car
-            // ce seuil sert aussi ailleurs sur cette page).
+            // voir DEVALIDATION_MAX_MONTHS (shared/caphuma-utils.js) si ce seuil doit un
+            // jour être changé (il faudra le changer aux deux endroits, SQL et JS).
             try {
                 const { data: rows, error } = await supabaseClient.rpc('get_pool_talent_stats');
 
@@ -487,8 +494,9 @@
         // ⚡ Optimisation : calcul fait côté serveur par la fonction SQL
         // get_notification_alerts(), qui reprend exactement la même logique que
         // l'ancien computeNotificationAlerts() (mêmes seuils, mêmes fenêtres de
-        // contrat, même gestion pool/pool_id) — voir NOTIF_DEVALIDATION_RISK_MONTHS
-        // et NOTIF_CONTRACT_WINDOWS ci-dessus si ces valeurs doivent changer un jour.
+        // contrat, même gestion pool/pool_id) — voir DEVALIDATION_AT_RISK_MONTHS
+        // (shared/caphuma-utils.js) et NOTIF_CONTRACT_WINDOWS ci-dessus si ces
+        // valeurs doivent changer un jour.
         // Le filtre par pool (poolScope) est désormais fait par la base elle-même,
         // au lieu d'être fait après coup ici — la base ne renvoie que les alertes
         // qui concernent les pools suivis par l'utilisateur.
