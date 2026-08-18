@@ -525,7 +525,7 @@
 
             const talentsAtRisk = talents.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
-                return isVal && calculateMonthsWithoutMission(t) >= 20;
+                return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
             }).length;
 
             // Remplissage DOM
@@ -691,7 +691,7 @@
             const redListedCount = talentsForPool.filter(t => t.is_red_listed || t.isRedListed).length;
             const atRiskCount = talentsForPool.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
-                return isVal && calculateMonthsWithoutMission(t) >= 20;
+                return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
             }).length;
 
             // Répartition Homme/Femme — comptage agrégé uniquement (cf. décision utilisateur :
@@ -1179,7 +1179,7 @@
                 }).length,
                 talentsARisque: talents.filter(t => {
                     const isVal = t.isValid !== false && t.is_valid !== false;
-                    return isVal && calculateMonthsWithoutMission(t) >= 20;
+                    return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
                 }).length,
                 totalMissions: mData.length,
                 missionsOccupees: mData.filter(m => m.status === 'occupied').length,
@@ -1231,7 +1231,7 @@
                         }).length,
                         talentsARisque: tPool.filter(t => {
                             const isVal = t.isValid !== false && t.is_valid !== false;
-                            return isVal && calculateMonthsWithoutMission(t) >= 20;
+                            return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
                         }).length,
                         totalPostes: mPool.length,
                         postesOccupes: mPool.filter(m => m.status === 'occupied').length,
@@ -1292,7 +1292,7 @@ Données consolidées du pool (${statsSummary.pool}) :
 - Total talents : ${statsSummary.totalTalents}
 - Actifs : ${statsSummary.talentsActifs}
 - Disponibles immédiatement : ${statsSummary.talentsDisponibles}
-- Profils à risque de dévalidation (>=20 mois sans mission) : ${statsSummary.talentsARisque}
+- Profils à risque de dévalidation (>=${DEVALIDATION_AT_RISK_MONTHS} mois sans mission) : ${statsSummary.talentsARisque}
 - Total postes : ${statsSummary.totalMissions}
 - Postes occupés : ${statsSummary.missionsOccupees}
 - Postes vacants : ${statsSummary.missionsVacantes}
