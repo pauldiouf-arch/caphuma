@@ -83,7 +83,7 @@
             </div>
 
             <!-- Filtres simples (toujours visibles) -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                     <label class="text-[11px] font-bold text-slate-400 uppercase">Statut</label>
                     <select id="filterStatus" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
@@ -92,6 +92,22 @@
                         <option value="En attente de poste">En attente de poste</option>
                         <option value="En poste autre ONG">En poste autre ONG</option>
                         <option value="En poste hors humanitaire">En poste hors humanitaire</option>
+                    </select>
+                </div>
+                <div>
+                    <!-- Filtre ajouté le 18/08/2026 : sans lui, un talent dévalidé OU en
+                         Liste Rouge reste mélangé aux actifs dans cette liste
+                         (comportement volontaire du site — ne pas les retirer facilite
+                         leur suivi/réintégration), ce qui rend la recherche pénible. Par
+                         défaut sur "Actifs uniquement" pour ne plus voir ni l'un ni
+                         l'autre sans action de ta part. Pages dédiées pour les consulter
+                         en détail : devalidated.html (dévalidés) et red_list.html
+                         (Liste Rouge), toutes pools confondues. -->
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Validité</label>
+                    <select id="filterValidity" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                        <option value="active">Actifs uniquement</option>
+                        <option value="devalidated">Dévalidés uniquement</option>
+                        <option value="">Tous</option>
                     </select>
                 </div>
                 <div>
@@ -821,6 +837,7 @@
             searchQuery: '',
             keywordFilter: '',
             statusFilter: '',
+            validityFilter: 'active',
             sortBy: 'integration',
             sortOrder: 'desc',
             minExpAlima: '',
@@ -893,6 +910,19 @@
 
             if (f.statusFilter) {
                 filtered = filtered.filter(t => t.status === f.statusFilter);
+            }
+
+            // Filtre ajouté le 18/08/2026, corrigé le même jour pour couvrir aussi la
+            // Liste Rouge (pas seulement la dévalidation) : par défaut ('active'),
+            // masque les talents dévalidés ET ceux en Liste Rouge — les deux restent
+            // dans "talents" en base (choix volontaire du site : ne pas les retirer
+            // facilite leur suivi), mais n'ont rien à faire dans la liste courante d'un
+            // pool au quotidien. 'devalidated' isole les dévalidés (Liste Rouge ou non).
+            // '' (Tous) désactive le filtre, comportement identique à avant son ajout.
+            if (f.validityFilter === 'active') {
+                filtered = filtered.filter(t => t.is_valid !== false && !t.is_red_listed);
+            } else if (f.validityFilter === 'devalidated') {
+                filtered = filtered.filter(t => t.is_valid === false);
             }
 
             if (f.minExpAlima) {
@@ -1049,6 +1079,7 @@
             Object.assign(searchFilters, defaultSearchFilters);
             document.getElementById('searchInput').value = '';
             document.getElementById('filterStatus').value = '';
+            document.getElementById('filterValidity').value = 'active';
             document.getElementById('filterSortBy').value = 'integration';
             document.getElementById('filterSortOrder').value = 'desc';
             document.getElementById('filterKeyword').value = '';
@@ -1068,7 +1099,7 @@
         });
 
         const filterFieldBindings = [
-            ['filterStatus', 'statusFilter'], ['filterSortBy', 'sortBy'], ['filterSortOrder', 'sortOrder'],
+            ['filterStatus', 'statusFilter'], ['filterValidity', 'validityFilter'], ['filterSortBy', 'sortBy'], ['filterSortOrder', 'sortOrder'],
             ['filterKeyword', 'keywordFilter'], ['filterMinExpAlima', 'minExpAlima'], ['filterMinExpHum', 'minExpHumanitarian'],
             ['filterAvailFrom', 'availableFrom'], ['filterAvailTo', 'availableTo'], ['filterNationality', 'nationalityFilter'],
             ['filterCountry', 'countryFilter'], ['filterLanguage', 'languagesFilter'], ['filterVisa', 'hasVisaFilter'],
