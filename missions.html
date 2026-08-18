@@ -1187,7 +1187,9 @@
                         .eq('id', missionId);
                     if (error) throw error;
 
-                    await logAuditAction('update', 'mission', missionId, payload.title || (originalMission ? originalMission.title : ''), null);
+                    // logAuditAction('update', ...) retiré le 18/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_missions, fiable même
+                    // pour une modification faite hors de cette page.
 
                     // Nouvel occupant entrant (affectation ou rotation) : compteurs remis à zéro.
                     if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
@@ -1197,14 +1199,13 @@
                     toastMessage('Poste mis à jour.', 'success');
                 } else {
                     payload.created_by = currentUserId;
-                    const { data: insertedMissionRows, error } = await supabaseClient
+                    const { error } = await supabaseClient
                         .from('missions')
-                        .insert(payload)
-                        .select('id');
+                        .insert(payload);
                     if (error) throw error;
 
-                    const newMissionId = insertedMissionRows && insertedMissionRows[0] ? insertedMissionRows[0].id : null;
-                    await logAuditAction('create', 'mission', newMissionId, payload.title || '', `Pool : ${payload.pool || ''}`);
+                    // logAuditAction('create', ...) retiré le 18/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_missions.
 
                     if (payload.occupant_id) {
                         await markIncomingOccupant(payload.occupant_id);
@@ -1252,7 +1253,8 @@
 
                 if (error) throw error;
 
-                await logAuditAction('delete', 'mission', missionId, label, null);
+                // logAuditAction('delete', ...) retiré le 18/08/2026 (A5) : couvert
+                // désormais par le trigger Postgres trg_audit_missions.
                 toastMessage('Poste supprimé.', 'success');
                 await loadMissions();
 
