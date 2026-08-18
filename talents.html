@@ -1278,7 +1278,13 @@
         // ============================================================================
         // 7. COMPTEUR DE VALIDITÉ & BARRE DE PROGRESSION (DevalidationProgressBar)
         // ============================================================================
-        const DEVALIDATION_MAX_MONTHS = 24;
+        // DEVALIDATION_MAX_MONTHS (et DEVALIDATION_AT_RISK_MONTHS/CRITICAL_MONTHS,
+        // utilisées plus bas) ont été retirées d'ici le 18/08/2026 : cette page avait
+        // sa propre copie locale, désormais fournie par shared/caphuma-utils.js
+        // (chargé ligne 10) — seul endroit du site où ces 3 seuils sont définis.
+        // Ne PAS les redéclarer ici : un second "const" du même nom dans une balise
+        // <script> différente de la même page provoque une erreur de syntaxe qui
+        // casse tout le script (constaté concrètement lors de cette centralisation).
 
         // calculateMonthsWithoutMission() a été retirée d'ici : cette page avait
         // l'ANCIENNE méthode (tranches de 30 jours, bug 55 MC13 §4). Elle vient
@@ -1402,9 +1408,9 @@
             const remainingMonths = Math.max(0, DEVALIDATION_MAX_MONTHS - totalMonths);
 
             let barColor, textColor;
-            if (isInvalid || totalMonths >= 24) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
-            else if (totalMonths >= 22) { barColor = 'bg-red-50'; textColor = 'text-red-600'; }
-            else if (totalMonths >= 20) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
+            if (isInvalid || totalMonths >= DEVALIDATION_MAX_MONTHS) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
+            else if (totalMonths >= DEVALIDATION_CRITICAL_MONTHS) { barColor = 'bg-red-50'; textColor = 'text-red-600'; }
+            else if (totalMonths >= DEVALIDATION_AT_RISK_MONTHS) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
             else { barColor = 'bg-green-500'; textColor = 'text-slate-400'; }
 
             const refDate = talent.last_mission_end_date || talent.pool_integration_date;
@@ -1425,16 +1431,16 @@
             let labelHtml, bottomHtml;
 
             if (v.isInvalid) {
-                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1">⛔ Dévalidé</span><span class="text-red-600 font-bold">24 / 24 mois</span>`;
+                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1">⛔ Dévalidé</span><span class="text-red-600 font-bold">${DEVALIDATION_MAX_MONTHS} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
                 bottomHtml = '';
             } else if (v.isPaused) {
                 labelHtml = `<span class="text-blue-600 font-bold flex items-center gap-1">⏸ Compteur suspendu</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
                 bottomHtml = `<p class="text-[11px] text-blue-500 mt-0.5">⏸ En mission ALIMA — compteur en pause</p>`;
             } else {
-                const riskLabel = v.totalMonths < 20 ? 'Validité pool' : (v.totalMonths >= 22 ? 'Critique' : 'À risque');
-                const riskIcon = v.totalMonths < 20 ? '✅' : '⚠️';
+                const riskLabel = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS ? 'Validité pool' : (v.totalMonths >= DEVALIDATION_CRITICAL_MONTHS ? 'Critique' : 'À risque');
+                const riskIcon = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS ? '✅' : '⚠️';
                 labelHtml = `<span class="font-bold ${v.textColor} flex items-center gap-1">${riskIcon} ${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                const remainingText = v.totalMonths >= 20
+                const remainingText = v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS
                     ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
                     : '';
                 bottomHtml = remainingText
@@ -1459,15 +1465,15 @@
             let labelHtml, bottomHtml;
 
             if (v.isInvalid) {
-                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1">⛔ Dévalidé</span><span class="text-red-600 font-bold">24 / 24 mois</span>`;
+                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1">⛔ Dévalidé</span><span class="text-red-600 font-bold">${DEVALIDATION_MAX_MONTHS} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
                 bottomHtml = '';
             } else if (v.isPaused) {
                 labelHtml = `<span class="text-blue-600 font-bold flex items-center gap-1">⏸ Compteur suspendu</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
                 bottomHtml = `<p class="text-xs text-blue-500 mt-1">⏸ En mission ALIMA — compteur en pause</p>`;
             } else {
-                const riskLabel = v.totalMonths < 20 ? '✅ Validité pool' : (v.totalMonths >= 22 ? '⚠️ Critique' : '⚠️ À risque');
+                const riskLabel = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS ? '✅ Validité pool' : (v.totalMonths >= DEVALIDATION_CRITICAL_MONTHS ? '⚠️ Critique' : '⚠️ À risque');
                 labelHtml = `<span class="font-bold ${v.textColor}">${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                const remainingText = v.totalMonths >= 20
+                const remainingText = v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS
                     ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
                     : '';
                 bottomHtml = `<div class="flex items-center justify-between text-xs text-slate-400 mt-1">
