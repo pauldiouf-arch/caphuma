@@ -280,6 +280,15 @@
                     <div id="pool-ai-analysis-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 </button>
             </div>
+            <!-- Champ de question facultatif (ajouté le 18/08/2026, chantier A2).
+                 Laissé vide, l'analyse générale en 3 sections est produite comme avant. -->
+            <div class="space-y-1.5">
+                <label for="pool-ai-question" class="text-xs font-bold text-slate-500 uppercase">Question sur ce pool (facultatif)</label>
+                <input id="pool-ai-question" type="text" maxlength="500"
+                    placeholder="Ex. : quels profils recruter en priorité dans les 6 mois ?"
+                    class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none focus:border-primary" />
+                <p class="text-xs text-slate-400">Sans question, l'analyse générale du pool est produite.</p>
+            </div>
             <p id="pool-ai-analysis-error" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
             <div id="pool-ai-analysis-content" class="hidden rounded-2xl bg-white border border-slate-200 p-6 text-sm leading-relaxed text-slate-700"></div>
         </div>
@@ -602,6 +611,12 @@
         // tranches d'expérience, type de candidat, pays/desk des postes, taux
         // d'anticipation (postes avec un futur occupant identifié). Toujours uniquement
         // des comptages agrégés — jamais un nom, un email ou une évaluation individuelle.
+        // Seuil d'anonymat pour les données envoyées à l'IA — voir le bloc explicatif
+        // en fin de buildPoolAnalysisStats(). En dessous de ce nombre de talents actifs
+        // dans le pool, les répartitions genre / nationalités / langues ne sont pas
+        // transmises au modèle. Valeur fixée par l'utilisateur le 18/08/2026.
+        const AI_DIVERSITY_MIN_ACTIVE_TALENTS = 5;
+
         function buildPoolAnalysisStats(mData, talentsForPool) {
             const now = Date.now();
             const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
@@ -721,7 +736,7 @@
             // talentMatchRate (talents disponibles sous 6 mois rapportés au nb de postes).
             const talentMatchRate = total > 0 ? Math.round((availableSoon / total) * 100) : 0;
 
-            return {
+            const stats = {
                 // Postes
                 totalPositions: total,
                 occupiedPositions: occupied,
@@ -749,13 +764,61 @@
                 experienceDistributionMonthsAlima: experienceDistribution,
                 talentMatchRatePercent: talentMatchRate
             };
+
+            // ------------------------------------------------------------------
+            // SEUIL D'ANONYMAT (18/08/2026, chantier A2)
+            // ------------------------------------------------------------------
+            // Sur un pool à très faible effectif, une "répartition" cesse d'être un
+            // agrégat : "1 femme, nationalité X" dans un pool de 3 personnes est
+            // reconstituable par quiconque connaît l'équipe. En dessous du seuil, ces
+            // trois répartitions ne sont donc PAS transmises au modèle d'IA.
+            //
+            // ⚠️ Ne concerne QUE ce qui part vers l'IA. Les graphiques de diversité
+            // (updateDiversityCharts) restent affichés normalement quel que soit
+            // l'effectif : ils sont dessinés dans le navigateur de l'utilisateur, aucune
+            // donnée ne sort du site. Ne pas "harmoniser" les deux par réflexe.
+            //
+            // Seuil fixé à 5 par l'utilisateur le 18/08/2026 (règle 16).
+            if (activeTalents.length < AI_DIVERSITY_MIN_ACTIVE_TALENTS) {
+                delete stats.genderDistribution;
+                delete stats.nationalityDistribution;
+                delete stats.languageDistribution;
+                stats.diversiteNonTransmise = `Effectif actif trop faible (${activeTalents.length}, seuil ${AI_DIVERSITY_MIN_ACTIVE_TALENTS}) : répartitions genre / nationalités / langues volontairement non transmises.`;
+            }
+
+            return stats;
         }
 
-        function buildPoolAnalysisPrompt(poolLabel, stats) {
-            return `Tu es un(e) analyste RH pour une organisation humanitaire (ALIMA). ` +
-                `Voici un instantané agrégé et anonymisé du pool "${poolLabel}" ` +
+        // Chantier A2 (18/08/2026) — la question de l'utilisateur passe désormais EN TÊTE
+        // du prompt, formulée comme objectif principal. Avant ce changement, cette
+        // fonction ne recevait aucune question et imposait 3 sections fixes : le prompt
+        // était donc identique d'un clic à l'autre, et la réponse identique par
+        // construction (c'est l'origine du symptôme "l'IA répond toujours la même chose").
+        // Sans question saisie, l'ancien comportement est conservé À L'IDENTIQUE.
+        function buildPoolAnalysisPrompt(poolLabel, stats, userQuestion) {
+            const question = (userQuestion || '').trim();
+
+            const donnees = `Voici un instantané agrégé et anonymisé du pool "${poolLabel}" ` +
                 `(uniquement des comptages, aucune donnée nominative de talent) :\n\n` +
-                `${JSON.stringify(stats, null, 2)}\n\n` +
+                `${JSON.stringify(stats, null, 2)}`;
+
+            const format = `Réponds en français, en Markdown simple (titres avec ##, ` +
+                `listes avec -), sans préambule ni formule de politesse.`;
+
+            // Cas 1 — l'utilisateur a posé une question : elle prime sur tout le reste.
+            if (question) {
+                return `Question à traiter en priorité : ${question}\n\n` +
+                    `Réponds à cette question en t'appuyant sur les données ci-dessous. ` +
+                    `C'est l'objectif principal de ta réponse : n'aborde les autres aspects ` +
+                    `du pool que s'ils éclairent réellement la question posée. Structure ta ` +
+                    `réponse librement, selon ce que la question appelle.\n\n` +
+                    `${donnees}\n\n` +
+                    `${format}`;
+            }
+
+            // Cas 2 — aucune question : analyse générale, format inchangé depuis l'origine.
+            return `Tu es un(e) analyste RH pour une organisation humanitaire (ALIMA). ` +
+                `${donnees}\n\n` +
                 `Structure ta réponse en exactement 3 sections avec des titres Markdown ## : ` +
                 `"## Analyse des Talents", "## Analyse des Postes", "## Recommandations Stratégiques". ` +
                 `Dans "Analyse des Talents", commente si pertinent la diversité du pool ` +
@@ -765,9 +828,7 @@
                 `futur occupant déjà identifié) et la répartition géographique/desk, en plus ` +
                 `de l'occupation et des contrats. Les deux premières sections font 2 à 4 ` +
                 `phrases chacune ; la dernière est une liste à puces de 3 recommandations ` +
-                `concrètes et actionnables, classées par priorité. Réponds en français, en ` +
-                `Markdown simple (titres avec ##, listes avec -), sans préambule ni formule ` +
-                `de politesse.`;
+                `concrètes et actionnables, classées par priorité. ${format}`;
         }
 
         // Appel dédié à l'analyse par pool — implémentation séparée de generateAIReport()
@@ -819,7 +880,9 @@
                 const poolLabel = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
 
                 const stats = buildPoolAnalysisStats(mData, talentsForPool);
-                const prompt = buildPoolAnalysisPrompt(poolLabel, stats);
+                const questionInput = document.getElementById('pool-ai-question');
+                const question = questionInput ? questionInput.value : '';
+                const prompt = buildPoolAnalysisPrompt(poolLabel, stats, question);
                 const analysis = await callPoolAiProxy(prompt);
 
                 contentEl.innerHTML = renderMarkdownToHtml(analysis);
@@ -1179,9 +1242,22 @@ Données consolidées du pool (${statsSummary.pool}) :
 - Postes Expatriés : ${statsSummary.proportionExpat}
 - Postes Nationaux : ${statsSummary.proportionNational}`;
 
-            const finalQuery = customQuery.trim() || promptInput.value.trim() || "Analyse la santé du pool et formule des recommandations.";
+            const finalQuery = customQuery.trim() || promptInput.value.trim() || "";
 
-            const fullPrompt = `${systemContext}\n\nQuestion : ${finalQuery}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
+            // Chantier A2 (18/08/2026) — la question passe EN TÊTE du prompt.
+            // Avant : 30 lignes de cadrage + 10 chiffres identiques d'un clic à l'autre,
+            // puis la question en dernier — elle pesait trop peu face au reste, d'où des
+            // réponses très proches quelle que soit la question posée.
+            // Sans question saisie, la consigne générale d'origine est utilisée telle quelle.
+            const objectif = finalQuery
+                ? `Question à traiter en priorité : ${finalQuery}\n\n` +
+                  `Réponds à cette question en t'appuyant sur les données ci-dessous. ` +
+                  `C'est l'objectif principal de ta réponse : n'aborde les autres aspects ` +
+                  `que s'ils éclairent réellement la question posée.`
+                : `Analyse la santé du pool et formule des recommandations, à partir des ` +
+                  `données ci-dessous.`;
+
+            const fullPrompt = `${objectif}\n\n${systemContext}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
 
             try {
                 // Appel à la Edge Function générique ai-proxy (partagée avec missions.html) —
