@@ -1874,8 +1874,8 @@
                     throw new Error("La révocation n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                const fullNameLog = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
-                await logAuditAction('update', 'share_link', linkId, fullNameLog, "Révocation manuelle d'un lien de partage");
+                // logAuditAction('update', 'share_link', ...) retiré le 18/08/2026 (A5) :
+                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
                 toastMessage("Lien révoqué.", "success");
                 await loadShareLinks();
             } catch (err) {
@@ -1947,8 +1947,8 @@
 
                 await navigator.clipboard.writeText(buildShareUrl(token));
                 toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
-                const fullNameLogShare = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
-                await logAuditAction('create', 'share_link', talentId, fullNameLogShare, null);
+                // logAuditAction('create', 'share_link', ...) retiré le 18/08/2026 (A5) :
+                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
                 await loadShareLinks();
             } catch (err) {
                 console.error(err);
