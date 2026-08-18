@@ -12,6 +12,8 @@
  *   1. escapeHtml()          — échappement HTML sûr (texte + attributs)
  *   2. Libellés communs      — STATUS_LABELS, DESK_LABELS, POOL ... etc.
  *   3. Pagination réelle     — helper générique paginateQuery()
+ *   4. Seuils de validité pool — DEVALIDATION_AT_RISK_MONTHS/CRITICAL/MAX
+ *   5. calculateMonthsWithoutMission()
  *
  * ⚠️ Règle de méthode n°12 (Master Context) : tout innerHTML qui injecte une
  * donnée venant de la base ou d'un formulaire DOIT être échappé, y compris en
@@ -138,7 +140,32 @@ function renderPaginationControls(page, totalPages, count, prevOnclick, nextOncl
 }
 
 // ----------------------------------------------------------------------------
-// 4. CALCUL MÉTIER : ANCIENNETÉ SANS MISSION
+// 4. SEUILS DE VALIDITÉ POOL (centralisés le 18/08/2026)
+// ----------------------------------------------------------------------------
+// Ces 3 valeurs existaient auparavant copiées en dur à une quinzaine
+// d'endroits (talents.html, id-card.html — ×2 chacune — et statistics.html
+// ×4 pour la seule valeur 20), avec un vrai risque de divergence si l'une
+// changeait un jour sans que les autres suivent. Un seul endroit désormais
+// pour tout le JS du site.
+//
+// ⚠️ Exception assumée, PAS couverte par cette centralisation : les fonctions
+// SQL get_pool_talent_stats() (seuil 24) et get_notification_alerts()
+// (seuil 20) ont chacune leur propre copie figée côté base — le SQL ne peut
+// pas lire une constante JS. Ce sont les 2 SEULES copies qui subsistent
+// après cette centralisation (contre ~15 avant) ; à mettre à jour à la main
+// si ces valeurs changent un jour (voir sql/schema_snapshot_2026-08-18.sql
+// §8, qui documente ce point).
+const DEVALIDATION_AT_RISK_MONTHS = 20;   // palier visuel "à risque" (orange)
+const DEVALIDATION_CRITICAL_MONTHS = 22;  // palier visuel "critique" (rouge clair)
+const DEVALIDATION_MAX_MONTHS = 24;       // seuil dur : éligible à l'arbitrage
+                                           // dévalider/prolonger (talents.html,
+                                           // isDevalidationEligible()) ; aussi le
+                                           // dénominateur des barres de progression
+                                           // ("X / 24 mois") sur talents.html et
+                                           // id-card.html.
+
+// ----------------------------------------------------------------------------
+// 5. CALCUL MÉTIER : ANCIENNETÉ SANS MISSION
 // ----------------------------------------------------------------------------
 // Corrige le bug n°55 (MC13 §4) : cette fonction existait en 3 copies légèrement
 // différentes (id-card.html, statistics.html, talents.html). Deux versions
@@ -179,7 +206,7 @@ function calculateMonthsWithoutMission(talent) {
 }
 
 // ----------------------------------------------------------------------------
-// 5. NOTIFICATION VISUELLE (toast)
+// 6. NOTIFICATION VISUELLE (toast)
 // ----------------------------------------------------------------------------
 // Existait en 3 versions divergentes sur 6 pages avant cette factorisation
 // (z-index 50 vs 70, durée 3000 vs 3500 ms, et missions.html réutilisait un
@@ -211,7 +238,7 @@ function toastMessage(msg, type = "success") {
 }
 
 // ----------------------------------------------------------------------------
-// 6. BANNIÈRE D'ERREUR
+// 7. BANNIÈRE D'ERREUR
 // ----------------------------------------------------------------------------
 // Existait en 4 versions sur les pages internes (admin, id-card, red_list,
 // statistics) — 3 identiques, 1 (id-card) avec en plus un scroll vers le haut
