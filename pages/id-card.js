@@ -1,0 +1,1595 @@
+        let supabaseClient = null;
+        let talentId = null;
+        let talent = null;
+        let activeMission = null;
+        let currentUserId = null;
+        let currentUserRole = null;
+        let currentUserName = null;
+        let comments = [];
+
+        // ============================================================================
+        // JOURNAL D'AUDIT (Étape 8) — enregistre une action métier sensible dans
+        // public.audit_logs. Ne bloque JAMAIS l'action métier elle-même si
+        // l'écriture du log échoue (le log est secondaire à l'action réelle) :
+        // erreur avalée en console uniquement, jamais remontée à l'utilisateur.
+        // ============================================================================
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
+            // le fait que user_name n'était jamais transmis sur certaines pages.
+            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
+            await capHumaLogAudit(
+                supabaseClient,
+                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
+                action, entityType, entityId, entityName, details
+            );
+        }
+
+        // ============================================================================
+        // NORMALISATION DES PASSAGES ARCHIVÉS (compatibilité double format)
+        // ============================================================================
+        // Deux formats coexistent dans talents.archived_position_passages :
+        //  - Ancien (créé par l'ex-mini-workflow de id-card.html, retiré depuis) :
+        //    dates en nombre (epoch ms), commentaire unique par passage, champs
+        //    camelCase (positivePoints, negativePoints, createdByName, createdAt).
+        //  - Nouveau (créé par missions.html, Étape 5) : dates en texte ISO,
+        //    plusieurs commentaires par passage possibles, champs snake_case
+        //    (positive_points, negative_points, author_email, created_at).
+        // Ces fonctions lisent les deux indifféremment pour l'affichage (Historique
+        // + export PDF), sans jamais réécrire les anciennes entrées en base.
+        function passageDateMs(value) {
+            if (value === null || value === undefined || value === '') return null;
+            if (typeof value === 'number') return value;
+            const parsed = new Date(value).getTime();
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        function normalizePassageComment(c) {
+            return {
+                context: c.context || null,
+                positivePoints: c.positive_points || c.positivePoints || null,
+                negativePoints: c.negative_points || c.negativePoints || null,
+                rating: (c.rating !== undefined && c.rating !== null) ? c.rating : null,
+                authorLabel: c.author_email || c.createdByName || null,
+                legacyContent: (!c.context && c.content) ? c.content : null
+            };
+        }
+
+        // Échappement HTML systématique de toute donnée venant de la base
+        // avant injection via innerHTML — prévention XSS (audit sécurité).
+
+        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
+        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+
+        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        async function checkSession() {
+            if (!supabaseClient) {
+                showError("Configuration Supabase introuvable dans le localStorage.");
+                return;
+            }
+            try {
+                let s;
+                try {
+                    s = await capHumaInitSession(supabaseClient);
+                } catch (sessionErr) {
+                    window.location.replace('login.html');
+                    return;
+                }
+
+                document.getElementById('user-display-name').textContent = s.email;
+                currentUserId = s.userId;
+                currentUserEmail = s.email;
+                currentUserRole = s.role;
+                currentUserName = s.name;
+
+                // Cible par défaut du bouton Retour, remplacée par "Retour au pool X"
+                // une fois le talent chargé (voir loadTalentData / renderTalentData).
+                document.getElementById('back-btn').onclick = () => {
+                    window.location.href = 'dashboard.html';
+                };
+                
+                // Récupérer l'ID du talent dans l'URL
+                const urlParams = new URLSearchParams(window.location.search);
+                talentId = urlParams.get('id');
+                if (!talentId || talentId === 'undefined' || talentId === 'null') {
+                    showError("ID du talent invalide ou non fourni dans l'URL.");
+                    setTimeout(() => window.location.replace('dashboard.html'), 3000);
+                    return;
+                }
+                
+                await loadTalentData();
+            } catch (e) {
+                console.error(e);
+                showError("Erreur d'authentification ou problème réseau.");
+            }
+        }
+
+        // checkUserRole() a été retirée : shared/caphuma-auth.js (capHumaInitSession)
+        // fournit désormais role + name directement dans checkSession() ci-dessus.
+
+        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js
+        // (comportement identique — cette page avait déjà cette version).
+
+        async function loadTalentData() {
+            try {
+                // Recherche croisée id ou _id pour robustesse absolue
+                const { data: t, error: et } = await supabaseClient
+                    .from('talents')
+                    .select('*')
+                    .eq('id', talentId)
+                    .maybeSingle();
+                
+                if (et) {
+                    console.error("Échec Supabase :", et);
+                    throw et;
+                }
+
+                if (!t) {
+                    const { data: tAlt, error: etAlt } = await supabaseClient
+                        .from('talents')
+                        .select('*')
+                        .eq('_id', talentId)
+                        .maybeSingle();
+                    
+                    if (etAlt || !tAlt) {
+                        throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
+                    }
+                    talent = tAlt;
+                } else {
+                    talent = t;
+                }
+
+                // Récupérer le poste actuellement occupé
+                const { data: mission } = await supabaseClient
+                    .from('missions')
+                    .select('*')
+                    .eq('occupant_id', talentId)
+                    .eq('status', 'occupied')
+                    .maybeSingle();
+                
+                activeMission = mission;
+
+                renderTalentCard();
+                await loadComments();
+                await loadPoolHistory();
+            } catch (err) {
+                console.error("Erreur complète :", err);
+                showError(err.message || "Erreur lors du chargement des données.");
+            }
+        }
+
+        // ============================================================================
+        // HISTORIQUE DES POOLS — changement de pool au fil du temps (carrière du talent)
+        // ============================================================================
+        async function loadPoolHistory() {
+            const container = document.getElementById('pool-history-container');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('pool_history')
+                    .select('from_pool, to_pool, changed_at, changed_by_name')
+                    .eq('talent_id', talentId)
+                    .order('changed_at', { ascending: false });
+
+                if (error) throw error;
+                renderPoolHistory(data || []);
+            } catch (err) {
+                console.error("Erreur de chargement de l'historique des pools :", err);
+                container.innerHTML = '<p class="text-sm text-slate-400 italic">Historique indisponible pour le moment.</p>';
+            }
+        }
+
+        function renderPoolHistory(entries) {
+            const container = document.getElementById('pool-history-container');
+            if (!entries || entries.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-500 italic">Aucun changement de pool enregistré pour le moment.</p>';
+                return;
+            }
+
+            container.innerHTML = entries.map(e => {
+                const dateStr = e.changed_at ? new Date(e.changed_at).toLocaleDateString('fr-FR') : '—';
+                return `
+                <div class="flex items-start gap-3 border-l-2 border-primary/30 pl-4">
+                    <div class="flex-1">
+                        <p class="text-sm text-slate-700">
+                            <span class="font-semibold">${escapeHtml(e.from_pool || '—')}</span>
+                            <span class="text-slate-400 mx-1">→</span>
+                            <span class="font-semibold text-primary">${escapeHtml(e.to_pool)}</span>
+                        </p>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            Le ${dateStr}${e.changed_by_name ? ` · par ${escapeHtml(e.changed_by_name)}` : ''}
+                        </p>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+
+        // calculateMonthsWithoutMission() a été retirée d'ici : elle vient désormais
+        // de shared/caphuma-utils.js (chargé ligne 12). Comportement strictement
+        // identique — cette page utilisait déjà la méthode calendaire.
+
+        function renderTalentCard() {
+            // Lecture robuste et sécurisée des propriétés en snake_case et camelCase
+            const fName = talent.first_name || talent.firstName || "";
+            const lName = talent.last_name || talent.lastName || "";
+            const fFunction = talent.current_function || talent.currentFunction || "N/A";
+            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
+            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
+            const eduLvl = talent.education_level || talent.educationLevel || "none";
+            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
+            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
+            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
+            const visaValid = talent.has_visa || talent.hasVisa;
+            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
+
+            document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
+            document.getElementById('back-btn').onclick = () => {
+                window.location.href = `talents.html?pool=${talent.pool}`;
+            };
+
+            document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "N/A";
+            document.getElementById('talent-function').textContent = fFunction;
+            document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool || '—'}`;
+            
+            const expAlimaYears = Math.floor(expAlima / 12);
+            const expAlimaRem = expAlima % 12;
+            document.getElementById('talent-experience-alima').textContent = `${expAlimaYears}a ${expAlimaRem}m`;
+
+            const statusBadge = document.getElementById('talent-status-badge');
+            statusBadge.textContent = talent.status || "N/A";
+            statusBadge.className = "bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider";
+            if (talent.status === 'En poste ALIMA') {
+                statusBadge.classList.add('bg-green-600');
+            }
+
+            if (talent.is_red_listed || talent.isRedListed) {
+                document.getElementById('redlist-banner').classList.remove('hidden');
+                document.getElementById('redlist-reason').textContent = `Motif : ${talent.red_list_reason || talent.redListReason || "Non spécifié"}`;
+            } else {
+                document.getElementById('redlist-banner').classList.add('hidden');
+            }
+
+            // Progression validité
+            const isInvalid = talent.isValid === false || talent.is_valid === false;
+            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+            const isPaused = !isInvalid && (isCurrentlyOnMission || talent.status === 'En poste ALIMA');
+            const totalMonths = isInvalid ? DEVALIDATION_MAX_MONTHS : calculateMonthsWithoutMission(talent);
+            const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
+            const percent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
+
+            const vCounter = document.getElementById('validity-counter');
+            const vLabel = document.getElementById('validity-label');
+            const vBar = document.getElementById('validity-bar');
+            const vSub = document.getElementById('validity-subtext');
+
+            vBar.style.width = `${percent}%`;
+
+            if (isInvalid) {
+                vLabel.textContent = "Statut : Dévalidé du pool";
+                vLabel.className = "text-red-600 font-bold";
+                vCounter.textContent = `${DEVALIDATION_MAX_MONTHS} / ${DEVALIDATION_MAX_MONTHS} mois`;
+                vBar.className = "h-full bg-red-600 rounded-full";
+                vSub.textContent = "Ce professionnel est inactif et doit faire l'objet d'une réintégration manuelle.";
+            } else if (isPaused) {
+                vLabel.textContent = "Compteur suspendu (Actif)";
+                vLabel.className = "text-blue-600 font-bold";
+                vCounter.textContent = `${totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois`;
+                vBar.className = "h-full bg-blue-500 rounded-full opacity-60";
+                vSub.textContent = "⏸ En cours de mission ALIMA — le compteur est gelé.";
+            } else {
+                vCounter.textContent = `${totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois`;
+                if (totalMonths >= DEVALIDATION_CRITICAL_MONTHS) {
+                    vLabel.textContent = "Validité pool : Critique (Action urgente)";
+                    vLabel.className = "text-red-500 font-bold";
+                    vBar.className = "h-full bg-red-500 rounded-full";
+                } else if (totalMonths >= DEVALIDATION_AT_RISK_MONTHS) {
+                    vLabel.textContent = "Validité pool : À risque";
+                    vLabel.className = "text-orange-500 font-bold";
+                    vBar.className = "h-full bg-orange-400 rounded-full";
+                } else {
+                    vLabel.textContent = "Validité pool : Stable";
+                    vLabel.className = "text-green-600 font-bold";
+                    vBar.className = "h-full bg-green-500 rounded-full";
+                }
+                const refDate = talent.last_mission_end_date || talent.pool_integration_date || talent.poolIntegrationDate;
+                vSub.textContent = `Date de référence du calcul : ${refDate ? new Date(refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
+            }
+
+            // Remplissage infos
+            document.getElementById('info-email').textContent = talent.email || "N/A";
+            document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
+            document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
+            document.getElementById('info-residence').textContent = cRes;
+            document.getElementById('info-visa').textContent = visaValid ? "Valide" : "Non valide / N/A";
+            
+            const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
+            document.getElementById('info-languages').textContent = langs;
+
+            // Parcours & éducation
+            const eduLevels = {
+                none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
+                "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
+                "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
+            };
+            document.getElementById('info-edu-level').textContent = eduLevels[eduLvl] || "N/A";
+            document.getElementById('info-edu-specialty').textContent = eduSpec;
+            document.getElementById('info-integration-date').textContent = intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A";
+            
+            document.getElementById('info-exp-humanitarian').textContent = `${Math.floor(expHum / 12)}a ${expHum % 12}m`;
+            
+            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
+            document.getElementById('info-alima-missions').textContent = missionCountLabels[nbMissions] || "0";
+
+            // Rendu défensif de type liste
+            renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
+            renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
+            renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
+
+            // Timeline
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = "";
+            let hasTimelineElements = false;
+
+            if (activeMission) {
+                hasTimelineElements = true;
+                const startStr = activeMission.contract_start_date || activeMission.contractStartDate
+                    ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).toLocaleDateString('fr-FR')
+                    : "En cours";
+                
+                timeline.innerHTML += `
+                    <div class="relative pl-6 border-l-2 border-green-500">
+                        <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
+                        <div class="space-y-1">
+                            <span class="inline-block text-[10px] uppercase font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">En cours</span>
+                            <h4 class="font-bold text-slate-900">${escapeHtml(activeMission.title)}</h4>
+                            <p class="text-xs text-slate-500">${escapeHtml(activeMission.country)} • Prise de poste le ${startStr}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Parsing sécurisé de l'historique
+            let passages = [];
+            try {
+                const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
+                if (Array.isArray(rawPassages)) {
+                    passages = rawPassages;
+                } else if (typeof rawPassages === 'string' && rawPassages.trim()) {
+                    passages = JSON.parse(rawPassages);
+                }
+            } catch (e) {
+                console.error("Erreur de parsing des passages :", e);
+            }
+
+            if (passages.length > 0) {
+                hasTimelineElements = true;
+                const sortedPassages = [...passages].sort((a, b) => (passageDateMs(b.startDate) || 0) - (passageDateMs(a.startDate) || 0));
+                sortedPassages.forEach(p => {
+                    const startMs = passageDateMs(p.startDate);
+                    const endMs = passageDateMs(p.endDate);
+                    const durationMonths = (startMs !== null && endMs !== null)
+                        ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24 * 30))
+                        : null;
+                    const startStr = startMs !== null ? new Date(startMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
+                    const endStr = endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
+
+                    let evalHtml = "";
+                    if (p.comments && p.comments.length > 0) {
+                        p.comments.forEach(rawComment => {
+                            const c = normalizePassageComment(rawComment);
+                            evalHtml += `
+                                <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1 mt-2">
+                                    <div class="flex justify-between items-center text-[10px] text-slate-400">
+                                        <span>${c.authorLabel ? 'Évalué par ' + escapeHtml(c.authorLabel) : 'Auteur inconnu'}</span>
+                                        ${c.rating !== null ? `<span class="font-bold text-primary">★ ${escapeHtml(c.rating)}/10</span>` : ""}
+                                    </div>
+                                    ${c.context ? `<p class="italic text-slate-500">Contexte : ${escapeHtml(c.context)}</p>` : ""}
+                                    ${c.positivePoints ? `<p class="text-green-700"><strong>Points forts :</strong> ${escapeHtml(c.positivePoints)}</p>` : ""}
+                                    ${c.negativePoints ? `<p class="text-orange-700"><strong>Axes d'amélioration :</strong> ${escapeHtml(c.negativePoints)}</p>` : ""}
+                                    ${c.legacyContent ? `<p class="text-slate-600">${escapeHtml(c.legacyContent)}</p>` : ""}
+                                </div>
+                            `;
+                        });
+                    }
+
+                    timeline.innerHTML += `
+                        <div class="relative pl-6 border-l-2 border-slate-200">
+                            <div class="absolute -left-[6px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white shadow"></div>
+                            <div class="space-y-1">
+                                <span class="text-xs font-semibold text-slate-400">${startStr} – ${endStr}${durationMonths !== null ? ` (${durationMonths} m)` : ''}</span>
+                                <h4 class="font-bold text-slate-800">${escapeHtml(p.positionTitle)}</h4>
+                                <p class="text-xs text-slate-500">${escapeHtml(p.country || "Mission ALIMA")}</p>
+                                ${evalHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (!hasTimelineElements) {
+                timeline.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun parcours de mission ALIMA archivé.</p>`;
+            }
+
+            setupAdminActions(isInvalid);
+            bindButtonListeners(); // Étape clé : lier les événements APRÈS le rendu réussi du profil
+        }
+
+        function renderBadges(containerId, list, colorClass) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = "";
+            
+            let items = [];
+            if (Array.isArray(list)) {
+                items = list;
+            } else if (typeof list === 'string' && list.trim()) {
+                items = list.split(',').map(s => s.trim()).filter(Boolean);
+            }
+
+            if (items.length === 0) {
+                container.innerHTML = `<span class="text-xs text-slate-400 italic">Non spécifié</span>`;
+                return;
+            }
+            items.forEach(item => {
+                const badge = document.createElement('span');
+                badge.className = `text-xs px-2.5 py-1 rounded-lg border font-medium ${colorClass}`;
+                badge.textContent = item;
+                container.appendChild(badge);
+            });
+        }
+
+        // ============================================================================
+        // COMMENTAIRES LIBRES (Étape 7)
+        // - Lecture : tout rôle connecté (admin/user/visitor).
+        // - Ajout : admin et user uniquement.
+        // - Modification/Suppression : admin sur tout commentaire, user uniquement
+        //   sur ses propres commentaires (comparaison user_id === currentUserId).
+        // - author_email enregistré directement à la création (pas de jointure vers
+        //   users, pour éviter le même risque RLS déjà documenté pour evaluations).
+        // ============================================================================
+        async function loadComments() {
+            const container = document.getElementById('comments-list-container');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('comments')
+                    .select('id, talent_id, user_id, content, author_email, created_at')
+                    .eq('talent_id', talentId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                comments = data || [];
+                renderComments();
+            } catch (err) {
+                console.error("Erreur de chargement des commentaires :", err);
+                if (container) {
+                    container.innerHTML = `<p class="text-sm text-red-500 italic">Impossible de charger les commentaires.</p>`;
+                }
+            }
+        }
+
+        function renderComments() {
+            const container = document.getElementById('comments-list-container');
+            const formContainer = document.getElementById('comment-form-container');
+            if (!container) return;
+
+            // Formulaire d'ajout masqué pour visitor (lecture seule)
+            if (formContainer) {
+                formContainer.classList.toggle('hidden', currentUserRole === 'visitor');
+            }
+
+            if (comments.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun commentaire pour le moment.</p>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            comments.forEach(c => {
+                const canManage = currentUserRole === 'admin' ||
+                    (currentUserRole === 'user' && c.user_id === currentUserId);
+                const dateStr = c.created_at ? new Date(c.created_at).toLocaleString('fr-FR') : '';
+                const authorLabel = c.author_email || 'Auteur inconnu';
+
+                const actionsHtml = canManage ? `
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button class="btn-edit-comment text-xs font-semibold text-primary hover:underline" data-id="${escapeHtml(c.id)}">Modifier</button>
+                        <button class="btn-delete-comment text-xs font-semibold text-red-600 hover:underline" data-id="${escapeHtml(c.id)}">Supprimer</button>
+                    </div>
+                ` : '';
+
+                container.innerHTML += `
+                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm space-y-1" data-comment-id="${escapeHtml(c.id)}">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 text-[10px] text-slate-400 mb-1">
+                                    <span>${escapeHtml(authorLabel)}</span>
+                                    <span>•</span>
+                                    <span>${escapeHtml(dateStr)}</span>
+                                </div>
+                                <p class="comment-content-text text-slate-700 whitespace-pre-wrap break-words">${escapeHtml(c.content)}</p>
+                            </div>
+                            ${actionsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            bindCommentButtons();
+        }
+
+        function bindCommentButtons() {
+            // 🗑️ Suppression d'un commentaire
+            document.querySelectorAll('.btn-delete-comment').forEach(btn => {
+                btn.onclick = async () => {
+                    const id = btn.getAttribute('data-id');
+                    if (!confirm("Supprimer définitivement ce commentaire ?")) return;
+
+                    try {
+                        const { data, error } = await supabaseClient
+                            .from('comments')
+                            .delete()
+                            .eq('id', id)
+                            .select('id');
+
+                        if (error) throw error;
+                        if (!data || data.length === 0) {
+                            throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
+                        }
+
+                        toastMessage("Commentaire supprimé.", "success");
+                        await logAuditAction('delete', 'comment', id, null, `Sur talent ${talentId}`);
+                        await loadComments();
+                    } catch (err) {
+                        console.error(err);
+                        toastMessage("Échec de la suppression : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+                    }
+                };
+            });
+
+            // ✏️ Modification d'un commentaire (édition en ligne)
+            document.querySelectorAll('.btn-edit-comment').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.getAttribute('data-id');
+                    const card = document.querySelector(`[data-comment-id="${id}"]`);
+                    const comment = comments.find(c => c.id === id);
+                    if (!card || !comment) return;
+
+                    const textEl = card.querySelector('.comment-content-text');
+                    if (!textEl) return;
+
+                    textEl.outerHTML = `
+                        <div class="space-y-2">
+                            <textarea class="edit-comment-textarea w-full rounded-xl border border-slate-200 p-2 text-sm outline-none focus:border-primary resize-none" rows="3">${escapeHtml(comment.content)}</textarea>
+                            <div class="flex justify-end gap-2">
+                                <button class="btn-cancel-edit-comment text-xs font-semibold text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-lg">Annuler</button>
+                                <button class="btn-save-edit-comment text-xs font-semibold text-white bg-primary hover:bg-primary-dark px-3 py-1.5 rounded-lg">Enregistrer</button>
+                            </div>
+                        </div>
+                    `;
+
+                    card.querySelector('.btn-cancel-edit-comment').onclick = () => renderComments();
+
+                    card.querySelector('.btn-save-edit-comment').onclick = async () => {
+                        const newContent = card.querySelector('.edit-comment-textarea').value.trim();
+                        if (!newContent) {
+                            alert("Le commentaire ne peut pas être vide.");
+                            return;
+                        }
+
+                        try {
+                            const { data, error } = await supabaseClient
+                                .from('comments')
+                                .update({ content: newContent })
+                                .eq('id', id)
+                                .select('id');
+
+                            if (error) throw error;
+                            if (!data || data.length === 0) {
+                                throw new Error("La modification n'a affecté aucune ligne (policy RLS ?).");
+                            }
+
+                            toastMessage("Commentaire modifié.", "success");
+                            await loadComments();
+                        } catch (err) {
+                            console.error(err);
+                            toastMessage("Échec de la modification : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+                        }
+                    };
+                };
+            });
+        }
+
+        // ============================================================================
+        // GÉNÉRATION PDF — FICHE D'IDENTITÉ TALENT
+        // Retranscription HTML/JS natif de la logique originale Hercules
+        // (pdf-talent-card.ts, cf. Mon_code_hercules.txt), adaptée aux colonnes
+        // Supabase réelles (snake_case). jsPDF + jspdf-autotable via CDN (UMD).
+        // Aucune donnée "availability" / "project_status" : ces champs ne sont
+        // pas dans notre schéma/formulaire validés (voir Master Context §0/§3).
+        // ============================================================================
+        const PDF_ALIMA_BLUE = [29, 78, 216]; // #1d4ed8 — primary Cap Huma
+
+        function pdfFormatExpAlima(months) {
+            const m = Number(months) || 0;
+            const y = Math.floor(m / 12);
+            const rem = m % 12;
+            return `${y} an${y !== 1 ? "s" : ""} ${rem} mois`;
+        }
+
+        function pdfFormatMissions(count) {
+            const map = { three_plus: "3+", two: "2", one: "1", none: "0" };
+            return (count && map[count]) || "0";
+        }
+
+        function pdfFormatLanguages(languages) {
+            if (Array.isArray(languages)) return languages.join(", ") || "N/A";
+            if (typeof languages === 'string' && languages.trim()) return languages;
+            return "N/A";
+        }
+
+        function pdfDrawHeader(doc, talent, fName, lName, fFunction) {
+            const pageW = doc.internal.pageSize.getWidth();
+            doc.setFillColor(...PDF_ALIMA_BLUE);
+            doc.rect(0, 0, pageW, 42, "F");
+
+            doc.setFontSize(8);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "normal");
+            doc.text("ALIMA TalentHub", 14, 10);
+
+            doc.setFontSize(20);
+            doc.setFont("helvetica", "bold");
+            doc.text(`${fName} ${lName}`.trim() || "N/A", 14, 20);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(fFunction, 14, 27);
+
+            doc.setFontSize(9);
+            doc.text(`Pool : ${talent.pool || "—"}`, 14, 33);
+
+            doc.setTextColor(30, 30, 30);
+            return 50;
+        }
+
+        function pdfDrawSectionTitle(doc, title, y) {
+            const pageW = doc.internal.pageSize.getWidth();
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 30, 30);
+            doc.text(title, 14, y);
+
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.line(14, y + 2, pageW - 14, y + 2);
+
+            return y + 8;
+        }
+
+        function pdfDrawField(doc, label, value, x, y, maxWidth = 80) {
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
+            doc.text(label, x, y);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 30, 30);
+
+            const lines = doc.splitTextToSize(String(value ?? "N/A"), maxWidth);
+            doc.text(lines, x, y + 5);
+
+            return y + 5 + lines.length * 5;
+        }
+
+        function pdfEnsureSpace(doc, y, needed) {
+            const pageH = doc.internal.pageSize.getHeight();
+            if (y + needed > pageH - 20) {
+                doc.addPage();
+                return 20;
+            }
+            return y;
+        }
+
+        // Dessine une rangée de badges (retour à la ligne automatique)
+        function pdfDrawBadgeRow(doc, items, y, pageW, fill, stroke, textColor, fontSize) {
+            let bx = 14;
+            const bPaddingX = 3;
+            const bHeight = fontSize + 2;
+            const bMargin = 2;
+
+            doc.setFontSize(fontSize);
+            doc.setFont("helvetica", "normal");
+
+            items.forEach(label => {
+                const tw = doc.getTextWidth(String(label)) + bPaddingX * 2;
+                if (bx + tw > pageW - 14) {
+                    bx = 14;
+                    y += bHeight + bMargin + 1;
+                }
+                doc.setFillColor(...fill);
+                doc.setDrawColor(...stroke);
+                doc.setLineWidth(0.2);
+                doc.roundedRect(bx, y - 4, tw, bHeight, 1.5, 1.5, "FD");
+                doc.setTextColor(...textColor);
+                doc.text(String(label), bx + bPaddingX, y);
+                bx += tw + bMargin;
+            });
+
+            return y + bHeight + 4;
+        }
+
+        /**
+         * Génère et télécharge le PDF de la carte d'identité talent.
+         * @param {object} talent - Ligne Supabase brute de la table `talents`.
+         * @param {object|null} currentPosition - Mission active (table `missions`), si présente.
+         */
+        function exportTalentCardPDF(talent, currentPosition) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+            const pageW = doc.internal.pageSize.getWidth();
+            const COL_LEFT = 14;
+            const COL_MID = pageW / 2 + 4;
+
+            // Lecture robuste snake_case / camelCase, cohérente avec renderTalentCard()
+            const fName = talent.first_name || talent.firstName || "";
+            const lName = talent.last_name || talent.lastName || "";
+            const fFunction = talent.current_function || talent.currentFunction || "N/A";
+            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
+            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
+            const eduLvl = talent.education_level || talent.educationLevel || "none";
+            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
+            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
+            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
+            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
+            const keySkills = talent.key_skills || talent.keySkills || [];
+            const contexts = talent.intervention_contexts || talent.interventionContexts || [];
+            const zones = talent.intervention_zones || talent.interventionZones || [];
+
+            const eduLevels = {
+                none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
+                "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
+                "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
+            };
+            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
+
+            let y = pdfDrawHeader(doc, talent, fName, lName, fFunction);
+
+            // ── Section 1 : Informations Générales ───────────────────────────────
+            y = pdfDrawSectionTitle(doc, "Informations Générales", y);
+            const l1 = pdfDrawField(doc, "Email", talent.email || "N/A", COL_LEFT, y, 85);
+            const m1 = pdfDrawField(doc, "Statut", talent.status || "N/A", COL_MID, y, 80);
+            y = Math.max(l1, m1) + 3;
+
+            const genderLabel = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
+            const l2 = pdfDrawField(doc, "Genre", genderLabel, COL_LEFT, y, 85);
+            const m2 = pdfDrawField(doc, "Pool", talent.pool || "N/A", COL_MID, y, 80);
+            y = Math.max(l2, m2) + 6;
+
+            // ── Section 2 : Expérience ────────────────────────────────────────────
+            y = pdfEnsureSpace(doc, y, 30);
+            y = pdfDrawSectionTitle(doc, "Expérience", y);
+            const l3 = pdfDrawField(doc, "Expérience ALIMA", pdfFormatExpAlima(expAlima), COL_LEFT, y, 85);
+            const m3 = pdfDrawField(doc, "Expérience Humanitaire", pdfFormatExpAlima(expHum), COL_MID, y, 80);
+            y = Math.max(l3, m3) + 3;
+
+            const l4 = pdfDrawField(doc, "Missions ALIMA", missionCountLabels[nbMissions] || pdfFormatMissions(nbMissions), COL_LEFT, y, 85);
+            const m4 = pdfDrawField(doc, "Date d'intégration pool", intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A", COL_MID, y, 80);
+            y = Math.max(l4, m4) + 6;
+
+            // ── Section 3 : Formation & Compétences ──────────────────────────────
+            y = pdfEnsureSpace(doc, y, 30);
+            y = pdfDrawSectionTitle(doc, "Formation & Compétences", y);
+            const l5 = pdfDrawField(doc, "Niveau d'études", eduLevels[eduLvl] || "N/A", COL_LEFT, y, 85);
+            const m5 = pdfDrawField(doc, "Spécialité", eduSpec, COL_MID, y, 80);
+            y = Math.max(l5, m5) + 6;
+
+            if (keySkills.length > 0) {
+                y = pdfEnsureSpace(doc, y, 20);
+                y = pdfDrawSectionTitle(doc, "Compétences clés", y);
+                y = pdfDrawBadgeRow(doc, keySkills, y, pageW, [219, 234, 254], [147, 197, 253], [30, 64, 175], 9);
+            }
+
+            // ── Section 4 : Géographie & Langues ─────────────────────────────────
+            y = pdfEnsureSpace(doc, y, 30);
+            y = pdfDrawSectionTitle(doc, "Géographie & Langues", y);
+            const l7 = pdfDrawField(doc, "Nationalité", talent.nationality || "N/A", COL_LEFT, y, 85);
+            const m7 = pdfDrawField(doc, "Pays de résidence", cRes, COL_MID, y, 80);
+            y = Math.max(l7, m7) + 3;
+
+            const l8 = pdfDrawField(doc, "Langues", pdfFormatLanguages(talent.languages), COL_LEFT, y, pageW - 28);
+            y = l8 + 6;
+
+            // ── Section 5 : Contextes & Zones d'intervention ─────────────────────
+            if (contexts.length > 0 || zones.length > 0) {
+                y = pdfEnsureSpace(doc, y, 30);
+                y = pdfDrawSectionTitle(doc, "Contextes & Zones d'intervention", y);
+
+                if (contexts.length > 0) {
+                    y = pdfEnsureSpace(doc, y, 20);
+                    doc.setFontSize(8);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(60, 60, 60);
+                    doc.text("Types de contextes vécus :", 14, y);
+                    y += 5;
+                    y = pdfDrawBadgeRow(doc, contexts, y, pageW, [219, 234, 254], [147, 197, 253], [30, 64, 175], 8);
+                }
+
+                if (zones.length > 0) {
+                    y = pdfEnsureSpace(doc, y, 20);
+                    doc.setFontSize(8);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(60, 60, 60);
+                    doc.text("Zones géographiques :", 14, y);
+                    y += 5;
+                    y = pdfDrawBadgeRow(doc, zones, y, pageW, [220, 252, 231], [134, 239, 172], [21, 128, 61], 7.5);
+                }
+                y += 2;
+            }
+
+            // ── Section 6 : Parcours de missions ALIMA ───────────────────────────
+            let passages = [];
+            try {
+                const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
+                if (Array.isArray(rawPassages)) {
+                    passages = rawPassages;
+                } else if (typeof rawPassages === 'string' && rawPassages.trim()) {
+                    passages = JSON.parse(rawPassages);
+                }
+            } catch (e) {
+                console.error("Erreur de parsing des passages (PDF) :", e);
+            }
+
+            if (currentPosition || passages.length > 0) {
+                y = pdfEnsureSpace(doc, y, 20);
+                y = pdfDrawSectionTitle(doc, "Parcours de missions ALIMA", y);
+
+                if (currentPosition) {
+                    y = pdfEnsureSpace(doc, y, 20);
+                    doc.setFillColor(240, 253, 244);
+                    doc.setDrawColor(134, 239, 172);
+                    doc.roundedRect(14, y - 2, pageW - 28, 18, 2, 2, "FD");
+
+                    doc.setFontSize(8);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(21, 128, 61);
+                    doc.text("● EN COURS", 18, y + 4);
+
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(30, 30, 30);
+                    doc.text(currentPosition.title || "Mission ALIMA", 46, y + 4);
+
+                    doc.setFontSize(8);
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(80, 80, 80);
+                    const details = [];
+                    if (currentPosition.pool_id || currentPosition.pool) details.push(currentPosition.pool_id || currentPosition.pool);
+                    if (currentPosition.country) details.push(currentPosition.country);
+                    const startD = currentPosition.contract_start_date || currentPosition.contractStartDate;
+                    if (startD) details.push(`Depuis ${new Date(startD).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`);
+                    doc.text(details.join("  |  "), 18, y + 11);
+
+                    y += 24;
+                }
+
+                const sortedPassages = [...passages].sort((a, b) => (passageDateMs(b.startDate) || 0) - (passageDateMs(a.startDate) || 0));
+
+                sortedPassages.forEach(passage => {
+                    const comments = (passage.comments || []).map(normalizePassageComment);
+                    let neededH = 28;
+                    comments.forEach(c => {
+                        if (c.context) neededH += 12;
+                        if (c.positivePoints) neededH += 12;
+                        if (c.negativePoints) neededH += 12;
+                        if (c.legacyContent) neededH += 10;
+                        neededH += 6; // ligne "Évaluation par ..." de chaque commentaire
+                    });
+                    y = pdfEnsureSpace(doc, y, neededH);
+
+                    doc.setFillColor(248, 250, 252);
+                    doc.setDrawColor(210, 210, 220);
+                    doc.setLineWidth(0.3);
+                    doc.roundedRect(14, y - 2, pageW - 28, neededH, 2, 2, "FD");
+
+                    doc.setFontSize(10);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(30, 30, 30);
+                    doc.text(passage.positionTitle || "Mission ALIMA", 18, y + 5);
+
+                    doc.setFontSize(8);
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(100, 100, 100);
+                    const startMs = passageDateMs(passage.startDate);
+                    const endMs = passageDateMs(passage.endDate);
+                    const dateStr = `${startMs !== null ? new Date(startMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'} → ${endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'}`;
+                    const durationMonths = (startMs !== null && endMs !== null) ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24 * 30)) : null;
+                    const metaLine = [passage.country || "", dateStr, durationMonths !== null ? `(${durationMonths} mois)` : ''].filter(Boolean).join("  |  ");
+                    doc.text(metaLine, 18, y + 11);
+
+                    const firstRating = comments[0] ? comments[0].rating : null;
+                    if (firstRating !== null) {
+                        doc.setFontSize(10);
+                        doc.setFont("helvetica", "bold");
+                        doc.setTextColor(...PDF_ALIMA_BLUE);
+                        doc.text(`★ ${firstRating}/10`, pageW - 18, y + 5, { align: "right" });
+                    }
+
+                    let cy = y + 17;
+                    comments.forEach(comment => {
+                        if (comment.context) {
+                            cy = pdfEnsureSpace(doc, cy, 10);
+                            doc.setFontSize(7.5);
+                            doc.setFont("helvetica", "bold");
+                            doc.setTextColor(60, 60, 60);
+                            doc.text("Contexte :", 18, cy);
+                            doc.setFont("helvetica", "normal");
+                            const lines = doc.splitTextToSize(comment.context, pageW - 40);
+                            doc.text(lines, 18, cy + 4);
+                            cy += 4 + lines.length * 4;
+                        }
+                        if (comment.positivePoints) {
+                            cy = pdfEnsureSpace(doc, cy, 10);
+                            doc.setFontSize(7.5);
+                            doc.setFont("helvetica", "bold");
+                            doc.setTextColor(21, 128, 61);
+                            doc.text("Points forts :", 18, cy);
+                            doc.setFont("helvetica", "normal");
+                            doc.setTextColor(30, 80, 30);
+                            const lines = doc.splitTextToSize(comment.positivePoints, pageW - 40);
+                            doc.text(lines, 18, cy + 4);
+                            cy += 4 + lines.length * 4;
+                        }
+                        if (comment.negativePoints) {
+                            cy = pdfEnsureSpace(doc, cy, 10);
+                            doc.setFontSize(7.5);
+                            doc.setFont("helvetica", "bold");
+                            doc.setTextColor(194, 65, 12);
+                            doc.text("Axes d'amélioration :", 18, cy);
+                            doc.setFont("helvetica", "normal");
+                            doc.setTextColor(80, 30, 10);
+                            const lines = doc.splitTextToSize(comment.negativePoints, pageW - 40);
+                            doc.text(lines, 18, cy + 4);
+                            cy += 4 + lines.length * 4;
+                        }
+                        if (comment.legacyContent) {
+                            cy = pdfEnsureSpace(doc, cy, 10);
+                            doc.setFontSize(8);
+                            doc.setFont("helvetica", "normal");
+                            doc.setTextColor(80, 80, 80);
+                            const lines = doc.splitTextToSize(comment.legacyContent, pageW - 40);
+                            doc.text(lines, 18, cy);
+                            cy += lines.length * 4;
+                        }
+
+                        doc.setFontSize(7);
+                        doc.setFont("helvetica", "italic");
+                        doc.setTextColor(130, 130, 130);
+                        doc.text(
+                            `Évaluation par ${comment.authorLabel || "N/A"}`,
+                            pageW - 18, cy + 3, { align: "right" }
+                        );
+                        cy += 6;
+                    });
+
+                    y = cy + 8;
+                });
+            }
+
+            // ── Tableau récapitulatif ─────────────────────────────────────────────
+            y = pdfEnsureSpace(doc, y, 40);
+            y = pdfDrawSectionTitle(doc, "Récapitulatif Expérience", y);
+
+            const recapBody = [
+                ["Expérience ALIMA", pdfFormatExpAlima(expAlima)],
+                ["Expérience humanitaire", pdfFormatExpAlima(expHum)],
+                ["Nombre de missions ALIMA", missionCountLabels[nbMissions] || pdfFormatMissions(nbMissions)],
+                ["Niveau d'études", eduLevels[eduLvl] || "N/A"],
+            ];
+            if (keySkills.length > 0) recapBody.push(["Compétences clés", keySkills.join(", ")]);
+            if (contexts.length > 0) recapBody.push(["Contextes d'intervention", contexts.join(", ")]);
+            if (zones.length > 0) recapBody.push(["Zones géographiques", zones.join(", ")]);
+
+            doc.autoTable({
+                startY: y,
+                head: [["Critère", "Valeur"]],
+                body: recapBody,
+                theme: "striped",
+                headStyles: { fillColor: PDF_ALIMA_BLUE, textColor: 255, fontStyle: "bold", fontSize: 9 },
+                bodyStyles: { fontSize: 9 },
+                columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 90 } },
+                margin: { left: 14, right: 14 }
+            });
+
+            y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : y + 40) + 8;
+
+            // ── Pied de page ───────────────────────────────────────────────────
+            y = pdfEnsureSpace(doc, y, 20);
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.line(14, y, pageW - 14, y);
+            y += 5;
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(130, 130, 130);
+            const generatedDate = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+            doc.text(`Carte générée le ${generatedDate} — ALIMA TalentHub`, pageW / 2, y, { align: "center" });
+
+            const totalPages = doc.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(7);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(150, 150, 150);
+                doc.text(`Page ${i}/${totalPages}`, pageW - 14, doc.internal.pageSize.getHeight() - 8, { align: "right" });
+            }
+
+            const safeFirst = (fName || "talent").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            const safeLast = (lName || "").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            const fileName = `talent-${safeFirst}${safeLast ? '-' + safeLast : ''}.pdf`;
+            doc.save(fileName);
+        }
+
+        function setupAdminActions(isInvalid) {
+            const btnManageMissions = document.getElementById('btn-manage-missions');
+            const btnDevalidate = document.getElementById('btn-devalidate');
+            const btnRevalidate = document.getElementById('btn-revalidate');
+            const btnRedlist = document.getElementById('btn-redlist');
+            const btnDeleteTalent = document.getElementById('btn-delete-talent');
+
+            // La gestion des postes (affectation, évaluations, fin de mission) se fait
+            // désormais entièrement depuis missions.html — ce lien y renvoie, filtré sur
+            // le pool du talent (Étape 5, décision utilisateur : retrait du mini-workflow
+            // "Démarrer/Terminer mission" qui existait auparavant dans id-card.html).
+            btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || '');
+
+            if (isInvalid) {
+                btnDevalidate.classList.add('hidden');
+                btnRevalidate.classList.remove('hidden');
+            } else {
+                btnRevalidate.classList.add('hidden');
+                btnDevalidate.classList.remove('hidden');
+            }
+
+            // Correctif (bug identique à celui déjà corrigé sur talents.html) :
+            // Dévalider/Réintégrer/Liste Rouge restaient visibles pour visitor, alors
+            // que ce sont des actions réservées admin/user partout ailleurs sur le
+            // site. Masquage supplémentaire par-dessus la logique isInvalid ci-dessus.
+            if (currentUserRole === 'visitor') {
+                btnDevalidate.classList.add('hidden');
+                btnRevalidate.classList.add('hidden');
+                btnRedlist.classList.add('hidden');
+                document.getElementById('btn-change-pool').classList.add('hidden');
+                document.getElementById('share-btn').classList.add('hidden');
+            } else {
+                btnRedlist.classList.remove('hidden');
+                document.getElementById('btn-change-pool').classList.remove('hidden');
+                document.getElementById('share-btn').classList.remove('hidden');
+            }
+
+            // Suppression définitive : réservée admin, et uniquement pour un talent ACTIF.
+            // Un talent dévalidé se supprime depuis devalidated.html — deux chemins de
+            // suppression différents selon l'état du talent, jamais les deux en même temps
+            // sur la même fiche (décision utilisateur).
+            if (currentUserRole === 'admin' && !isInvalid) {
+                btnDeleteTalent.classList.remove('hidden');
+            } else {
+                btnDeleteTalent.classList.add('hidden');
+            }
+        }
+
+        // ============================================================================
+        // LIAISON ET ACTIONNABILITÉ DES BOUTONS (Événements)
+        // ============================================================================
+        function bindButtonListeners() {
+            // 🔗 Partager — ouvre la modale de gestion des liens (liste + génération +
+            // révocation), plutôt que de créer un nouveau lien à chaque clic (ancien
+            // comportement, jamais permis de voir ni révoquer les liens précédents).
+            document.getElementById('share-btn').onclick = () => {
+                openShareLinksModal();
+            };
+
+            // 📄 Fiche PDF
+            document.getElementById('pdf-btn').onclick = () => {
+                try {
+                    exportTalentCardPDF(talent, activeMission);
+                    toastMessage("Document PDF généré et téléchargé.", "success");
+                } catch (err) {
+                    console.error("Erreur génération PDF :", err);
+                    toastMessage("Échec de la génération du PDF.", "error");
+                }
+            };
+
+            // 🖨️ Imprimer
+            document.getElementById('print-btn').onclick = () => window.print();
+
+            // 💬 Ajouter un commentaire
+            const btnAddComment = document.getElementById('btn-add-comment');
+            if (btnAddComment) {
+                btnAddComment.onclick = async () => {
+                    const input = document.getElementById('new-comment-input');
+                    const content = input.value.trim();
+                    if (!content) {
+                        alert("Veuillez saisir un commentaire avant de l'ajouter.");
+                        return;
+                    }
+
+                    try {
+                        const { data, error } = await supabaseClient
+                            .from('comments')
+                            .insert({
+                                talent_id: talentId,
+                                user_id: currentUserId,
+                                content: content,
+                                author_email: document.getElementById('user-display-name').textContent
+                            })
+                            .select('id');
+
+                        if (error) throw error;
+                        if (!data || data.length === 0) {
+                            throw new Error("L'ajout n'a affecté aucune ligne (policy RLS ?).");
+                        }
+
+                        input.value = '';
+                        toastMessage("Commentaire ajouté.", "success");
+                        await logAuditAction('create', 'comment', data[0].id, null, `Sur talent ${talentId}`);
+                        await loadComments();
+                    } catch (err) {
+                        console.error(err);
+                        toastMessage("Échec de l'ajout du commentaire : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+                    }
+                };
+            }
+
+            // ⛔ Dévalider le talent
+            document.getElementById('btn-devalidate').onclick = async () => {
+                if (!confirm("Voulez-vous vraiment dévalider ce talent ?")) return;
+                try {
+                    const { error } = await supabaseClient
+                        .from('talents')
+                        .update({
+                            is_valid: false,
+                            devalidation_date: new Date().toISOString(),
+                            devalidation_extension_until: null,
+                            devalidation_extension_months: null,
+                            devalidation_extension_granted_by: null,
+                            devalidation_extension_granted_by_name: null,
+                            devalidation_extension_granted_at: null
+                        })
+                        .eq('id', talentId);
+                    
+                    if (error) throw error;
+                    toastMessage("Le talent a été dévalidé.", "success");
+                    // logAuditAction('devalidate', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents.
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la dévalidation.", "error");
+                }
+            };
+
+            // 🔄 Réintégrer le talent
+            document.getElementById('btn-revalidate').onclick = async () => {
+                try {
+                    const { error } = await supabaseClient
+                        .from('talents')
+                        // Correctif du 19/08/2026 : la réintégration doit faire repartir la
+                        // jauge "mois sans mission" à zéro à partir d'AUJOURD'HUI, pas depuis
+                        // l'ancienne fin de mission (calculateMonthsWithoutMission priorise
+                        // last_mission_end_date sur pool_integration_date — la vider est donc
+                        // nécessaire, pas juste pool_integration_date). months_without_mission
+                        // est gardé à jour aussi pour les stats SQL du tableau de bord, qui
+                        // lisent cette colonne stockée plutôt que de la recalculer en direct.
+                        .update({
+                            is_valid: true,
+                            devalidation_date: null,
+                            months_without_mission: 0,
+                            last_mission_end_date: null,
+                            pool_integration_date: new Date().toISOString()
+                        })
+                        .eq('id', talentId);
+                    
+                    if (error) throw error;
+                    toastMessage("Le talent a été réintégré dans le pool.", "success");
+                    // logAuditAction('reintegrate', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents.
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la réintégration.", "error");
+                }
+            };
+
+            // 🚨 Inscrire en Liste Rouge
+            const redlistModal = document.getElementById('redlist-modal');
+            document.getElementById('btn-redlist').onclick = () => {
+                document.getElementById('modal-redlist-reason').value = "";
+                redlistModal.classList.remove('hidden');
+            };
+
+            document.getElementById('modal-redlist-cancel').onclick = () => redlistModal.classList.add('hidden');
+
+            document.getElementById('modal-redlist-confirm').onclick = async () => {
+                const reasonVal = document.getElementById('modal-redlist-reason').value.trim();
+                if (!reasonVal) {
+                    alert("Veuillez indiquer la raison d'inscription.");
+                    return;
+                }
+
+                try {
+                    const { error } = await supabaseClient
+                        .from('talents')
+                        .update({
+                            is_red_listed: true,
+                            red_list_date: new Date().toISOString(),
+                            red_list_reason: reasonVal,
+                            red_list_added_by: currentUserId,
+                            red_list_added_by_name: document.getElementById('user-display-name').textContent
+                        })
+                        .eq('id', talentId);
+                    
+                    if (error) throw error;
+
+                    redlistModal.classList.add('hidden');
+                    toastMessage("Le talent est inscrit en Liste Rouge.", "success");
+                    // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
+                    // couvert désormais par le trigger Postgres trg_audit_talents (reprend
+                    // le motif via red_list_reason).
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de l'inscription.", "error");
+                }
+            };
+
+            // 🔀 Changer de pool — enregistre le changement dans pool_history avant de
+            // mettre à jour talents.pool, pour garder une trace "de X vers Y à telle date".
+            const poolChangeModal = document.getElementById('pool-change-modal');
+            document.getElementById('btn-change-pool').onclick = async () => {
+                document.getElementById('pool-change-error').classList.add('hidden');
+                document.getElementById('pool-change-current').textContent = talent.pool || '—';
+                const select = document.getElementById('modal-pool-select');
+                select.innerHTML = '<option value="">Chargement des pools...</option>';
+                poolChangeModal.classList.remove('hidden');
+
+                try {
+                    const { data: pools, error } = await supabaseClient
+                        .from('pools')
+                        .select('pool_id, name, full_name')
+                        .order('name', { ascending: true });
+                    if (error) throw error;
+
+                    select.innerHTML = '<option value="">— Choisir un pool —</option>';
+                    (pools || [])
+                        .filter(p => p.pool_id !== talent.pool)
+                        .forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p.pool_id;
+                            opt.textContent = p.full_name || p.name;
+                            select.appendChild(opt);
+                        });
+                } catch (err) {
+                    console.error(err);
+                    select.innerHTML = '<option value="">Erreur de chargement des pools</option>';
+                }
+            };
+
+            document.getElementById('modal-pool-cancel').onclick = () => poolChangeModal.classList.add('hidden');
+
+            document.getElementById('modal-pool-confirm').onclick = async () => {
+                const errorEl = document.getElementById('pool-change-error');
+                errorEl.classList.add('hidden');
+                const newPool = document.getElementById('modal-pool-select').value;
+                if (!newPool) {
+                    errorEl.textContent = "Veuillez choisir un pool de destination.";
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+                const previousPool = talent.pool || null;
+
+                try {
+                    // 1. Historique d'abord (source de vérité de "qui a changé quoi, quand"),
+                    //    puis mise à jour du talent — dans cet ordre, si l'étape 2 échoue on
+                    //    garde au moins une trace de la tentative plutôt que l'inverse.
+                    const { error: histError } = await supabaseClient.from('pool_history').insert({
+                        talent_id: talentId,
+                        from_pool: previousPool,
+                        to_pool: newPool,
+                        changed_by: currentUserId,
+                        changed_by_name: currentUserName || currentUserEmail
+                    });
+                    if (histError) throw histError;
+
+                    const { data, error } = await supabaseClient
+                        .from('talents')
+                        .update({ pool: newPool })
+                        .eq('id', talentId)
+                        .select('id');
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("La mise à jour n'a affecté aucune ligne (policy RLS ?).");
+                    }
+
+                    poolChangeModal.classList.add('hidden');
+                    toastMessage("Pool mis à jour.", "success");
+                    // logAuditAction('update', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents (détecte le
+                    // changement de pool et reproduit le même texte).
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    errorEl.textContent = "Échec du changement de pool : " + (err.message || 'erreur inconnue');
+                    errorEl.classList.remove('hidden');
+                }
+            };
+
+            // 🗑️ Supprimer définitivement le talent (admin uniquement, talent actif)
+            document.getElementById('btn-delete-talent').onclick = async () => {
+                const fullName = `${talent.first_name || talent.firstName || ''} ${talent.last_name || talent.lastName || ''}`.trim() || "ce talent";
+
+                if (!confirm(
+                    `Voulez-vous vraiment supprimer définitivement ${fullName} ?\n\n` +
+                    `Cette action supprime aussi son historique d'évaluations et ses liens de ` +
+                    `partage. Si ${fullName} occupe actuellement un poste, ce poste ne sera PAS ` +
+                    `automatiquement remis en "Vacant" — pensez à le vérifier ensuite dans ` +
+                    `missions.html. Cette action est irréversible.`
+                )) return;
+
+                if (!confirm(`Confirmation finale : ${fullName} sera supprimé(e) de façon permanente. Continuer ?`)) return;
+
+                try {
+                    // Nettoyage des données liées avant suppression du talent — la contrainte
+                    // FK de ces tables vers talents.id n'a pas de règle ON DELETE confirmée,
+                    // donc suppression explicite plutôt que de compter sur une cascade
+                    // éventuelle (cf. Master Context, règle de méthode : ne jamais deviner un
+                    // comportement de schéma non vérifié).
+                    await supabaseClient.from('evaluations').delete().eq('talent_id', talentId);
+                    await supabaseClient.from('comments').delete().eq('talent_id', talentId);
+                    await supabaseClient.from('share_tokens').delete().eq('talent_id', talentId);
+
+                    const { data, error } = await supabaseClient
+                        .from('talents')
+                        .delete()
+                        .eq('id', talentId)
+                        .select('id');
+
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
+                    }
+
+                    toastMessage("Talent supprimé définitivement.", "success");
+                    // logAuditAction('delete', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents (distingue
+                    // actif/dévalidé via is_valid au moment de la suppression).
+                    setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
+                } catch (err) {
+                    console.error(err);
+                    toastMessage("Échec de la suppression : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+                }
+            };
+        }
+
+        // ============================================================================
+        // GESTION DES LIENS DE PARTAGE (point ouvert historique, jamais construit
+        // jusqu'ici) — génération, liste des liens actifs par talent, révocation
+        // manuelle. `is_revoked` existait déjà en base (section 6 du Master Context)
+        // mais n'était jusqu'ici jamais exploité côté client.
+        // ============================================================================
+        function buildShareUrl(token) {
+            // Reconstruction à partir du dossier de la page actuelle (jamais
+            // window.location.origin seul), pour rester valide en hébergement GitHub
+            // Pages "project site" (cf. règle de méthode n°27 du Master Context).
+            const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+            return `${window.location.origin}${basePath}shared-talent.html?token=${token}`;
+        }
+
+        function maskToken(token) {
+            if (!token || token.length <= 12) return token || '';
+            return token.substring(0, 6) + '••••••••' + token.substring(token.length - 4);
+        }
+
+        function openShareLinksModal() {
+            document.getElementById('share-links-modal').classList.remove('hidden');
+            document.getElementById('share-links-modal').classList.add('flex');
+            document.getElementById('share-links-duration').value = '30';
+            document.getElementById('share-links-custom-date').value = '';
+            document.getElementById('share-links-custom-date').classList.add('hidden');
+            loadShareLinks();
+        }
+
+        function closeShareLinksModal() {
+            document.getElementById('share-links-modal').classList.add('hidden');
+            document.getElementById('share-links-modal').classList.remove('flex');
+        }
+
+        document.getElementById('share-links-close').addEventListener('click', closeShareLinksModal);
+
+        // Ne montre que les liens réellement encore utilisables (ni révoqués, ni
+        // expirés) — un lien expiré tout seul disparaît de la liste sans action
+        // nécessaire, un lien révoqué aussi (plus besoin de le voir une fois révoqué).
+        async function loadShareLinks() {
+            const loadingEl = document.getElementById('share-links-loading');
+            const emptyEl = document.getElementById('share-links-empty');
+            const listEl = document.getElementById('share-links-list');
+
+            loadingEl.classList.remove('hidden');
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = '';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('share_tokens')
+                    .select('id, token, expires_at, is_revoked, view_count, last_viewed_at, created_at')
+                    .eq('talent_id', talentId)
+                    .eq('is_revoked', false)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const now = Date.now();
+                const activeLinks = (data || []).filter(l => !l.expires_at || new Date(l.expires_at).getTime() > now);
+
+                loadingEl.classList.add('hidden');
+
+                if (activeLinks.length === 0) {
+                    emptyEl.classList.remove('hidden');
+                    return;
+                }
+
+                activeLinks.forEach(link => listEl.appendChild(renderShareLinkRow(link)));
+
+            } catch (err) {
+                console.error("Erreur de chargement des liens de partage :", err);
+                loadingEl.classList.add('hidden');
+                emptyEl.textContent = "Impossible de charger les liens de partage.";
+                emptyEl.classList.remove('hidden');
+            }
+        }
+
+        function renderShareLinkRow(link) {
+            const row = document.createElement('div');
+            row.className = "border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 flex-wrap";
+
+            const createdStr = link.created_at ? new Date(link.created_at).toLocaleDateString('fr-FR') : '—';
+            const expiresStr = link.expires_at ? new Date(link.expires_at).toLocaleDateString('fr-FR') : 'jamais';
+            const viewsStr = link.view_count || 0;
+
+            row.innerHTML = `
+                <div class="min-w-0">
+                    <p class="text-xs font-mono text-slate-600 truncate">${escapeHtml(maskToken(link.token))}</p>
+                    <p class="text-[11px] text-slate-400">Créé le ${createdStr} · Expire le ${expiresStr} · Vu ${viewsStr} fois</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button class="btn-copy-share-link text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Copier</button>
+                    <button class="btn-revoke-share-link text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-all">Révoquer</button>
+                </div>
+            `;
+
+            row.querySelector('.btn-copy-share-link').addEventListener('click', async () => {
+                await navigator.clipboard.writeText(buildShareUrl(link.token));
+                toastMessage("Lien copié dans le presse-papiers.", "success");
+            });
+
+            row.querySelector('.btn-revoke-share-link').addEventListener('click', () => revokeShareLink(link.id));
+
+            return row;
+        }
+
+        async function revokeShareLink(linkId) {
+            const confirmed = confirm("Révoquer ce lien ? Toute personne qui l'utilise perdra immédiatement l'accès à la fiche.");
+            if (!confirmed) return;
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('share_tokens')
+                    .update({ is_revoked: true })
+                    .eq('id', linkId)
+                    .select('id');
+
+                if (error) throw error;
+                // Cf. règle de méthode n°15 : un .update() peut "réussir" sans rien
+                // affecter si une policy RLS bloque silencieusement la ligne.
+                if (!data || data.length === 0) {
+                    throw new Error("La révocation n'a affecté aucune ligne (policy RLS ?).");
+                }
+
+                // logAuditAction('update', 'share_link', ...) retiré le 18/08/2026 (A5) :
+                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
+                toastMessage("Lien révoqué.", "success");
+                await loadShareLinks();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de la révocation : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
+            }
+        }
+
+        document.getElementById('share-links-duration').addEventListener('change', (e) => {
+            document.getElementById('share-links-custom-date').classList.toggle('hidden', e.target.value !== 'custom');
+        });
+
+        // Calcule la date d'expiration ISO selon le choix du sélecteur de durée —
+        // renvoie null si la sélection est invalide (date précise manquante ou déjà
+        // passée), pour ne jamais créer un lien déjà expiré silencieusement.
+        function computeShareExpiresAt() {
+            const duration = document.getElementById('share-links-duration').value;
+
+            if (duration === 'custom') {
+                const dateVal = document.getElementById('share-links-custom-date').value;
+                if (!dateVal) return { error: "Choisissez une date d'expiration précise." };
+                // Fin de journée (23:59:59) du jour choisi, en heure locale.
+                const expiresAt = new Date(dateVal + 'T23:59:59');
+                if (expiresAt.getTime() <= Date.now()) {
+                    return { error: "La date d'expiration doit être dans le futur." };
+                }
+                return { value: expiresAt.toISOString() };
+            }
+
+            const days = parseInt(duration, 10) || 30;
+            return { value: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() };
+        }
+
+        document.getElementById('share-links-generate').addEventListener('click', async () => {
+            const btn = document.getElementById('share-links-generate');
+
+            const expiry = computeShareExpiresAt();
+            if (expiry.error) {
+                toastMessage(expiry.error, "error");
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                // Correctif sécurité du 17/07/2026 : l'ancienne génération
+                // ('st_' + Math.random()...) n'était PAS cryptographiquement sûre —
+                // Math.random() est prévisible en théorie. crypto.randomUUID() est le
+                // générateur d'aléa sécurisé natif du navigateur (Web Crypto API,
+                // disponible nativement, aucune dépendance ajoutée), utilisé ici pour
+                // protéger l'accès à des fiches talent confidentielles partagées sans
+                // compte. Format légèrement différent (UUID v4 avec tirets) mais la
+                // colonne `token` est un simple texte UNIQUE, donc sans impact sur le
+                // schéma ni sur les liens déjà générés (ils restent valides tels quels).
+                const token = 'st_' + crypto.randomUUID();
+                // created_at retiré du payload (DEFAULT now() côté base) ; expires_at
+                // envoyé en ISO string, jamais en timestamp JS numérique (la colonne est
+                // "timestamp with time zone" — cf. règle de méthode n°26).
+                const { error } = await supabaseClient.from('share_tokens').insert({
+                    token,
+                    talent_id: talentId,
+                    created_by: currentUserId,
+                    created_by_name: document.getElementById('user-display-name').textContent,
+                    expires_at: expiry.value,
+                    is_revoked: false,
+                    view_count: 0
+                });
+
+                if (error) throw error;
+
+                await navigator.clipboard.writeText(buildShareUrl(token));
+                toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
+                // logAuditAction('create', 'share_link', ...) retiré le 18/08/2026 (A5) :
+                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
+                await loadShareLinks();
+            } catch (err) {
+                console.error(err);
+                toastMessage("Échec de la génération du lien de partage.", "error");
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js.
+        // ⚠️ Petit changement : z-index 50→70 et durée 3000→3500ms (harmonisé
+        // avec la majorité des pages — voir MC13 Addendum, point A3).
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await logAuditAction('logout', 'user', currentUserId, null, null);
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        });
+
+        window.addEventListener('DOMContentLoaded', () => checkSession());
