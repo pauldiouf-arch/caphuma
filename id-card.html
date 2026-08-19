@@ -1570,7 +1570,20 @@
                 try {
                     const { error } = await supabaseClient
                         .from('talents')
-                        .update({ is_valid: true, devalidation_date: null, months_without_mission: 0 })
+                        // Correctif du 19/08/2026 : la réintégration doit faire repartir la
+                        // jauge "mois sans mission" à zéro à partir d'AUJOURD'HUI, pas depuis
+                        // l'ancienne fin de mission (calculateMonthsWithoutMission priorise
+                        // last_mission_end_date sur pool_integration_date — la vider est donc
+                        // nécessaire, pas juste pool_integration_date). months_without_mission
+                        // est gardé à jour aussi pour les stats SQL du tableau de bord, qui
+                        // lisent cette colonne stockée plutôt que de la recalculer en direct.
+                        .update({
+                            is_valid: true,
+                            devalidation_date: null,
+                            months_without_mission: 0,
+                            last_mission_end_date: null,
+                            pool_integration_date: new Date().toISOString()
+                        })
                         .eq('id', talentId);
                     
                     if (error) throw error;

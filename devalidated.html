@@ -487,6 +487,13 @@
             try {
                 const { error } = await supabaseClient
                     .from('talents')
+                    // Correctif du 19/08/2026 : même logique que id-card.html — la jauge
+                    // "mois sans mission" doit repartir de zéro à partir d'AUJOURD'HUI, pas
+                    // de l'ancienne fin de mission (last_mission_end_date est prioritaire
+                    // sur pool_integration_date dans calculateMonthsWithoutMission, donc la
+                    // vider est nécessaire). months_without_mission ajouté aussi ici : cette
+                    // page ne le remettait pas à zéro, contrairement à id-card.html — écart
+                    // corrigé au passage.
                     .update({
                         is_valid: true,
                         devalidation_date: null,
@@ -494,13 +501,17 @@
                         devalidation_extension_months: null,
                         devalidation_extension_granted_by: null,
                         devalidation_extension_granted_by_name: null,
-                        devalidation_extension_granted_at: null
+                        devalidation_extension_granted_at: null,
+                        months_without_mission: 0,
+                        last_mission_end_date: null,
+                        pool_integration_date: new Date().toISOString()
                     })
                     .eq('id', t.id);
 
                 if (error) throw error;
 
-                await logAuditAction('reintegrate', 'talent', t.id, `${t.first_name} ${t.last_name}`.trim(), null);
+                // logAuditAction('reintegrate', ...) retiré le 19/08/2026 (A5) : couvert
+                // désormais par le trigger Postgres trg_audit_talents.
                 await loadDevalidatedTalents();
 
             } catch (error) {
@@ -556,7 +567,9 @@
 
                 if (error) throw error;
 
-                await logAuditAction('add_to_red_list', 'talent', redListTargetTalent.id, `${redListTargetTalent.first_name} ${redListTargetTalent.last_name}`.trim(), reason);
+                // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
+                // couvert désormais par le trigger Postgres trg_audit_talents (reprend
+                // le motif via red_list_reason).
                 closeRedListModal();
                 await loadDevalidatedTalents();
 
@@ -606,7 +619,9 @@
                     throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                await logAuditAction('delete', 'talent', t.id, `${t.first_name} ${t.last_name}`.trim(), "Suppression RGPD depuis devalidated.html (talent dévalidé)");
+                // logAuditAction('delete', ...) retiré le 19/08/2026 (A5) : couvert
+                // désormais par le trigger Postgres trg_audit_talents (distingue
+                // actif/dévalidé via is_valid au moment de la suppression).
                 await loadDevalidatedTalents();
 
             } catch (error) {
