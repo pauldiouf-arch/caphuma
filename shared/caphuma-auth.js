@@ -29,8 +29,10 @@
  * sans risque — cf. Master Context §22).
  *
  * @param {Object} supabaseClient
- * @returns {Promise<{session: Object, userId: string, email: string, role: string|null, name: string, isActive: boolean}>}
- * @throws {Error} si aucune session active n'est trouvée (à charge de la page d'appeler window.location.replace(...))
+ * @returns {Promise<{session: Object, userId: string, email: string, role: string, name: string, isActive: boolean}>}
+ * @throws {Error} si aucune session active n'est trouvée, si le profil est
+ *   introuvable dans `users`, ou si la lecture du profil échoue (à charge de
+ *   la page d'appeler window.location.replace(...))
  */
 async function capHumaInitSession(supabaseClient) {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -46,16 +48,23 @@ async function capHumaInitSession(supabaseClient) {
         .select('role, name, is_active')
         .eq('id', userId);
 
-    let role = null;
-    let name = email || 'Inconnu';
-    let isActive = true;
-
-    if (!profileError && profiles && profiles.length > 0) {
-        const profile = profiles[0];
-        role = profile.role;
-        name = profile.name || email || 'Inconnu';
-        isActive = profile.is_active !== false;
+    // Correctif B1 (19/08/2026, décision utilisateur) : refus EXPLICITE plutôt
+    // que de laisser entrer avec role=null. Avant ce correctif, une erreur de
+    // lecture du profil OU un profil absent de `users` (compte auth existant
+    // mais jamais rattaché à une ligne `users`, ou supprimé de `users` sans
+    // supprimer le compte auth) faisait silencieusement passer role=null —
+    // chaque page devait alors se débrouiller seule face à ce rôle inconnu.
+    if (profileError) {
+        throw new Error('Impossible de vérifier le profil utilisateur.');
     }
+    if (!profiles || profiles.length === 0) {
+        throw new Error('Profil introuvable. Contactez un administrateur ALIMA.');
+    }
+
+    const profile = profiles[0];
+    const role = profile.role;
+    const name = profile.name || email || 'Inconnu';
+    const isActive = profile.is_active !== false;
 
     if (!isActive) {
         throw new Error('Compte désactivé.');
