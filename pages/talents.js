@@ -257,7 +257,15 @@
         // et repositionné à chaque survol (voir formatAvailabilityLabel plus bas,
         // function déclarée donc "hoisted" — utilisable ici malgré l'ordre du fichier).
         // ============================================================================
-        const talentHoverCard = document.getElementById('talentHoverCard');
+        // Correctif (19/08/2026) : la div #talentHoverCard est placée dans le HTML
+        // APRÈS la balise <script>, donc une capture au chargement (const = ...)
+        // retournait toujours null (le parseur n'avait pas encore atteint cette div
+        // au moment de l'exécution de cette ligne). Récupération à la demande à la
+        // place — inoffensif en performance (un seul élément, recherché seulement
+        // au survol/à la sortie, pas dans une boucle).
+        function getHoverCardEl() {
+            return document.getElementById('talentHoverCard');
+        }
 
         function showHoverCard(t, targetEl) {
             document.getElementById('hoverCardName').textContent = `${t.first_name || ''} ${t.last_name || ''}`.trim() || '—';
@@ -273,13 +281,14 @@
             if (left + cardWidth > window.innerWidth - 8) {
                 left = window.innerWidth - cardWidth - 8;
             }
+            const talentHoverCard = getHoverCardEl();
             talentHoverCard.style.left = Math.max(8, left) + 'px';
             talentHoverCard.style.top = (rect.bottom + 6) + 'px';
             talentHoverCard.classList.remove('hidden');
         }
 
         function hideHoverCard() {
-            talentHoverCard.classList.add('hidden');
+            getHoverCardEl().classList.add('hidden');
         }
 
         // La carte doit disparaître si la liste défile ou si la fenêtre est redimensionnée,
