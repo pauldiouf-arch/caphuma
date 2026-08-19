@@ -1556,8 +1556,8 @@
                     
                     if (error) throw error;
                     toastMessage("Le talent a été dévalidé.", "success");
-                    const fullNameLog = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
-                    await logAuditAction('devalidate', 'talent', talentId, fullNameLog, null);
+                    // logAuditAction('devalidate', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -1575,8 +1575,8 @@
                     
                     if (error) throw error;
                     toastMessage("Le talent a été réintégré dans le pool.", "success");
-                    const fullNameLogReint = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
-                    await logAuditAction('reintegrate', 'talent', talentId, fullNameLogReint, null);
+                    // logAuditAction('reintegrate', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -1616,8 +1616,9 @@
 
                     redlistModal.classList.add('hidden');
                     toastMessage("Le talent est inscrit en Liste Rouge.", "success");
-                    const fullNameLogRl = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
-                    await logAuditAction('add_to_red_list', 'talent', talentId, fullNameLogRl, reasonVal);
+                    // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
+                    // couvert désormais par le trigger Postgres trg_audit_talents (reprend
+                    // le motif via red_list_reason).
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -1695,8 +1696,9 @@
 
                     poolChangeModal.classList.add('hidden');
                     toastMessage("Pool mis à jour.", "success");
-                    const fullNameLogPool = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
-                    await logAuditAction('update', 'talent', talentId, fullNameLogPool, `Changement de pool : ${previousPool || '—'} → ${newPool}`);
+                    // logAuditAction('update', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents (détecte le
+                    // changement de pool et reproduit le même texte).
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -1741,7 +1743,9 @@
                     }
 
                     toastMessage("Talent supprimé définitivement.", "success");
-                    await logAuditAction('delete', 'talent', talentId, fullName, "Suppression RGPD depuis id-card.html (talent actif)");
+                    // logAuditAction('delete', ...) retiré le 19/08/2026 (A5) : couvert
+                    // désormais par le trigger Postgres trg_audit_talents (distingue
+                    // actif/dévalidé via is_valid au moment de la suppression).
                     setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
                 } catch (err) {
                     console.error(err);
