@@ -1,51 +1,27 @@
 -- ============================================================================
 -- functions_is_admin_get_shared_talent.sql
 -- ----------------------------------------------------------------------------
--- Code source EXACT des 2 fonctions SECURITY DEFINER du projet Cap Huma, tel
--- qu'extrait en direct de la base le 14/08/2026 (via pg_get_functiondef).
+-- Fichier de référence des 2 fonctions SECURITY DEFINER du schéma public.
+-- Ne bouge que si le code de l'une des deux change (créé le 14/08/2026, mis
+-- à jour le 19/08/2026 — voir ci-dessous).
 --
--- ⚠️ CE FICHIER N'EST PAS DESTINÉ À ÊTRE EXÉCUTÉ. Il documente l'état actuel
--- des fonctions pour qu'il existe quelque part dans le dépôt Git (et pas
--- seulement dans DOSSIER_PASSATION_TECHNIQUE.md) — voir backlog point n°9,
--- Master Context §7. Le réexécuter recréerait les fonctions à l'identique
--- (CREATE OR REPLACE), donc sans danger si jamais fait par erreur, mais ce
--- n'est pas son usage prévu.
+-- is_admin() : INCHANGÉE depuis sa création.
 --
--- Si l'une de ces fonctions est modifiée un jour en base, PENSER À REGÉNÉRER
--- ce fichier avec la requête ci-dessous (ne jamais l'éditer à la main sans
--- revérifier contre la base réelle) :
---
---   SELECT p.proname, pg_get_functiondef(p.oid)
---   FROM pg_proc p
---   JOIN pg_namespace n ON n.oid = p.pronamespace
---   WHERE n.nspname = 'public'
---     AND p.proname IN ('is_admin', 'get_shared_talent');
---
--- Historique des deux fonctions (résumé, détail complet dans
--- DOSSIER_PASSATION_TECHNIQUE.md §4.3) :
---   - is_admin() : auditée le 17/07/2026, aucun correctif nécessaire.
---   - get_shared_talent() : auditée et CORRIGÉE le 17/07/2026 — ajout de
---     "AND coalesce(t.is_red_listed, false) = false" pour qu'un talent mis en
---     Liste Rouge après la création d'un lien de partage cesse d'être exposé
---     via ce lien. Décision explicite de l'utilisateur : ne PAS appliquer la
---     même exclusion aux talents dévalidés (is_valid = false) — un profil
---     dévalidé reste légitimement partageable.
+-- get_shared_talent() : corrigée le 19/08/2026 (chantier B1, points 3 et 4
+-- identifiés le 18/08/2026 en construisant l'instantané du schéma) :
+--   - view_count/last_viewed_at incrémentés désormais APRÈS la confirmation
+--     que le talent existe et n'est pas en Liste Rouge (au lieu d'avant) —
+--     une consultation qui échoue ensuite n'est plus comptée comme une vue.
+--   - ORDER BY ajouté avant LIMIT 1 sur la mission affichée — déterministe
+--     même si plusieurs lignes "occupied" existaient par anomalie de données.
 -- ============================================================================
 
-
--- ----------------------------------------------------------------------------
--- is_admin()
--- Vérifie si l'utilisateur courant (auth.uid()) a le rôle 'admin'.
--- Exécutable par tout utilisateur connecté (normal : sert à se renseigner sur
--- son propre statut). search_path verrouillé (protection standard contre le
--- détournement de recherche de schéma sur une fonction SECURITY DEFINER).
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.is_admin()
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
+create or replace function public.is_admin()
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to 'public'
+as $function$
     SELECT EXISTS (
         SELECT 1 FROM public.users
         WHERE id = auth.uid()
@@ -53,23 +29,12 @@ AS $function$
     );
 $function$;
 
-
--- ----------------------------------------------------------------------------
--- get_shared_talent(p_token text)
--- Seule porte d'entrée NON authentifiée (exécutable par le rôle 'anon') vers
--- des données de talent — c'est ce qui permet à shared-talent.html de
--- fonctionner sans compte. Vérifie dans l'ordre : jeton existe → non révoqué
--- → non expiré → talent pas en Liste Rouge. Retourne volontairement le même
--- code d'erreur générique ('talent_not_found') pour un talent introuvable ET
--- pour un talent en Liste Rouge, afin de ne jamais révéler au détenteur d'un
--- lien de partage qu'une personne a été signalée.
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.get_shared_talent(p_token text)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
+create or replace function public.get_shared_talent(p_token text)
+ returns jsonb
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
 DECLARE
     v_link record;
     v_talent jsonb;
@@ -90,11 +55,6 @@ BEGIN
     IF v_link.expires_at IS NOT NULL AND v_link.expires_at < now() THEN
         RETURN jsonb_build_object('error', 'expired');
     END IF;
-
-    UPDATE public.share_tokens
-    SET view_count = COALESCE(view_count, 0) + 1,
-        last_viewed_at = now()
-    WHERE token = p_token;
 
     -- Sous-ensemble volontairement restreint des colonnes de talents :
     -- informations "CV" uniquement, jamais les champs internes de gestion RH
@@ -132,6 +92,13 @@ BEGIN
         RETURN jsonb_build_object('error', 'talent_not_found');
     END IF;
 
+    -- CORRECTIF DU 19/08/2026 (B1) : déplacé ici, après confirmation du
+    -- talent, au lieu d'avant (juste après le contrôle d'expiration).
+    UPDATE public.share_tokens
+    SET view_count = COALESCE(view_count, 0) + 1,
+        last_viewed_at = now()
+    WHERE token = p_token;
+
     SELECT jsonb_build_object(
         'title', m.title,
         'country', m.country,
@@ -140,6 +107,7 @@ BEGIN
     FROM public.missions m
     WHERE m.occupant_id = v_link.talent_id
     AND m.status = 'occupied'
+    ORDER BY m.contract_start_date DESC NULLS LAST  -- CORRECTIF DU 19/08/2026 (B1)
     LIMIT 1;
 
     RETURN jsonb_build_object('talent', v_talent, 'mission', v_mission);
