@@ -486,7 +486,9 @@
 
                 if (error) throw error;
 
-                await logAuditAction('add_to_red_list', 'talent', selectedTalentForRedlist.id, `${selectedTalentForRedlist.first_name || ''} ${selectedTalentForRedlist.last_name || ''}`.trim(), reasonVal);
+                // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
+                // couvert désormais par le trigger Postgres trg_audit_talents (reprend
+                // le motif via red_list_reason).
                 document.getElementById('redlist-add-modal').classList.add('hidden');
                 toastMessage("Talent inscrit en Liste Rouge avec succès.");
 
@@ -673,7 +675,8 @@
                         })
                         .eq('id', talentId);
                     if (error) throw error;
-                    await logAuditAction('remove_from_red_list', 'talent', talentId, talentName, null);
+                    // logAuditAction('remove_from_red_list', ...) retiré le 19/08/2026 (A5) :
+                    // couvert désormais par le trigger Postgres trg_audit_talents.
                     toastMessage("Talent retiré de la liste rouge.");
                     await loadRedList();
                 }
