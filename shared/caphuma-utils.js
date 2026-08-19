@@ -199,9 +199,14 @@ function calculateMonthsWithoutMission(talent) {
     const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
     if (!refDateStr) return 0;
 
+    // Correctif B1 (19/08/2026) : getFullYear()/getMonth() utilisent le fuseau
+    // horaire LOCAL du navigateur de la personne qui consulte la page — un
+    // talent proche d'un changement de mois pouvait donc afficher un chiffre
+    // différent selon le fuseau de qui regarde. getUTCFullYear()/getUTCMonth()
+    // fixent le calcul sur un référentiel unique, indépendant du visiteur.
     const refDate = new Date(refDateStr);
     const now = new Date();
-    const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+    const diffMonths = (now.getUTCFullYear() - refDate.getUTCFullYear()) * 12 + (now.getUTCMonth() - refDate.getUTCMonth());
     return Math.max(0, diffMonths);
 }
 
@@ -257,6 +262,13 @@ function toastMessage(msg, type = "success") {
 function showError(msg) {
     const banner = document.getElementById('error-banner');
     const txt = document.getElementById('error-message');
+    // Correctif B1 (19/08/2026) : garde ajoutée — si une page appelante n'a pas
+    // ces éléments (ou pas encore, selon le moment de l'appel), on ne plante
+    // plus silencieusement ; l'erreur reste au moins tracée en console.
+    if (!banner || !txt) {
+        console.error("[showError] #error-banner/#error-message introuvable(s) sur cette page — message :", msg);
+        return;
+    }
     txt.textContent = msg;
     banner.classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
