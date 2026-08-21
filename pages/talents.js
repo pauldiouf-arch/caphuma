@@ -431,6 +431,7 @@
             hasVisaFilter: '',
             hasMissionOpeningFilter: '',
             hasEmergencyMissionFilter: '',
+            hasMissionClosureFilter: '',
             interventionContextFilter: '',
             interventionZoneFilter: ''
         };
@@ -458,6 +459,21 @@
         function keywordMatches(t, kw) {
             const skills = t.key_skills || [];
             if (skills.some(s => String(s).toLowerCase().includes(kw))) return true;
+
+            // Correctif (21/08/2026) : les 3 commentaires libres associés aux cases
+            // "A fait des ouvertures / missions d'urgence / fermetures de projet"
+            // (mission_opening_comments, emergency_mission_comments,
+            // closure_mission_comments) n'étaient jusqu'ici jamais scannés par la
+            // recherche par mot-clé — seules les compétences clés et l'historique
+            // archivé l'étaient. Un recruteur qui décrit cette expérience en texte
+            // libre sans cocher la case correspondante restait invisible à la
+            // recherche ; désormais couvert.
+            const freeTextFields = [
+                t.mission_opening_comments,
+                t.emergency_mission_comments,
+                t.closure_mission_comments
+            ];
+            if (freeTextFields.some(v => String(v || '').toLowerCase().includes(kw))) return true;
 
             const passages = t.archived_position_passages || [];
             return passages.some(p => {
@@ -563,6 +579,11 @@
             if (f.hasEmergencyMissionFilter) {
                 const want = f.hasEmergencyMissionFilter === 'oui';
                 filtered = filtered.filter(t => !!t.has_emergency_mission === want);
+            }
+
+            if (f.hasMissionClosureFilter) {
+                const want = f.hasMissionClosureFilter === 'oui';
+                filtered = filtered.filter(t => !!t.has_mission_closure === want);
             }
 
             if (f.interventionContextFilter) {
@@ -685,6 +706,7 @@
             ['filterAvailFrom', 'availableFrom'], ['filterAvailTo', 'availableTo'], ['filterNationality', 'nationalityFilter'],
             ['filterCountry', 'countryFilter'], ['filterLanguage', 'languagesFilter'], ['filterVisa', 'hasVisaFilter'],
             ['filterMissionOpening', 'hasMissionOpeningFilter'], ['filterEmergencyMission', 'hasEmergencyMissionFilter'],
+            ['filterMissionClosure', 'hasMissionClosureFilter'],
             ['filterContext', 'interventionContextFilter'], ['filterZone', 'interventionZoneFilter']
         ];
         filterFieldBindings.forEach(([elId, filterKey]) => {
