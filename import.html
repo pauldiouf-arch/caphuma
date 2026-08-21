@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Import de talents - Cap Huma</title>
+    <title>Import en masse - Cap Huma</title>
 
     <!-- Tailwind CSS via CDN -->
     <script src="shared/vendor/tailwind-browser-4.js"></script>
@@ -51,7 +51,7 @@
                             <span class="text-xl">📥</span>
                         </div>
                         <div>
-                            <span class="font-bold text-lg text-slate-800">Import de talents</span>
+                            <span id="pageHeaderTitle" class="font-bold text-lg text-slate-800">Import en masse</span>
                             <span class="text-xs block text-slate-400">Cap Huma — ALIMA</span>
                         </div>
                     </div>
@@ -73,6 +73,21 @@
         </div>
 
         <div id="pageContent" class="hidden space-y-6">
+
+            <!-- Bascule entre les deux types d'import -->
+            <div class="inline-flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm gap-1">
+                <button type="button" id="tabBtnTalents"
+                        class="import-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition-all bg-primary text-white">
+                    👤 Talents
+                </button>
+                <button type="button" id="tabBtnMissions"
+                        class="import-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition-all text-slate-500 hover:bg-slate-50">
+                    🧩 Postes
+                </button>
+            </div>
+
+            <!-- ═══════════════════════ MODE TALENTS ═══════════════════════ -->
+            <div id="talentImportSection" class="space-y-6">
 
             <!-- Étape A : télécharger le modèle -->
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
@@ -113,455 +128,60 @@
                 </div>
             </div>
 
+            </div>
+
+            <!-- ═══════════════════════ MODE POSTES ═══════════════════════ -->
+            <div id="missionImportSection" class="hidden space-y-6">
+
+            <!-- Étape A : télécharger le modèle -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
+                    <span>1️⃣</span> Téléchargez le modèle
+                </h2>
+                <p class="text-sm text-slate-500 mb-4">
+                    Remplissez ce fichier Excel avec vos postes (une ligne par poste), en suivant les
+                    instructions de son premier onglet, puis déposez-le ci-dessous.
+                </p>
+                <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-3 mb-4">
+                    ⚠️ Le statut « Occupé » n'est pas proposé à l'import — un poste importé est toujours
+                    créé « Vacant » ou « En recrutement ». L'affectation d'un talent à un poste se fait
+                    ensuite, manuellement, depuis la page Postes du pool concerné.
+                </p>
+                <a href="templates/Cap_Huma_Modele_Import_Postes.xlsx" download
+                   class="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all">
+                    ⬇️ Télécharger le modèle Excel
+                </a>
+            </div>
+
+            <!-- Étape B : déposer le fichier rempli -->
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
+                    <span>2️⃣</span> Déposez votre fichier rempli
+                </h2>
+                <p class="text-sm text-slate-500 mb-4">
+                    Uniquement le format <code class="bg-slate-100 px-1 rounded">.xlsx</code> — celui du
+                    modèle téléchargé ci-dessus.
+                </p>
+                <input type="file" id="importMissionFileInput" accept=".xlsx"
+                       class="block w-full text-sm text-slate-600 border border-slate-200 rounded-xl cursor-pointer bg-slate-50 focus:outline-none file:mr-4 file:py-2.5 file:px-4 file:rounded-l-xl file:border-0 file:text-sm file:font-bold file:bg-primary file:text-white hover:file:bg-primary-dark">
+                <p id="fileStatusMsgMissions" class="text-xs text-slate-400 mt-2"></p>
+            </div>
+
+            <!-- Étape C : aperçu -->
+            <div id="previewCardMissions" class="hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+                    <span>3️⃣</span> Aperçu avant import
+                </h2>
+                <div id="previewContentMissions" class="text-sm text-slate-500">
+                    <!-- Rempli dynamiquement -->
+                </div>
+            </div>
+
+            </div>
+
         </div>
     </main>
 
-    <script>
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
-        let supabaseClient = null;
-        let currentUserId = null;
-        let currentUserEmail = null;
-        let currentUserName = null;
-
-        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        }
-
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            await capHumaLogAudit(
-                supabaseClient,
-                { userId: currentUserId, userEmail: currentUserEmail, userName: currentUserName },
-                action, entityType, entityId, entityName, details
-            );
-        }
-
-        async function checkSession() {
-            if (!supabaseClient) {
-                window.location.replace('login.html');
-                return;
-            }
-            try {
-                const s = await capHumaInitSession(supabaseClient);
-                currentUserId = s.userId;
-                currentUserEmail = s.email;
-                currentUserName = s.name;
-
-                if (s.role !== 'admin') {
-                    document.getElementById('accessDeniedBanner').classList.remove('hidden');
-                    return;
-                }
-
-                document.getElementById('user-display-name').textContent = s.email;
-                document.getElementById('pageContent').classList.remove('hidden');
-                await loadReferenceData();
-
-            } catch (err) {
-                window.location.replace('login.html');
-            }
-        }
-
-        document.getElementById('logout-btn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
-            if (supabaseClient) await supabaseClient.auth.signOut();
-            window.location.replace('login.html');
-        });
-
-        // ============================================================================
-        // ÉTAPE 2 — Lecture réelle du fichier, validation ligne par ligne, aperçu.
-        // Aucune écriture en base à ce stade : l'insertion réelle est l'étape suivante.
-        // ============================================================================
-        let cachedPools = [];
-        let cachedExistingEmails = new Set();
-        let lastParsedRows = [];
-
-        const EDU_LEVELS_VALID = new Set(['none','bac','bac+1','bac+2','bac+3','bac+4','bac+5','bac+6','bac+7','bac+8+']);
-        const MISSIONS_LABEL_TO_ENUM = { '0 mission': 'none', '1 mission': 'one', '2 missions': 'two', '3 missions et +': 'three_plus' };
-        const AVAILABILITY_LABEL_TO_ENUM = { 'Immédiate': 'asap', 'Date précise': 'date', 'Préavis': 'notice' };
-        const HAS_VISA_LABEL_TO_BOOL = { 'Oui': true, 'Non': false };
-        const EXAMPLE_ROW_EMAIL = 'awa.ndiaye@example.com';
-
-        // Correspond exactement à la ligne 2 (noms techniques) du modèle livré —
-        // ne pas modifier sans mettre à jour le modèle Excel en parallèle.
-        const IMPORT_COLUMNS = [
-            'first_name', 'last_name', 'email', 'pool', 'gender', 'nationality',
-            'country_of_residence', 'current_function', 'education_level', 'education_specialty',
-            'languages', 'other_languages', 'key_skills', 'intervention_contexts', 'intervention_zones',
-            'has_visa', 'pool_integration_date', 'experience_months_alima', 'experience_months_humanitarian',
-            'number_of_alima_missions', 'availability_type', 'availability_date', 'availability_months', 'status'
-        ];
-
-        async function loadReferenceData() {
-            try {
-                const { data, error } = await supabaseClient.from('pools').select('pool_id, name');
-                if (error) throw error;
-                cachedPools = data || [];
-            } catch (err) {
-                console.error('[Import] Erreur de chargement des pools :', err);
-            }
-            try {
-                const { data, error } = await supabaseClient.from('talents').select('email');
-                if (error) throw error;
-                cachedExistingEmails = new Set((data || []).map(t => (t.email || '').trim().toLowerCase()).filter(Boolean));
-            } catch (err) {
-                console.error('[Import] Erreur de chargement des emails existants :', err);
-            }
-        }
-
-        function splitMultiValue(raw) {
-            if (!raw || typeof raw !== 'string') return [];
-            return raw.split(',').map(s => s.trim()).filter(Boolean);
-        }
-
-        function parseDateCell(raw) {
-            if (!raw) return null;
-            if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
-            const d = new Date(raw);
-            return isNaN(d.getTime()) ? null : d;
-        }
-
-        function toISODate(d) {
-            return d.toISOString().slice(0, 10);
-        }
-
-        function validateAndNormalizeRow(raw, rowNumber, seenEmailsInFile) {
-            const errors = [];
-            const get = (key) => {
-                const v = raw[key];
-                return typeof v === 'string' ? v.trim() : v;
-            };
-
-            const firstName = get('first_name');
-            const lastName = get('last_name');
-            const email = get('email');
-            const pool = get('pool');
-
-            if (!firstName) errors.push('Prénom manquant');
-            if (!lastName) errors.push('Nom manquant');
-            if (!email) errors.push('Email manquant');
-            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email au format invalide');
-            if (!pool) errors.push('Code Pool manquant');
-            else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
-                errors.push(`Pool "${pool}" inconnu`);
-            }
-
-            const emailLower = (email || '').toString().toLowerCase();
-            if (email) {
-                if (seenEmailsInFile.has(emailLower)) errors.push('Email en double dans le fichier');
-                else seenEmailsInFile.add(emailLower);
-                if (cachedExistingEmails.has(emailLower)) errors.push('Un talent avec cet email existe déjà');
-            }
-
-            const gender = get('gender');
-            if (gender && gender !== 'H' && gender !== 'F') errors.push(`Genre "${gender}" invalide`);
-
-            const eduLevel = get('education_level');
-            if (eduLevel && !EDU_LEVELS_VALID.has(eduLevel)) errors.push(`Niveau d'études "${eduLevel}" invalide`);
-
-            let hasVisa = null;
-            const hasVisaRaw = get('has_visa');
-            if (hasVisaRaw) {
-                if (!(hasVisaRaw in HAS_VISA_LABEL_TO_BOOL)) errors.push(`Visa "${hasVisaRaw}" invalide`);
-                else hasVisa = HAS_VISA_LABEL_TO_BOOL[hasVisaRaw];
-            }
-
-            let missionsEnum = null;
-            const missionsRaw = get('number_of_alima_missions');
-            if (missionsRaw) {
-                if (!(missionsRaw in MISSIONS_LABEL_TO_ENUM)) errors.push(`Missions "${missionsRaw}" invalide`);
-                else missionsEnum = MISSIONS_LABEL_TO_ENUM[missionsRaw];
-            }
-
-            let availType = null;
-            const availTypeRaw = get('availability_type');
-            if (availTypeRaw) {
-                if (!(availTypeRaw in AVAILABILITY_LABEL_TO_ENUM)) errors.push(`Disponibilité "${availTypeRaw}" invalide`);
-                else availType = AVAILABILITY_LABEL_TO_ENUM[availTypeRaw];
-            }
-
-            let availDate = null;
-            if (availType === 'date') {
-                availDate = parseDateCell(raw['availability_date']);
-                if (!availDate) errors.push('Date de disponibilité requise (type = Date précise)');
-            }
-
-            let availMonths = null;
-            const availMonthsRaw = get('availability_months');
-            if (availType === 'notice') {
-                availMonths = Number(availMonthsRaw);
-                if (availMonthsRaw === '' || availMonthsRaw == null || isNaN(availMonths)) errors.push('Préavis (mois) requis (type = Préavis)');
-            } else if (availMonthsRaw !== '' && availMonthsRaw != null) {
-                const n = Number(availMonthsRaw);
-                if (isNaN(n)) errors.push('Préavis (mois) doit être numérique');
-                else availMonths = n;
-            }
-
-            let poolIntegrationDate = null;
-            if (raw['pool_integration_date']) {
-                poolIntegrationDate = parseDateCell(raw['pool_integration_date']);
-                if (!poolIntegrationDate) errors.push("Date d'intégration invalide");
-            }
-
-            let expAlima = null;
-            const expAlimaRaw = get('experience_months_alima');
-            if (expAlimaRaw !== '' && expAlimaRaw != null) {
-                expAlima = Number(expAlimaRaw);
-                if (isNaN(expAlima)) errors.push('Expérience ALIMA (mois) doit être numérique');
-            }
-
-            let expHum = null;
-            const expHumRaw = get('experience_months_humanitarian');
-            if (expHumRaw !== '' && expHumRaw != null) {
-                expHum = Number(expHumRaw);
-                if (isNaN(expHum)) errors.push('Expérience humanitaire (mois) doit être numérique');
-            }
-
-            const normalized = {
-                first_name: firstName || null,
-                last_name: lastName || null,
-                email: email || null,
-                pool: pool ? String(pool).toUpperCase() : null,
-                gender: gender || null,
-                nationality: get('nationality') || null,
-                country_of_residence: get('country_of_residence') || null,
-                current_function: get('current_function') || null,
-                education_level: eduLevel || null,
-                education_specialty: get('education_specialty') || null,
-                languages: splitMultiValue(get('languages')),
-                other_languages: splitMultiValue(get('other_languages')),
-                key_skills: splitMultiValue(get('key_skills')),
-                intervention_contexts: splitMultiValue(get('intervention_contexts')),
-                intervention_zones: splitMultiValue(get('intervention_zones')),
-                has_visa: hasVisa,
-                pool_integration_date: poolIntegrationDate ? toISODate(poolIntegrationDate) : null,
-                experience_months_alima: expAlima,
-                experience_months_humanitarian: expHum,
-                number_of_alima_missions: missionsEnum,
-                availability_type: availType,
-                availability_date: availDate ? toISODate(availDate) : null,
-                availability_months: availMonths
-            };
-
-            return { rowNumber, errors, normalized };
-        }
-
-        function parseWorkbook(arrayBuffer) {
-            const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
-            const sheetName = wb.SheetNames.includes('Modèle Import Talents') ? 'Modèle Import Talents' : wb.SheetNames[wb.SheetNames.length - 1];
-            const sheet = wb.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-
-            if (rows.length < 2) return { error: 'Fichier vide ou format inattendu.' };
-
-            const techHeaderRow = rows[1]; // ligne 2 = noms techniques
-            const colIndex = {};
-            IMPORT_COLUMNS.forEach(col => {
-                const idx = techHeaderRow.findIndex(h => String(h).trim() === col);
-                if (idx !== -1) colIndex[col] = idx;
-            });
-
-            if (colIndex.first_name === undefined || colIndex.email === undefined || colIndex.pool === undefined) {
-                return { error: "Colonnes attendues introuvables — utilisez le modèle fourni sans modifier l'ordre des colonnes." };
-            }
-
-            const dataRows = rows.slice(2); // données à partir de la ligne 3 (index 2)
-            const parsed = [];
-            const seenEmailsInFile = new Set();
-            let excelRowNum = 3;
-
-            dataRows.forEach(r => {
-                const isEmptyRow = r.every(cell => cell === '' || cell == null);
-                if (isEmptyRow) { excelRowNum++; return; }
-
-                const raw = {};
-                IMPORT_COLUMNS.forEach(col => {
-                    raw[col] = colIndex[col] !== undefined ? r[colIndex[col]] : '';
-                });
-
-                // Ignore silencieusement la ligne d'exemple si elle n'a pas été supprimée
-                if (String(raw.email).trim().toLowerCase() === EXAMPLE_ROW_EMAIL) {
-                    excelRowNum++;
-                    return;
-                }
-
-                parsed.push(validateAndNormalizeRow(raw, excelRowNum, seenEmailsInFile));
-                excelRowNum++;
-            });
-
-            return { rows: parsed };
-        }
-
-        function renderPreview(parsedRows) {
-            const card = document.getElementById('previewCard');
-            const content = document.getElementById('previewContent');
-            card.classList.remove('hidden');
-
-            const validRows = parsedRows.filter(r => r.errors.length === 0);
-            const invalidRows = parsedRows.filter(r => r.errors.length > 0);
-
-            content.innerHTML = `
-                <div class="flex gap-4 mb-4">
-                    <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5">
-                        <p class="text-lg font-extrabold text-emerald-700">${validRows.length}</p>
-                        <p class="text-[10px] font-semibold text-emerald-500 uppercase">Ligne(s) valide(s)</p>
-                    </div>
-                    <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
-                        <p class="text-lg font-extrabold text-red-700">${invalidRows.length}</p>
-                        <p class="text-[10px] font-semibold text-red-500 uppercase">Ligne(s) en erreur</p>
-                    </div>
-                </div>
-                <div class="max-h-96 overflow-y-auto border border-slate-100 rounded-xl">
-                    <table class="w-full text-xs">
-                        <thead class="bg-slate-50 sticky top-0">
-                            <tr>
-                                <th class="text-left px-3 py-2 font-bold text-slate-500">Ligne</th>
-                                <th class="text-left px-3 py-2 font-bold text-slate-500">Nom</th>
-                                <th class="text-left px-3 py-2 font-bold text-slate-500">Email</th>
-                                <th class="text-left px-3 py-2 font-bold text-slate-500">Pool</th>
-                                <th class="text-left px-3 py-2 font-bold text-slate-500">Statut</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${parsedRows.map(r => `
-                                <tr class="border-t border-slate-100 ${r.errors.length > 0 ? 'bg-red-50/50' : ''}">
-                                    <td class="px-3 py-2 text-slate-400">${r.rowNumber}</td>
-                                    <td class="px-3 py-2">${escapeHtml(((r.normalized.first_name || '') + ' ' + (r.normalized.last_name || '')).trim())}</td>
-                                    <td class="px-3 py-2">${escapeHtml(r.normalized.email || '')}</td>
-                                    <td class="px-3 py-2">${escapeHtml(r.normalized.pool || '')}</td>
-                                    <td class="px-3 py-2">
-                                        ${r.errors.length === 0
-                                            ? '<span class="text-emerald-600 font-semibold">✅ Valide</span>'
-                                            : `<span class="text-red-600 font-semibold">❌ ${escapeHtml(r.errors.join(' · '))}</span>`}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <p class="text-xs text-slate-400 mt-4 italic">Seules les lignes valides seront importées — les lignes en erreur sont ignorées, rien n'est deviné à leur place.</p>
-
-                ${validRows.length > 0 ? `
-                    <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
-                        <button id="importSubmitBtn" type="button" class="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all">
-                            Importer les ${validRows.length} ligne(s) valide(s)
-                        </button>
-                        <span id="importSubmitStatus" class="text-xs text-slate-400"></span>
-                    </div>
-                    <div id="importResultBox" class="hidden mt-4"></div>
-                ` : ''}
-            `;
-
-            if (validRows.length > 0) {
-                document.getElementById('importSubmitBtn').addEventListener('click', () => runImport(validRows));
-            }
-        }
-
-        // ============================================================================
-        // ÉTAPE 3 — Insertion réelle, par lots de 25 lignes, avec rapport détaillé.
-        // Les lignes en erreur (déjà filtrées avant l'appel) ne sont jamais envoyées.
-        // ============================================================================
-        const IMPORT_BATCH_SIZE = 25;
-
-        async function runImport(validRows) {
-            const confirmed = confirm(
-                `Vous allez importer ${validRows.length} talent(s) dans Cap Huma. ` +
-                `Cette action crée de vraies fiches talent — vérifiez l'aperçu avant de continuer. Continuer ?`
-            );
-            if (!confirmed) return;
-
-            const btn = document.getElementById('importSubmitBtn');
-            const statusEl = document.getElementById('importSubmitStatus');
-            const resultBox = document.getElementById('importResultBox');
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-            let successCount = 0;
-            const failures = []; // { rowNumber, name, message }
-
-            for (let i = 0; i < validRows.length; i += IMPORT_BATCH_SIZE) {
-                const batch = validRows.slice(i, i + IMPORT_BATCH_SIZE);
-                statusEl.textContent = `Import en cours... ${Math.min(i + IMPORT_BATCH_SIZE, validRows.length)} / ${validRows.length}`;
-
-                const payload = batch.map(r => ({ ...r.normalized, created_by: currentUserId }));
-
-                try {
-                    const { data, error } = await supabaseClient.from('talents').insert(payload).select('id');
-                    if (error) throw error;
-                    successCount += (data || []).length;
-                } catch (err) {
-                    console.error('[Import] Échec sur un lot :', err);
-                    // Le lot entier a échoué (ex. contrainte violée) — on le journalise en
-                    // bloc plutôt que de deviner quelle ligne précise a posé problème, un
-                    // échec de lot ne permettant pas de le savoir sans le rejouer ligne par
-                    // ligne (non fait ici pour rester simple — voir note ci-dessous).
-                    batch.forEach(r => failures.push({
-                        rowNumber: r.rowNumber,
-                        name: `${r.normalized.first_name || ''} ${r.normalized.last_name || ''}`.trim(),
-                        message: (err && err.message) || 'Erreur inconnue'
-                    }));
-                }
-            }
-
-            statusEl.textContent = '';
-            btn.textContent = 'Import terminé';
-
-            await logAuditAction(
-                'create', 'talent', null, 'Import en masse',
-                `${successCount} talent(s) importé(s), ${failures.length} échec(s) sur ${validRows.length} ligne(s) tentée(s)`
-            );
-
-            resultBox.classList.remove('hidden');
-            resultBox.innerHTML = `
-                <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-2">
-                    <p class="text-sm font-bold text-emerald-700">✅ ${successCount} talent(s) importé(s) avec succès.</p>
-                </div>
-                ${failures.length > 0 ? `
-                    <div class="bg-red-50 border border-red-100 rounded-xl p-4">
-                        <p class="text-sm font-bold text-red-700 mb-2">❌ ${failures.length} échec(s) :</p>
-                        <ul class="text-xs text-red-600 space-y-1">
-                            ${failures.map(f => `<li>Ligne ${f.rowNumber} (${escapeHtml(f.name)}) — ${escapeHtml(f.message)}</li>`).join('')}
-                        </ul>
-                        <p class="text-[11px] text-red-500 mt-2 italic">Ces lignes n'ont pas été importées — corrigez-les dans le fichier et réessayez uniquement pour celles-ci.</p>
-                    </div>
-                ` : ''}
-                <a href="talents.html" class="inline-block mt-3 text-xs font-semibold text-primary hover:underline">Voir les talents →</a>
-            `;
-        }
-
-        document.getElementById('importFileInput').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            const statusMsg = document.getElementById('fileStatusMsg');
-            document.getElementById('previewCard').classList.add('hidden');
-            if (!file) { statusMsg.textContent = ''; return; }
-
-            statusMsg.textContent = 'Lecture du fichier en cours...';
-            statusMsg.className = 'text-xs text-slate-400 mt-2';
-
-            try {
-                const buffer = await file.arrayBuffer();
-                const result = parseWorkbook(buffer);
-                if (result.error) {
-                    statusMsg.textContent = result.error;
-                    statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
-                    return;
-                }
-                lastParsedRows = result.rows;
-                if (lastParsedRows.length === 0) {
-                    statusMsg.textContent = 'Aucune ligne de données trouvée dans le fichier.';
-                    statusMsg.className = 'text-xs text-amber-600 font-semibold mt-2';
-                    return;
-                }
-                statusMsg.textContent = `${lastParsedRows.length} ligne(s) lue(s) — voir l'aperçu ci-dessous.`;
-                statusMsg.className = 'text-xs text-emerald-600 font-semibold mt-2';
-                renderPreview(lastParsedRows);
-            } catch (err) {
-                console.error('[Import] Erreur de lecture du fichier :', err);
-                statusMsg.textContent = "Impossible de lire ce fichier — vérifiez qu'il s'agit bien d'un .xlsx basé sur le modèle fourni.";
-                statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
-            }
-        });
-
-        window.addEventListener('DOMContentLoaded', () => checkSession());
-    </script>
+    <script src="pages/import.js"></script>
 </body>
 </html>
