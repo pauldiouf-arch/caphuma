@@ -22,6 +22,7 @@
         let talent = null;
         let activeMission = null;
         let currentUserId = null;
+        let currentUserEmail = null;
         let currentUserRole = null;
         let currentUserName = null;
         let comments = [];

@@ -211,7 +211,7 @@
                 currentFilteredCount = count || 0;
 
                 renderTable();
-                renderPaginationControls();
+                updateAuditLogsPaginationControls();
 
                 const hasFilter = !!(
                     document.getElementById('filterAction').value ||
@@ -256,7 +256,16 @@
             return { start, end };
         }
 
-        function renderPaginationControls() {
+        // Renommée depuis renderPaginationControls() — ce nom collidait silencieusement
+        // avec la fonction partagée du même nom dans shared/caphuma-utils.js (signature
+        // différente : celle-ci lit currentFilteredCount/PAGE_SIZE/currentPage en globals
+        // de page et pilote des boutons statiques prevPageBtn/nextPageBtn, la version
+        // partagée prend 5 paramètres et génère du HTML avec onclick). Aucun bug de
+        // comportement (la déclaration de cette page écrasait silencieusement la version
+        // partagée, jamais utilisée ici), mais un piège si quelqu'un modifie un jour la
+        // version partagée en pensant qu'elle s'applique aussi ici. Trouvé via ESLint
+        // (no-redeclare) lors de la vérification de code du 25/08/2026.
+        function updateAuditLogsPaginationControls() {
             const controls = document.getElementById('logsPaginationControls');
             const totalPages = Math.max(1, Math.ceil(currentFilteredCount / PAGE_SIZE));
 

@@ -219,7 +219,7 @@
                 renderTalents(currentFilteredTalents);
                 updateSearchSummary();
                 updateResetButtonVisibility();
-                renderPaginationControls();
+                updateTalentsPaginationControls();
 
             } catch (err) {
                 console.error(err);
@@ -229,7 +229,16 @@
             }
         }
 
-        function renderPaginationControls() {
+        // Renommée depuis renderPaginationControls() — ce nom collidait silencieusement
+        // avec la fonction partagée du même nom dans shared/caphuma-utils.js (signature
+        // différente : celle-ci lit totalCount/PAGE_SIZE/currentPage en globals de page
+        // et pilote des boutons statiques prevPageBtn/nextPageBtn, la version partagée
+        // prend 5 paramètres et génère du HTML avec onclick). Aucun bug de comportement
+        // (la déclaration de cette page écrasait silencieusement la version partagée,
+        // jamais utilisée ici), mais un piège si quelqu'un modifie un jour la version
+        // partagée en pensant qu'elle s'applique aussi ici. Même correctif que
+        // audit_logs.js, trouvé via ESLint (no-redeclare) le 25/08/2026.
+        function updateTalentsPaginationControls() {
             const controls = document.getElementById('paginationControls');
             const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
