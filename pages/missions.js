@@ -1,4 +1,27 @@
         // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose, y
+        // compris avant les document.getElementById('pageTitle'/'userSubtitle'/
+        // 'navTalents') ci-dessous, puisqu'ils font partie du header injecté.
+        // pageTitle et userSubtitle gardent un id pour rester réécrivables en JS une
+        // fois le pool chargé (ligne ~154 plus bas, comportement inchangé).
+        // ============================================================================
+        renderPageLayout({
+            icon: '💼',
+            title: 'Postes',
+            titleId: 'pageTitle',
+            subtitle: 'Gestion des postes',
+            subtitleId: 'userSubtitle',
+            actionsHtml: `
+                <a href="#" id="navTalents" class="border border-blue-200 hover:bg-blue-50 text-primary px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    👤 Professionnels du pool
+                </a>
+                <a href="#" id="navPoolStats" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    📊 Statistiques &amp; analyse IA
+                </a>
+            `
+        });
+
+        // ============================================================================
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
@@ -112,7 +135,7 @@
                     readOnlyNotice.classList.remove('hidden');
                 }
 
-                appBody.style.display = 'flex';
+                appBody.style.display = '';
 
                 if (currentPoolId) {
                     await loadPoolInfo();

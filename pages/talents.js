@@ -1,4 +1,22 @@
         // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose, y
+        // compris avant checkSession() plus bas qui référence #newTalentBtn (masqué
+        // pour le rôle visitor) et écrit dans #poolSubtitle une fois le pool chargé.
+        // ============================================================================
+        renderPageLayout({
+            icon: '👤',
+            title: 'Professionnels',
+            iconGradient: 'from-primary to-primary-dark',
+            subtitleId: 'poolSubtitle',
+            subtitle: 'Chargement du pool...',
+            actionsHtml: `
+                <button id="newTalentBtn" class="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2">
+                    ＋ Nouveau talent
+                </button>
+            `
+        });
+
+        // ============================================================================
         // 1. INIT SUPABASE + GARDE DE SESSION
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
@@ -47,7 +65,7 @@
                 document.getElementById('user-display-name').textContent = currentUserEmail;
                 document.getElementById('newTalentBtn').classList.toggle('hidden', currentUserRole === 'visitor');
 
-                appBody.style.display = 'flex';
+                appBody.style.display = '';
                 await loadPoolInfo();
                 await loadTalents();
             } catch (err) {

@@ -1,4 +1,18 @@
         // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // ============================================================================
+        renderPageLayout({
+            icon: '📋',
+            title: "Journal d'audit",
+            actionsHtml: `
+                <button id="exportBtn" class="bg-accent hover:bg-accent-dark text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5">
+                    📥 Exporter Excel
+                </button>
+            `
+        });
+
+        // ============================================================================
         // 1. INITIALISATION SUPABASE
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
@@ -63,7 +77,7 @@
                     throw new Error("Accès réservé aux administrateurs.");
                 }
 
-                appBody.style.display = 'flex';
+                appBody.style.display = '';
                 await loadLogs();
             } catch (error) {
                 console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
