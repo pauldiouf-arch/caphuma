@@ -1,3 +1,20 @@
+        // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // pageHeaderTitle garde son id pour rester réécrivable en JS selon l'onglet
+        // actif (Talents/Postes, ligne ~68 plus bas, comportement inchangé).
+        // ============================================================================
+        renderPageLayout({
+            icon: '📥',
+            title: 'Import en masse',
+            titleId: 'pageHeaderTitle',
+            iconGradient: 'from-primary to-primary-dark',
+            variant: 'scroll-page',
+            maxWidth: 'max-w-5xl'
+        });
+
+        const appBody = document.getElementById('appBody');
+
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
         // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
         let supabaseClient = null;
@@ -30,11 +47,13 @@
 
                 if (s.role !== 'admin') {
                     document.getElementById('accessDeniedBanner').classList.remove('hidden');
+                    appBody.style.display = '';
                     return;
                 }
 
                 document.getElementById('user-display-name').textContent = s.email;
                 document.getElementById('pageContent').classList.remove('hidden');
+                appBody.style.display = '';
                 await loadReferenceData();
 
             } catch (err) {
@@ -42,7 +61,7 @@
             }
         }
 
-        document.getElementById('logout-btn').addEventListener('click', async () => {
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             if (supabaseClient) await supabaseClient.auth.signOut();
             window.location.replace('login.html');

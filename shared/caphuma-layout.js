@@ -54,6 +54,8 @@
 //                                 (pages à scroll de page normal : admin, import,
 //                                 red_list, statistics)
 //   stickyZ       (optionnel, défaut 50) z-index du header en variante 'scroll-page'
+//   maxWidth      (optionnel, défaut 'max-w-7xl') largeur max du conteneur en
+//                 variante 'scroll-page' — import.html utilise 'max-w-5xl'
 //   actionsHtml   (optionnel, défaut '') HTML des boutons spécifiques à la page,
 //                 inséré juste avant le badge utilisateur + le bouton de déconnexion
 // ============================================================================
@@ -69,6 +71,7 @@ function renderPageLayout(options) {
         iconGradient = 'from-primary to-accent',
         variant = 'app-shell',
         stickyZ = 50,
+        maxWidth = 'max-w-7xl',
         actionsHtml = ''
     } = options;
 
@@ -83,7 +86,7 @@ function renderPageLayout(options) {
         ? `bg-white border-b border-slate-200 sticky top-0 z-${stickyZ}`
         : 'bg-white border-b border-slate-200 shrink-0 z-10';
     const containerClass = isScrollPage
-        ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'
+        ? `${maxWidth} mx-auto px-4 sm:px-6 lg:px-8`
         : 'container mx-auto px-6 min-h-16 py-2';
     const rowClass = isScrollPage
         ? 'flex justify-between h-16 items-center'

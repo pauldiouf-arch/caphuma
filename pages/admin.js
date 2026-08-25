@@ -1,3 +1,15 @@
+        // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // ============================================================================
+        renderPageLayout({
+            icon: '🛡️',
+            title: 'Administration',
+            iconGradient: 'from-primary to-primary-dark',
+            variant: 'scroll-page'
+        });
+
+        const appBody = document.getElementById('appBody');
         let supabaseClient = null;
         let accountsList = [];
         let poolsList = [];
@@ -48,7 +60,7 @@
                 currentUserId = s.userId;
                 currentUserEmail = s.email;
                 currentUserName = s.name;
-                document.getElementById('pageHeader').style.display = '';
+                appBody.style.display = '';
 
                 if (s.role !== 'admin') {
                     document.getElementById('access-denied-banner').classList.remove('hidden');
@@ -515,7 +527,7 @@
 
         // ============ INITIALISATION ============
 
-        document.getElementById('logout-btn').addEventListener('click', async () => {
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             if (supabaseClient) await supabaseClient.auth.signOut();
             window.location.replace('login.html');

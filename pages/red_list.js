@@ -1,3 +1,21 @@
+        // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // ============================================================================
+        renderPageLayout({
+            icon: '⚠️',
+            title: 'Liste Rouge',
+            subtitle: 'Talents signalés — Cap Huma',
+            iconGradient: 'from-red-500 to-red-600',
+            variant: 'scroll-page',
+            actionsHtml: `
+                <button id="btn-header-add-redlist" class="hidden sm:flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-sm px-4 py-2 rounded-xl transition-all">
+                    <span>🚨</span> Ajouter à la liste rouge
+                </button>
+            `
+        });
+
+        const appBody = document.getElementById('appBody');
         let supabaseClient = null;
         let redListTalents = [];
         let redListPage = 1;
@@ -55,7 +73,7 @@
                 currentUserEmail = s.email;
                 currentUserName = s.name;
                 currentUserRole = s.role;
-                document.getElementById('pageHeader').style.display = '';
+                appBody.style.display = '';
 
                 // Page réservée admin + user ("recruteur"), visitor exclu.
                 const allowed = (s.role === 'admin' || s.role === 'user');
@@ -507,7 +525,7 @@
 
         // ============ INITIALISATION ============
 
-        document.getElementById('logout-btn').addEventListener('click', async () => {
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             if (supabaseClient) await supabaseClient.auth.signOut();
             window.location.replace('login.html');

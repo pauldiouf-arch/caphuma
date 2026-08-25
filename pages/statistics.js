@@ -1,3 +1,15 @@
+        // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // ============================================================================
+        renderPageLayout({
+            icon: '📊',
+            title: 'Hub Statistique & IA',
+            iconGradient: 'from-primary to-primary-dark',
+            variant: 'scroll-page'
+        });
+
+        const appBody = document.getElementById('appBody');
         let supabaseClient = null;
         let poolList = [];
         let rawTalents = [];
@@ -43,7 +55,7 @@
 
         async function checkSession() {
             if (!supabaseClient) {
-                showError("Configuration Supabase introuvable dans le localStorage.");
+                showError("Configuration Supabase introuvable (shared/caphuma-config.js manquant ou non chargé).");
                 return;
             }
             try {
@@ -60,6 +72,7 @@
                 currentUserEmail = s.email;
                 currentUserName = s.name;
                 currentUserRole = s.role;
+                appBody.style.display = '';
                 await initHub();
             } catch (e) {
                 console.error(e);
@@ -1042,7 +1055,7 @@ Données consolidées du pool (${statsSummary.pool}) :
             });
         });
 
-        document.getElementById('logout-btn').addEventListener('click', async () => {
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
             if (supabaseClient) await supabaseClient.auth.signOut();
             window.location.replace('login.html');
