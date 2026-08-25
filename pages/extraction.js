@@ -1,4 +1,20 @@
         // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose, y
+        // compris avant les document.getElementById('generateBtn'/'generateBtnLabel')
+        // ci-dessous, puisque ces boutons font partie du header injecté.
+        // ============================================================================
+        renderPageLayout({
+            icon: '📊',
+            title: 'Extraction',
+            subtitle: 'Export Excel multi-pool',
+            actionsHtml: `
+                <button id="generateBtn" disabled class="bg-accent hover:bg-accent-dark text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    📥 <span id="generateBtnLabel">Générer le fichier Excel</span>
+                </button>
+            `
+        });
+
+        // ============================================================================
         // 1. INITIALISATION SUPABASE
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
@@ -59,7 +75,7 @@
                     throw new Error("Accès non autorisé pour ce rôle.");
                 }
 
-                appBody.style.display = 'flex';
+                appBody.style.display = '';
                 await loadData();
             } catch (error) {
                 console.warn("[Session Guard] Accès refusé, expulsion :", error.message);

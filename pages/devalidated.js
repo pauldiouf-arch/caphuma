@@ -1,4 +1,18 @@
         // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // ============================================================================
+        renderPageLayout({
+            icon: '⛔',
+            title: 'Dévalidés',
+            actionsHtml: `
+                <a href="red_list.html" class="border border-orange-200 hover:bg-orange-50 text-orange-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    ⚠️ Liste Rouge
+                </a>
+            `
+        });
+
+        // ============================================================================
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, pont de compatibilité)
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
@@ -57,7 +71,7 @@
                     throw new Error("Accès non autorisé pour ce rôle.");
                 }
 
-                appBody.style.display = 'flex';
+                appBody.style.display = '';
                 await loadDevalidatedTalents();
 
             } catch (error) {
