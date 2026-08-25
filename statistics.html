@@ -2,6 +2,22 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
+         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
+         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
+         chargées après elle). Détail des directives et rationale : voir le
+         commentaire équivalent dans audit_logs.html. -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src https://fonts.gstatic.com;
+        img-src 'self';
+        connect-src 'self' https://bhjycotcmkqiumukkkih.supabase.co;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+    ">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hub Statistique & IA - Cap Huma</title>
     
