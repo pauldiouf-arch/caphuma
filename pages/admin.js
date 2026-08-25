@@ -32,7 +32,7 @@
 
         async function checkSession() {
             if (!supabaseClient) {
-                showError("Configuration Supabase introuvable dans le localStorage.");
+                showError("Configuration Supabase introuvable (shared/caphuma-config.js manquant ou non chargé).");
                 return;
             }
             try {
