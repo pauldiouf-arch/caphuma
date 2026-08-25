@@ -9,10 +9,6 @@
 //    différente. Traité à part, en 2ᵉ étape du même chantier B4.
 //  - index.html / login.html / shared-talent.html : pas de header authentifié
 //    (pas de session avant login, page publique sans nav pour shared-talent).
-//  - id-card.html : bouton Retour dynamique (réassigné en JS selon le pool du
-//    talent chargé, pas un simple lien statique) — nécessite une adaptation
-//    de renderPageLayout() qui n'est pas encore faite. Ne pas l'utiliser sur
-//    id-card.html tant que ce point n'a pas été traité explicitement.
 //
 // Sans module ES (règle 29 du Master Context) : fichier chargé en <script>
 // classique, comme caphuma-utils.js/caphuma-auth.js. La fonction vit donc en
@@ -56,6 +52,17 @@
 //   stickyZ       (optionnel, défaut 50) z-index du header en variante 'scroll-page'
 //   maxWidth      (optionnel, défaut 'max-w-7xl') largeur max du conteneur en
 //                 variante 'scroll-page' — import.html utilise 'max-w-5xl'
+//   extraHeaderClass (optionnel, défaut '') classes Tailwind ajoutées telles
+//                 quelles à la fin du className du <header> — id-card.html
+//                 utilise 'shrink-0 no-print' (fiche imprimable)
+//   backButton    (optionnel, défaut false) si true, génère un <button id="back-btn">
+//                 <span id="back-btn-text">Retour</span></button> au lieu du <a href>
+//                 statique habituel — pour les pages qui réassignent la cible en JS
+//                 au runtime (id-card.js : dashboard.html par défaut, puis
+//                 "talents.html?pool=X" une fois le talent chargé, via
+//                 document.getElementById('back-btn').onclick = ...)
+//   logoutBtnExtraClass (optionnel, défaut '') classes Tailwind ajoutées à la fin
+//                 du className du bouton logout — id-card.html utilise 'no-print'
 //   actionsHtml   (optionnel, défaut '') HTML des boutons spécifiques à la page,
 //                 inséré juste avant le badge utilisateur + le bouton de déconnexion
 // ============================================================================
@@ -72,6 +79,9 @@ function renderPageLayout(options) {
         variant = 'app-shell',
         stickyZ = 50,
         maxWidth = 'max-w-7xl',
+        extraHeaderClass = '',
+        backButton = false,
+        logoutBtnExtraClass = '',
         actionsHtml = ''
     } = options;
 
@@ -82,9 +92,9 @@ function renderPageLayout(options) {
     }
 
     const isScrollPage = variant === 'scroll-page';
-    const headerClass = isScrollPage
+    const headerClass = (isScrollPage
         ? `bg-white border-b border-slate-200 sticky top-0 z-${stickyZ}`
-        : 'bg-white border-b border-slate-200 shrink-0 z-10';
+        : 'bg-white border-b border-slate-200 shrink-0 z-10') + (extraHeaderClass ? ` ${extraHeaderClass}` : '');
     const containerClass = isScrollPage
         ? `${maxWidth} mx-auto px-4 sm:px-6 lg:px-8`
         : 'container mx-auto px-6 min-h-16 py-2';
@@ -94,6 +104,19 @@ function renderPageLayout(options) {
 
     const titleAttr = titleId ? ` id="${titleId}"` : '';
     const subtitleAttr = subtitleId ? ` id="${subtitleId}"` : '';
+    const logoutClass = 'text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all' + (logoutBtnExtraClass ? ` ${logoutBtnExtraClass}` : '');
+
+    // backButton: true → <button id="back-btn"><span id="back-btn-text">...</span></button>,
+    // pour les pages qui réassignent la cible en JS au runtime (id-card.js : cible par
+    // défaut au chargement, puis "Retour au pool X" une fois le talent chargé). Sinon,
+    // lien <a href> statique classique.
+    const backElement = backButton
+        ? `<button id="back-btn" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
+                        <span aria-hidden="true">←</span> <span id="back-btn-text">Retour</span>
+                    </button>`
+        : `<a href="${escapeHtml(backHref)}" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
+                        <span aria-hidden="true">←</span> Retour
+                    </a>`;
 
     const header = document.createElement('header');
     header.className = headerClass;
@@ -101,9 +124,7 @@ function renderPageLayout(options) {
         <div class="${containerClass}">
             <div class="${rowClass}">
                 <div class="flex items-center gap-4">
-                    <a href="${escapeHtml(backHref)}" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
-                        <span aria-hidden="true">←</span> Retour
-                    </a>
+                    ${backElement}
                     <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
                     <div class="flex items-center gap-3">
                         <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br ${iconGradient} text-white shadow-md shrink-0">
@@ -118,7 +139,7 @@ function renderPageLayout(options) {
                 <div class="flex items-center gap-2 flex-wrap justify-end">
                     ${actionsHtml}
                     <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
-                    <button id="logoutBtn" class="text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all">Déconnexion</button>
+                    <button id="logoutBtn" class="${logoutClass}">Déconnexion</button>
                 </div>
             </div>
         </div>

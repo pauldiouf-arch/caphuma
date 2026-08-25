@@ -1,3 +1,22 @@
+        // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name, #logoutBtn, #back-btn et #back-btn-text
+        // existent dès la suite du script. backButton:true car cette page réassigne
+        // la cible du bouton Retour en JS (ligne ~89 : dashboard.html par défaut,
+        // puis ligne ~228 : "talents.html?pool=X" une fois le talent chargé) — la
+        // logique elle-même n'est pas touchée, comportement strictement inchangé.
+        // ============================================================================
+        renderPageLayout({
+            icon: '🧭',
+            title: 'Fiche talent',
+            backButton: true,
+            variant: 'scroll-page',
+            stickyZ: 40,
+            extraHeaderClass: 'shrink-0 no-print',
+            logoutBtnExtraClass: 'no-print'
+        });
+
+        const appBody = document.getElementById('appBody');
         let supabaseClient = null;
         let talentId = null;
         let talent = null;
@@ -83,6 +102,7 @@
                 currentUserEmail = s.email;
                 currentUserRole = s.role;
                 currentUserName = s.name;
+                appBody.style.display = '';
 
                 // Cible par défaut du bouton Retour, remplacée par "Retour au pool X"
                 // une fois le talent chargé (voir loadTalentData / renderTalentData).
