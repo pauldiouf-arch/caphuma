@@ -147,3 +147,146 @@ function renderPageLayout(options) {
 
     mount.replaceWith(header);
 }
+
+// ============================================================================
+// renderDashboardLayout() — 2ᵉ étape de B4 (Master Context §7), dashboard.html
+// uniquement. Nav complète (liens conditionnels par rôle) + cloche de
+// notifications avec panneau déroulant — structure sans équivalent ailleurs
+// sur le site, donc PAS de paramètres : le balisage exact de l'ancien
+// <header> de dashboard.html est repris tel quel, aux mêmes id, pour que
+// pages/dashboard.js (déjà écrit, non modifié pour B4) continue de
+// fonctionner sans aucun changement de sa propre logique.
+//
+// USAGE — dans pages/dashboard.js, tout en haut du fichier, avant tout accès
+// à #userSubtitle / #adminNavGroup / #notifBellBtn / #logoutBtn etc. :
+//   renderDashboardLayout();
+// ============================================================================
+function renderDashboardLayout() {
+    const mount = document.getElementById('layoutHeaderMount');
+    if (!mount) {
+        console.error('[caphuma-layout] #layoutHeaderMount introuvable — le header ne peut pas être injecté sur cette page.');
+        return;
+    }
+
+    const header = document.createElement('header');
+    header.className = 'border-b bg-white shadow-sm shrink-0 z-10';
+    header.innerHTML = `
+        <div class="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 shrink-0 cap-logo-badge">
+                    <style>
+                        .cap-logo-badge .cap-logo-needle { transform-box: fill-box; transform-origin: center; animation: cap-logo-idle 4s ease-in-out infinite; }
+                        .cap-logo-badge:hover .cap-logo-needle { animation: cap-logo-spin 1.1s cubic-bezier(.34,1.56,.64,1) 1; }
+                        @keyframes cap-logo-idle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+                        @keyframes cap-logo-spin { 0% { transform: rotate(0deg); } 70% { transform: rotate(390deg); } 100% { transform: rotate(360deg); } }
+                    </style>
+                    <svg viewBox="0 0 160 160" class="w-full h-full" role="img" aria-label="Cap Huma">
+                        <defs>
+                            <linearGradient id="capLogoGradDash" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1d4ed8"/>
+                                <stop offset="100%" stop-color="#ea580c"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="80" cy="80" r="80" fill="url(#capLogoGradDash)"/>
+                        <circle cx="80" cy="80" r="58" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+                        <g stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round">
+                            <line x1="80" y1="16" x2="80" y2="26"/>
+                            <line x1="80" y1="134" x2="80" y2="144"/>
+                            <line x1="16" y1="80" x2="26" y2="80"/>
+                            <line x1="134" y1="80" x2="144" y2="80"/>
+                        </g>
+                        <g class="cap-logo-needle">
+                            <polygon points="80,28 90,80 80,80" fill="#ffffff"/>
+                            <polygon points="80,28 70,80 80,80" fill="rgba(255,255,255,0.55)"/>
+                            <polygon points="80,132 90,80 80,80" fill="rgba(255,255,255,0.3)"/>
+                            <polygon points="80,132 70,80 80,80" fill="rgba(255,255,255,0.15)"/>
+                            <circle cx="80" cy="80" r="5" fill="#ffffff"/>
+                        </g>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Cap Huma</h1>
+                    <p class="text-xs text-slate-400 font-semibold mt-1" id="userSubtitle">Tableau de bord</p>
+                </div>
+            </div>
+
+            <nav class="flex items-center gap-2 flex-wrap justify-end">
+                <a href="guide.html" class="border border-emerald-200 hover:bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    📖 Guide
+                </a>
+                <a href="extraction.html" id="navExtraction" class="border border-teal-200 hover:bg-teal-50 text-teal-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    📤 Extraction
+                </a>
+                <a href="red_list.html" id="navRedList" class="border border-orange-200 hover:bg-orange-50 text-orange-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    ⚠️ Liste Rouge
+                </a>
+                <a href="devalidated.html" id="navDevalidated" class="border border-red-200 hover:bg-red-50 text-red-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    ⛔ Dévalidés
+                </a>
+                <a href="statistics.html" class="bg-primary-light hover:bg-blue-100 text-primary px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                    📊 Hub Statistique &amp; IA
+                </a>
+
+                <span id="adminNavGroup" class="hidden items-center gap-2">
+                    <span class="h-6 w-px bg-slate-200 mx-1"></span>
+                    <a href="admin.html" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                        🛡️ Admin
+                    </a>
+                    <a href="import.html" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                        📥 Import
+                    </a>
+                    <a href="audit_logs.html" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                        📋 Audit
+                    </a>
+                </span>
+
+                <span class="relative">
+                    <button id="notifBellBtn" type="button" class="hidden relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Notifications">
+                        <span class="text-lg">🔔</span>
+                        <span id="notifBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center"></span>
+                    </button>
+
+                    <div id="notifPanel" class="hidden absolute right-0 top-12 w-96 max-h-[32rem] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50">
+                        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                            <h3 class="font-bold text-slate-800 text-sm">🔔 Mes notifications</h3>
+                            <button id="notifSettingsToggleBtn" type="button" class="text-xs font-semibold text-primary hover:underline">Préférences</button>
+                        </div>
+
+                        <div id="notifSettingsBlock" class="hidden p-4 border-b border-slate-100 bg-slate-50 space-y-3">
+                            <label class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                <input type="checkbox" id="notifEnabledCheckbox" class="rounded border-slate-300">
+                                Activer les notifications
+                            </label>
+                            <div id="notifPoolScopeBlock" class="space-y-2">
+                                <label class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="notifScope" id="notifScopeAll" value="all" checked>
+                                    Tous mes pools
+                                </label>
+                                <label class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                    <input type="radio" name="notifScope" id="notifScopeCustom" value="custom">
+                                    Choisir les pools à suivre
+                                </label>
+                                <div id="notifPoolChecklist" class="hidden ml-5 space-y-1.5 max-h-32 overflow-y-auto"></div>
+                            </div>
+                            <button id="notifSavePrefsBtn" type="button" class="w-full bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2 rounded-lg transition-all">
+                                Enregistrer
+                            </button>
+                        </div>
+
+                        <div id="notifAlertsList" class="p-4 space-y-4 text-sm text-slate-600">
+                            <p class="text-xs text-slate-400 text-center py-4">Chargement...</p>
+                        </div>
+                    </div>
+                </span>
+
+                <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
+                    </svg>
+                </button>
+            </nav>
+        </div>
+    `;
+
+    mount.replaceWith(header);
+}

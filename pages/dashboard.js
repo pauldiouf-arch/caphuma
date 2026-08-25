@@ -1,4 +1,11 @@
         // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7, 2ᵉ étape) — injecté avant toute
+        // autre chose, pour que #userSubtitle, #adminNavGroup, #navExtraction,
+        // #notifBellBtn, #logoutBtn, etc. existent dès la suite du script.
+        // ============================================================================
+        renderDashboardLayout();
+
+        // ============================================================================
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
@@ -162,7 +169,7 @@
                     userSubtitle.textContent = 'Tableau de bord';
                 }
 
-                appBody.style.display = 'flex';
+                appBody.style.display = '';
                 await loadPools();
                 if (currentUserRole && currentUserRole !== 'visitor') {
                     await initNotifications();
