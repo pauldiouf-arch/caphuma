@@ -1,4 +1,13 @@
         // ============================================================================
+        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
+        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // ============================================================================
+        renderPageLayout({
+            icon: '📖',
+            title: "Guide d'utilisation"
+        });
+
+        // ============================================================================
         // INITIALISATION SUPABASE + GARDE DE SESSION
         // Page accessible à TOUS les rôles connectés (admin, recruteur, visiteur) —
         // aucune restriction de rôle, contrairement aux pages de gestion.
@@ -41,7 +50,7 @@
                 currentUserName = s.name;
                 document.getElementById('user-display-name').textContent = currentUserEmail;
 
-                appBody.style.display = 'flex';
+                appBody.style.display = '';
             } catch (error) {
                 console.warn("[Session Guard] Accès refusé, expulsion :", error.message);
                 window.location.replace('login.html');
