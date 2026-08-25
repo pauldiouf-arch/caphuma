@@ -173,10 +173,11 @@
             result.data.forEach(t => list.appendChild(renderTalentRow(t, poolLabel(t.pool))));
             poolsContainer.appendChild(list);
 
-            paginationContainer.innerHTML = renderPaginationControls(
-                result.page, result.totalPages, result.count,
-                'loadDevalidatedTalents(devalidatedPage - 1)', 'loadDevalidatedTalents(devalidatedPage + 1)'
-            );
+            paginationContainer.innerHTML = renderPaginationControls(result.page, result.totalPages, result.count);
+            paginationContainer.querySelector('[data-page-nav="prev"]')
+                ?.addEventListener('click', () => loadDevalidatedTalents(devalidatedPage - 1));
+            paginationContainer.querySelector('[data-page-nav="next"]')
+                ?.addEventListener('click', () => loadDevalidatedTalents(devalidatedPage + 1));
         }
 
         // Mode filtré : comportement identique à avant la refonte (chargement complet,

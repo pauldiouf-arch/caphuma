@@ -566,10 +566,11 @@
                 missionsGrid.appendChild(card);
             });
 
-            paginationEl.innerHTML = renderPaginationControls(
-                missionsPage, totalPages, currentMissions.length,
-                'goToMissionsPage(missionsPage - 1)', 'goToMissionsPage(missionsPage + 1)'
-            );
+            paginationEl.innerHTML = renderPaginationControls(missionsPage, totalPages, currentMissions.length);
+            paginationEl.querySelector('[data-page-nav="prev"]')
+                ?.addEventListener('click', () => goToMissionsPage(missionsPage - 1));
+            paginationEl.querySelector('[data-page-nav="next"]')
+                ?.addEventListener('click', () => goToMissionsPage(missionsPage + 1));
 
             document.querySelectorAll('.editMissionBtn').forEach(btn => {
                 btn.addEventListener('click', () => openEditModal(btn.dataset.id));

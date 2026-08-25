@@ -347,10 +347,11 @@
                 renderRedList();
 
                 if (result.count > 0) {
-                    pagination.innerHTML = renderPaginationControls(
-                        result.page, result.totalPages, result.count,
-                        'goToRedListPage(redListPage - 1)', 'goToRedListPage(redListPage + 1)'
-                    );
+                    pagination.innerHTML = renderPaginationControls(result.page, result.totalPages, result.count);
+                    pagination.querySelector('[data-page-nav="prev"]')
+                        ?.addEventListener('click', () => goToRedListPage(redListPage - 1));
+                    pagination.querySelector('[data-page-nav="next"]')
+                        ?.addEventListener('click', () => goToRedListPage(redListPage + 1));
                     pagination.classList.remove('hidden');
                 }
             } catch (e) {

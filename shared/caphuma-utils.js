@@ -111,29 +111,34 @@ async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
 
 /**
  * Génère le HTML des contrôles de pagination (◀ Page X / Y ▶).
- * Purement visuel — la page appelante fournit les callbacks onPrev/onNext
- * via des attributs onclick ciblant des fonctions déjà globales sur la page
- * (ex. onclick="goToPage(currentPage - 1)"), pour rester compatible avec le
- * modèle "pas de framework" du projet.
+ * Purement visuel — ne prend plus de callbacks onPrev/onNext en paramètres.
+ *
+ * ⚠️ Changement B3 (25/08/2026, prérequis CSP) : les deux boutons portaient
+ * auparavant un attribut onclick="..." construit à partir de chaînes fournies
+ * par l'appelant (ex. onclick="goToPage(currentPage - 1)") — incompatible
+ * avec une Content-Security-Policy sans 'unsafe-inline' sur script-src.
+ * Remplacé par des attributs data-page-nav="prev"/"next" : c'est désormais à
+ * la page appelante de retrouver ces boutons dans le conteneur qu'elle vient
+ * de remplir et d'y attacher ses propres addEventListener juste après
+ * l'assignation de innerHTML (voir devalidated.js, missions.js, red_list.js
+ * pour le patron à suivre — sans modules ES, règle 29).
  *
  * @param {number} page
  * @param {number} totalPages
  * @param {number} count
- * @param {string} prevOnclick  ex. "goToPage(currentPage - 1)"
- * @param {string} nextOnclick  ex. "goToPage(currentPage + 1)"
  * @returns {string} HTML prêt à injecter dans un conteneur
  */
-function renderPaginationControls(page, totalPages, count, prevOnclick, nextOnclick) {
+function renderPaginationControls(page, totalPages, count) {
     const prevDisabled = page <= 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : '';
     const nextDisabled = page >= totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : '';
     return `
         <div class="flex items-center justify-between gap-3 text-xs font-semibold text-slate-500 px-1">
             <span>${count} résultat${count > 1 ? 's' : ''}</span>
             <div class="flex items-center gap-2">
-                <button type="button" ${prevDisabled} onclick="${escapeHtml(prevOnclick)}"
+                <button type="button" ${prevDisabled} data-page-nav="prev"
                     class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">◀ Précédent</button>
                 <span>Page ${page} / ${totalPages}</span>
-                <button type="button" ${nextDisabled} onclick="${escapeHtml(nextOnclick)}"
+                <button type="button" ${nextDisabled} data-page-nav="next"
                     class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">Suivant ▶</button>
             </div>
         </div>`;
