@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Cap Huma">
+    <defs>
+        <linearGradient id="capLogoGradFavicon" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1d4ed8"/>
+            <stop offset="100%" stop-color="#ea580c"/>
+        </linearGradient>
+    </defs>
+    <circle cx="80" cy="80" r="80" fill="url(#capLogoGradFavicon)"/>
+    <circle cx="80" cy="80" r="58" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+    <g stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round">
+        <line x1="80" y1="16" x2="80" y2="26"/>
+        <line x1="80" y1="134" x2="80" y2="144"/>
+        <line x1="16" y1="80" x2="26" y2="80"/>
+        <line x1="134" y1="80" x2="144" y2="80"/>
+    </g>
+    <g>
+        <polygon points="80,28 90,80 80,80" fill="#ffffff"/>
+        <polygon points="80,28 70,80 80,80" fill="rgba(255,255,255,0.55)"/>
+        <polygon points="80,132 90,80 80,80" fill="rgba(255,255,255,0.3)"/>
+        <polygon points="80,132 70,80 80,80" fill="rgba(255,255,255,0.15)"/>
+        <circle cx="80" cy="80" r="5" fill="#ffffff"/>
+    </g>
+</svg>
