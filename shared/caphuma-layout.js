@@ -240,8 +240,13 @@ function renderDashboardLayout() {
                     </a>
                 </span>
 
+                <!-- Correctif P4 (B18-A6, 27/08/2026) : ces deux boutons n'affichent
+                     qu'une icône, sans texte visible. "title" seul ne suffit pas
+                     pour un lecteur d'écran (pas systématiquement lu) — aria-label
+                     fournit le vrai nom accessible du bouton, en plus de "title"
+                     conservé pour l'infobulle au survol de la souris. -->
                 <span class="relative">
-                    <button id="notifBellBtn" type="button" class="hidden relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Notifications">
+                    <button id="notifBellBtn" type="button" class="hidden relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Notifications" aria-label="Notifications" aria-expanded="false">
                         <span class="text-lg">🔔</span>
                         <span id="notifBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center"></span>
                     </button>
@@ -279,7 +284,7 @@ function renderDashboardLayout() {
                     </div>
                 </span>
 
-                <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion">
+                <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion" aria-label="Se déconnecter">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
                     </svg>

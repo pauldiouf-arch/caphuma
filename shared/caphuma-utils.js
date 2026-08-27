@@ -238,6 +238,14 @@ function toastMessage(msg, type = "success") {
     toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
         type === 'success' ? 'bg-green-600' : 'bg-red-600'
     }`;
+    // Correctif P3 (B18-A2, 27/08/2026) : sans ces deux attributs, un lecteur
+    // d'écran ne remarque jamais l'apparition de ce toast (il n'a pas le focus
+    // et n'est signalé par aucun rôle ARIA) — la confirmation ou l'erreur
+    // d'une action reste invisible pour un utilisateur non-voyant.
+    // aria-live="polite" : annoncé dès que possible, sans couper la parole
+    // sur ce que le lecteur d'écran est déjà en train de lire.
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
     toast.textContent = msg;
     document.body.appendChild(toast);
     setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);

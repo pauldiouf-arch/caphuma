@@ -456,14 +456,21 @@
         const notifPanel = document.getElementById('notifPanel');
         const notifSettingsBlock = document.getElementById('notifSettingsBlock');
 
+        // Correctif P5 (B18-A7, 27/08/2026) : notifBellBtn n'exposait jusqu'ici
+        // aucun état (aria-expanded) — un lecteur d'écran ne pouvait pas savoir
+        // si le panneau qu'il contrôle est ouvert ou fermé. Mis à jour aux deux
+        // endroits où le panneau change d'état : l'ouverture/fermeture par clic
+        // sur la cloche, ET la fermeture par clic en dehors du panneau.
         notifBellBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             notifPanel.classList.toggle('hidden');
+            notifBellBtn.setAttribute('aria-expanded', String(!notifPanel.classList.contains('hidden')));
         });
 
         document.addEventListener('click', (e) => {
             if (!notifPanel.classList.contains('hidden') && !notifPanel.contains(e.target) && e.target !== notifBellBtn) {
                 notifPanel.classList.add('hidden');
+                notifBellBtn.setAttribute('aria-expanded', 'false');
             }
         });
 
