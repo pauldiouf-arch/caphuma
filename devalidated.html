@@ -107,6 +107,17 @@
             ✅ Aucun talent dévalidé actuellement.
         </p>
 
+        <!-- Correctif P7 (B17-L1, 27/08/2026) : affichage progressif du mode
+             FILTRÉ uniquement (pool/date). Masqué par défaut, piloté par
+             updateDevalidatedShowMoreControls() dans devalidated.js — jamais
+             affiché en mode par défaut (déjà paginé Précédent/Suivant). -->
+        <div class="mt-4 flex flex-col items-center gap-2">
+            <p id="devalidatedRenderedCountLabel" class="hidden text-xs font-semibold text-slate-400"></p>
+            <button id="devalidatedShowMoreBtn" type="button" class="hidden border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold transition-all">
+                Afficher plus
+            </button>
+        </div>
+
         <!-- ────────────────────────────────────────────────────────────────────
              ENCART EXPLICATIF (Étape B) — adapté au fonctionnement réel du site :
              dévalidation manuelle uniquement, jamais automatique.

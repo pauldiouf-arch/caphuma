@@ -66,8 +66,6 @@
                 currentUserRole = s.role;
                 currentUserName = s.name;
 
-                capHumaStartIdleTimeout(supabaseClient);
-
                 // Page réservée admin + user (recruteur), bloquée pour visitor
                 if (currentUserRole === 'visitor') {
                     throw new Error("Accès non autorisé pour ce rôle.");
@@ -105,6 +103,18 @@
         let allDevalidatedTalents = []; // uniquement rempli en mode "filtre actif"
         let devalidatedPage = 1;
         const DEVALIDATED_PAGE_SIZE = 20;
+
+        // Correctif P7 (B17-L1, 27/08/2026, décision utilisateur) : affichage
+        // progressif en mode FILTRÉ uniquement (pool/date) — le mode par défaut
+        // ci-dessus est déjà paginé côté requête (20/page), pas concerné.
+        // devalidatedPoolSections garde une référence à chaque section de pool
+        // déjà construite, pour que "Afficher plus" y AJOUTE des lignes au lieu
+        // de dupliquer le pool dans une nouvelle section plus bas (voir
+        // renderGroupedByPool()).
+        const RENDER_BATCH_SIZE = 25;
+        let devalidatedFilteredTalents = [];
+        let devalidatedRenderedCount = 0;
+        let devalidatedPoolSections = {};
 
         const filterPoolSelect = document.getElementById('filterPool');
         const filterDateFrom = document.getElementById('filterDateFrom');
@@ -151,6 +161,15 @@
         // Mode par défaut (aucun filtre) : pagination réelle, liste plate.
         async function loadAndRenderPaged(page) {
             devalidatedPage = page;
+
+            // Correctif P7 : ce mode a sa propre pagination (Précédent/Suivant),
+            // pas de "Afficher plus" ici — on efface l'état du mode filtré pour
+            // ne pas laisser un bouton/compteur d'une session de filtre précédente
+            // affiché par erreur.
+            devalidatedFilteredTalents = [];
+            devalidatedRenderedCount = 0;
+            updateDevalidatedShowMoreControls();
+
             const result = await paginateQuery(
                 (c) => c.from('talents')
                     .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission', { count: 'exact' })
@@ -239,12 +258,53 @@
                 emptyState.textContent = allDevalidatedTalents.length === 0
                     ? '✅ Aucun talent dévalidé actuellement.'
                     : '🔎 Aucun talent dévalidé ne correspond à ces filtres.';
+                updateDevalidatedShowMoreControls();
                 return;
             }
 
             emptyState.classList.add('hidden');
-            renderGroupedByPool(allPools, filtered);
+
+            // Correctif P7 : repart de zéro (nouveau filtre = nouveau résultat),
+            // puis affiche le premier lot seulement.
+            devalidatedFilteredTalents = filtered;
+            devalidatedRenderedCount = 0;
+            devalidatedPoolSections = {};
+            poolsContainer.innerHTML = '';
+            renderMoreDevalidated();
         }
+
+        // Correctif P7 : affiche le prochain lot de devalidatedFilteredTalents,
+        // en l'ajoutant aux sections de pool déjà à l'écran (append = true dès
+        // le 2ᵉ lot) plutôt qu'en reconstruisant toute la page.
+        function renderMoreDevalidated() {
+            const isFirstBatch = devalidatedRenderedCount === 0;
+            const batch = devalidatedFilteredTalents.slice(devalidatedRenderedCount, devalidatedRenderedCount + RENDER_BATCH_SIZE);
+            renderGroupedByPool(allPools, batch, !isFirstBatch);
+            devalidatedRenderedCount += batch.length;
+            updateDevalidatedShowMoreControls();
+        }
+
+        // Correctif P7 : affiche/masque le bouton "Afficher plus" et le petit
+        // texte "X sur Y affichés" du mode filtré.
+        function updateDevalidatedShowMoreControls() {
+            const showMoreBtn = document.getElementById('devalidatedShowMoreBtn');
+            const countLabel = document.getElementById('devalidatedRenderedCountLabel');
+            if (!showMoreBtn || !countLabel) return;
+
+            if (!devalidatedFilteredTalents.length) {
+                showMoreBtn.classList.add('hidden');
+                countLabel.classList.add('hidden');
+                return;
+            }
+
+            countLabel.classList.remove('hidden');
+            const shown = Math.min(devalidatedRenderedCount, devalidatedFilteredTalents.length);
+            countLabel.textContent = `${shown} sur ${devalidatedFilteredTalents.length} affiché${devalidatedFilteredTalents.length > 1 ? 's' : ''}`;
+
+            showMoreBtn.classList.toggle('hidden', devalidatedRenderedCount >= devalidatedFilteredTalents.length);
+        }
+
+        document.getElementById('devalidatedShowMoreBtn')?.addEventListener('click', renderMoreDevalidated);
 
         filterPoolSelect.addEventListener('change', () => loadDevalidatedTalents());
         filterDateFrom.addEventListener('change', () => loadDevalidatedTalents());
@@ -258,8 +318,11 @@
             loadDevalidatedTalents(1);
         });
 
-        function renderGroupedByPool(pools, talents) {
-            poolsContainer.innerHTML = '';
+        function renderGroupedByPool(pools, talents, append = false) {
+            if (!append) {
+                poolsContainer.innerHTML = '';
+                devalidatedPoolSections = {};
+            }
 
             // Regroupement par pool_id, en conservant l'ordre des pools connus
             const grouped = {};
@@ -270,26 +333,43 @@
             });
 
             Object.keys(grouped).forEach(poolId => {
-                const section = document.createElement('div');
-                section.className = "bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden";
+                // Correctif P7 : si ce pool a déjà sa section (lot précédent), on
+                // récupère sa liste existante pour y AJOUTER les nouvelles lignes,
+                // au lieu de créer une 2ᵉ section dupliquée pour le même pool.
+                let existing = devalidatedPoolSections[poolId];
+                let list;
+                let countBadge;
 
-                const header = document.createElement('div');
-                header.className = "px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between";
-                header.innerHTML = `
-                    <h3 class="text-sm font-extrabold text-slate-700">${escapeHtml(poolLabel(poolId))}</h3>
-                    <span class="text-xs font-bold text-slate-400">${grouped[poolId].length} talent(s)</span>
-                `;
-                section.appendChild(header);
+                if (existing) {
+                    list = existing.list;
+                    countBadge = existing.countBadge;
+                } else {
+                    const section = document.createElement('div');
+                    section.className = "bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden";
 
-                const list = document.createElement('div');
-                list.className = "divide-y divide-slate-100";
+                    const header = document.createElement('div');
+                    header.className = "px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between";
+                    header.innerHTML = `
+                        <h3 class="text-sm font-extrabold text-slate-700">${escapeHtml(poolLabel(poolId))}</h3>
+                        <span class="text-xs font-bold text-slate-400" data-pool-count>0 talent(s)</span>
+                    `;
+                    section.appendChild(header);
+
+                    list = document.createElement('div');
+                    list.className = "divide-y divide-slate-100";
+                    section.appendChild(list);
+
+                    countBadge = header.querySelector('[data-pool-count]');
+                    poolsContainer.appendChild(section);
+                    devalidatedPoolSections[poolId] = { list, countBadge, count: 0 };
+                    existing = devalidatedPoolSections[poolId];
+                }
 
                 grouped[poolId].forEach(t => {
                     list.appendChild(renderTalentRow(t));
+                    existing.count++;
                 });
-
-                section.appendChild(list);
-                poolsContainer.appendChild(section);
+                countBadge.textContent = `${existing.count} talent(s)`;
             });
         }
 

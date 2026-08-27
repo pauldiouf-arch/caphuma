@@ -60,8 +60,6 @@
                 currentUserId = s.userId;
                 currentUserEmail = s.email;
                 currentUserName = s.name;
-
-                capHumaStartIdleTimeout(supabaseClient);
                 currentUserRole = s.role;
 
                 document.getElementById('user-display-name').textContent = currentUserEmail;
@@ -119,6 +117,14 @@
         let currentPage = 0;
         let totalCount = 0;
         let isFullListMode = false;
+
+        // Correctif P7 (B17-L1, 27/08/2026, décision utilisateur) : affichage
+        // progressif en mode "liste complète" (recherche/filtre avancé), pour
+        // éviter de créer d'un coup plusieurs centaines de nœuds DOM sur un
+        // pool qui grossirait beaucoup. Sans effet en mode paginé normal
+        // (PAGE_SIZE = 20, déjà petit) — voir renderTalents() plus bas.
+        const RENDER_BATCH_SIZE = 25;
+        let renderedTalentsCount = 0;
 
         function computeIsFullListMode() {
             const f = searchFilters;
@@ -270,6 +276,14 @@
             }
         });
 
+        // Correctif P7 : "Afficher plus" ajoute le lot suivant à la liste déjà
+        // affichée (append = true), sans tout reconstruire — s'appuie sur
+        // currentFilteredTalents, le tableau déjà en mémoire pour le mode
+        // "liste complète" (recherche/filtre avancé).
+        document.getElementById('talentsShowMoreBtn')?.addEventListener('click', () => {
+            renderTalents(currentFilteredTalents, true);
+        });
+
         function statusBadge(status) {
             const map = {
                 'En poste ALIMA': 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -325,18 +339,31 @@
         document.querySelector('main').addEventListener('scroll', hideHoverCard);
         window.addEventListener('resize', hideHoverCard);
 
-        function renderTalents(talents) {
+        function renderTalents(talents, append = false) {
             const listEl = document.getElementById('talentsList');
             const emptyEl = document.getElementById('emptyState');
-            listEl.innerHTML = '';
+
+            if (!append) {
+                listEl.innerHTML = '';
+                renderedTalentsCount = 0;
+            }
 
             if (!talents.length) {
                 emptyEl.classList.remove('hidden');
+                updateShowMoreControls(talents);
                 return;
             }
             emptyEl.classList.add('hidden');
 
-            talents.forEach(t => {
+            // Correctif P7 : seul le prochain lot (RENDER_BATCH_SIZE éléments) est
+            // construit ici, pas tout le tableau — le reste attend un clic sur
+            // "Afficher plus" (voir updateShowMoreControls() et son écouteur plus
+            // bas). En mode paginé normal, talents.length ≤ PAGE_SIZE (20) < 25,
+            // donc ce lot contient déjà tout : aucun changement de comportement
+            // visible dans ce mode.
+            const batch = talents.slice(renderedTalentsCount, renderedTalentsCount + RENDER_BATCH_SIZE);
+
+            batch.forEach(t => {
                 const row = document.createElement('div');
                 const eligible = isDevalidationEligible(t);
                 const isDevalidated = t.is_valid === false;
@@ -436,6 +463,30 @@
 
                 listEl.appendChild(row);
             });
+
+            renderedTalentsCount += batch.length;
+            updateShowMoreControls(talents);
+        }
+
+        // Correctif P7 : affiche/masque le bouton "Afficher plus" et le petit
+        // texte "X sur Y affichés", selon qu'il reste ou non des talents non
+        // encore rendus dans le tableau complet passé à renderTalents().
+        function updateShowMoreControls(talents) {
+            const showMoreBtn = document.getElementById('talentsShowMoreBtn');
+            const countLabel = document.getElementById('talentsRenderedCountLabel');
+            if (!showMoreBtn || !countLabel) return;
+
+            if (!talents.length) {
+                showMoreBtn.classList.add('hidden');
+                countLabel.classList.add('hidden');
+                return;
+            }
+
+            countLabel.classList.remove('hidden');
+            const shown = Math.min(renderedTalentsCount, talents.length);
+            countLabel.textContent = `${shown} sur ${talents.length} affiché${talents.length > 1 ? 's' : ''}`;
+
+            showMoreBtn.classList.toggle('hidden', renderedTalentsCount >= talents.length);
         }
 
         // ============================================================================

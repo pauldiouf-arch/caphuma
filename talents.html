@@ -218,6 +218,18 @@
         <p id="emptyState" class="hidden text-center text-sm text-slate-400 font-semibold py-12">Aucun talent ne correspond à ta recherche.</p>
         <p id="listError" class="hidden mt-4 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
 
+        <!-- Correctif P7 (B17-L1, 27/08/2026) : affichage progressif en mode
+             "liste complète" (recherche/filtre avancé). Masqué par défaut,
+             piloté entièrement par updateShowMoreControls() dans talents.js —
+             invisible en mode paginé normal (jamais assez de résultats pour
+             dépasser un lot). -->
+        <div class="mt-4 flex flex-col items-center gap-2">
+            <p id="talentsRenderedCountLabel" class="hidden text-xs font-semibold text-slate-400"></p>
+            <button id="talentsShowMoreBtn" type="button" class="hidden border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold transition-all">
+                Afficher plus
+            </button>
+        </div>
+
         <!-- Pagination réelle (Étape D, Option A) — visible uniquement en navigation
              normale (statut/tri simples). Dès qu'une recherche par mot-clé ou un filtre
              avancé est actif, la page bascule en mode "liste complète" (comme avant
