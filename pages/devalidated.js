@@ -66,6 +66,8 @@
                 currentUserRole = s.role;
                 currentUserName = s.name;
 
+                capHumaStartIdleTimeout(supabaseClient);
+
                 // Page réservée admin + user (recruteur), bloquée pour visitor
                 if (currentUserRole === 'visitor') {
                     throw new Error("Accès non autorisé pour ce rôle.");

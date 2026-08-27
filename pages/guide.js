@@ -48,6 +48,8 @@
                 currentUserId = s.userId;
                 currentUserEmail = s.email;
                 currentUserName = s.name;
+
+                capHumaStartIdleTimeout(supabaseClient);
                 document.getElementById('user-display-name').textContent = currentUserEmail;
 
                 appBody.style.display = '';

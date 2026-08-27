@@ -45,6 +45,8 @@
                 currentUserEmail = s.email;
                 currentUserName = s.name;
 
+                capHumaStartIdleTimeout(supabaseClient);
+
                 if (s.role !== 'admin') {
                     document.getElementById('accessDeniedBanner').classList.remove('hidden');
                     appBody.style.display = '';

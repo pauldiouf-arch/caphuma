@@ -71,6 +71,8 @@
                 currentUserId = s.userId;
                 currentUserEmail = s.email;
                 currentUserName = s.name;
+
+                capHumaStartIdleTimeout(supabaseClient);
                 currentUserRole = s.role;
                 appBody.style.display = '';
                 await initHub();

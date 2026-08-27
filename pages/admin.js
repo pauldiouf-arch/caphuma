@@ -60,6 +60,8 @@
                 currentUserId = s.userId;
                 currentUserEmail = s.email;
                 currentUserName = s.name;
+
+                capHumaStartIdleTimeout(supabaseClient);
                 appBody.style.display = '';
 
                 if (s.role !== 'admin') {

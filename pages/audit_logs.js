@@ -72,11 +72,10 @@
                 currentUserEmail = s.email;
                 currentUserName = s.name;
 
-                // ⚠️ TEST TEMPORAIRE P6 (idle timeout) — délai raccourci à 15
-                // secondes pour valider le comportement sans attendre 5h. À
-                // REMETTRE à capHumaStartIdleTimeout(supabaseClient); (sans le
-                // 2ᵉ argument, donc 5h par défaut) une fois le test confirmé.
-                capHumaStartIdleTimeout(supabaseClient, 15000);
+                // P6 (idle timeout) validé le 27/08/2026 sur cette page pilote —
+                // délai de test (15s) retiré, valeur de production (5h par
+                // défaut) appliquée.
+                capHumaStartIdleTimeout(supabaseClient);
                 document.getElementById('user-display-name').textContent = currentUserEmail;
 
                 if (s.role !== 'admin') {

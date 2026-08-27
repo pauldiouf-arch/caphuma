@@ -103,6 +103,8 @@
                 currentUserEmail = s.email;
                 currentUserRole = s.role;
                 currentUserName = s.name;
+
+                capHumaStartIdleTimeout(supabaseClient);
                 appBody.style.display = '';
 
                 // Cible par défaut du bouton Retour, remplacée par "Retour au pool X"
