@@ -286,3 +286,46 @@ function showError(msg) {
     banner.classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+// ----------------------------------------------------------------------------
+// 8. INTERCEPTEUR GLOBAL D'ERREURS
+// ----------------------------------------------------------------------------
+// Backlog B16-O1 (priorité P2). À l'origine dans un fichier séparé
+// shared/caphuma-error-monitor.js — regroupé ici le 27/08/2026 (décision
+// utilisateur) : un fichier de plus à charger sur chaque page a un coût réseau
+// fixe même pour un tout petit fichier (surtout perceptible sur une connexion
+// terrain lente), et ce code ne dépend de rien d'autre que toastMessage()
+// ci-dessus, déjà dans ce même fichier. Aucun changement de comportement,
+// uniquement un déplacement.
+//
+// Avant ce code, une erreur JS inattendue (exception non interceptée, promesse
+// rejetée sans .catch()) mourait silencieusement dans la console — aucun moyen
+// de savoir qu'un collègue a rencontré un bug sans qu'il le décrive verbalement.
+// Ne remplace ni audit_logs (actions métier volontaires) ni UptimeRobot/B6
+// (disponibilité du site) : couvre un troisième cas, les erreurs JS
+// inattendues côté navigateur d'un utilisateur déjà sur une page qui répond.
+//
+// CAP_HUMA_ERROR_BUFFER : les 20 dernières erreurs, en mémoire locale à
+// l'onglet uniquement — rien n'est envoyé nulle part par ce code. Sert de
+// socle à B16-O2 (bouton "Signaler un problème"), un chantier séparé, pas
+// encore fait.
+const CAP_HUMA_ERROR_BUFFER = [];
+
+function captureError(kind, detail) {
+    CAP_HUMA_ERROR_BUFFER.push({
+        kind,
+        detail: String(detail),
+        page: location.pathname,
+        at: new Date().toISOString()
+    });
+    if (CAP_HUMA_ERROR_BUFFER.length > 20) CAP_HUMA_ERROR_BUFFER.shift();
+
+    console.error(`[${kind}]`, detail);
+
+    if (typeof toastMessage === 'function') {
+        toastMessage("Une erreur inattendue s'est produite. Rechargez la page si le problème persiste.", "error");
+    }
+}
+
+window.addEventListener('error', (e) => captureError('Erreur JS', e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => captureError('Promesse rejetée', e.reason));

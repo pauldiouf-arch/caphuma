@@ -107,3 +107,51 @@ async function capHumaLogAudit(supabaseClient, ctx, action, entityType, entityId
         console.warn("[Audit] Échec de l'enregistrement du log :", err);
     }
 }
+
+/**
+ * ============================================================================
+ * DÉCONNEXION APRÈS INACTIVITÉ (backlog B14-I2, priorité P6)
+ * ----------------------------------------------------------------------------
+ * À l'origine dans un fichier séparé shared/caphuma-idle-timeout.js —
+ * regroupé ici le 27/08/2026 (décision utilisateur, même motif que
+ * captureError() dans caphuma-utils.js : éviter un fichier de plus à
+ * charger sur chaque page pour un coût réseau évitable). Aucun changement
+ * de comportement, uniquement un déplacement — sa place est de toute façon
+ * cohérente ici, ce fichier gérant déjà tout ce qui touche à la session.
+ *
+ * Durée retenue (décision utilisateur, 27/08/2026 — règle 16) : 5 HEURES,
+ * pas les 30 minutes du sketch initial du Master Context. Motif : les
+ * recruteurs gardent le site ouvert toute la journée sans y être en continu ;
+ * une déconnexion toutes les 30-60 min serait pénible en usage réel. La nuit
+ * (poste laissé sans surveillance) reste couverte par la consigne de
+ * verrouillage manuel du poste, déjà en vigueur côté utilisateurs.
+ * ============================================================================
+ */
+
+/**
+ * Démarre le chronomètre d'inactivité de la page. À appeler UNE SEULE FOIS
+ * par page, juste après confirmation qu'une session valide existe (donc
+ * après un appel réussi à capHumaInitSession() ci-dessus) — jamais avant.
+ *
+ * @param {Object} supabaseClient
+ * @param {number} [idleMs=18000000] Délai d'inactivité en millisecondes
+ *   avant déconnexion automatique. Par défaut 18 000 000 ms = 5 heures.
+ *   Paramètre exposé UNIQUEMENT pour permettre un délai raccourci pendant
+ *   des tests manuels — ne jamais coder une valeur différente de 5h en
+ *   production.
+ */
+function capHumaStartIdleTimeout(supabaseClient, idleMs = 5 * 60 * 60 * 1000) {
+    let idleTimer;
+
+    function resetIdle() {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(async () => {
+            console.warn('[Idle Timeout] Déconnexion automatique après inactivité.');
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        }, idleMs);
+    }
+
+    ['click', 'keydown', 'mousemove'].forEach(ev => document.addEventListener(ev, resetIdle));
+    resetIdle();
+}
