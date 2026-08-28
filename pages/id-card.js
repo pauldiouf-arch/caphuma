@@ -331,19 +331,17 @@
             document.getElementById('info-languages').textContent = langs;
 
             // Parcours & éducation
-            const eduLevels = {
-                none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
-                "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
-                "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
-            };
-            document.getElementById('info-edu-level').textContent = eduLevels[eduLvl] || "N/A";
+            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS/
+            // MISSION_COUNT_LABELS viennent désormais de shared/caphuma-utils.js
+            // (valeurs identiques à l'ancienne copie locale, vérifié avant
+            // centralisation).
+            document.getElementById('info-edu-level').textContent = EDU_LEVEL_LABELS[eduLvl] || "N/A";
             document.getElementById('info-edu-specialty').textContent = eduSpec;
             document.getElementById('info-integration-date').textContent = intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A";
             
             document.getElementById('info-exp-humanitarian').textContent = `${Math.floor(expHum / 12)}a ${expHum % 12}m`;
             
-            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
-            document.getElementById('info-alima-missions').textContent = missionCountLabels[nbMissions] || "0";
+            document.getElementById('info-alima-missions').textContent = MISSION_COUNT_LABELS[nbMissions] || "0";
 
             // Rendu défensif de type liste
             renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
@@ -771,12 +769,9 @@
             const contexts = talent.intervention_contexts || talent.interventionContexts || [];
             const zones = talent.intervention_zones || talent.interventionZones || [];
 
-            const eduLevels = {
-                none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
-                "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
-                "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
-            };
-            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
+            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS/
+            // MISSION_COUNT_LABELS viennent désormais de shared/caphuma-utils.js
+            // — voir renderTalentCard() plus haut pour le même correctif.
 
             let y = pdfDrawHeader(doc, talent, fName, lName, fFunction);
 
@@ -798,14 +793,14 @@
             const m3 = pdfDrawField(doc, "Expérience Humanitaire", pdfFormatExpAlima(expHum), COL_MID, y, 80);
             y = Math.max(l3, m3) + 3;
 
-            const l4 = pdfDrawField(doc, "Missions ALIMA", missionCountLabels[nbMissions] || pdfFormatMissions(nbMissions), COL_LEFT, y, 85);
+            const l4 = pdfDrawField(doc, "Missions ALIMA", MISSION_COUNT_LABELS[nbMissions] || pdfFormatMissions(nbMissions), COL_LEFT, y, 85);
             const m4 = pdfDrawField(doc, "Date d'intégration pool", intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A", COL_MID, y, 80);
             y = Math.max(l4, m4) + 6;
 
             // ── Section 3 : Formation & Compétences ──────────────────────────────
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, "Formation & Compétences", y);
-            const l5 = pdfDrawField(doc, "Niveau d'études", eduLevels[eduLvl] || "N/A", COL_LEFT, y, 85);
+            const l5 = pdfDrawField(doc, "Niveau d'études", EDU_LEVEL_LABELS[eduLvl] || "N/A", COL_LEFT, y, 85);
             const m5 = pdfDrawField(doc, "Spécialité", eduSpec, COL_MID, y, 80);
             y = Math.max(l5, m5) + 6;
 
@@ -1008,8 +1003,8 @@
             const recapBody = [
                 ["Expérience ALIMA", pdfFormatExpAlima(expAlima)],
                 ["Expérience humanitaire", pdfFormatExpAlima(expHum)],
-                ["Nombre de missions ALIMA", missionCountLabels[nbMissions] || pdfFormatMissions(nbMissions)],
-                ["Niveau d'études", eduLevels[eduLvl] || "N/A"],
+                ["Nombre de missions ALIMA", MISSION_COUNT_LABELS[nbMissions] || pdfFormatMissions(nbMissions)],
+                ["Niveau d'études", EDU_LEVEL_LABELS[eduLvl] || "N/A"],
             ];
             if (keySkills.length > 0) recapBody.push(["Compétences clés", keySkills.join(", ")]);
             if (contexts.length > 0) recapBody.push(["Contextes d'intervention", contexts.join(", ")]);

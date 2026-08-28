@@ -91,7 +91,16 @@
         // côté gateway avant même d'atteindre le code de la fonction.
         async function callManageUsers(action, payload = {}) {
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
+            if (!session) {
+                // Correctif complémentaire à P10 (28/08/2026, décision utilisateur,
+                // trouvé en testant P10) : même traitement que le 401/403 plus bas
+                // — si le navigateur n'a plus AUCUNE session locale (déconnexion
+                // depuis un autre onglet, stockage local vidé...), rester sur place
+                // avec un simple message d'erreur n'aide personne : chaque nouvelle
+                // action échouerait de la même façon jusqu'à un rechargement manuel.
+                window.location.href = 'login.html';
+                throw new Error("Session expirée, veuillez vous reconnecter.");
+            }
 
             const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
                 method: 'POST',

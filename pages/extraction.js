@@ -95,15 +95,12 @@
         // ============================================================================
         // 3. LIBELLÉS (identiques à missions.html / id-card.html)
         // ============================================================================
-        // STATUS_LABELS, DESK_LABELS, CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS
-        // sont désormais fournis par shared/caphuma-utils.js (valeurs identiques).
+        // STATUS_LABELS, DESK_LABELS, CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS,
+        // EDU_LEVEL_LABELS, MISSION_COUNT_LABELS sont désormais tous fournis par
+        // shared/caphuma-utils.js (valeurs identiques). Correctif P11 (B13-Q4,
+        // 28/08/2026) : les deux derniers étaient encore déclarés localement ici
+        // avant ce jour, retirés au profit de la version partagée.
         const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
-        const EDU_LEVEL_LABELS = {
-            none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
-            "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
-            "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
-        };
-        const MISSION_COUNT_LABELS = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
 
         function fmtDate(value) {
             if (!value) return '';

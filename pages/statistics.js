@@ -507,7 +507,12 @@
         // sur une fonctionnalité déjà jugée satisfaisante par l'utilisateur.
         async function callPoolAiProxy(prompt) {
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) throw new Error("Session expirée — reconnectez-vous.");
+            if (!session) {
+                // Correctif complémentaire à P10 (28/08/2026) : voir
+                // callManageUsers() (admin.js) pour la justification complète.
+                window.location.href = 'login.html';
+                throw new Error("Session expirée — reconnectez-vous.");
+            }
 
             const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                 method: 'POST',
@@ -1020,7 +1025,12 @@ Données consolidées du pool (${statsSummary.pool}) :
                 // Appel à la Edge Function générique ai-proxy (partagée avec missions.html) —
                 // vérifie le rôle côté serveur (visitor exclu) et détient seule la clé IA.
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                if (!session) throw new Error("Session expirée — reconnectez-vous.");
+                if (!session) {
+                    // Correctif complémentaire à P10 (28/08/2026) : voir
+                    // callManageUsers() (admin.js) pour la justification complète.
+                    window.location.href = 'login.html';
+                    return;
+                }
 
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                     method: 'POST',

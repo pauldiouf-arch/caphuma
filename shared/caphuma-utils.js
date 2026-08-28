@@ -70,6 +70,21 @@ const CONTRACT_STATUS_LABELS = {
     ending: 'Se termine'
 };
 
+// Ajoutés le 28/08/2026 (backlog B13-Q4, priorité P11) : ces deux objets
+// existaient identiques (mêmes clés, mêmes valeurs) en 4 copies locales —
+// id-card.js (×2 : rendu de la carte et export PDF), shared-talent.js,
+// extraction.js — vérifié avant centralisation (règle 34). Même logique que
+// STATUS_LABELS/DESK_LABELS ci-dessus.
+const EDU_LEVEL_LABELS = {
+    none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
+    "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
+    "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
+};
+
+const MISSION_COUNT_LABELS = {
+    none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +"
+};
+
 // ----------------------------------------------------------------------------
 // 3. PAGINATION RÉELLE (générique)
 // ----------------------------------------------------------------------------

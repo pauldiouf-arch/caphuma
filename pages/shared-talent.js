@@ -66,12 +66,10 @@
             const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
             document.getElementById('info-languages').textContent = langs;
 
-            const eduLevels = {
-                none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
-                "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
-                "bac+6": "Bac+6", "bac+7": "Bac+7", "bac+8+": "Bac+8+ (Doctorat)"
-            };
-            document.getElementById('info-edu-level').textContent = eduLevels[talent.education_level] || "N/A";
+            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS vient
+            // désormais de shared/caphuma-utils.js (valeurs identiques à
+            // l'ancienne copie locale, vérifié avant centralisation).
+            document.getElementById('info-edu-level').textContent = EDU_LEVEL_LABELS[talent.education_level] || "N/A";
             document.getElementById('info-edu-specialty').textContent = talent.education_specialty || "N/A";
             document.getElementById('info-integration-date').textContent = talent.pool_integration_date
                 ? new Date(talent.pool_integration_date).toLocaleDateString('fr-FR') : "N/A";
@@ -82,8 +80,9 @@
             const expAlima = talent.experience_months_alima || 0;
             document.getElementById('info-exp-alima').textContent = `${Math.floor(expAlima / 12)}a ${expAlima % 12}m`;
 
-            const missionCountLabels = { none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +" };
-            document.getElementById('info-alima-missions').textContent = missionCountLabels[talent.number_of_alima_missions] || "0";
+            // Correctif P11 (B13-Q4, 28/08/2026) : MISSION_COUNT_LABELS vient
+            // désormais de shared/caphuma-utils.js.
+            document.getElementById('info-alima-missions').textContent = MISSION_COUNT_LABELS[talent.number_of_alima_missions] || "0";
 
             renderBadges('skills-badges-container', talent.key_skills);
             renderBadges('contexts-badges-container', talent.intervention_contexts);
