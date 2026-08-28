@@ -244,7 +244,16 @@
                     // désormais lui-même côté serveur (garanti, quel que soit le chemin
                     // d'appel) — la laisser ici aurait créé une ligne en double.
                     showAccessCodeModal(result.accessCode);
-                    toastMessage("Code d'accès réinitialisé avec succès.");
+                    // Correctif P9 (B12-S2, 28/08/2026) : manage-users peut renvoyer un
+                    // avertissement même en cas de succès (ex. révocation des sessions
+                    // actives échouée) — jusqu'ici silencieusement ignoré ici, alors que
+                    // ce champ existait déjà pour l'action delete ci-dessous (même angle
+                    // mort, corrigé pour les deux actions en même temps).
+                    if (result.warning) {
+                        toastMessage(result.warning, "error");
+                    } else {
+                        toastMessage("Code d'accès réinitialisé avec succès.");
+                    }
                 }
             });
         }
@@ -256,11 +265,18 @@
                 actionLabel: "Supprimer",
                 icon: "🗑️",
                 onConfirm: async () => {
-                    await callManageUsers('delete', { userId });
+                    const result = await callManageUsers('delete', { userId });
                     // Journalisation retirée d'ici le 17/07/2026 : manage-users l'écrit
                     // désormais lui-même côté serveur, avant même la suppression de la
                     // ligne 'users' — la laisser ici aurait créé une ligne en double.
-                    toastMessage("Compte supprimé avec succès.");
+                    // Correctif P9 (B12-S2, 28/08/2026) : voir onResetPassword()
+                    // ci-dessus, même angle mort (champ "warning" ignoré) corrigé pour
+                    // les deux actions en même temps.
+                    if (result.warning) {
+                        toastMessage(result.warning, "error");
+                    } else {
+                        toastMessage("Compte supprimé avec succès.");
+                    }
                     await loadAccounts();
                 }
             });
