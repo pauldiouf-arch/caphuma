@@ -329,3 +329,25 @@ function captureError(kind, detail) {
 
 window.addEventListener('error', (e) => captureError('Erreur JS', e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => captureError('Promesse rejetée', e.reason));
+
+// ----------------------------------------------------------------------------
+// 9. DÉTECTION DE PERTE DE CONNEXION (backlog B15-R3, priorité P8)
+// ----------------------------------------------------------------------------
+// Avant ce code, rien ne distinguait "l'action est en train de traiter" de
+// "elle ne répondra jamais" pendant une coupure réseau (VPN terrain, Wi-Fi
+// instable) — confirmé par recherche exhaustive sur les 15 pages : aucun
+// usage de navigator.onLine, aucun écouteur 'online'/'offline' nulle part
+// dans le code avant ce correctif (Master Context §7 B15-R3).
+//
+// Aucune décision métier requise pour ce point (contrairement à R1/R2 du
+// même chantier B15) : le texte des deux messages ne fait qu'exposer le
+// signal déjà standard du navigateur, sans paramètre à trancher.
+//
+// Portée et limite assumées : couvre uniquement le signal navigator.onLine
+// du navigateur (fiable pour une coupure Wi-Fi/Ethernet complète), pas une
+// vérification active par appel réseau — une coupure VPN partielle qui
+// laisse l'interface réseau locale "up" ne déclenchera pas cet événement.
+// Ne remplace pas B15-R2 (retry automatique, pas encore fait) : ce correctif
+// informe l'utilisateur, il ne fait rien retenter automatiquement.
+window.addEventListener('offline', () => toastMessage("Connexion perdue — vos actions seront bloquées jusqu'au retour du réseau.", "error"));
+window.addEventListener('online', () => toastMessage("Connexion rétablie.", "success"));
