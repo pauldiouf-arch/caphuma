@@ -103,6 +103,19 @@
                 body: JSON.stringify({ action, ...payload })
             });
 
+            // Correctif P10 (B14-I3, 28/08/2026) : un token expiré/refusé (401/403)
+            // remontait jusqu'ici comme une erreur générique ("Échec de l'action :
+            // ..."), sans jamais déconnecter ni rediriger vers login.html —
+            // l'utilisateur restait sur une page qui semblait fonctionner mais
+            // dont chaque nouvelle action échouerait de la même façon jusqu'à un
+            // rechargement manuel. Déconnexion + redirection explicites dès la
+            // détection, avant même de tenter de lire le corps de la réponse.
+            if (response.status === 401 || response.status === 403) {
+                await supabaseClient.auth.signOut();
+                window.location.href = 'login.html';
+                throw new Error('Session expirée ou accès refusé — redirection vers la connexion.');
+            }
+
             const json = await response.json();
             if (!response.ok || json.error) {
                 throw new Error(json.error || `Erreur inattendue (statut ${response.status})`);

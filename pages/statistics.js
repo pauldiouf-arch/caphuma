@@ -519,6 +519,16 @@
                 body: JSON.stringify({ prompt })
             });
 
+            // Correctif P10 (B14-I3, 28/08/2026) : voir callManageUsers()
+            // (admin.js) pour la justification complète — un 401/403 ne doit
+            // jamais rester un simple message d'erreur affiché dans le panneau
+            // d'analyse, l'utilisateur doit être renvoyé se reconnecter.
+            if (response.status === 401 || response.status === 403) {
+                await supabaseClient.auth.signOut();
+                window.location.href = 'login.html';
+                throw new Error('Session expirée ou accès refusé — redirection vers la connexion.');
+            }
+
             const result = await response.json();
             if (!response.ok || result.error) {
                 throw new Error(result.error || `Erreur serveur (${response.status})`);
@@ -1021,6 +1031,17 @@ Données consolidées du pool (${statsSummary.pool}) :
                     },
                     body: JSON.stringify({ prompt: fullPrompt })
                 });
+
+                // Correctif P10 (B14-I3, 28/08/2026) : voir callManageUsers()
+                // (admin.js) pour la justification complète. Ce bloc reste
+                // volontairement séparé de callPoolAiProxy() (voir commentaire
+                // plus haut sur ce choix) — même correctif appliqué aux deux
+                // implémentations plutôt que de les fusionner maintenant.
+                if (response.status === 401 || response.status === 403) {
+                    await supabaseClient.auth.signOut();
+                    window.location.href = 'login.html';
+                    return;
+                }
 
                 const result = await response.json();
                 if (!response.ok || result.error) {
