@@ -30,6 +30,22 @@
         let selectedTalentForRedlist = null;
         let selectedRedlistFiles = [];
 
+        // Correctif P13 (B12-S4, 28/08/2026) : whitelist MIME correspondant exactement
+        // à l'attribut accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" du champ de sélection
+        // dans red_list.html (cet attribut n'est qu'indicatif côté navigateur,
+        // contournable en glisser-déposer — d'où ce contrôle en plus, côté JS).
+        // Taille max par fichier : 10 Mo, choix raisonnable pour un scan/photo de
+        // document justificatif — à ajuster ici si besoin, une seule constante.
+        const REDLIST_ALLOWED_MIME_TYPES = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/jpeg',
+            'image/png'
+        ];
+        const REDLIST_MAX_FILE_SIZE_MB = 10;
+        const REDLIST_MAX_FILE_SIZE_BYTES = REDLIST_MAX_FILE_SIZE_MB * 1024 * 1024;
+
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
         // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
 
@@ -162,7 +178,31 @@
 
         document.getElementById('modal-redlist-add-files').addEventListener('change', (e) => {
             if (e.target.files && e.target.files.length > 0) {
-                selectedRedlistFiles = selectedRedlistFiles.concat(Array.from(e.target.files));
+                // Correctif P13 (B12-S4, 28/08/2026) : filtre chaque fichier avant de
+                // l'ajouter à la sélection, plutôt que de découvrir un refus seulement
+                // au moment de l'envoi — économise un aller-retour réseau inutile en
+                // cas d'erreur de manipulation, en complément des policies du bucket
+                // de stockage (non revues dans ce correctif, jamais en remplacement).
+                const incoming = Array.from(e.target.files);
+                const accepted = [];
+                const rejected = [];
+                incoming.forEach(file => {
+                    if (!REDLIST_ALLOWED_MIME_TYPES.includes(file.type)) {
+                        rejected.push(`${file.name} (type de fichier non autorisé)`);
+                        return;
+                    }
+                    if (file.size > REDLIST_MAX_FILE_SIZE_BYTES) {
+                        rejected.push(`${file.name} (dépasse ${REDLIST_MAX_FILE_SIZE_MB} Mo)`);
+                        return;
+                    }
+                    accepted.push(file);
+                });
+
+                if (rejected.length > 0) {
+                    toastMessage(`Fichier(s) refusé(s) : ${rejected.join(', ')}`, 'error');
+                }
+
+                selectedRedlistFiles = selectedRedlistFiles.concat(accepted);
                 e.target.value = ''; // permet de resélectionner le même fichier si retiré par erreur
                 renderSelectedFilesList();
                 updateModalConfirmState();
@@ -177,6 +217,15 @@
             const paths = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
+                // Défense en profondeur (P13, B12-S4, 28/08/2026) : revérifié ici même
+                // si déjà filtré à la sélection plus haut, pour ne jamais dépendre d'un
+                // seul point de contrôle si ce code est un jour appelé autrement.
+                if (!REDLIST_ALLOWED_MIME_TYPES.includes(file.type)) {
+                    throw new Error(`Type de fichier non autorisé : "${file.name}".`);
+                }
+                if (file.size > REDLIST_MAX_FILE_SIZE_BYTES) {
+                    throw new Error(`"${file.name}" dépasse la taille maximale autorisée (${REDLIST_MAX_FILE_SIZE_MB} Mo).`);
+                }
                 const path = `${talentId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`;
                 const { error } = await supabaseClient
                     .storage
