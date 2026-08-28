@@ -249,7 +249,10 @@
 
             document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
             document.getElementById('back-btn').onclick = () => {
-                window.location.href = `talents.html?pool=${talent.pool}`;
+                // Correctif P12 (B12-S3, 28/08/2026) : talent.pool est aujourd'hui un
+                // code pool forcé en majuscules par admin.html, donc déjà propre —
+                // encodé par précaution, même logique que talents.js.
+                window.location.href = `talents.html?pool=${encodeURIComponent(talent.pool)}`;
             };
 
             document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "N/A";
@@ -1403,7 +1406,10 @@
             // window.location.origin seul), pour rester valide en hébergement GitHub
             // Pages "project site" (cf. règle de méthode n°27 du Master Context).
             const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-            return `${window.location.origin}${basePath}shared-talent.html?token=${token}`;
+            // Correctif P12 (B12-S3, 28/08/2026, trouvé en marge de l'audit initial) :
+            // token est aujourd'hui 'st_' + crypto.randomUUID(), donc déjà propre —
+            // encodé par précaution, même logique que les 2 points ci-dessus.
+            return `${window.location.origin}${basePath}shared-talent.html?token=${encodeURIComponent(token)}`;
         }
 
         function maskToken(token) {

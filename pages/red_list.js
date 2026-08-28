@@ -391,6 +391,13 @@
                     : '—';
                 const docCount = Array.isArray(t.red_list_documents) ? t.red_list_documents.length : 0;
 
+                // Correctif P12 (B12-S3, 28/08/2026, trouvé en marge de l'audit initial) :
+                // le lien "Voir la fiche" juste en dessous utilisait escapeHtml(t.id) pour
+                // construire une URL — protège du HTML, pas d'une URL. Remplacé par
+                // encodeURIComponent(t.id), la bonne fonction pour ce contexte (t.id est
+                // aujourd'hui un UUID propre, donc sans conséquence visible aujourd'hui,
+                // mais habitude à corriger comme les 2 autres points de P12).
+
                 return `
                 <tr class="text-slate-700">
                     <td class="py-3 pr-4 font-medium">${escapeHtml(fullName)}</td>
@@ -405,7 +412,7 @@
                     <td class="py-3 pr-4 text-xs text-slate-500">${escapeHtml(t.red_list_added_by_name || '—')}</td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5 flex-wrap">
-                            <a href="id-card.html?id=${escapeHtml(t.id)}" class="text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Voir la fiche</a>
+                            <a href="id-card.html?id=${encodeURIComponent(t.id)}" class="text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Voir la fiche</a>
                             <button class="btn-remove-redlist text-xs font-semibold text-green-600 hover:bg-green-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${escapeHtml(t.id)}" data-name="${escapeHtml(fullName)}">
                                 Retirer
                             </button>

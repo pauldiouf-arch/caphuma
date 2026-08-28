@@ -430,7 +430,12 @@
                 // Rediriger vers id-card.html lors d'un clic n'importe où sur la ligne
                 row.addEventListener('click', (e) => {
                     const idKey = t.id || t._id;
-                    window.location.href = `id-card.html?id=${idKey}`;
+                    // Correctif P12 (B12-S3, 28/08/2026) : idKey est aujourd'hui un
+                    // UUID généré par Postgres, donc déjà propre — mais encodé par
+                    // précaution avant qu'un futur cas limite (import en masse, saisie
+                    // manuelle) n'introduise un caractère réservé qui casserait la
+                    // navigation.
+                    window.location.href = `id-card.html?id=${encodeURIComponent(idKey)}`;
                 });
 
                 // Hover card (Étape D) : aperçu rapide au survol du nom, sans ouvrir la fiche
