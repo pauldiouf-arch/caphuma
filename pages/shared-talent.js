@@ -163,7 +163,13 @@
             }
 
             try {
-                const { data, error } = await supabaseClient.rpc('get_shared_talent', { p_token: token });
+                // Enveloppé dans capHumaWithRetry() (P19) : page publique, sans session —
+                // les visiteurs externes sur connexion instable bénéficient d'autant plus
+                // du retry qu'ils n'ont pas le réflexe "recharger" d'un utilisateur habitué
+                // au site.
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient.rpc('get_shared_talent', { p_token: token })
+                );
                 if (error) throw error;
 
                 if (data && data.error) {
