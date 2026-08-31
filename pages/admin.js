@@ -102,7 +102,7 @@
                 throw new Error("Session expirée, veuillez vous reconnecter.");
             }
 
-            const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
+            const doFetch = () => fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`,
@@ -111,6 +111,19 @@
                 },
                 body: JSON.stringify({ action, ...payload })
             });
+
+            // Correctif P19 (B15-R2, 31/08/2026, décision n°15) : retry
+            // UNIQUEMENT sur "create" et "delete", jamais sur
+            // "reset_password" — tranché après un test en conditions réelles
+            // le 31/08/2026 (Master Context §7 B15-R2) : create/delete
+            // échouent proprement à un 2e appel (email déjà utilisé, compte
+            // déjà supprimé), alors que reset_password réussit deux fois de
+            // suite sans protection — un double appel génère un second code
+            // d'accès ET une seconde ligne dans audit_logs pour une seule
+            // action voulue par l'admin (confirmé par le test).
+            const response = (action === 'create' || action === 'delete')
+                ? await capHumaWithRetry(doFetch)
+                : await doFetch();
 
             // Correctif P10 (B14-I3, 28/08/2026) : un token expiré/refusé (401/403)
             // remontait jusqu'ici comme une erreur générique ("Échec de l'action :
@@ -143,10 +156,12 @@
             table.classList.add('hidden');
 
             try {
-                const { data, error } = await supabaseClient
-                    .from('users')
-                    .select('id, name, email, role, is_active, created_at')
-                    .order('created_at', { ascending: false });
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('users')
+                        .select('id, name, email, role, is_active, created_at')
+                        .order('created_at', { ascending: false })
+                );
 
                 if (error) throw error;
                 accountsList = data || [];
@@ -241,10 +256,12 @@
                 actionLabel: nextState ? "Réactiver" : "Suspendre",
                 icon: nextState ? "✅" : "⏸️",
                 onConfirm: async () => {
-                    const { error } = await supabaseClient
-                        .from('users')
-                        .update({ is_active: nextState })
-                        .eq('id', userId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('users')
+                            .update({ is_active: nextState })
+                            .eq('id', userId)
+                    );
                     if (error) throw error;
                     const targetAccount = accountsList.find(a => a.id === userId);
                     await logAuditAction('update', 'user', userId, targetAccount ? (targetAccount.name || targetAccount.email) : userId, nextState ? "Réactivation du compte" : "Suspension du compte");
@@ -359,7 +376,9 @@
             table.classList.add('hidden');
 
             try {
-                const { data, error } = await supabaseClient.from('pools').select('id, pool_id, full_name, level, description, is_archived');
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient.from('pools').select('id, pool_id, full_name, level, description, is_archived')
+                );
                 if (error) throw error;
                 poolsList = data || [];
                 renderPools();
@@ -433,7 +452,9 @@
                         ? { is_archived: true, archived_at: new Date().toISOString(), archived_by_name: session.user.email }
                         : { is_archived: false, archived_at: null, archived_by_name: null };
 
-                    const { error } = await supabaseClient.from('pools').update(updatePayload).eq('id', poolId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient.from('pools').update(updatePayload).eq('id', poolId)
+                    );
                     if (error) throw error;
                     toastMessage(nextState ? "Pool archivé." : "Pool désarchivé.");
                     await loadPools();
@@ -470,15 +491,27 @@
                 // Schéma réel vérifié via information_schema.columns (name, level,
                 // full_name, pool_id sont NOT NULL) : name reçoit le code court,
                 // cohérent avec le pattern déjà observé côté Convex de référence.
-                const { error } = await supabaseClient.from('pools').insert({
-                    pool_id: code,
-                    name: code,
-                    full_name: fullName,
-                    level: level,
-                    description: description || null,
-                    is_active: true,
-                    is_archived: false
-                });
+                //
+                // Enveloppé dans capHumaWithRetry() (P19, décision n°15, affiné
+                // le 31/08/2026) : contrairement aux 10 autres insert() du site,
+                // celui-ci est sûr à retenter — pools.pool_id porte une
+                // contrainte UNIQUE (Dossier de passation §4.2) et "code" est lu
+                // une seule fois, avant l'appel, donc un retry retente EXACTEMENT
+                // le même pool_id. En cas de doublon (1re tentative en fait
+                // réussie côté serveur, réponse perdue), la 2e tentative tombe
+                // proprement sur une violation de contrainte plutôt que de
+                // créer un second pool silencieux.
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient.from('pools').insert({
+                        pool_id: code,
+                        name: code,
+                        full_name: fullName,
+                        level: level,
+                        description: description || null,
+                        is_active: true,
+                        is_archived: false
+                    })
+                );
                 if (error) throw error;
                 document.getElementById('modal-create-pool').classList.add('hidden');
                 toastMessage("Pool créé avec succès.");

@@ -108,8 +108,14 @@ async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const query = queryBuilderFn(supabaseClient).range(from, to);
-    const { data, error, count } = await query;
+    // Correctif P19 (B15-R2, 31/08/2026) : queryBuilderFn(...) est appelé À
+    // L'INTÉRIEUR de la fonction passée à capHumaWithRetry(), pas une seule
+    // fois avant — un query builder Supabase déjà "await"é une fois ne
+    // refait pas la requête réseau si on l'attend une 2e fois ; il faut donc
+    // reconstruire un query builder tout neuf à chaque tentative.
+    const { data, error, count } = await capHumaWithRetry(() =>
+        queryBuilderFn(supabaseClient).range(from, to)
+    );
 
     if (error) throw error;
 
@@ -474,4 +480,74 @@ function capHumaInitModalA11y() {
             }
         }).observe(modal, { attributes: true, attributeFilter: ['class'] });
     });
+}
+
+// ----------------------------------------------------------------------------
+// 11. RETRY AUTOMATIQUE SUR ÉCHEC RÉSEAU (backlog B15-R2, priorité P19)
+// ----------------------------------------------------------------------------
+// Avant ce correctif, un appel de données qui échouait sur une coupure
+// réseau (VPN terrain, Wi-Fi instable — même contexte que B15-R3 ci-dessus)
+// échouait immédiatement, sans nouvelle tentative : l'utilisateur devait
+// relancer l'action lui-même, souvent sans savoir si elle avait ou non
+// abouti côté serveur.
+//
+// Paramètres (décision utilisateur n°9, 27/08/2026) : 2 tentatives, 1500 ms
+// entre les deux.
+//
+// Portée (décision utilisateur n°15, 31/08/2026 — tranchée après un TEST EN
+// CONDITIONS RÉELLES sur manage-users, pas sur simple lecture de code, voir
+// Master Context §7 B15-R2 et §2 session du 31/08/2026) :
+//   OUI, retenté : toutes les lectures (.select()), tous les
+//     update()/delete()/upsert(), les 4 rpc() de lecture, le seul
+//     storage.upload() du site (red_list.js — chemin calculé une seule fois
+//     avant l'appel, donc une relance retente exactement le même chemin ;
+//     aucun { upsert: true } n'est passé, donc un doublon retomberait sur
+//     une erreur "déjà existant" plutôt que d'écraser silencieusement), et
+//     les actions "create"/"delete" de l'Edge Function manage-users
+//     (protégées nativement par l'unicité d'email / l'absence de compte à
+//     supprimer deux fois — confirmé par test réel : les 2es tentatives
+//     reviennent en erreur propre, sans aucun doublon créé).
+//   NON, jamais retenté : les 11 insert() bruts des pages (talents/missions/
+//     pools n'ont AUCUNE contrainte UNIQUE en base qui empêcherait un
+//     doublon silencieux — vérifié dans le schéma réel, Dossier de
+//     passation §4.2), l'action "reset_password" de manage-users (testée en
+//     conditions réelles : AUCUNE protection contre un double appel —
+//     confirmé par un doublon effectif dans audit_logs lors du test du
+//     31/08/2026), et ai-proxy (palier gratuit limité chez le fournisseur
+//     d'IA, Dossier de passation §7.14 — un retry sur faux négatif double la
+//     consommation d'un quota rare pour une fonctionnalité non critique).
+//
+// Principe technique : ne retente QUE sur une exception JS (échec réseau
+// avant d'atteindre le serveur) — JAMAIS si l'appel se résout normalement
+// avec un { error } rempli, qui est une vraie erreur métier (contrainte,
+// RLS...) à afficher tout de suite, pas à retarder inutilement derrière un
+// délai supplémentaire (inquiétude déjà notée en décision n°9).
+//
+// ⚠️ Règle d'usage impérative partout où cette fonction est appelée :
+// capHumaWithRetry() doit envelopper l'appel BRUT (le .from()/.rpc()/
+// .storage./fetch() lui-même, passé sous forme de fonction () => ...),
+// jamais une fonction qui a déjà transformé une erreur métier en exception
+// — sinon une vraie erreur métier finirait, elle aussi, par être retentée
+// inutilement.
+//
+// @param {Function} callFn  () => Promise — DOIT reconstruire l'appel à
+//        chaque invocation (ne jamais passer une Promise déjà créée : un
+//        query builder Supabase déjà "then()"/attendu une fois ne refait
+//        pas la requête réseau à un 2e await).
+// @param {Object} [options]
+// @param {number} [options.attempts=2]
+// @param {number} [options.delayMs=1500]
+// @returns {Promise} Le résultat de callFn() (données + erreur métier
+//        éventuelle, inchangés) — ou relance l'exception réseau d'origine
+//        si toutes les tentatives ont échoué.
+async function capHumaWithRetry(callFn, { attempts = 2, delayMs = 1500 } = {}) {
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await callFn();
+        } catch (networkErr) {
+            if (i === attempts - 1) throw networkErr;
+            console.warn(`[Retry] Tentative ${i + 1}/${attempts} échouée (réseau), nouvel essai dans ${delayMs} ms…`, networkErr);
+            await new Promise(r => setTimeout(r, delayMs));
+        }
+    }
 }

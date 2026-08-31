@@ -145,17 +145,21 @@
         // correspondant pour les calculer).
         async function loadHeaderStats() {
             try {
-                const { count: totalCount, error: totalErr } = await supabaseClient
-                    .from('audit_logs')
-                    .select('*', { count: 'exact', head: true });
+                const { count: totalCount, error: totalErr } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('audit_logs')
+                        .select('*', { count: 'exact', head: true })
+                );
                 if (totalErr) throw totalErr;
                 document.getElementById('statTotal').textContent = totalCount || 0;
 
                 const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-                const { data: recentLogs, error: recentErr } = await supabaseClient
-                    .from('audit_logs')
-                    .select('user_email, user_id, action')
-                    .gte('created_at', sevenDaysAgoIso);
+                const { data: recentLogs, error: recentErr } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('audit_logs')
+                        .select('user_email, user_id, action')
+                        .gte('created_at', sevenDaysAgoIso)
+                );
                 if (recentErr) throw recentErr;
 
                 const recent = recentLogs || [];
@@ -209,7 +213,14 @@
                 const from = currentPage * PAGE_SIZE;
                 const to = from + PAGE_SIZE - 1;
 
-                const { data, error, count } = await buildFilteredLogsQuery(false).range(from, to);
+                // capHumaWithRetry() (P19) : buildFilteredLogsQuery() reconstruit un
+                // query builder à chaque appel — la fonction est donc passée telle
+                // quelle, pas son résultat déjà construit. Ses effets de bord DOM
+                // (bascule de exactDateHint / filterPeriod.disabled) sont sans risque
+                // à rejouer plusieurs fois : mêmes filtres, même résultat.
+                const { data, error, count } = await capHumaWithRetry(() =>
+                    buildFilteredLogsQuery(false).range(from, to)
+                );
                 if (error) throw error;
 
                 currentPageLogs = data || [];
@@ -367,7 +378,7 @@
             }
 
             try {
-                const { data, error } = await buildFilteredLogsQuery(true);
+                const { data, error } = await capHumaWithRetry(() => buildFilteredLogsQuery(true));
                 if (error) throw error;
                 const filtered = data || [];
 
