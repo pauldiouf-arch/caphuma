@@ -168,11 +168,13 @@
         // ============================================================================
         async function loadPoolInfo() {
             try {
-                const { data: pool, error } = await supabaseClient
-                    .from('pools')
-                    .select('pool_id, name, full_name')
-                    .eq('pool_id', currentPoolId)
-                    .maybeSingle();
+                const { data: pool, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('pools')
+                        .select('pool_id, name, full_name')
+                        .eq('pool_id', currentPoolId)
+                        .maybeSingle()
+                );
 
                 if (error) throw error;
 
@@ -191,11 +193,13 @@
         async function loadPoolTalents() {
             try {
                 // Colonnes strictement nécessaires (règle perf Master Context section 2 bis.2)
-                const { data: talents, error } = await supabaseClient
-                    .from('talents')
-                    .select('id, first_name, last_name, pool')
-                    .eq('pool', currentPoolId)
-                    .order('last_name', { ascending: true });
+                const { data: talents, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .select('id, first_name, last_name, pool')
+                        .eq('pool', currentPoolId)
+                        .order('last_name', { ascending: true })
+                );
 
                 if (error) throw error;
 
@@ -234,11 +238,13 @@
                 // au lieu de select('*') — la modale d'édition continue de se remplir
                 // directement depuis cette liste (même logique qu'avant), juste avec
                 // uniquement les colonnes qu'elle utilise réellement.
-                const { data: missions, error } = await supabaseClient
-                    .from('missions')
-                    .select(MISSIONS_COLUMNS)
-                    .eq('pool', currentPoolId)
-                    .order('title', { ascending: true });
+                const { data: missions, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('missions')
+                        .select(MISSIONS_COLUMNS)
+                        .eq('pool', currentPoolId)
+                        .order('title', { ascending: true })
+                );
 
                 if (error) throw error;
 
@@ -307,31 +313,35 @@
                     await archiveOutgoingOccupant(mission);
 
                     if (mission.future_talent_id) {
-                        const { data, error } = await supabaseClient
-                            .from('missions')
-                            .update({
-                                status: 'occupied',
-                                occupant_id: mission.future_talent_id,
-                                contract_start_date: mission.future_contract_start_date || null,
-                                contract_end_date: mission.future_contract_end_date || null,
-                                contract_status: null,
-                                future_talent_id: null,
-                                future_contract_start_date: null,
-                                future_contract_end_date: null
-                            })
-                            .eq('id', mission.id)
-                            .select('id');
+                        const { data, error } = await capHumaWithRetry(() =>
+                            supabaseClient
+                                .from('missions')
+                                .update({
+                                    status: 'occupied',
+                                    occupant_id: mission.future_talent_id,
+                                    contract_start_date: mission.future_contract_start_date || null,
+                                    contract_end_date: mission.future_contract_end_date || null,
+                                    contract_status: null,
+                                    future_talent_id: null,
+                                    future_contract_start_date: null,
+                                    future_contract_end_date: null
+                                })
+                                .eq('id', mission.id)
+                                .select('id')
+                        );
                         if (error) throw error;
                         if (data && data.length > 0) {
                             await markIncomingOccupant(mission.future_talent_id);
                             rotatedCount++;
                         }
                     } else {
-                        const { data, error } = await supabaseClient
-                            .from('missions')
-                            .update({ status: 'vacant', occupant_id: null })
-                            .eq('id', mission.id)
-                            .select('id');
+                        const { data, error } = await capHumaWithRetry(() =>
+                            supabaseClient
+                                .from('missions')
+                                .update({ status: 'vacant', occupant_id: null })
+                                .eq('id', mission.id)
+                                .select('id')
+                        );
                         if (error) throw error;
                         if (data && data.length > 0) vacatedCount++;
                     }
@@ -345,11 +355,13 @@
                 if (rotatedCount > 0) parts.push(`${rotatedCount} poste(s) automatiquement transféré(s) au futur occupant prévu`);
                 if (vacatedCount > 0) parts.push(`${vacatedCount} poste(s) automatiquement libéré(s)`);
                 toastMessage(parts.join(' · ') + ' suite à une fin de contrat confirmée.', 'success');
-                const { data: refreshed, error: refreshErr } = await supabaseClient
-                    .from('missions')
-                    .select(MISSIONS_COLUMNS)
-                    .eq('pool', currentPoolId)
-                    .order('title', { ascending: true });
+                const { data: refreshed, error: refreshErr } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('missions')
+                        .select(MISSIONS_COLUMNS)
+                        .eq('pool', currentPoolId)
+                        .order('title', { ascending: true })
+                );
                 if (!refreshErr) currentMissions = refreshed || currentMissions;
             }
         }
@@ -811,11 +823,13 @@
                 if (conflictMissionToVacate) {
                     await archiveOutgoingOccupant(conflictMissionToVacate);
 
-                    const { data: vacateData, error: vacateErr } = await supabaseClient
-                        .from('missions')
-                        .update({ status: 'vacant', occupant_id: null })
-                        .eq('id', conflictMissionToVacate.id)
-                        .select('id');
+                    const { data: vacateData, error: vacateErr } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('missions')
+                            .update({ status: 'vacant', occupant_id: null })
+                            .eq('id', conflictMissionToVacate.id)
+                            .select('id')
+                    );
                     if (vacateErr) throw vacateErr;
                     if (!vacateData || vacateData.length === 0) {
                         throw new Error("La libération de l'ancien poste n'a affecté aucune ligne (policy RLS ?).");
@@ -832,10 +846,12 @@
                         await archiveOutgoingOccupant(originalMission);
                     }
 
-                    const { error } = await supabaseClient
-                        .from('missions')
-                        .update(payload)
-                        .eq('id', missionId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('missions')
+                            .update(payload)
+                            .eq('id', missionId)
+                    );
                     if (error) throw error;
 
                     // logAuditAction('update', ...) retiré le 18/08/2026 (A5) : couvert
@@ -850,6 +866,10 @@
                     toastMessage('Poste mis à jour.', 'success');
                 } else {
                     payload.created_by = currentUserId;
+                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
+                    // missions n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
+                    // — une relance après perte de réponse dupliquerait silencieusement
+                    // le poste créé.
                     const { error } = await supabaseClient
                         .from('missions')
                         .insert(payload);
@@ -897,10 +917,16 @@
                     await archiveOutgoingOccupant(mission);
                 }
 
-                const { error } = await supabaseClient
-                    .from('missions')
-                    .delete()
-                    .eq('id', missionId);
+                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter — contrairement
+                // aux suppressions ailleurs sur le site, cette page ne vérifie pas le
+                // nombre de lignes affectées après coup, donc pas de contrôle RLS à
+                // rendre ambigu par une relance.
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('missions')
+                        .delete()
+                        .eq('id', missionId)
+                );
 
                 if (error) throw error;
 
@@ -934,10 +960,12 @@
             const exitDate = mission.contract_end_date || new Date().toISOString().substring(0, 10);
 
             // 1. Archivage des évaluations (uniquement si des évaluations existent)
-            const { data: evals, error: evalErr } = await supabaseClient
-                .from('evaluations')
-                .select('context, positive_points, negative_points, rating, author_email, created_at')
-                .eq('mission_id', mission.id);
+            const { data: evals, error: evalErr } = await capHumaWithRetry(() =>
+                supabaseClient
+                    .from('evaluations')
+                    .select('context, positive_points, negative_points, rating, author_email, created_at')
+                    .eq('mission_id', mission.id)
+            );
             if (evalErr) throw evalErr;
 
             if (evals && evals.length > 0) {
@@ -958,11 +986,13 @@
                     }))
                 };
 
-                const { data: talent, error: talentErr } = await supabaseClient
-                    .from('talents')
-                    .select('archived_position_passages')
-                    .eq('id', mission.occupant_id)
-                    .maybeSingle();
+                const { data: talent, error: talentErr } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .select('archived_position_passages')
+                        .eq('id', mission.occupant_id)
+                        .maybeSingle()
+                );
                 if (talentErr) throw talentErr;
 
                 const existingPassages = (talent && Array.isArray(talent.archived_position_passages))
@@ -970,35 +1000,43 @@
                     : [];
                 const updatedPassages = existingPassages.concat([passage]);
 
-                const { data: passageUpdateData, error: passageUpdateErr } = await supabaseClient
-                    .from('talents')
-                    .update({ archived_position_passages: updatedPassages })
-                    .eq('id', mission.occupant_id)
-                    .select('id');
+                const { data: passageUpdateData, error: passageUpdateErr } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .update({ archived_position_passages: updatedPassages })
+                        .eq('id', mission.occupant_id)
+                        .select('id')
+                );
                 if (passageUpdateErr) throw passageUpdateErr;
                 if (!passageUpdateData || passageUpdateData.length === 0) {
                     throw new Error("La mise à jour de l'historique du talent n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // Évaluations brutes supprimées — elles sont désormais dans le passage archivé
-                const { error: deleteErr } = await supabaseClient
-                    .from('evaluations')
-                    .delete()
-                    .eq('mission_id', mission.id);
+                // Enveloppé dans capHumaWithRetry() (P19) : suppression par mission_id,
+                // aucun contrôle de lignes affectées ici — sûr à retenter (idempotent :
+                // une 2e tentative ne trouve simplement plus rien à supprimer).
+                const { error: deleteErr } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('evaluations')
+                        .delete()
+                        .eq('mission_id', mission.id)
+                );
                 if (deleteErr) throw deleteErr;
             }
 
             // 2. Mise à jour du suivi de disponibilité du talent sortant (toujours faite,
             // même sans évaluation à archiver — c'est le point signalé par l'utilisateur).
-            const { data: statusData, error: statusErr } = await supabaseClient
-                .from('talents')
-                .update({
-                    is_currently_on_mission: false,
-                    last_mission_end_date: exitDate,
-                    status: 'En attente de poste'
-                })
-                .eq('id', mission.occupant_id)
-                .select('id');
+            const { data: statusData, error: statusErr } = await capHumaWithRetry(() =>
+                supabaseClient
+                    .from('talents')
+                    .update({
+                        is_currently_on_mission: false,
+                        last_mission_end_date: exitDate,
+                        status: 'En attente de poste'
+                    })
+                    .eq('id', mission.occupant_id)
+                    .select('id')
+            );
             if (statusErr) throw statusErr;
             if (!statusData || statusData.length === 0) {
                 throw new Error("La mise à jour du statut du talent sortant n'a affecté aucune ligne (policy RLS ?).");
@@ -1014,28 +1052,32 @@
             // Lecture de l'état actuel : number_of_alima_missions n'est pas un simple
             // incrément numérique mais une progression par palier (none → one → two →
             // three_plus), logique reprise de Hercules startAlimaMission.
-            const { data: currentTalent, error: readErr } = await supabaseClient
-                .from('talents')
-                .select('number_of_alima_missions')
-                .eq('id', talentId)
-                .maybeSingle();
+            const { data: currentTalent, error: readErr } = await capHumaWithRetry(() =>
+                supabaseClient
+                    .from('talents')
+                    .select('number_of_alima_missions')
+                    .eq('id', talentId)
+                    .maybeSingle()
+            );
             if (readErr) throw readErr;
 
             const currentCount = (currentTalent && currentTalent.number_of_alima_missions) || 'none';
             const newCount = currentCount === 'none' ? 'one' : (currentCount === 'one' ? 'two' : 'three_plus');
 
-            const { data, error } = await supabaseClient
-                .from('talents')
-                .update({
-                    is_currently_on_mission: true,
-                    months_without_mission: 0,
-                    last_mission_end_date: null,
-                    status: 'En poste ALIMA',
-                    number_of_alima_missions: newCount,
-                    had_alima_mission: true
-                })
-                .eq('id', talentId)
-                .select('id');
+            const { data, error } = await capHumaWithRetry(() =>
+                supabaseClient
+                    .from('talents')
+                    .update({
+                        is_currently_on_mission: true,
+                        months_without_mission: 0,
+                        last_mission_end_date: null,
+                        status: 'En poste ALIMA',
+                        number_of_alima_missions: newCount,
+                        had_alima_mission: true
+                    })
+                    .eq('id', talentId)
+                    .select('id')
+            );
             if (error) throw error;
             if (!data || data.length === 0) {
                 throw new Error("La mise à jour du talent entrant n'a affecté aucune ligne (policy RLS ?).");
@@ -1085,11 +1127,13 @@
                 // Colonnes restreintes à celles réellement utilisées (règle perf section 2 bis.2).
                 // is_moderated / is_red_list_trigger / legacy_content / comment_text volontairement
                 // ignorées — usage non documenté, à traiter plus tard si besoin (cf. échange avec l'utilisateur).
-                const { data: evaluations, error } = await supabaseClient
-                    .from('evaluations')
-                    .select('id, mission_id, talent_id, author_id, author_email, context, positive_points, negative_points, rating, created_at')
-                    .eq('mission_id', missionId)
-                    .order('created_at', { ascending: false });
+                const { data: evaluations, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('evaluations')
+                        .select('id, mission_id, talent_id, author_id, author_email, context, positive_points, negative_points, rating, created_at')
+                        .eq('mission_id', missionId)
+                        .order('created_at', { ascending: false })
+                );
 
                 if (error) throw error;
 
@@ -1190,10 +1234,12 @@
             }
 
             try {
-                const { error } = await supabaseClient
-                    .from('evaluations')
-                    .delete()
-                    .eq('id', evaluationId);
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('evaluations')
+                        .delete()
+                        .eq('id', evaluationId)
+                );
 
                 if (error) throw error;
 
@@ -1234,10 +1280,12 @@
             try {
                 if (evaluationId) {
                     // Modification : mission_id/talent_id/author_id/author_email ne changent jamais
-                    const { error } = await supabaseClient
-                        .from('evaluations')
-                        .update(payload)
-                        .eq('id', evaluationId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('evaluations')
+                            .update(payload)
+                            .eq('id', evaluationId)
+                    );
                     if (error) throw error;
                     toastMessage('Évaluation modifiée.', 'success');
                 } else {
@@ -1245,6 +1293,10 @@
                     payload.talent_id = currentEvaluationMission.occupant_id;
                     payload.author_id = currentUserId;
                     payload.author_email = currentUserEmail;
+                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
+                    // evaluations n'a aucune contrainte UNIQUE (Dossier de passation
+                    // §4.2) — une relance après perte de réponse dupliquerait
+                    // silencieusement l'évaluation ajoutée.
                     const { error } = await supabaseClient
                         .from('evaluations')
                         .insert(payload);

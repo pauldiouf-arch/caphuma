@@ -138,11 +138,13 @@
         async function loadTalentData() {
             try {
                 // Recherche croisée id ou _id pour robustesse absolue
-                const { data: t, error: et } = await supabaseClient
-                    .from('talents')
-                    .select('*')
-                    .eq('id', talentId)
-                    .maybeSingle();
+                const { data: t, error: et } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .select('*')
+                        .eq('id', talentId)
+                        .maybeSingle()
+                );
                 
                 if (et) {
                     console.error("Échec Supabase :", et);
@@ -150,11 +152,13 @@
                 }
 
                 if (!t) {
-                    const { data: tAlt, error: etAlt } = await supabaseClient
-                        .from('talents')
-                        .select('*')
-                        .eq('_id', talentId)
-                        .maybeSingle();
+                    const { data: tAlt, error: etAlt } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('talents')
+                            .select('*')
+                            .eq('_id', talentId)
+                            .maybeSingle()
+                    );
                     
                     if (etAlt || !tAlt) {
                         throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
@@ -165,12 +169,14 @@
                 }
 
                 // Récupérer le poste actuellement occupé
-                const { data: mission } = await supabaseClient
-                    .from('missions')
-                    .select('*')
-                    .eq('occupant_id', talentId)
-                    .eq('status', 'occupied')
-                    .maybeSingle();
+                const { data: mission } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('missions')
+                        .select('*')
+                        .eq('occupant_id', talentId)
+                        .eq('status', 'occupied')
+                        .maybeSingle()
+                );
                 
                 activeMission = mission;
 
@@ -189,11 +195,13 @@
         async function loadPoolHistory() {
             const container = document.getElementById('pool-history-container');
             try {
-                const { data, error } = await supabaseClient
-                    .from('pool_history')
-                    .select('from_pool, to_pool, changed_at, changed_by_name')
-                    .eq('talent_id', talentId)
-                    .order('changed_at', { ascending: false });
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('pool_history')
+                        .select('from_pool, to_pool, changed_at, changed_by_name')
+                        .eq('talent_id', talentId)
+                        .order('changed_at', { ascending: false })
+                );
 
                 if (error) throw error;
                 renderPoolHistory(data || []);
@@ -476,11 +484,13 @@
         async function loadComments() {
             const container = document.getElementById('comments-list-container');
             try {
-                const { data, error } = await supabaseClient
-                    .from('comments')
-                    .select('id, talent_id, user_id, content, author_email, created_at')
-                    .eq('talent_id', talentId)
-                    .order('created_at', { ascending: false });
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('comments')
+                        .select('id, talent_id, user_id, content, author_email, created_at')
+                        .eq('talent_id', talentId)
+                        .order('created_at', { ascending: false })
+                );
 
                 if (error) throw error;
 
@@ -551,6 +561,15 @@
                     if (!confirm("Supprimer définitivement ce commentaire ?")) return;
 
                     try {
+                        // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
+                        // contrairement à un update par id (la ligne existe toujours après
+                        // une 1re tentative réussie, donc une 2e tentative la retrouve sans
+                        // problème), un DELETE par id fait disparaître la ligne — si la 1re
+                        // tentative a en fait réussi mais que sa réponse s'est perdue, la
+                        // 2e tentative ne trouve plus rien à supprimer et déclencherait à
+                        // tort le contrôle "0 ligne affectée" juste en dessous, conçu pour
+                        // détecter un blocage RLS silencieux (règle de méthode n°15), pas
+                        // une suppression déjà effective.
                         const { data, error } = await supabaseClient
                             .from('comments')
                             .delete()
@@ -603,11 +622,18 @@
                         }
 
                         try {
-                            const { data, error } = await supabaseClient
-                                .from('comments')
-                                .update({ content: newContent })
-                                .eq('id', id)
-                                .select('id');
+                            // Enveloppé dans capHumaWithRetry() (P19) : contrairement à un
+                            // DELETE, la ligne existe toujours après une 1re tentative
+                            // réussie — une 2e tentative la retrouve et réapplique le même
+                            // contenu (idempotent), le contrôle "0 ligne affectée" juste en
+                            // dessous reste donc fiable.
+                            const { data, error } = await capHumaWithRetry(() =>
+                                supabaseClient
+                                    .from('comments')
+                                    .update({ content: newContent })
+                                    .eq('id', id)
+                                    .select('id')
+                            );
 
                             if (error) throw error;
                             if (!data || data.length === 0) {
@@ -1139,6 +1165,12 @@
                     }
 
                     try {
+                        // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
+                        // comments n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
+                        // — si la 1re tentative a en fait réussi côté serveur mais que sa
+                        // réponse s'est perdue, une relance créerait un second commentaire
+                        // identique, silencieusement (data.length resterait à 1, aucune
+                        // erreur, le contrôle RLS ci-dessous ne verrait rien d'anormal).
                         const { data, error } = await supabaseClient
                             .from('comments')
                             .insert({
@@ -1169,18 +1201,20 @@
             document.getElementById('btn-devalidate').onclick = async () => {
                 if (!confirm("Voulez-vous vraiment dévalider ce talent ?")) return;
                 try {
-                    const { error } = await supabaseClient
-                        .from('talents')
-                        .update({
-                            is_valid: false,
-                            devalidation_date: new Date().toISOString(),
-                            devalidation_extension_until: null,
-                            devalidation_extension_months: null,
-                            devalidation_extension_granted_by: null,
-                            devalidation_extension_granted_by_name: null,
-                            devalidation_extension_granted_at: null
-                        })
-                        .eq('id', talentId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('talents')
+                            .update({
+                                is_valid: false,
+                                devalidation_date: new Date().toISOString(),
+                                devalidation_extension_until: null,
+                                devalidation_extension_months: null,
+                                devalidation_extension_granted_by: null,
+                                devalidation_extension_granted_by_name: null,
+                                devalidation_extension_granted_at: null
+                            })
+                            .eq('id', talentId)
+                    );
                     
                     if (error) throw error;
                     toastMessage("Le talent a été dévalidé.", "success");
@@ -1196,23 +1230,25 @@
             // 🔄 Réintégrer le talent
             document.getElementById('btn-revalidate').onclick = async () => {
                 try {
-                    const { error } = await supabaseClient
-                        .from('talents')
-                        // Correctif du 19/08/2026 : la réintégration doit faire repartir la
-                        // jauge "mois sans mission" à zéro à partir d'AUJOURD'HUI, pas depuis
-                        // l'ancienne fin de mission (calculateMonthsWithoutMission priorise
-                        // last_mission_end_date sur pool_integration_date — la vider est donc
-                        // nécessaire, pas juste pool_integration_date). months_without_mission
-                        // est gardé à jour aussi pour les stats SQL du tableau de bord, qui
-                        // lisent cette colonne stockée plutôt que de la recalculer en direct.
-                        .update({
-                            is_valid: true,
-                            devalidation_date: null,
-                            months_without_mission: 0,
-                            last_mission_end_date: null,
-                            pool_integration_date: new Date().toISOString()
-                        })
-                        .eq('id', talentId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('talents')
+                            // Correctif du 19/08/2026 : la réintégration doit faire repartir la
+                            // jauge "mois sans mission" à zéro à partir d'AUJOURD'HUI, pas depuis
+                            // l'ancienne fin de mission (calculateMonthsWithoutMission priorise
+                            // last_mission_end_date sur pool_integration_date — la vider est donc
+                            // nécessaire, pas juste pool_integration_date). months_without_mission
+                            // est gardé à jour aussi pour les stats SQL du tableau de bord, qui
+                            // lisent cette colonne stockée plutôt que de la recalculer en direct.
+                            .update({
+                                is_valid: true,
+                                devalidation_date: null,
+                                months_without_mission: 0,
+                                last_mission_end_date: null,
+                                pool_integration_date: new Date().toISOString()
+                            })
+                            .eq('id', talentId)
+                    );
                     
                     if (error) throw error;
                     toastMessage("Le talent a été réintégré dans le pool.", "success");
@@ -1242,16 +1278,18 @@
                 }
 
                 try {
-                    const { error } = await supabaseClient
-                        .from('talents')
-                        .update({
-                            is_red_listed: true,
-                            red_list_date: new Date().toISOString(),
-                            red_list_reason: reasonVal,
-                            red_list_added_by: currentUserId,
-                            red_list_added_by_name: document.getElementById('user-display-name').textContent
-                        })
-                        .eq('id', talentId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('talents')
+                            .update({
+                                is_red_listed: true,
+                                red_list_date: new Date().toISOString(),
+                                red_list_reason: reasonVal,
+                                red_list_added_by: currentUserId,
+                                red_list_added_by_name: document.getElementById('user-display-name').textContent
+                            })
+                            .eq('id', talentId)
+                    );
                     
                     if (error) throw error;
 
@@ -1278,10 +1316,12 @@
                 poolChangeModal.classList.remove('hidden');
 
                 try {
-                    const { data: pools, error } = await supabaseClient
-                        .from('pools')
-                        .select('pool_id, name, full_name')
-                        .order('name', { ascending: true });
+                    const { data: pools, error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('pools')
+                            .select('pool_id, name, full_name')
+                            .order('name', { ascending: true })
+                    );
                     if (error) throw error;
 
                     select.innerHTML = '<option value="">— Choisir un pool —</option>';
@@ -1316,6 +1356,12 @@
                     // 1. Historique d'abord (source de vérité de "qui a changé quoi, quand"),
                     //    puis mise à jour du talent — dans cet ordre, si l'étape 2 échoue on
                     //    garde au moins une trace de la tentative plutôt que l'inverse.
+                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
+                    // pool_history n'a aucune contrainte UNIQUE (Dossier de passation
+                    // §4.2) et est une table "append-only" voulue (aucune policy
+                    // update/delete, §4.3) — un doublon créé par une relance après perte
+                    // de réponse serait silencieux ET définitivement impossible à corriger
+                    // depuis l'interface.
                     const { error: histError } = await supabaseClient.from('pool_history').insert({
                         talent_id: talentId,
                         from_pool: previousPool,
@@ -1325,11 +1371,16 @@
                     });
                     if (histError) throw histError;
 
-                    const { data, error } = await supabaseClient
-                        .from('talents')
-                        .update({ pool: newPool })
-                        .eq('id', talentId)
-                        .select('id');
+                    // Enveloppé dans capHumaWithRetry() (P19) : UPDATE par id, sûr à
+                    // retenter — voir le commentaire équivalent sur la modification de
+                    // commentaire plus haut dans ce fichier.
+                    const { data, error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('talents')
+                            .update({ pool: newPool })
+                            .eq('id', talentId)
+                            .select('id')
+                    );
                     if (error) throw error;
                     if (!data || data.length === 0) {
                         throw new Error("La mise à jour n'a affecté aucune ligne (policy RLS ?).");
@@ -1368,10 +1419,16 @@
                     // donc suppression explicite plutôt que de compter sur une cascade
                     // éventuelle (cf. Master Context, règle de méthode : ne jamais deviner un
                     // comportement de schéma non vérifié).
-                    await supabaseClient.from('evaluations').delete().eq('talent_id', talentId);
-                    await supabaseClient.from('comments').delete().eq('talent_id', talentId);
-                    await supabaseClient.from('share_tokens').delete().eq('talent_id', talentId);
+                    await capHumaWithRetry(() => supabaseClient.from('evaluations').delete().eq('talent_id', talentId));
+                    await capHumaWithRetry(() => supabaseClient.from('comments').delete().eq('talent_id', talentId));
+                    await capHumaWithRetry(() => supabaseClient.from('share_tokens').delete().eq('talent_id', talentId));
 
+                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : même
+                    // raison que la suppression de commentaire plus haut — un DELETE par id
+                    // fait disparaître la ligne, donc une 2e tentative après une 1re en fait
+                    // réussie (réponse perdue) ne trouverait plus rien et déclencherait à
+                    // tort le contrôle "0 ligne affectée" (règle de méthode n°15/19)
+                    // juste en dessous.
                     const { data, error } = await supabaseClient
                         .from('talents')
                         .delete()
@@ -1446,12 +1503,14 @@
             listEl.innerHTML = '';
 
             try {
-                const { data, error } = await supabaseClient
-                    .from('share_tokens')
-                    .select('id, token, expires_at, is_revoked, view_count, last_viewed_at, created_at')
-                    .eq('talent_id', talentId)
-                    .eq('is_revoked', false)
-                    .order('created_at', { ascending: false });
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('share_tokens')
+                        .select('id, token, expires_at, is_revoked, view_count, last_viewed_at, created_at')
+                        .eq('talent_id', talentId)
+                        .eq('is_revoked', false)
+                        .order('created_at', { ascending: false })
+                );
 
                 if (error) throw error;
 
@@ -1509,11 +1568,16 @@
             if (!confirmed) return;
 
             try {
-                const { data, error } = await supabaseClient
-                    .from('share_tokens')
-                    .update({ is_revoked: true })
-                    .eq('id', linkId)
-                    .select('id');
+                // Enveloppé dans capHumaWithRetry() (P19) : UPDATE par id, sûr à
+                // retenter (voir le raisonnement détaillé sur la modification de
+                // commentaire plus haut dans ce fichier).
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('share_tokens')
+                        .update({ is_revoked: true })
+                        .eq('id', linkId)
+                        .select('id')
+                );
 
                 if (error) throw error;
                 // Cf. règle de méthode n°15 : un .update() peut "réussir" sans rien
@@ -1581,15 +1645,22 @@
                 // created_at retiré du payload (DEFAULT now() côté base) ; expires_at
                 // envoyé en ISO string, jamais en timestamp JS numérique (la colonne est
                 // "timestamp with time zone" — cf. règle de méthode n°26).
-                const { error } = await supabaseClient.from('share_tokens').insert({
-                    token,
-                    talent_id: talentId,
-                    created_by: currentUserId,
-                    created_by_name: document.getElementById('user-display-name').textContent,
-                    expires_at: expiry.value,
-                    is_revoked: false,
-                    view_count: 0
-                });
+                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter — token est
+                // calculé une seule fois juste au-dessus (pas régénéré à chaque tentative)
+                // et share_tokens.token porte une contrainte UNIQUE (Dossier de passation
+                // §4.2), donc une relance après perte de réponse retomberait proprement
+                // sur une violation de contrainte plutôt que de créer un second lien.
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient.from('share_tokens').insert({
+                        token,
+                        talent_id: talentId,
+                        created_by: currentUserId,
+                        created_by_name: document.getElementById('user-display-name').textContent,
+                        expires_at: expiry.value,
+                        is_revoked: false,
+                        view_count: 0
+                    })
+                );
 
                 if (error) throw error;
 

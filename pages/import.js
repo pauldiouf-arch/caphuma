@@ -117,14 +117,18 @@
 
         async function loadReferenceData() {
             try {
-                const { data, error } = await supabaseClient.from('pools').select('pool_id, name');
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient.from('pools').select('pool_id, name')
+                );
                 if (error) throw error;
                 cachedPools = data || [];
             } catch (err) {
                 console.error('[Import] Erreur de chargement des pools :', err);
             }
             try {
-                const { data, error } = await supabaseClient.from('talents').select('email');
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient.from('talents').select('email')
+                );
                 if (error) throw error;
                 cachedExistingEmails = new Set((data || []).map(t => (t.email || '').trim().toLowerCase()).filter(Boolean));
             } catch (err) {
@@ -423,6 +427,12 @@
                 const payload = batch.map(r => ({ ...r.normalized, created_by: currentUserId }));
 
                 try {
+                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : c'est
+                    // l'insert le plus risqué du site à retenter — un lot de jusqu'à
+                    // IMPORT_BATCH_SIZE (25) talents à la fois, sans aucune contrainte
+                    // UNIQUE sur talents (Dossier de passation §4.2). Si ce lot a en fait
+                    // réussi côté serveur mais que sa réponse s'est perdue, une relance
+                    // dupliquerait silencieusement jusqu'à 25 fiches talent d'un coup.
                     const { data, error } = await supabaseClient.from('talents').insert(payload).select('id');
                     if (error) throw error;
                     successCount += (data || []).length;
@@ -732,6 +742,11 @@
                 const payload = batch.map(r => ({ ...r.normalized }));
 
                 try {
+                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : même
+                    // raison que l'import de talents ci-dessus — lot de jusqu'à
+                    // IMPORT_BATCH_SIZE (25) postes à la fois, sans contrainte UNIQUE sur
+                    // missions (Dossier de passation §4.2). Un retry après perte de réponse
+                    // dupliquerait silencieusement jusqu'à 25 postes d'un coup.
                     const { data, error } = await supabaseClient.from('missions').insert(payload).select('id');
                     if (error) throw error;
                     successCount += (data || []).length;
