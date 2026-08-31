@@ -118,9 +118,11 @@
         async function loadData() {
             try {
                 const [poolsRes, talentsRes, missionsRes] = await Promise.all([
-                    supabaseClient.from('pools').select('pool_id, name, full_name, is_archived').order('name', { ascending: true }),
-                    supabaseClient.from('talents').select('*'),
-                    supabaseClient.from('missions').select('*')
+                    capHumaWithRetry(() =>
+                        supabaseClient.from('pools').select('pool_id, name, full_name, is_archived').order('name', { ascending: true })
+                    ),
+                    capHumaWithRetry(() => supabaseClient.from('talents').select('*')),
+                    capHumaWithRetry(() => supabaseClient.from('missions').select('*'))
                 ]);
 
                 if (poolsRes.error) throw poolsRes.error;

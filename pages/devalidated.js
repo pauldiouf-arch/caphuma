@@ -139,7 +139,9 @@
             try {
                 // Liste des pools chargée une seule fois (sert au filtre + aux libellés).
                 if (allPools.length === 0) {
-                    const poolsRes = await supabaseClient.from('pools').select('pool_id, name, full_name').order('name', { ascending: true });
+                    const poolsRes = await capHumaWithRetry(() =>
+                        supabaseClient.from('pools').select('pool_id, name, full_name').order('name', { ascending: true })
+                    );
                     if (poolsRes.error) throw poolsRes.error;
                     allPools = poolsRes.data || [];
                     populatePoolFilterOptions();
@@ -171,6 +173,8 @@
             devalidatedRenderedCount = 0;
             updateDevalidatedShowMoreControls();
 
+            // Note (P19) : paginateQuery() retente déjà automatiquement en interne
+            // depuis la mise à jour de shared/caphuma-utils.js — rien à changer ici.
             const result = await paginateQuery(
                 (c) => c.from('talents')
                     .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission', { count: 'exact' })
@@ -205,11 +209,13 @@
         // Mode filtré : comportement identique à avant la refonte (chargement complet,
         // regroupement par pool), simplement renommé pour plus de clarté.
         async function loadAndRenderFiltered() {
-            const { data, error } = await supabaseClient
-                .from('talents')
-                .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission')
-                .eq('is_valid', false)
-                .order('devalidation_date', { ascending: false });
+            const { data, error } = await capHumaWithRetry(() =>
+                supabaseClient
+                    .from('talents')
+                    .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission')
+                    .eq('is_valid', false)
+                    .order('devalidation_date', { ascending: false })
+            );
 
             if (error) throw error;
             allDevalidatedTalents = data || [];
@@ -434,28 +440,30 @@
             if (!confirmed) return;
 
             try {
-                const { error } = await supabaseClient
-                    .from('talents')
-                    // Correctif du 19/08/2026 : même logique que id-card.html — la jauge
-                    // "mois sans mission" doit repartir de zéro à partir d'AUJOURD'HUI, pas
-                    // de l'ancienne fin de mission (last_mission_end_date est prioritaire
-                    // sur pool_integration_date dans calculateMonthsWithoutMission, donc la
-                    // vider est nécessaire). months_without_mission ajouté aussi ici : cette
-                    // page ne le remettait pas à zéro, contrairement à id-card.html — écart
-                    // corrigé au passage.
-                    .update({
-                        is_valid: true,
-                        devalidation_date: null,
-                        devalidation_extension_until: null,
-                        devalidation_extension_months: null,
-                        devalidation_extension_granted_by: null,
-                        devalidation_extension_granted_by_name: null,
-                        devalidation_extension_granted_at: null,
-                        months_without_mission: 0,
-                        last_mission_end_date: null,
-                        pool_integration_date: new Date().toISOString()
-                    })
-                    .eq('id', t.id);
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        // Correctif du 19/08/2026 : même logique que id-card.html — la jauge
+                        // "mois sans mission" doit repartir de zéro à partir d'AUJOURD'HUI, pas
+                        // de l'ancienne fin de mission (last_mission_end_date est prioritaire
+                        // sur pool_integration_date dans calculateMonthsWithoutMission, donc la
+                        // vider est nécessaire). months_without_mission ajouté aussi ici : cette
+                        // page ne le remettait pas à zéro, contrairement à id-card.html — écart
+                        // corrigé au passage.
+                        .update({
+                            is_valid: true,
+                            devalidation_date: null,
+                            devalidation_extension_until: null,
+                            devalidation_extension_months: null,
+                            devalidation_extension_granted_by: null,
+                            devalidation_extension_granted_by_name: null,
+                            devalidation_extension_granted_at: null,
+                            months_without_mission: 0,
+                            last_mission_end_date: null,
+                            pool_integration_date: new Date().toISOString()
+                        })
+                        .eq('id', t.id)
+                );
 
                 if (error) throw error;
 
@@ -503,16 +511,18 @@
             }
 
             try {
-                const { error } = await supabaseClient
-                    .from('talents')
-                    .update({
-                        is_red_listed: true,
-                        red_list_date: new Date().toISOString(),
-                        red_list_reason: reason,
-                        red_list_added_by: currentUserId,
-                        red_list_added_by_name: currentUserName
-                    })
-                    .eq('id', redListTargetTalent.id);
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .update({
+                            is_red_listed: true,
+                            red_list_date: new Date().toISOString(),
+                            red_list_reason: reason,
+                            red_list_added_by: currentUserId,
+                            red_list_added_by_name: currentUserName
+                        })
+                        .eq('id', redListTargetTalent.id)
+                );
 
                 if (error) throw error;
 
@@ -549,10 +559,20 @@
                 // ON DELETE de ces FK vers talents.id n'a jamais été vérifiée, donc
                 // suppression défensive plutôt que de compter sur une cascade non confirmée
                 // (même correctif que id-card.html, cf. Master Context règle de méthode n°19).
-                await supabaseClient.from('evaluations').delete().eq('talent_id', t.id);
-                await supabaseClient.from('comments').delete().eq('talent_id', t.id);
-                await supabaseClient.from('share_tokens').delete().eq('talent_id', t.id);
+                await capHumaWithRetry(() => supabaseClient.from('evaluations').delete().eq('talent_id', t.id));
+                await capHumaWithRetry(() => supabaseClient.from('comments').delete().eq('talent_id', t.id));
+                await capHumaWithRetry(() => supabaseClient.from('share_tokens').delete().eq('talent_id', t.id));
 
+                // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : le
+                // contrôle juste en dessous (data.length === 0 → throw) sert à
+                // détecter un DELETE bloqué silencieusement par une policy RLS
+                // (règle de méthode n°15). Avec un retry automatique, ce même
+                // signal ("0 ligne affectée") deviendrait ambigu : il pourrait
+                // aussi bien vouloir dire "1re tentative en fait réussie, réponse
+                // perdue, 2e tentative ne retrouve plus rien à supprimer" — ce qui
+                // ferait afficher à tort une erreur RLS après une suppression en
+                // réalité déjà effective. Un retry casserait ici la fiabilité d'un
+                // contrôle conçu spécifiquement pour cette page.
                 const { data, error } = await supabaseClient
                     .from('talents')
                     .delete()

@@ -199,10 +199,12 @@
         // ============================================================================
         async function loadPools() {
             try {
-                const { data: pools, error } = await supabaseClient
-                    .from('pools')
-                    .select('pool_id, name, full_name, is_archived')
-                    .order('name', { ascending: true });
+                const { data: pools, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('pools')
+                        .select('pool_id, name, full_name, is_archived')
+                        .order('name', { ascending: true })
+                );
 
                 if (error) throw error;
 
@@ -244,7 +246,9 @@
             // voir DEVALIDATION_MAX_MONTHS (shared/caphuma-utils.js) si ce seuil doit un
             // jour être changé (il faudra le changer aux deux endroits, SQL et JS).
             try {
-                const { data: rows, error } = await supabaseClient.rpc('get_pool_talent_stats');
+                const { data: rows, error } = await capHumaWithRetry(() =>
+                    supabaseClient.rpc('get_pool_talent_stats')
+                );
 
                 if (error) throw error;
 
@@ -268,7 +272,9 @@
             // get_pool_mission_counts(), qui gère déjà elle-même l'incohérence
             // "pool" vs "pool_id" (coalesce), documentée précédemment ici même.
             try {
-                const { data: rows, error } = await supabaseClient.rpc('get_pool_mission_counts');
+                const { data: rows, error } = await capHumaWithRetry(() =>
+                    supabaseClient.rpc('get_pool_mission_counts')
+                );
 
                 if (error) throw error;
 
@@ -304,11 +310,13 @@
 
         async function loadNotificationPrefs() {
             try {
-                const { data, error } = await supabaseClient
-                    .from('notification_preferences')
-                    .select('enabled, pool_scope')
-                    .eq('user_id', currentUserId)
-                    .maybeSingle();
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('notification_preferences')
+                        .select('enabled, pool_scope')
+                        .eq('user_id', currentUserId)
+                        .maybeSingle()
+                );
                 if (error) throw error;
                 if (data) {
                     notifPrefs = { enabled: data.enabled !== false, pool_scope: data.pool_scope || null };
@@ -323,14 +331,20 @@
 
         async function saveNotificationPrefs() {
             try {
-                const { error } = await supabaseClient
-                    .from('notification_preferences')
-                    .upsert({
-                        user_id: currentUserId,
-                        enabled: notifPrefs.enabled,
-                        pool_scope: notifPrefs.pool_scope,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'user_id' });
+                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter, cet upsert
+                // cible explicitement { onConflict: 'user_id' } — colonne UNIQUE (une
+                // ligne par utilisateur, Dossier de passation §5.4) — donc une relance
+                // après perte de réponse réécrit la même ligne, jamais un doublon.
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('notification_preferences')
+                        .upsert({
+                            user_id: currentUserId,
+                            enabled: notifPrefs.enabled,
+                            pool_scope: notifPrefs.pool_scope,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'user_id' })
+                );
                 if (error) throw error;
                 notifToast('Préférences enregistrées.');
             } catch (err) {
@@ -353,9 +367,11 @@
         async function loadNotificationAlerts(poolScope) {
             const alerts = { contracts: [], available: [], atRisk: [], vacancies: [] };
             try {
-                const { data: rows, error } = await supabaseClient.rpc('get_notification_alerts', {
-                    p_pool_scope: poolScope || null
-                });
+                const { data: rows, error } = await capHumaWithRetry(() =>
+                    supabaseClient.rpc('get_notification_alerts', {
+                        p_pool_scope: poolScope || null
+                    })
+                );
                 if (error) throw error;
 
                 (rows || []).forEach(row => {
