@@ -362,7 +362,7 @@
                         <tbody>
                             ${parsedRows.map(r => `
                                 <tr class="border-t border-slate-100 ${r.errors.length > 0 ? 'bg-red-50/50' : ''}">
-                                    <td class="px-3 py-2 text-slate-400">${r.rowNumber}</td>
+                                    <td class="px-3 py-2 text-slate-600">${r.rowNumber}</td>
                                     <td class="px-3 py-2">${escapeHtml(((r.normalized.first_name || '') + ' ' + (r.normalized.last_name || '')).trim())}</td>
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.email || '')}</td>
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.pool || '')}</td>
@@ -376,14 +376,14 @@
                         </tbody>
                     </table>
                 </div>
-                <p class="text-xs text-slate-400 mt-4 italic">Seules les lignes valides seront importées — les lignes en erreur sont ignorées, rien n'est deviné à leur place.</p>
+                <p class="text-xs text-slate-500 mt-4 italic">Seules les lignes valides seront importées — les lignes en erreur sont ignorées, rien n'est deviné à leur place.</p>
 
                 ${validRows.length > 0 ? `
                     <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
                         <button id="importSubmitBtn" type="button" class="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all">
                             Importer les ${validRows.length} ligne(s) valide(s)
                         </button>
-                        <span id="importSubmitStatus" class="text-xs text-slate-400"></span>
+                        <span id="importSubmitStatus" class="text-xs text-slate-500"></span>
                     </div>
                     <div id="importResultBox" class="hidden mt-4"></div>
                 ` : ''}
@@ -676,7 +676,7 @@
                         <tbody>
                             ${parsedRows.map(r => `
                                 <tr class="border-t border-slate-100 ${r.errors.length > 0 ? 'bg-red-50/50' : ''}">
-                                    <td class="px-3 py-2 text-slate-400">${r.rowNumber}</td>
+                                    <td class="px-3 py-2 text-slate-600">${r.rowNumber}</td>
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.title || '')}</td>
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.pool || '')}</td>
                                     <td class="px-3 py-2">${escapeHtml(((r.normalized.location || '') + ' — ' + (r.normalized.country || '')))}</td>
@@ -690,14 +690,14 @@
                         </tbody>
                     </table>
                 </div>
-                <p class="text-xs text-slate-400 mt-4 italic">Seules les lignes valides seront importées — les lignes en erreur sont ignorées, rien n'est deviné à leur place.</p>
+                <p class="text-xs text-slate-500 mt-4 italic">Seules les lignes valides seront importées — les lignes en erreur sont ignorées, rien n'est deviné à leur place.</p>
 
                 ${validRows.length > 0 ? `
                     <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
                         <button id="importMissionSubmitBtn" type="button" class="bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all">
                             Importer les ${validRows.length} ligne(s) valide(s)
                         </button>
-                        <span id="importMissionSubmitStatus" class="text-xs text-slate-400"></span>
+                        <span id="importMissionSubmitStatus" class="text-xs text-slate-500"></span>
                     </div>
                     <div id="importMissionResultBox" class="hidden mt-4"></div>
                 ` : ''}
@@ -785,7 +785,7 @@
             if (!file) { statusMsg.textContent = ''; return; }
 
             statusMsg.textContent = 'Lecture du fichier en cours...';
-            statusMsg.className = 'text-xs text-slate-400 mt-2';
+            statusMsg.className = 'text-xs text-slate-500 mt-2';
 
             try {
                 const buffer = await file.arrayBuffer();
@@ -818,7 +818,7 @@
             if (!file) { statusMsg.textContent = ''; return; }
 
             statusMsg.textContent = 'Lecture du fichier en cours...';
-            statusMsg.className = 'text-xs text-slate-400 mt-2';
+            statusMsg.className = 'text-xs text-slate-500 mt-2';
 
             try {
                 const buffer = await file.arrayBuffer();

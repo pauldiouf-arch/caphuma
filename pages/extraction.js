@@ -161,7 +161,7 @@
             container.innerHTML = '';
 
             if (pools.length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-400 italic">Aucun pool actif trouvé.</p>`;
+                container.innerHTML = `<p class="text-xs text-slate-500 italic">Aucun pool actif trouvé.</p>`;
                 return;
             }
 
@@ -183,7 +183,7 @@
                         <input type="checkbox" class="pool-checkbox h-4 w-4 rounded border-slate-300 text-primary shrink-0" ${checked ? 'checked' : ''} />
                         <div class="min-w-0">
                             <p class="font-bold text-sm text-slate-800 truncate">${escapeHtml(pool.name || pool.pool_id)}</p>
-                            <p class="text-xs text-slate-400 truncate">${escapeHtml(pool.full_name || '')}</p>
+                            <p class="text-xs text-slate-500 truncate">${escapeHtml(pool.full_name || '')}</p>
                         </div>
                     </div>
                     <span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full ${checked ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}">

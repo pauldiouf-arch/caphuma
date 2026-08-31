@@ -648,7 +648,7 @@
             document.getElementById('stat-by-country').innerHTML = Object.entries(byCountry)
                 .sort((a, b) => b[1] - a[1])
                 .map(([country, count]) => `
-                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('');
 
             // Répartition par desk (ajouté par rapport à Hercules — donnée déjà tracée
@@ -663,9 +663,9 @@
             const deskEntries = Object.entries(byDesk);
             document.getElementById('stat-by-desk').innerHTML = deskEntries.length > 0
                 ? deskEntries.sort((a, b) => b[1] - a[1]).map(([label, count]) => `
-                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(label)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${escapeHtml(label)}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('')
-                : '<p class="text-xs text-slate-400 italic">Aucun desk renseigné</p>';
+                : '<p class="text-xs text-slate-500 italic">Aucun desk renseigné</p>';
 
             // Distribution des durées de contrat (tranches identiques à Hercules)
             const distribution = {
@@ -677,7 +677,7 @@
             };
             document.getElementById('stat-duration-distribution').innerHTML = Object.entries(distribution)
                 .map(([range, count]) => `
-                    <div class="flex justify-between"><span class="text-slate-400">${range}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${range}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('');
         }
 

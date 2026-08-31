@@ -394,12 +394,12 @@
             const listEl = document.getElementById('notifAlertsList');
 
             if (!notifPrefs.enabled) {
-                listEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Notifications désactivées — activez-les dans « Préférences ».</p>';
+                listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Notifications désactivées — activez-les dans « Préférences ».</p>';
                 return;
             }
 
             if (total === 0) {
-                listEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Aucune alerte pour le moment 👍</p>';
+                listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Aucune alerte pour le moment 👍</p>';
                 return;
             }
 
@@ -417,7 +417,7 @@
                         <p class="text-xs font-bold text-slate-700 mb-1.5">${s.icon} ${s.title} (${alerts[s.key].length})</p>
                         <ul class="space-y-1">
                             ${alerts[s.key].slice(0, 8).map(a => `<li class="text-[11px] text-slate-500 pl-1">${s.render(a)}</li>`).join('')}
-                            ${alerts[s.key].length > 8 ? `<li class="text-[11px] text-slate-400 italic pl-1">+ ${alerts[s.key].length - 8} autre(s)</li>` : ''}
+                            ${alerts[s.key].length > 8 ? `<li class="text-[11px] text-slate-500 italic pl-1">+ ${alerts[s.key].length - 8} autre(s)</li>` : ''}
                         </ul>
                     </div>
                 `).join('');
@@ -542,7 +542,7 @@
             const poolsToRender = showArchivedPools ? currentPools : activePools;
 
             if (poolsToRender.length === 0) {
-                poolsGrid.innerHTML = '<p class="col-span-full text-center text-sm text-slate-400 py-12">Aucun pool à afficher.</p>';
+                poolsGrid.innerHTML = '<p class="col-span-full text-center text-sm text-slate-500 py-12">Aucun pool à afficher.</p>';
                 return;
             }
 
@@ -560,15 +560,15 @@
                             <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-light text-2xl">
                                 ${poolIcon(pool.pool_id)}
                             </div>
-                            ${isArchived ? '<span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 px-2 py-1 rounded-full">Archivé</span>' : ''}
+                            ${isArchived ? '<span class="text-[10px] font-bold uppercase tracking-wide text-slate-600 bg-slate-100 px-2 py-1 rounded-full">Archivé</span>' : ''}
                         </div>
                         <h3 class="text-lg font-extrabold text-slate-800">${escapeHtml(pool.name || pool.pool_id)}</h3>
-                        <p class="text-xs text-slate-400 font-semibold mt-1">${escapeHtml(pool.full_name || '')}</p>
+                        <p class="text-xs text-slate-500 font-semibold mt-1">${escapeHtml(pool.full_name || '')}</p>
 
                         <div class="grid grid-cols-4 gap-1.5 mt-4">
                             <div class="bg-slate-50 rounded-xl px-1.5 py-2 text-center">
                                 <p class="text-base font-extrabold text-slate-800">${stats.active}</p>
-                                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Effectif</p>
+                                <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Effectif</p>
                             </div>
                             <div class="bg-emerald-50 rounded-xl px-1.5 py-2 text-center">
                                 <p class="text-base font-extrabold text-emerald-700">${stats.available}</p>

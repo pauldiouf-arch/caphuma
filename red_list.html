@@ -94,13 +94,13 @@
                 </div>
                 <div class="text-right">
                     <p class="text-3xl font-extrabold text-red-600" id="redlist-count">0</p>
-                    <p class="text-xs text-slate-400">talent(s) en liste rouge</p>
+                    <p class="text-xs text-slate-500">talent(s) en liste rouge</p>
                 </div>
             </div>
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <div id="redlist-loading" class="text-sm text-slate-400 py-6 text-center">Chargement de la liste rouge...</div>
-                <div id="redlist-empty" class="hidden text-sm text-slate-400 py-10 text-center flex flex-col items-center gap-2">
+                <div id="redlist-loading" class="text-sm text-slate-500 py-6 text-center">Chargement de la liste rouge...</div>
+                <div id="redlist-empty" class="hidden text-sm text-slate-500 py-10 text-center flex flex-col items-center gap-2">
                     <span class="text-3xl">✅</span>
                     <span>Aucun talent en liste rouge actuellement.</span>
                     <button id="btn-empty-add-redlist" class="mt-2 inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
@@ -151,7 +151,7 @@
             <h3 id="modal-reason-title" class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>📋</span> Motif du signalement</h3>
             <p id="reason-content" class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap"></p>
             <div>
-                <p class="text-xs font-bold text-slate-400 uppercase mb-2">Documents justificatifs</p>
+                <p class="text-xs font-bold text-slate-500 uppercase mb-2">Documents justificatifs</p>
                 <div id="reason-documents-list" class="space-y-1.5 text-sm"></div>
             </div>
             <div class="flex justify-end pt-2">
@@ -170,27 +170,27 @@
             <p class="text-sm text-slate-500">Signaler un talent qui ne doit pas être recruté. Cette action nécessite une justification et au moins un document justificatif.</p>
 
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase" for="modal-select-pool">Pool *</label>
+                <label class="text-xs font-bold text-slate-500 uppercase" for="modal-select-pool">Pool *</label>
                 <select id="modal-select-pool" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     <option value="">— Choisir un pool —</option>
                 </select>
             </div>
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase" for="modal-select-talent">Talent *</label>
+                <label class="text-xs font-bold text-slate-500 uppercase" for="modal-select-talent">Talent *</label>
                 <select id="modal-select-talent" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" disabled>
                     <option value="">— Choisir d'abord un pool —</option>
                 </select>
-                <p id="modal-select-talent-empty" class="hidden text-xs text-slate-400">Tous les talents de ce pool sont déjà en liste rouge, ou ce pool ne contient aucun talent.</p>
+                <p id="modal-select-talent-empty" class="hidden text-xs text-slate-500">Tous les talents de ce pool sont déjà en liste rouge, ou ce pool ne contient aucun talent.</p>
             </div>
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase" for="modal-redlist-add-reason">Motif / Justification *</label>
+                <label class="text-xs font-bold text-slate-500 uppercase" for="modal-redlist-add-reason">Motif / Justification *</label>
                 <textarea id="modal-redlist-add-reason" placeholder="Veuillez consigner les faits de manière précise..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="4" required></textarea>
-                <p class="text-xs text-slate-400">Soyez précis et factuel. Cette information sera visible par tous les responsables RH.</p>
+                <p class="text-xs text-slate-500">Soyez précis et factuel. Cette information sera visible par tous les responsables RH.</p>
             </div>
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase" for="modal-redlist-add-files">Documents justificatifs *</label>
+                <label class="text-xs font-bold text-slate-500 uppercase" for="modal-redlist-add-files">Documents justificatifs *</label>
                 <input id="modal-redlist-add-files" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple class="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary-light file:text-primary file:font-semibold file:text-xs cursor-pointer" />
-                <p class="text-xs text-slate-400">Formats acceptés : PDF, Word, Images (JPG, PNG). Au moins un document est requis. Documents privés, jamais publics.</p>
+                <p class="text-xs text-slate-500">Formats acceptés : PDF, Word, Images (JPG, PNG). Au moins un document est requis. Documents privés, jamais publics.</p>
                 <div id="modal-redlist-files-list" class="space-y-1"></div>
             </div>
             <div class="flex justify-end gap-2 pt-2">

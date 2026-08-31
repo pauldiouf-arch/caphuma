@@ -65,7 +65,7 @@
 
         <div class="mb-6">
             <h2 class="text-xl font-extrabold text-slate-800">Talents dévalidés, répartis par pool</h2>
-            <p class="text-sm text-slate-400 mt-1">Réintégrez un talent, transférez-le vers la Liste Rouge, ou supprimez-le définitivement.</p>
+            <p class="text-sm text-slate-500 mt-1">Réintégrez un talent, transférez-le vers la Liste Rouge, ou supprimez-le définitivement.</p>
         </div>
 
         <!-- ────────────────────────────────────────────────────────────────────
@@ -74,17 +74,17 @@
         <div class="bg-white border border-slate-200 rounded-2xl p-4 mb-6">
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterPool">Pool</label>
+                    <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterPool">Pool</label>
                     <select id="filterPool" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                         <option value="">Tous les pools</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterDateFrom">Dévalidé à partir du</label>
+                    <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterDateFrom">Dévalidé à partir du</label>
                     <input id="filterDateFrom" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterDateTo">Dévalidé jusqu'au</label>
+                    <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterDateTo">Dévalidé jusqu'au</label>
                     <input id="filterDateTo" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                 </div>
                 <div>
@@ -103,7 +103,7 @@
             <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-32"></div>
         </div>
 
-        <p id="emptyState" class="hidden text-center text-sm text-slate-400 font-semibold py-12">
+        <p id="emptyState" class="hidden text-center text-sm text-slate-500 font-semibold py-12">
             ✅ Aucun talent dévalidé actuellement.
         </p>
 
@@ -112,7 +112,7 @@
              updateDevalidatedShowMoreControls() dans devalidated.js — jamais
              affiché en mode par défaut (déjà paginé Précédent/Suivant). -->
         <div class="mt-4 flex flex-col items-center gap-2">
-            <p id="devalidatedRenderedCountLabel" class="hidden text-xs font-semibold text-slate-400"></p>
+            <p id="devalidatedRenderedCountLabel" class="hidden text-xs font-semibold text-slate-500"></p>
             <button id="devalidatedShowMoreBtn" type="button" class="hidden border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold transition-all">
                 Afficher plus
             </button>
@@ -139,7 +139,7 @@
     <div id="redListModal" role="dialog" aria-modal="true" aria-labelledby="redListModal-title" class="hidden fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <h3 id="redListModal-title" class="text-lg font-extrabold text-slate-800 mb-1">Ajouter à la Liste Rouge</h3>
-            <p class="text-sm text-slate-400 mb-4" id="redListModalTalentName"></p>
+            <p class="text-sm text-slate-500 mb-4" id="redListModalTalentName"></p>
             <label class="text-xs font-bold text-slate-600 mb-1 block" for="redListReasonInput">Motif (obligatoire)</label>
             <textarea id="redListReasonInput" rows="4" class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Expliquez le motif du signalement..."></textarea>
             <!-- Correctif (trouvé le 28/08/2026, hors backlog officiel, décision

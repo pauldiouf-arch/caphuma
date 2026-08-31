@@ -405,7 +405,7 @@
                             </a>
                             <!-- Ligne d'infos secondaires (fonction, expérience, disponibilité) —
                                  sur le modèle Hercules talent-list.tsx, absente jusqu'ici de cette liste. -->
-                            <p class="text-xs text-slate-400 truncate mt-0.5">
+                            <p class="text-xs text-slate-500 truncate mt-0.5">
                                 <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
                                 <span class="mx-1.5 text-slate-300">·</span>
                                 <span class="font-semibold text-slate-500">Exp. ALIMA :</span> ${t.experience_months_alima || 0} mois
@@ -429,7 +429,7 @@
 
                         <!-- Bouton d'action Modifier dédié qui ouvre le modal — masqué pour visitor -->
                         ${canManage ? `
-                        <button class="edit-btn p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-primary transition-all" title="Modifier">
+                        <button class="edit-btn p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-primary transition-all" title="Modifier">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                             </svg>
@@ -1140,7 +1140,7 @@
             if (isInvalid || totalMonths >= DEVALIDATION_MAX_MONTHS) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
             else if (totalMonths >= DEVALIDATION_CRITICAL_MONTHS) { barColor = 'bg-red-50'; textColor = 'text-red-600'; }
             else if (totalMonths >= DEVALIDATION_AT_RISK_MONTHS) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
-            else { barColor = 'bg-green-500'; textColor = 'text-slate-400'; }
+            else { barColor = 'bg-green-500'; textColor = 'text-slate-500'; }
 
             const refDate = talent.last_mission_end_date || talent.pool_integration_date;
             const refLabel = talent.last_mission_end_date ? 'Fin dernière mission' : 'Intégration pool';
@@ -1205,7 +1205,7 @@
                 const remainingText = v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS
                     ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
                     : '';
-                bottomHtml = `<div class="flex items-center justify-between text-xs text-slate-400 mt-1">
+                bottomHtml = `<div class="flex items-center justify-between text-xs text-slate-500 mt-1">
                     <span class="font-medium ${v.textColor}">${remainingText}</span>
                     <span class="italic">${v.refLabel} : ${v.refDate ? new Date(v.refDate).toLocaleDateString('fr-FR') : 'N/A'}</span>
                 </div>`;
@@ -1346,7 +1346,7 @@
                 if (history.length) {
                     html += '<p class="font-bold text-slate-700 mt-3 mb-2">Changements</p>';
                     history.forEach(h => {
-                        html += `<p class="text-xs">${escapeHtml(h.previousValue)} → ${escapeHtml(h.newValue)} <span class="text-slate-400">(${escapeHtml(h.changedByName || '')})</span></p>`;
+                        html += `<p class="text-xs">${escapeHtml(h.previousValue)} → ${escapeHtml(h.newValue)} <span class="text-slate-500">(${escapeHtml(h.changedByName || '')})</span></p>`;
                     });
                 }
                 document.getElementById('historyReadonly').innerHTML = html;

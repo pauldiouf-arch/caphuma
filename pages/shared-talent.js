@@ -16,7 +16,7 @@
                 items = list.split(',').map(s => s.trim()).filter(Boolean);
             }
             if (items.length === 0) {
-                container.innerHTML = `<span class="text-xs text-slate-400 italic">Non spécifié</span>`;
+                container.innerHTML = `<span class="text-xs text-slate-500 italic">Non spécifié</span>`;
                 return;
             }
             container.innerHTML = items.map(item =>
@@ -139,7 +139,7 @@
                         <div class="relative pl-6 border-l-2 border-slate-200">
                             <div class="absolute -left-[6px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white shadow"></div>
                             <div class="space-y-1">
-                                <span class="text-xs font-semibold text-slate-400">${startStr} – ${endStr}${durationMonths !== null ? ` (${durationMonths} m)` : ''}</span>
+                                <span class="text-xs font-semibold text-slate-500">${startStr} – ${endStr}${durationMonths !== null ? ` (${durationMonths} m)` : ''}</span>
                                 <h4 class="font-bold text-slate-800">${escapeHtml(p.positionTitle)}</h4>
                                 <p class="text-xs text-slate-500">${escapeHtml(p.country || "Mission ALIMA")}</p>
                             </div>
@@ -149,7 +149,7 @@
             }
 
             if (!hasTimelineElements) {
-                timeline.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun parcours de mission ALIMA archivé.</p>`;
+                timeline.innerHTML = `<p class="text-sm text-slate-500 italic">Aucun parcours de mission ALIMA archivé.</p>`;
             }
         }
 

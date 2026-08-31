@@ -66,7 +66,7 @@
         <div class="mb-6 flex items-end justify-between flex-wrap gap-3">
             <div>
                 <h2 class="text-xl font-extrabold text-slate-800" id="poolHeading">Postes du pool</h2>
-                <p class="text-sm text-slate-400 mt-1" id="poolSubheading">Chargement du pool…</p>
+                <p class="text-sm text-slate-500 mt-1" id="poolSubheading">Chargement du pool…</p>
             </div>
             <div class="flex items-center gap-2">
                 <button id="createMissionBtn" type="button" class="hidden bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-xs">
@@ -80,7 +80,7 @@
         <div id="kpiBar" class="hidden grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <div class="bg-white border border-slate-200 rounded-2xl p-3 text-center">
                 <p class="text-lg font-extrabold text-slate-800" id="kpiTotal">0</p>
-                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Postes</p>
+                <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Postes</p>
             </div>
             <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
                 <p class="text-lg font-extrabold text-emerald-700" id="kpiOccupied">0</p>
@@ -92,7 +92,7 @@
             </div>
             <div class="bg-slate-100 border border-slate-200 rounded-2xl p-3 text-center">
                 <p class="text-lg font-extrabold text-slate-600" id="kpiVacant">0</p>
-                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Vacants</p>
+                <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Vacants</p>
             </div>
             <div class="bg-orange-50 border border-orange-100 rounded-2xl p-3 text-center">
                 <p class="text-lg font-extrabold text-orange-700" id="kpiEndingSoon">0</p>
@@ -110,17 +110,17 @@
             <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2 mb-1">
                 📈 Statistiques détaillées des contrats
             </h3>
-            <p class="text-xs text-slate-400 mb-4">Analyse approfondie des contrats et répartition géographique du pool</p>
+            <p class="text-xs text-slate-500 mb-4">Analyse approfondie des contrats et répartition géographique du pool</p>
 
             <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <div class="space-y-2">
                     <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Contrats</h4>
                     <div class="space-y-1.5 text-sm">
-                        <div class="flex justify-between"><span class="text-slate-400">Postes avec contrat</span><span class="font-semibold text-slate-800" id="statWithContracts">0</span></div>
-                        <div class="flex justify-between"><span class="text-slate-400">Durée moyenne</span><span class="font-semibold text-slate-800" id="statAvgDuration">0 mois</span></div>
-                        <div class="flex justify-between"><span class="text-slate-400">En cours</span><span class="font-semibold text-slate-800" id="statOngoing">0</span></div>
-                        <div class="flex justify-between"><span class="text-slate-400">Renouvelables</span><span class="font-semibold text-slate-800" id="statRenewable">0</span></div>
-                        <div class="flex justify-between"><span class="text-slate-400">Taux de renouvellement</span><span class="font-semibold text-slate-800" id="statRenewalRate">0%</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Postes avec contrat</span><span class="font-semibold text-slate-800" id="statWithContracts">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Durée moyenne</span><span class="font-semibold text-slate-800" id="statAvgDuration">0 mois</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">En cours</span><span class="font-semibold text-slate-800" id="statOngoing">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Renouvelables</span><span class="font-semibold text-slate-800" id="statRenewable">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Taux de renouvellement</span><span class="font-semibold text-slate-800" id="statRenewalRate">0%</span></div>
                     </div>
                 </div>
 
@@ -137,9 +137,9 @@
                 <div class="space-y-2">
                     <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Échéances des contrats</h4>
                     <div class="space-y-1.5 text-sm">
-                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 1 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700" id="statEnding1m">0</span></div>
-                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 3 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700" id="statEnding3m">0</span></div>
-                        <div class="flex justify-between items-center"><span class="text-slate-400">Fin dans 6 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700" id="statEnding6m">0</span></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-500">Fin dans 1 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700" id="statEnding1m">0</span></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-500">Fin dans 3 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700" id="statEnding3m">0</span></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-500">Fin dans 6 mois</span><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700" id="statEnding6m">0</span></div>
                     </div>
                 </div>
 
@@ -163,7 +163,7 @@
         </div>
         <div id="missionsPagination" class="mt-4"></div>
 
-        <p id="missionsEmpty" class="hidden text-center text-sm text-slate-400 py-12">Aucun poste enregistré pour ce pool pour le moment.</p>
+        <p id="missionsEmpty" class="hidden text-center text-sm text-slate-500 py-12">Aucun poste enregistré pour ce pool pour le moment.</p>
 
     </main>
 
@@ -174,7 +174,7 @@
         <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
                 <h3 class="text-lg font-extrabold text-slate-800" id="modalTitle">Nouveau poste</h3>
-                <button id="closeModalBtn" type="button" data-modal-dismiss aria-label="Fermer" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+                <button id="closeModalBtn" type="button" data-modal-dismiss aria-label="Fermer" class="text-slate-500 hover:text-slate-600 text-2xl leading-none">&times;</button>
             </div>
 
             <form id="missionForm" class="px-6 py-5 space-y-4">
@@ -259,7 +259,7 @@
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldContractEnd">Fin de contrat</label>
                             <input type="date" id="fieldContractEnd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                            <p class="text-[10px] text-slate-400 mt-1">Modifiable librement, sans justification.</p>
+                            <p class="text-[10px] text-slate-500 mt-1">Modifiable librement, sans justification.</p>
                         </div>
                     </div>
 
@@ -316,16 +316,16 @@
             <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
                 <div>
                     <h3 id="evaluationsModal-title" class="text-lg font-extrabold text-slate-800">Évaluations de l'occupant</h3>
-                    <p class="text-xs text-slate-400 font-semibold mt-0.5" id="evaluationsSubtitle"></p>
+                    <p class="text-xs text-slate-500 font-semibold mt-0.5" id="evaluationsSubtitle"></p>
                 </div>
-                <button id="closeEvaluationsModalBtn" type="button" data-modal-dismiss aria-label="Fermer" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+                <button id="closeEvaluationsModalBtn" type="button" data-modal-dismiss aria-label="Fermer" class="text-slate-500 hover:text-slate-600 text-2xl leading-none">&times;</button>
             </div>
 
             <div class="px-6 py-5">
                 <div id="evaluationsList" class="space-y-3 mb-6">
                     <!-- Rempli dynamiquement -->
                 </div>
-                <p id="evaluationsEmpty" class="hidden text-sm text-slate-400 text-center py-6">Aucune évaluation enregistrée pour cet occupant sur ce poste.</p>
+                <p id="evaluationsEmpty" class="hidden text-sm text-slate-500 text-center py-6">Aucune évaluation enregistrée pour cet occupant sur ce poste.</p>
                 <p id="evaluationsError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-4"></p>
 
                 <form id="evaluationForm" class="hidden space-y-3 pt-4 border-t border-slate-100">
