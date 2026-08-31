@@ -918,10 +918,15 @@
         // ============================================================================
         function createTagField(containerId, fieldName, label, maxTags) {
             const container = document.getElementById(containerId);
+            // Correctif P14 (B18-A1, accessibilité) : id dérivé de fieldName (déjà un
+            // identifiant simple sans espace, cf. les 5 appels de createTagField()) pour
+            // associer le label généré à son champ via for=/id=, sur le même modèle
+            // que les labels statiques des autres pages.
+            const inputId = `tagfield-input-${fieldName.replace(/_/g, '-')}`;
             container.innerHTML = `
-                <label class="text-xs font-bold text-slate-500 uppercase">${label}</label>
+                <label class="text-xs font-bold text-slate-500 uppercase" for="${inputId}">${label}</label>
                 <div class="tags-wrap flex flex-wrap gap-1.5 mt-1 mb-1.5" data-field="${fieldName}"></div>
-                <input type="text" class="tag-input w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" placeholder="Tape puis Entrée pour ajouter" data-field="${fieldName}" />
+                <input id="${inputId}" type="text" class="tag-input w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" placeholder="Tape puis Entrée pour ajouter" data-field="${fieldName}" />
             `;
             const input = container.querySelector('.tag-input');
             input.addEventListener('keydown', (e) => {

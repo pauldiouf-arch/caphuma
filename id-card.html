@@ -317,7 +317,7 @@
             <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Signalement Liste Rouge</h3>
             <p class="text-sm text-slate-500">Indiquez le motif précis et sécuritaire justifiant la mise en Liste Rouge du talent.</p>
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase">Motif / Justification *</label>
+                <label class="text-xs font-bold text-slate-400 uppercase" for="modal-redlist-reason">Motif / Justification *</label>
                 <textarea id="modal-redlist-reason" placeholder="Veuillez consigner les faits de manière précise..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="4" required></textarea>
             </div>
             <!-- Correctif (trouvé le 28/08/2026, hors backlog officiel, décision
@@ -344,7 +344,7 @@
                 Le changement est enregistré dans l'historique du talent avec la date du jour.
             </p>
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase">Nouveau pool *</label>
+                <label class="text-xs font-bold text-slate-400 uppercase" for="modal-pool-select">Nouveau pool *</label>
                 <select id="modal-pool-select" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                     <option value="">Chargement des pools...</option>
                 </select>
@@ -376,7 +376,7 @@
             </p>
 
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase">Durée de validité du prochain lien</label>
+                <label class="text-xs font-bold text-slate-400 uppercase" for="share-links-duration">Durée de validité du prochain lien</label>
                 <select id="share-links-duration" class="w-full rounded-lg border border-slate-200 p-2 text-sm outline-none focus:border-primary">
                     <option value="1">1 jour</option>
                     <option value="3">3 jours</option>

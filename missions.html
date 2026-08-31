@@ -181,20 +181,20 @@
                 <input type="hidden" id="missionId">
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Titre du poste *</label>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldTitle">Titre du poste *</label>
                     <input type="text" id="fieldTitle" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Niveau *</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldPoolLevel">Niveau *</label>
                         <select id="fieldPoolLevel" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                             <option value="mission">Mission</option>
                             <option value="project">Projet</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Statut *</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldStatus">Statut *</label>
                         <select id="fieldStatus" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                             <option value="vacant">⚪ Vacant</option>
                             <option value="recruiting">🟡 En recrutement</option>
@@ -205,23 +205,23 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Pays *</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldCountry">Pays *</label>
                         <input type="text" id="fieldCountry" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Lieu *</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldLocation">Lieu *</label>
                         <input type="text" id="fieldLocation" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
                 </div>
 
                 <div id="projectNameField" class="hidden">
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Nom du projet</label>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldProjectName">Nom du projet</label>
                     <input type="text" id="fieldProjectName" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Type de candidat</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldCandidateType">Type de candidat</label>
                         <select id="fieldCandidateType" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                             <option value="">— Non précisé —</option>
                             <option value="expat">Expatrié</option>
@@ -229,7 +229,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Desk</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldDesk">Desk</label>
                         <select id="fieldDesk" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                             <option value="">— Non précisé —</option>
                             <option value="desk1">Desk 1</option>
@@ -244,7 +244,7 @@
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Occupant actuel</p>
 
                 <div id="occupantField">
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Talent occupant ce poste</label>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldOccupant">Talent occupant ce poste</label>
                     <select id="fieldOccupant" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="">— Aucun —</option>
                     </select>
@@ -253,18 +253,18 @@
                 <div id="currentContractFields">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Début de contrat</label>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldContractStart">Début de contrat</label>
                             <input type="date" id="fieldContractStart" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fin de contrat</label>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldContractEnd">Fin de contrat</label>
                             <input type="date" id="fieldContractEnd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                             <p class="text-[10px] text-slate-400 mt-1">Modifiable librement, sans justification.</p>
                         </div>
                     </div>
 
                     <div class="mt-4">
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Statut du contrat</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldContractStatus">Statut du contrat</label>
                         <select id="fieldContractStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                             <option value="">— Non précisé —</option>
                             <option value="ongoing">En cours</option>
@@ -278,7 +278,7 @@
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Futur occupant (rotation prévue)</p>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Talent prévu en remplacement</label>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldFutureOccupant">Talent prévu en remplacement</label>
                     <select id="fieldFutureOccupant" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="">— Aucun —</option>
                     </select>
@@ -286,11 +286,11 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Début prévu</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldFutureContractStart">Début prévu</label>
                         <input type="date" id="fieldFutureContractStart" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Fin prévue</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldFutureContractEnd">Fin prévue</label>
                         <input type="date" id="fieldFutureContractEnd" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
                 </div>
@@ -333,22 +333,22 @@
                     <input type="hidden" id="evaluationId">
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Contexte d'intervention *</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldContext">Contexte d'intervention *</label>
                         <textarea id="fieldContext" required rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Points positifs</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldPositivePoints">Points positifs</label>
                         <textarea id="fieldPositivePoints" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Points à améliorer</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldNegativePoints">Points à améliorer</label>
                         <textarea id="fieldNegativePoints" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Note sur 10 *</label>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1" for="fieldRating">Note sur 10 *</label>
                         <input type="number" id="fieldRating" required min="1" max="10" step="1" class="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     </div>
 

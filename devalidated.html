@@ -74,17 +74,17 @@
         <div class="bg-white border border-slate-200 rounded-2xl p-4 mb-6">
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Pool</label>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterPool">Pool</label>
                     <select id="filterPool" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                         <option value="">Tous les pools</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Dévalidé à partir du</label>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterDateFrom">Dévalidé à partir du</label>
                     <input id="filterDateFrom" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Dévalidé jusqu'au</label>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterDateTo">Dévalidé jusqu'au</label>
                     <input id="filterDateTo" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                 </div>
                 <div>
@@ -140,7 +140,7 @@
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <h3 class="text-lg font-extrabold text-slate-800 mb-1">Ajouter à la Liste Rouge</h3>
             <p class="text-sm text-slate-400 mb-4" id="redListModalTalentName"></p>
-            <label class="text-xs font-bold text-slate-600 mb-1 block">Motif (obligatoire)</label>
+            <label class="text-xs font-bold text-slate-600 mb-1 block" for="redListReasonInput">Motif (obligatoire)</label>
             <textarea id="redListReasonInput" rows="4" class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Expliquez le motif du signalement..."></textarea>
             <!-- Correctif (trouvé le 28/08/2026, hors backlog officiel, décision
                  utilisateur "option 3") : cette fenêtre ne permet pas de joindre de

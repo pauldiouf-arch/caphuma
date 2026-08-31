@@ -78,7 +78,7 @@
             <!-- Filtres simples (toujours visibles) -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Statut</label>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterStatus">Statut</label>
                     <select id="filterStatus" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                         <option value="">Tous les statuts</option>
                         <option value="En poste ALIMA">En poste ALIMA</option>
@@ -96,7 +96,7 @@
                          l'autre sans action de ta part. Pages dédiées pour les consulter
                          en détail : devalidated.html (dévalidés) et red_list.html
                          (Liste Rouge), toutes pools confondues. -->
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Validité</label>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterValidity">Validité</label>
                     <select id="filterValidity" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                         <option value="active">Actifs uniquement</option>
                         <option value="devalidated">Dévalidés uniquement</option>
@@ -104,7 +104,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Trier par</label>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterSortBy">Trier par</label>
                     <select id="filterSortBy" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                         <option value="name">Nom</option>
                         <option value="availability">Disponibilité</option>
@@ -114,7 +114,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase">Ordre</label>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterSortOrder">Ordre</label>
                     <select id="filterSortOrder" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                         <option value="desc" selected>Décroissant</option>
                         <option value="asc">Croissant</option>
@@ -128,42 +128,42 @@
                  le body de la page étant en overflow-hidden (seule la liste en dessous défilait). -->
             <div id="advancedFiltersPanel" class="hidden space-y-3 pt-3 border-t border-slate-100 max-h-[55vh] overflow-y-auto pr-1">
                 <div class="bg-primary-light border border-blue-100 rounded-lg p-3 space-y-1.5">
-                    <label class="text-xs font-bold text-primary flex items-center gap-1.5">🔎 Recherche par compétences / mots-clés</label>
+                    <label class="text-xs font-bold text-primary flex items-center gap-1.5" for="filterKeyword">🔎 Recherche par compétences / mots-clés</label>
                     <input id="filterKeyword" type="text" placeholder="Ex : gestion de stock, urgence, leadership, Tchad..." class="w-full rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     <p class="text-[11px] text-slate-500">Recherche dans les compétences clés et dans l'historique de missions archivées (contexte, points forts, axes d'amélioration).</p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Exp. ALIMA min. (mois)</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterMinExpAlima">Exp. ALIMA min. (mois)</label>
                         <input id="filterMinExpAlima" type="number" min="0" placeholder="Ex : 12" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Exp. humanitaire min. (mois)</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterMinExpHum">Exp. humanitaire min. (mois)</label>
                         <input id="filterMinExpHum" type="number" min="0" placeholder="Ex : 24" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Disponible à partir de</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterAvailFrom">Disponible à partir de</label>
                         <input id="filterAvailFrom" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Disponible jusqu'à</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterAvailTo">Disponible jusqu'à</label>
                         <input id="filterAvailTo" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Nationalité</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterNationality">Nationalité</label>
                         <input id="filterNationality" type="text" placeholder="Ex : Sénégalaise" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Pays de résidence</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterCountry">Pays de résidence</label>
                         <input id="filterCountry" type="text" placeholder="Ex : Sénégal" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Langue</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterLanguage">Langue</label>
                         <input id="filterLanguage" type="text" placeholder="Ex : Anglais" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Visa Schengen</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterVisa">Visa Schengen</label>
                         <select id="filterVisa" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                             <option value="">Indifférent</option>
                             <option value="oui">Oui</option>
@@ -171,7 +171,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">A fait des ouvertures de mission</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterMissionOpening">A fait des ouvertures de mission</label>
                         <select id="filterMissionOpening" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                             <option value="">Indifférent</option>
                             <option value="oui">Oui</option>
@@ -179,7 +179,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">A fait des missions d'urgence</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterEmergencyMission">A fait des missions d'urgence</label>
                         <select id="filterEmergencyMission" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                             <option value="">Indifférent</option>
                             <option value="oui">Oui</option>
@@ -187,7 +187,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">A fait des fermetures de projet</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterMissionClosure">A fait des fermetures de projet</label>
                         <select id="filterMissionClosure" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                             <option value="">Indifférent</option>
                             <option value="oui">Oui</option>
@@ -195,11 +195,11 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Contexte d'intervention</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterContext">Contexte d'intervention</label>
                         <input id="filterContext" type="text" placeholder="Ex : conflit, épidémie..." class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                     <div>
-                        <label class="text-[11px] font-bold text-slate-400 uppercase">Zone géographique</label>
+                        <label class="text-[11px] font-bold text-slate-400 uppercase" for="filterZone">Zone géographique</label>
                         <input id="filterZone" type="text" placeholder="Ex : Sahel, Afrique de l'Ouest..." class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
                     </div>
                 </div>
@@ -270,33 +270,33 @@
                     <!-- TAB 1 : IDENTITÉ -->
                     <div class="tab-panel space-y-4" data-panel="1">
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Prénom *</label>
-                                <input name="first_name" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Nom *</label>
-                                <input name="last_name" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-first-name">Prénom *</label>
+                                <input id="field-first-name" name="name="first_name"" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-last-name">Nom *</label>
+                                <input id="field-last-name" name="name="last_name"" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Email</label>
-                                <input name="email" type="email" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Genre</label>
-                                <select name="gender" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-email">Email</label>
+                                <input id="field-email" name="name="email"" type="email" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-gender">Genre</label>
+                                <select id="field-gender" name="name="gender"" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                                     <option value="">—</option><option value="H">Homme</option><option value="F">Femme</option>
                                 </select></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Fonction actuelle</label>
-                                <input name="current_function" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-current-function">Fonction actuelle</label>
+                                <input id="field-current-function" name="name="current_function"" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
                             <div></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Nationalité</label>
-                                <input name="nationality" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Pays de résidence</label>
-                                <input name="country_of_residence" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-nationality">Nationalité</label>
+                                <input id="field-nationality" name="name="nationality"" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-country-of-residence">Pays de résidence</label>
+                                <input id="field-country-of-residence" name="name="country_of_residence"" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4 items-end">
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Date d'intégration au pool</label>
-                                <input name="pool_integration_date" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-pool-integration-date">Date d'intégration au pool</label>
+                                <input id="field-pool-integration-date" name="name="pool_integration_date"" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
                             <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 pb-2.5">
                                 <input name="has_visa" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-primary" /> Possède un visa valide
                             </label>
@@ -306,25 +306,25 @@
 
                     <!-- TAB 2 : STATUT & DISPONIBILITÉ -->
                     <div class="tab-panel hidden space-y-4" data-panel="2">
-                        <div><label class="text-xs font-bold text-slate-500 uppercase">Statut *</label>
-                            <select name="status" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                        <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-status">Statut *</label>
+                            <select id="field-status" name="name="status"" required class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                                 <option value="En attente de poste">En attente de poste</option>
                                 <option value="En poste ALIMA">En poste ALIMA</option>
                                 <option value="En poste autre ONG">En poste autre ONG</option>
                                 <option value="En poste hors humanitaire">En poste hors humanitaire</option>
                             </select></div>
 
-                        <div><label class="text-xs font-bold text-slate-500 uppercase">Disponibilité</label>
+                        <div><label class="text-xs font-bold text-slate-500 uppercase" for="availabilityType">Disponibilité</label>
                             <select name="availability_type" id="availabilityType" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                                 <option value="none">Néant</option>
                                 <option value="asap">ASAP — Disponible immédiatement</option>
                                 <option value="notice">Avec préavis</option>
                                 <option value="date">Date précise</option>
                             </select></div>
-                        <div id="availabilityMonthsWrap" class="hidden"><label class="text-xs font-bold text-slate-500 uppercase">Préavis (mois)</label>
-                            <input name="availability_months" type="number" min="1" max="6" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
-                        <div id="availabilityDateWrap" class="hidden"><label class="text-xs font-bold text-slate-500 uppercase">Date de disponibilité</label>
-                            <input name="availability_date" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        <div id="availabilityMonthsWrap" class="hidden"><label class="text-xs font-bold text-slate-500 uppercase" for="field-availability-months">Préavis (mois)</label>
+                            <input id="field-availability-months" name="name="availability_months"" type="number" min="1" max="6" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                        <div id="availabilityDateWrap" class="hidden"><label class="text-xs font-bold text-slate-500 uppercase" for="field-availability-date">Date de disponibilité</label>
+                            <input id="field-availability-date" name="name="availability_date"" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
 
                         <div class="pt-2 border-t border-slate-100">
                             <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -332,12 +332,12 @@
                             </label>
 
                             <div id="lastMissionEndDateWrap" class="hidden mt-3">
-                                <label class="text-xs font-bold text-slate-500 uppercase">Date de fin de dernière mission ALIMA *</label>
-                                <input name="last_mission_end_date" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" />
+                                <label class="text-xs font-bold text-slate-500 uppercase" for="field-last-mission-end-date">Date de fin de dernière mission ALIMA *</label>
+                                <input id="field-last-mission-end-date" name="name="last_mission_end_date"" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" />
                                 <p class="text-[11px] text-slate-400 mt-1">Sert de point de départ au calcul des 24 mois de validité dans le pool.</p>
                             </div>
 
-                            <div class="mt-3"><label class="text-xs font-bold text-slate-500 uppercase">Nombre de missions ALIMA</label>
+                            <div class="mt-3"><label class="text-xs font-bold text-slate-500 uppercase" for="numberOfMissionsSelect">Nombre de missions ALIMA</label>
                                 <select name="number_of_alima_missions" id="numberOfMissionsSelect" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                                     <option value="none">Néant</option><option value="one">1 mission</option>
                                     <option value="two">2 missions</option><option value="three_plus">3 missions et +</option>
@@ -350,32 +350,32 @@
                     <!-- TAB 3 : FORMATION & EXPÉRIENCE -->
                     <div class="tab-panel hidden space-y-4" data-panel="3">
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Niveau d'étude</label>
-                                <select name="education_level" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-education-level">Niveau d'étude</label>
+                                <select id="field-education-level" name="name="education_level"" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                                     <option value="none">Néant</option><option value="bac">Bac</option>
                                     <option value="bac+1">Bac+1</option><option value="bac+2">Bac+2</option>
                                     <option value="bac+3">Bac+3 (Licence)</option><option value="bac+4">Bac+4</option>
                                     <option value="bac+5">Bac+5 (Master)</option><option value="bac+6">Bac+6</option>
                                     <option value="bac+7">Bac+7</option><option value="bac+8+">Bac+8 et plus</option>
                                 </select></div>
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Spécialité</label>
-                                <input name="education_specialty" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-education-specialty">Spécialité</label>
+                                <input id="field-education-specialty" name="name="education_specialty"" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Expérience ALIMA (mois)</label>
-                                <input name="experience_months_alima" type="number" min="0" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
-                            <div><label class="text-xs font-bold text-slate-500 uppercase">Expérience humanitaire totale (mois)</label>
-                                <input name="experience_months_humanitarian" type="number" min="0" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-experience-months-alima">Expérience ALIMA (mois)</label>
+                                <input id="field-experience-months-alima" name="name="experience_months_alima"" type="number" min="0" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase" for="field-experience-months-humanitarian">Expérience humanitaire totale (mois)</label>
+                                <input id="field-experience-months-humanitarian" name="name="experience_months_humanitarian"" type="number" min="0" class="w-full mt-1 rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-primary" /></div>
                         </div>
                         <div id="tagfield_languages"></div>
                         <div id="tagfield_other_languages"></div>
 
                         <div>
                             <div class="flex items-center justify-between mb-2">
-                                <label class="text-xs font-bold text-slate-500 uppercase">Formations ALIMA suivies</label>
+                                <p id="trainingsListLabel" class="text-xs font-bold text-slate-500 uppercase">Formations ALIMA suivies</p>
                                 <button type="button" id="addTrainingBtn" class="text-xs font-bold text-primary">＋ Ajouter</button>
                             </div>
-                            <div id="trainingsList" class="space-y-2"></div>
+                            <div id="trainingsList" class="space-y-2" aria-labelledby="trainingsListLabel"></div>
                         </div>
                     </div>
 
@@ -436,7 +436,7 @@
             <p id="prolongTalentName" class="text-sm font-semibold text-slate-700"></p>
             <p class="text-sm text-slate-500">Le talent ne sera pas proposé à l'arbitrage tant que la prolongation est en cours.</p>
             <div class="space-y-1.5">
-                <label class="text-xs font-bold text-slate-400 uppercase">Durée de la prolongation *</label>
+                <label class="text-xs font-bold text-slate-400 uppercase" for="prolongMonths">Durée de la prolongation *</label>
                 <select id="prolongMonths" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary">
                     <option value="1">1 mois</option>
                     <option value="2">2 mois</option>
