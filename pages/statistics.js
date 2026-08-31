@@ -89,7 +89,9 @@
         async function initHub() {
             try {
                 // 1. Récupération des pools de la base (pools.pool_id)
-                const { data: pools, error: ep } = await supabaseClient.from('pools').select('pool_id, name, full_name');
+                const { data: pools, error: ep } = await capHumaWithRetry(() =>
+                    supabaseClient.from('pools').select('pool_id, name, full_name')
+                );
                 if (ep) throw ep;
                 poolList = pools || [];
 
@@ -146,15 +148,19 @@
             //   base (vérifié en direct avant ce changement, cf. information_schema) —
             //   la détection "colonne absente vs vide" plus bas (hasCandidateTypeColumn)
             //   continue donc de fonctionner à l'identique.
-            const { data: talents, error: et } = await supabaseClient
-                .from('talents')
-                .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality, languages');
+            const { data: talents, error: et } = await capHumaWithRetry(() =>
+                supabaseClient
+                    .from('talents')
+                    .select('pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality, languages')
+            );
             if (et) throw et;
             rawTalents = talents || [];
 
-            const { data: mData, error: em } = await supabaseClient
-                .from('missions')
-                .select('pool, pool_id, status, candidate_type, contract_start_date, contract_end_date, contract_status, country, desk, future_talent_id');
+            const { data: mData, error: em } = await capHumaWithRetry(() =>
+                supabaseClient
+                    .from('missions')
+                    .select('pool, pool_id, status, candidate_type, contract_start_date, contract_end_date, contract_status, country, desk, future_talent_id')
+            );
             if (em) throw em;
             rawMissions = mData || [];
         }
@@ -514,6 +520,11 @@
                 throw new Error("Session expirée — reconnectez-vous.");
             }
 
+            // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19, décision
+            // n°15) : ai-proxy est hors périmètre — palier gratuit limité chez le
+            // fournisseur d'IA (Dossier de passation §7.14), un retry sur faux négatif
+            // réseau doublerait la consommation d'un quota rare pour une fonctionnalité
+            // analytique non critique.
             const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                 method: 'POST',
                 headers: {
@@ -1032,6 +1043,9 @@ Données consolidées du pool (${statsSummary.pool}) :
                     return;
                 }
 
+                // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19,
+                // décision n°15) : même raison que callPoolAiProxy() plus haut dans
+                // ce fichier — palier gratuit limité chez le fournisseur d'IA.
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                     method: 'POST',
                     headers: {

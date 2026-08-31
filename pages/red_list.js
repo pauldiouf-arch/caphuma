@@ -125,11 +125,13 @@
         async function loadPoolsForSelect() {
             const selectPool = document.getElementById('modal-select-pool');
             try {
-                const { data, error } = await supabaseClient
-                    .from('pools')
-                    .select('pool_id, full_name, is_archived')
-                    .eq('is_archived', false)
-                    .order('pool_id', { ascending: true });
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('pools')
+                        .select('pool_id, full_name, is_archived')
+                        .eq('is_archived', false)
+                        .order('pool_id', { ascending: true })
+                );
 
                 if (error) throw error;
                 poolsForSelect = data || [];
@@ -227,10 +229,17 @@
                     throw new Error(`"${file.name}" dépasse la taille maximale autorisée (${REDLIST_MAX_FILE_SIZE_MB} Mo).`);
                 }
                 const path = `${talentId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`;
-                const { error } = await supabaseClient
-                    .storage
-                    .from('red-list-documents')
-                    .upload(path, file, { contentType: file.type || 'application/octet-stream' });
+                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter — path est
+                // calculé une seule fois juste au-dessus (pas régénéré à chaque
+                // tentative) et aucun { upsert: true } n'est passé, donc une relance
+                // après perte de réponse tomberait proprement sur une erreur "déjà
+                // existant" plutôt que d'écraser silencieusement le fichier.
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .storage
+                        .from('red-list-documents')
+                        .upload(path, file, { contentType: file.type || 'application/octet-stream' })
+                );
                 if (error) throw new Error(`Échec de l'envoi de "${file.name}" : ${error.message}`);
                 paths.push(path);
             }
@@ -257,11 +266,13 @@
             try {
                 // is_red_listed est nullable : .is('is_red_listed', false) exclurait les
                 // NULL, donc on filtre côté client pour couvrir null ET false.
-                const { data, error } = await supabaseClient
-                    .from('talents')
-                    .select('id, first_name, last_name, is_red_listed')
-                    .eq('pool', poolCode)
-                    .order('last_name', { ascending: true });
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .select('id, first_name, last_name, is_red_listed')
+                        .eq('pool', poolCode)
+                        .order('last_name', { ascending: true })
+                );
 
                 if (error) throw error;
 
@@ -328,17 +339,19 @@
                 label.textContent = 'Inscription...';
                 // Format ISO (pas toLocaleDateString) : la colonne est un
                 // timestamptz, un format DD/MM/YYYY serait ambigu à la relecture.
-                const { error } = await supabaseClient
-                    .from('talents')
-                    .update({
-                        is_red_listed: true,
-                        red_list_date: new Date().toISOString(),
-                        red_list_reason: reasonVal,
-                        red_list_added_by: currentUserId,
-                        red_list_added_by_name: document.getElementById('user-display-name').textContent,
-                        red_list_documents: documentPaths
-                    })
-                    .eq('id', selectedTalentForRedlist.id);
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .update({
+                            is_red_listed: true,
+                            red_list_date: new Date().toISOString(),
+                            red_list_reason: reasonVal,
+                            red_list_added_by: currentUserId,
+                            red_list_added_by_name: document.getElementById('user-display-name').textContent,
+                            red_list_documents: documentPaths
+                        })
+                        .eq('id', selectedTalentForRedlist.id)
+                );
 
                 if (error) throw error;
 
@@ -383,6 +396,8 @@
                 // Pagination réelle côté requête (.range() + count: exact), sur le
                 // modèle déjà validé sur talents.html / audit_logs.html — évite de
                 // charger l'intégralité de la Liste Rouge en mémoire à chaque visite.
+                // Note (P19) : paginateQuery() retente déjà automatiquement en interne
+                // depuis la mise à jour de shared/caphuma-utils.js — rien à changer ici.
                 const result = await paginateQuery(
                     (c) => c.from('talents')
                         .select('id, first_name, last_name, pool, status, red_list_date, red_list_reason, red_list_added_by_name, red_list_documents', { count: 'exact' })
@@ -497,10 +512,12 @@
             // courte), jamais stockées en clair ni rendues publiques.
             try {
                 const links = await Promise.all(paths.map(async (path, idx) => {
-                    const { data, error } = await supabaseClient
-                        .storage
-                        .from('red-list-documents')
-                        .createSignedUrl(path, 300); // 5 minutes, largement suffisant pour un clic
+                    const { data, error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .storage
+                            .from('red-list-documents')
+                            .createSignedUrl(path, 300) // 5 minutes, largement suffisant pour un clic
+                    );
                     if (error || !data) return null;
                     const label = path.split('/').pop() || `Document ${idx + 1}`;
                     return `<a href="${data.signedUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-primary hover:underline">📎 ${escapeHtml(label)}</a>`;
@@ -528,16 +545,18 @@
                 actionLabel: "Retirer",
                 icon: "✅",
                 onConfirm: async () => {
-                    const { error } = await supabaseClient
-                        .from('talents')
-                        .update({
-                            is_red_listed: false,
-                            red_list_date: null,
-                            red_list_reason: null,
-                            red_list_added_by: null,
-                            red_list_added_by_name: null
-                        })
-                        .eq('id', talentId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient
+                            .from('talents')
+                            .update({
+                                is_red_listed: false,
+                                red_list_date: null,
+                                red_list_reason: null,
+                                red_list_added_by: null,
+                                red_list_added_by_name: null
+                            })
+                            .eq('id', talentId)
+                    );
                     if (error) throw error;
                     // logAuditAction('remove_from_red_list', ...) retiré le 19/08/2026 (A5) :
                     // couvert désormais par le trigger Postgres trg_audit_talents.

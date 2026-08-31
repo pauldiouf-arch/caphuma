@@ -89,7 +89,9 @@
             const subtitle = document.getElementById('poolSubtitle');
             if (!currentPoolId) { subtitle.textContent = 'Tous les pools'; return; }
             try {
-                const { data } = await supabaseClient.from('pools').select('name, full_name').eq('pool_id', currentPoolId);
+                const { data } = await capHumaWithRetry(() =>
+                    supabaseClient.from('pools').select('name, full_name').eq('pool_id', currentPoolId)
+                );
                 if (data && data.length > 0) {
                     subtitle.textContent = `${data[0].full_name || data[0].name} (${currentPoolId})`;
                 } else {
@@ -163,9 +165,15 @@
             const listEl = document.getElementById('talentsList');
             const errorEl = document.getElementById('listError');
             try {
-                let query = supabaseClient.from('talents').select('*').order('last_name', { ascending: true });
-                if (currentPoolId) query = query.eq('pool', currentPoolId);
-                const { data, error } = await query;
+                // capHumaWithRetry() (P19) : la construction de la requête est déplacée
+                // À L'INTÉRIEUR de la fonction passée en paramètre, pour qu'un retry
+                // reconstruise un query builder tout neuf (avec les mêmes filtres)
+                // plutôt que de réutiliser un objet déjà attendu une 1re fois.
+                const { data, error } = await capHumaWithRetry(() => {
+                    let query = supabaseClient.from('talents').select('*').order('last_name', { ascending: true });
+                    if (currentPoolId) query = query.eq('pool', currentPoolId);
+                    return query;
+                });
                 if (error) throw error;
                 allTalents = data || [];
             } catch (err) {
@@ -196,31 +204,36 @@
                 const from = currentPage * PAGE_SIZE;
                 const to = from + PAGE_SIZE - 1;
 
-                let query = supabaseClient
-                    .from('talents')
-                    .select('*', { count: 'exact' })
-                    .order(sortColumn, { ascending })
-                    .range(from, to);
+                // capHumaWithRetry() (P19) : même principe que fetchAllTalents() plus
+                // haut — la requête entière (avec tous ses filtres conditionnels) est
+                // reconstruite à chaque tentative.
+                const { data, error, count } = await capHumaWithRetry(() => {
+                    let query = supabaseClient
+                        .from('talents')
+                        .select('*', { count: 'exact' })
+                        .order(sortColumn, { ascending })
+                        .range(from, to);
 
-                if (currentPoolId) query = query.eq('pool', currentPoolId);
-                if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
+                    if (currentPoolId) query = query.eq('pool', currentPoolId);
+                    if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
 
-                // Filtre "Validité" (ajouté le 18/08/2026, corrigé le même jour) : doit
-                // être répété ici, côté serveur, car ce mode paginé est celui utilisé
-                // par défaut (pas de recherche/filtre avancé actif) — le filtrage fait
-                // dans filterAndSortTalents() ne s'applique, lui, qu'au mode "liste
-                // complète". Tolère NULL comme le fait le filtre client (is_valid/
-                // is_red_listed ont un défaut mais une ancienne ligne pourrait ne pas
-                // l'avoir) : "actif" = is_valid pas explicitement false ET is_red_listed
-                // pas explicitement true.
-                if (searchFilters.validityFilter === 'active') {
-                    query = query.or('is_valid.is.null,is_valid.eq.true')
-                                 .or('is_red_listed.is.null,is_red_listed.eq.false');
-                } else if (searchFilters.validityFilter === 'devalidated') {
-                    query = query.eq('is_valid', false);
-                }
+                    // Filtre "Validité" (ajouté le 18/08/2026, corrigé le même jour) : doit
+                    // être répété ici, côté serveur, car ce mode paginé est celui utilisé
+                    // par défaut (pas de recherche/filtre avancé actif) — le filtrage fait
+                    // dans filterAndSortTalents() ne s'applique, lui, qu'au mode "liste
+                    // complète". Tolère NULL comme le fait le filtre client (is_valid/
+                    // is_red_listed ont un défaut mais une ancienne ligne pourrait ne pas
+                    // l'avoir) : "actif" = is_valid pas explicitement false ET is_red_listed
+                    // pas explicitement true.
+                    if (searchFilters.validityFilter === 'active') {
+                        query = query.or('is_valid.is.null,is_valid.eq.true')
+                                     .or('is_red_listed.is.null,is_red_listed.eq.false');
+                    } else if (searchFilters.validityFilter === 'devalidated') {
+                        query = query.eq('is_valid', false);
+                    }
 
-                const { data, error, count } = await query;
+                    return query;
+                });
                 if (error) throw error;
 
                 totalCount = count || 0;
@@ -839,10 +852,12 @@
                     };
                     const sortColumn = sortColumnMap[searchFilters.sortBy] || 'pool_integration_date';
                     const ascending = searchFilters.sortOrder === 'asc';
-                    let query = supabaseClient.from('talents').select('*').order(sortColumn, { ascending });
-                    if (currentPoolId) query = query.eq('pool', currentPoolId);
-                    if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
-                    const { data, error } = await query;
+                    const { data, error } = await capHumaWithRetry(() => {
+                        let query = supabaseClient.from('talents').select('*').order(sortColumn, { ascending });
+                        if (currentPoolId) query = query.eq('pool', currentPoolId);
+                        if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
+                        return query;
+                    });
                     if (error) throw error;
                     rowsToExport = data || [];
                 } catch (err) {
@@ -1065,16 +1080,18 @@
             const untilStr = untilDate.toISOString().slice(0, 10); // colonne "date"
 
             try {
-                const { error } = await supabaseClient
-                    .from('talents')
-                    .update({
-                        devalidation_extension_until: untilStr,
-                        devalidation_extension_months: months,
-                        devalidation_extension_granted_by: currentUserId,
-                        devalidation_extension_granted_by_name: currentUserEmail,
-                        devalidation_extension_granted_at: new Date().toISOString()
-                    })
-                    .eq('id', talentPendingArbitration.id);
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .update({
+                            devalidation_extension_until: untilStr,
+                            devalidation_extension_months: months,
+                            devalidation_extension_granted_by: currentUserId,
+                            devalidation_extension_granted_by_name: currentUserEmail,
+                            devalidation_extension_granted_at: new Date().toISOString()
+                        })
+                        .eq('id', talentPendingArbitration.id)
+                );
 
                 if (error) throw error;
 
@@ -1102,18 +1119,20 @@
             if (!confirmed) return;
 
             try {
-                const { error } = await supabaseClient
-                    .from('talents')
-                    .update({
-                        is_valid: false,
-                        devalidation_date: new Date().toISOString().slice(0, 10),
-                        devalidation_extension_until: null,
-                        devalidation_extension_months: null,
-                        devalidation_extension_granted_by: null,
-                        devalidation_extension_granted_by_name: null,
-                        devalidation_extension_granted_at: null
-                    })
-                    .eq('id', talent.id);
+                const { error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('talents')
+                        .update({
+                            is_valid: false,
+                            devalidation_date: new Date().toISOString().slice(0, 10),
+                            devalidation_extension_until: null,
+                            devalidation_extension_months: null,
+                            devalidation_extension_granted_by: null,
+                            devalidation_extension_granted_by_name: null,
+                            devalidation_extension_granted_at: null
+                        })
+                        .eq('id', talent.id)
+                );
 
                 if (error) throw error;
 
@@ -1400,7 +1419,9 @@
 
             try {
                 if (editingTalentId) {
-                    const { error } = await supabaseClient.from('talents').update(payload).eq('id', editingTalentId);
+                    const { error } = await capHumaWithRetry(() =>
+                        supabaseClient.from('talents').update(payload).eq('id', editingTalentId)
+                    );
                     if (error) throw error;
                     // logAuditAction('update', ...) retiré le 19/08/2026 (A5) : couvert
                     // désormais par le trigger Postgres trg_audit_talents.
@@ -1408,6 +1429,10 @@
                     payload.pool = currentPoolId;
                     payload.created_by = currentUserId;
                     payload.is_valid = true;
+                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19,
+                    // décision n°15) : talents n'a aucune contrainte UNIQUE (Dossier de
+                    // passation §4.2) — une relance après perte de réponse dupliquerait
+                    // silencieusement la fiche talent créée.
                     const { error } = await supabaseClient.from('talents').insert(payload);
                     if (error) throw error;
                     // logAuditAction('create', ...) retiré le 19/08/2026 (A5) : couvert
