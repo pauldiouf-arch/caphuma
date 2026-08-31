@@ -368,8 +368,15 @@
                 const row = document.createElement('div');
                 const eligible = isDevalidationEligible(t);
                 const isDevalidated = t.is_valid === false;
+                // Correctif P12 (B12-S3, 28/08/2026) : idKey est aujourd'hui un
+                // UUID généré par Postgres, donc déjà propre — encodé par précaution
+                // avant qu'un futur cas limite (import en masse, saisie manuelle)
+                // n'introduise un caractère réservé qui casserait la navigation.
+                // Calculé ici (avant innerHTML) depuis le correctif P16, pour servir
+                // de href au lien du nom ci-dessous.
+                const idKey = t.id || t._id;
 
-                row.className = "bg-white border rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-sm transition-all cursor-pointer " +
+                row.className = "bg-white border rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-sm transition-all " +
                     (eligible ? "border-red-300 bg-red-50" : "border-slate-200");
 
                 let extraBadge = '';
@@ -390,10 +397,12 @@
                             ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <!-- Nom du talent redirigeant vers la carte d'identité -->
-                            <p class="talent-name-hover font-bold text-slate-800 hover:text-primary hover:underline truncate">
+                            <!-- Nom du talent redirigeant vers la carte d'identité — lien réel
+                                 (correctif P16, natif au clavier, plus besoin de gestionnaire
+                                 de clic sur toute la carte) -->
+                            <a href="id-card.html?id=${encodeURIComponent(idKey)}" class="talent-name-hover block font-bold text-slate-800 hover:text-primary hover:underline truncate">
                                 ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? '🚩' : ''}
-                            </p>
+                            </a>
                             <!-- Ligne d'infos secondaires (fonction, expérience, disponibilité) —
                                  sur le modèle Hercules talent-list.tsx, absente jusqu'ici de cette liste. -->
                             <p class="text-xs text-slate-400 truncate mt-0.5">
@@ -428,41 +437,33 @@
                     </div>
                 `;
                 
-                // Rediriger vers id-card.html lors d'un clic n'importe où sur la ligne
-                row.addEventListener('click', (e) => {
-                    const idKey = t.id || t._id;
-                    // Correctif P12 (B12-S3, 28/08/2026) : idKey est aujourd'hui un
-                    // UUID généré par Postgres, donc déjà propre — mais encodé par
-                    // précaution avant qu'un futur cas limite (import en masse, saisie
-                    // manuelle) n'introduise un caractère réservé qui casserait la
-                    // navigation.
-                    window.location.href = `id-card.html?id=${encodeURIComponent(idKey)}`;
-                });
-
-                // Hover card (Étape D) : aperçu rapide au survol du nom, sans ouvrir la fiche
+                // Hover card (Étape D) : aperçu rapide au survol OU au focus clavier du
+                // nom (correctif P18 — avant, uniquement mouseenter/mouseleave, aucun
+                // équivalent clavier), sans ouvrir la fiche.
                 const nameEl = row.querySelector('.talent-name-hover');
                 if (nameEl) {
                     nameEl.addEventListener('mouseenter', () => showHoverCard(t, nameEl));
                     nameEl.addEventListener('mouseleave', hideHoverCard);
+                    nameEl.addEventListener('focus', () => showHoverCard(t, nameEl));
+                    nameEl.addEventListener('blur', hideHoverCard);
                 }
 
-                // Clic sur le bouton d'édition : ouvrir le modal sans déclencher le clic de la ligne
-                // (bouton absent du DOM pour visitor, donc querySelector peut renvoyer null)
+                // Clic sur le bouton d'édition : ouvre le modal. e.stopPropagation()
+                // retiré (correctif P16) : n'était utile que pour bloquer le clic de
+                // toute la ligne, qui n'existe plus — seul le nom (lien ci-dessus) est
+                // désormais cliquable.
                 const editBtn = row.querySelector('.edit-btn');
                 if (editBtn) {
-                    editBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
+                    editBtn.addEventListener('click', () => {
                         openEditModal(t);
                     });
                 }
 
                 if (eligible && canManage) {
-                    row.querySelector('.btn-prolong-talent').addEventListener('click', (e) => {
-                        e.stopPropagation();
+                    row.querySelector('.btn-prolong-talent').addEventListener('click', () => {
                         openProlongModal(t);
                     });
-                    row.querySelector('.btn-devalidate-talent').addEventListener('click', (e) => {
-                        e.stopPropagation();
+                    row.querySelector('.btn-devalidate-talent').addEventListener('click', () => {
                         devalidateTalentFromList(t);
                     });
                 }

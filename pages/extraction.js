@@ -168,7 +168,15 @@
             pools.forEach(pool => {
                 const count = countFn(pool.pool_id);
                 const checked = selectedSet.has(pool.pool_id);
-                const row = document.createElement('div');
+                // Correctif P16 (B18-A4, 31/08/2026) : <label> plutôt que <div> —
+                // avant, une <div cursor-pointer> sans équivalent clavier (la
+                // checkbox à l'intérieur n'était que visuelle, jamais atteignable au
+                // Tab). Un <label> enveloppant une checkbox réelle relaie nativement
+                // le clic ET la touche Espace vers la checkbox, qui redevient
+                // focusable — aucune autre logique à dupliquer, le clic sur le label
+                // (déclenché par la souris OU par la checkbox elle-même) continue de
+                // basculer selectedSet exactement comme avant.
+                const row = document.createElement('label');
                 row.className = `pool-row flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'selected border-primary bg-primary-light' : 'border-slate-200 hover:bg-slate-50'}`;
                 row.innerHTML = `
                     <div class="flex items-center gap-3 min-w-0">
