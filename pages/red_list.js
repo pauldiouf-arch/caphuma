@@ -590,4 +590,4 @@
             window.location.replace('login.html');
         });
 
-        window.addEventListener('DOMContentLoaded', () => checkSession());
+        window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); }); // P15 (B18-A3)

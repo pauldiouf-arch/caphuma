@@ -157,9 +157,9 @@
     </main>
 
     <!-- MODALE : Création de compte -->
-    <div id="modal-create-account" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div id="modal-create-account" role="dialog" aria-modal="true" aria-labelledby="modal-create-account-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 class="text-lg font-bold text-slate-900">Nouveau compte</h3>
+            <h3 id="modal-create-account-title" class="text-lg font-bold text-slate-900">Nouveau compte</h3>
             <div class="space-y-3">
                 <div>
                     <label class="text-xs font-semibold text-slate-600" for="input-new-name">Nom complet</label>
@@ -179,7 +179,7 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button id="btn-cancel-create-account" class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
+                <button id="btn-cancel-create-account" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
                 <button id="btn-confirm-create-account" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
                     <span>Créer le compte</span>
                     <div id="create-account-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -189,23 +189,23 @@
     </div>
 
     <!-- MODALE : Code affiché une seule fois (création / réinitialisation) -->
-    <div id="modal-access-code" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div id="modal-access-code" role="dialog" aria-modal="true" aria-labelledby="modal-access-code-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4 text-center">
             <span class="text-4xl">🔑</span>
-            <h3 class="text-lg font-bold text-slate-900">Code d'accès généré</h3>
+            <h3 id="modal-access-code-title" class="text-lg font-bold text-slate-900">Code d'accès généré</h3>
             <p class="text-sm text-slate-500">Ce code ne sera plus jamais affiché. Copiez-le et transmettez-le à l'utilisateur par un canal sécurisé.</p>
             <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-3">
                 <code id="access-code-value" class="text-lg font-bold text-slate-900 tracking-wider break-all"></code>
                 <button id="btn-copy-access-code" class="shrink-0 text-xs font-semibold bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-xl transition-all">Copier</button>
             </div>
-            <button id="btn-close-access-code" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">J'ai bien noté le code</button>
+            <button id="btn-close-access-code" data-modal-dismiss class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">J'ai bien noté le code</button>
         </div>
     </div>
 
     <!-- MODALE : Création de pool -->
-    <div id="modal-create-pool" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div id="modal-create-pool" role="dialog" aria-modal="true" aria-labelledby="modal-create-pool-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 class="text-lg font-bold text-slate-900">Nouveau pool</h3>
+            <h3 id="modal-create-pool-title" class="text-lg font-bold text-slate-900">Nouveau pool</h3>
             <div class="space-y-3">
                 <div>
                     <label class="text-xs font-semibold text-slate-600" for="input-pool-code">Code du pool</label>
@@ -228,7 +228,7 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button id="btn-cancel-create-pool" class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
+                <button id="btn-cancel-create-pool" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
                 <button id="btn-confirm-create-pool" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
                     <span>Créer le pool</span>
                     <div id="create-pool-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -238,13 +238,13 @@
     </div>
 
     <!-- MODALE : Confirmation générique (suppression, suspension, archivage...) -->
-    <div id="modal-confirm" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div id="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
             <span class="text-4xl" id="confirm-icon">⚠️</span>
             <h3 class="text-lg font-bold text-slate-900" id="confirm-title">Confirmer l'action</h3>
             <p class="text-sm text-slate-500" id="confirm-message"></p>
             <div class="flex justify-center gap-2 pt-2">
-                <button id="btn-cancel-confirm" class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
+                <button id="btn-cancel-confirm" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
                 <button id="btn-confirm-confirm" class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
                     <span id="confirm-action-label">Confirmer</span>
                     <div id="confirm-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>

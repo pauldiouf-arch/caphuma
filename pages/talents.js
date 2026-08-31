@@ -74,6 +74,7 @@
             }
         }
         checkSession();
+        capHumaInitModalA11y(); // P15 (B18-A3) — voir shared/caphuma-utils.js
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);

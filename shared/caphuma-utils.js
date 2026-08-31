@@ -366,3 +366,112 @@ window.addEventListener('unhandledrejection', (e) => captureError('Promesse reje
 // informe l'utilisateur, il ne fait rien retenter automatiquement.
 window.addEventListener('offline', () => toastMessage("Connexion perdue — vos actions seront bloquées jusqu'au retour du réseau.", "error"));
 window.addEventListener('online', () => toastMessage("Connexion rétablie.", "success"));
+
+// ----------------------------------------------------------------------------
+// 10. ACCESSIBILITÉ DES MODAUX (backlog B18-A3, priorité P15)
+// ----------------------------------------------------------------------------
+// Avant ce correctif, aucun des 15 modaux du site (admin, devalidated,
+// id-card, missions, red_list, talents) n'avait de role="dialog"/aria-modal,
+// de piège du focus, de fermeture au clavier (Échap), ni de restitution du
+// focus à la fermeture — vérifié par recherche exhaustive dans les 15 pages
+// et leur JS avant correctif (aucun role="dialog", aucun listener 'Escape',
+// aucun .focus() programmatique nulle part).
+//
+// Choix d'implémentation : plutôt que de modifier chacun des ~40 points
+// d'ouverture/fermeture (.classList.add/remove('hidden')) déjà répartis dans
+// 6 fichiers JS différents — risque de régression bien plus élevé pour un
+// gain nul — cette fonction observe automatiquement la classe "hidden" de
+// chaque <div role="dialog"> de la page via MutationObserver. Le code métier
+// d'ouverture/fermeture existant n'est PAS touché : il continue de faire
+// exactement ce qu'il faisait avant (classList.add/remove('hidden')), cette
+// fonction réagit simplement au changement d'état.
+//
+// À l'ouverture (transition "hidden" retiré) :
+//   - mémorise l'élément qui avait le focus, pour le restituer à la fermeture
+//   - donne le focus au premier élément focusable du modal
+//   - piège Tab/Maj+Tab à l'intérieur du modal
+// Sur Échap : déclenche un clic sur le bouton portant l'attribut
+// [data-modal-dismiss] (le bouton "Annuler"/"Fermer" déjà présent dans
+// chaque modal, marqué au cas par cas en HTML) plutôt que de masquer
+// directement le modal — pour repasser par exactement la même logique de
+// fermeture qu'un clic (reset d'un message d'erreur, etc.), sans dupliquer
+// ce que chaque page a déjà codé au fil de l'eau.
+// À la fermeture (transition "hidden" ajouté) : restitue le focus mémorisé.
+//
+// Cas notifPanel (panneau de notifications, caphuma-layout.js) : traitement
+// volontairement plus léger (décision utilisateur, 31/08/2026) — ce n'est
+// pas un vrai modal (il ne bloque pas le reste de la page), donc pas de
+// role="dialog"/piège du focus ici ; seuls Échap + restitution du focus sont
+// câblés, directement dans caphuma-layout.js (voir capHumaBindLightDismiss).
+//
+// À appeler UNE SEULE FOIS par page, après le rendu du layout (les modaux
+// doivent déjà exister dans le DOM — c'est toujours le cas ici : tous les
+// modaux du site sont des <div> statiques du HTML, jamais créés
+// dynamiquement).
+function capHumaInitModalA11y() {
+    const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    document.querySelectorAll('[role="dialog"]').forEach(modal => {
+        let lastFocused = null;
+        let isOpen = !modal.classList.contains('hidden');
+
+        function getFocusable() {
+            return Array.from(modal.querySelectorAll(FOCUSABLE_SELECTOR))
+                .filter(el => el.offsetParent !== null);
+        }
+
+        function handleKeydown(e) {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                const dismissBtn = modal.querySelector('[data-modal-dismiss]');
+                if (dismissBtn) {
+                    dismissBtn.click();
+                } else {
+                    modal.classList.add('hidden');
+                }
+                return;
+            }
+            if (e.key === 'Tab') {
+                const focusable = getFocusable();
+                if (focusable.length === 0) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        }
+
+        function onOpen() {
+            lastFocused = document.activeElement;
+            const focusable = getFocusable();
+            if (focusable.length > 0) focusable[0].focus();
+            modal.addEventListener('keydown', handleKeydown);
+        }
+
+        function onClose() {
+            modal.removeEventListener('keydown', handleKeydown);
+            if (lastFocused && typeof lastFocused.focus === 'function') {
+                lastFocused.focus();
+            }
+            lastFocused = null;
+        }
+
+        if (isOpen) onOpen(); // cas (rare) où un modal serait déjà visible au chargement de la page
+
+        new MutationObserver(() => {
+            const nowHidden = modal.classList.contains('hidden');
+            if (isOpen && nowHidden) {
+                isOpen = false;
+                onClose();
+            } else if (!isOpen && !nowHidden) {
+                isOpen = true;
+                onOpen();
+            }
+        }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    });
+}

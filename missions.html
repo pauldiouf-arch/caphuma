@@ -170,11 +170,11 @@
     <!-- ────────────────────────────────────────────────────────────────────────
          MODALE CRÉATION / MODIFICATION D'UN POSTE
          ──────────────────────────────────────────────────────────────────────── -->
-    <div id="missionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
+    <div id="missionModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
         <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
                 <h3 class="text-lg font-extrabold text-slate-800" id="modalTitle">Nouveau poste</h3>
-                <button id="closeModalBtn" type="button" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+                <button id="closeModalBtn" type="button" data-modal-dismiss aria-label="Fermer" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
             </div>
 
             <form id="missionForm" class="px-6 py-5 space-y-4">
@@ -311,14 +311,14 @@
     <!-- ────────────────────────────────────────────────────────────────────────
          MODALE ÉVALUATIONS DE L'OCCUPANT COURANT (Étape 5, point 9.2)
          ──────────────────────────────────────────────────────────────────────── -->
-    <div id="evaluationsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
+    <div id="evaluationsModal" role="dialog" aria-modal="true" aria-labelledby="evaluationsModal-title" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
         <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
                 <div>
-                    <h3 class="text-lg font-extrabold text-slate-800">Évaluations de l'occupant</h3>
+                    <h3 id="evaluationsModal-title" class="text-lg font-extrabold text-slate-800">Évaluations de l'occupant</h3>
                     <p class="text-xs text-slate-400 font-semibold mt-0.5" id="evaluationsSubtitle"></p>
                 </div>
-                <button id="closeEvaluationsModalBtn" type="button" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+                <button id="closeEvaluationsModalBtn" type="button" data-modal-dismiss aria-label="Fermer" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
             </div>
 
             <div class="px-6 py-5">

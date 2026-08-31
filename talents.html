@@ -246,12 +246,12 @@
     </main>
 
     <!-- ═══════════════════════════════════ MODAL FORMULAIRE (6 ONGLETS) ═══════════════════════════════════ -->
-    <div id="talentModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div id="talentModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
             <div class="flex items-center justify-between p-5 border-b shrink-0">
                 <h2 id="modalTitle" class="text-lg font-extrabold text-slate-800">Nouveau talent</h2>
-                <button id="closeModalBtn" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+                <button id="closeModalBtn" data-modal-dismiss aria-label="Fermer" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
             </div>
 
             <!-- Onglets -->
@@ -430,9 +430,9 @@
     </div>
 
     <!-- ═══════════════════════════════════ MODAL PROLONGATION AVANT DÉVALIDATION ═══════════════════════════════════ -->
-    <div id="prolongModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+    <div id="prolongModal" role="dialog" aria-modal="true" aria-labelledby="prolongModal-title" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 class="text-lg font-bold text-blue-700 flex items-center gap-2">⏳ Prolonger avant dévalidation</h3>
+            <h3 id="prolongModal-title" class="text-lg font-bold text-blue-700 flex items-center gap-2">⏳ Prolonger avant dévalidation</h3>
             <p id="prolongTalentName" class="text-sm font-semibold text-slate-700"></p>
             <p class="text-sm text-slate-500">Le talent ne sera pas proposé à l'arbitrage tant que la prolongation est en cours.</p>
             <div class="space-y-1.5">
@@ -447,7 +447,7 @@
                 </select>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button id="prolongCancelBtn" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="prolongCancelBtn" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
                 <button id="prolongConfirmBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2 rounded-xl">Confirmer la prolongation</button>
             </div>
         </div>

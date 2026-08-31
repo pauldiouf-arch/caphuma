@@ -476,6 +476,20 @@
             }
         });
 
+        // Correctif P15 (B18-A3, traitement léger, décision utilisateur du
+        // 31/08/2026) : notifPanel n'est pas un vrai modal (il ne bloque pas
+        // le reste de la page), donc pas de role="dialog" ni de piège complet
+        // du focus comme sur les 15 modaux du site (voir capHumaInitModalA11y
+        // dans caphuma-utils.js) — seule la fermeture au clavier est ajoutée,
+        // avec restitution du focus sur la cloche qui a ouvert le panneau.
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !notifPanel.classList.contains('hidden')) {
+                notifPanel.classList.add('hidden');
+                notifBellBtn.setAttribute('aria-expanded', 'false');
+                notifBellBtn.focus();
+            }
+        });
+
         document.getElementById('notifSettingsToggleBtn').addEventListener('click', () => {
             notifSettingsBlock.classList.toggle('hidden');
         });

@@ -130,13 +130,13 @@
     </main>
 
     <!-- MODALE : Confirmation générique (retrait de la liste rouge) -->
-    <div id="modal-confirm" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div id="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
             <span class="text-4xl" id="confirm-icon">⚠️</span>
             <h3 class="text-lg font-bold text-slate-900" id="confirm-title">Confirmer l'action</h3>
             <p class="text-sm text-slate-500" id="confirm-message"></p>
             <div class="flex justify-center gap-2 pt-2">
-                <button id="btn-cancel-confirm" class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
+                <button id="btn-cancel-confirm" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
                 <button id="btn-confirm-confirm" class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
                     <span id="confirm-action-label">Confirmer</span>
                     <div id="confirm-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -146,16 +146,16 @@
     </div>
 
     <!-- MODALE : Détail du motif complet + documents justificatifs -->
-    <div id="modal-reason" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div id="modal-reason" role="dialog" aria-modal="true" aria-labelledby="modal-reason-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>📋</span> Motif du signalement</h3>
+            <h3 id="modal-reason-title" class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>📋</span> Motif du signalement</h3>
             <p id="reason-content" class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap"></p>
             <div>
                 <p class="text-xs font-bold text-slate-400 uppercase mb-2">Documents justificatifs</p>
                 <div id="reason-documents-list" class="space-y-1.5 text-sm"></div>
             </div>
             <div class="flex justify-end pt-2">
-                <button id="btn-close-reason" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">Fermer</button>
+                <button id="btn-close-reason" data-modal-dismiss class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all">Fermer</button>
             </div>
         </div>
     </div>
@@ -164,9 +164,9 @@
          désormais fusionnée DANS ce dialogue (au lieu d'un sélecteur affiché en
          permanence sur la page), sur le modèle du AddToRedListDialog de Hercules.
          Documents justificatifs obligatoires ajoutés (alignement avec Hercules). -->
-    <div id="redlist-add-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
+    <div id="redlist-add-modal" role="dialog" aria-modal="true" aria-labelledby="redlist-add-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Ajouter à la liste rouge</h3>
+            <h3 id="redlist-add-modal-title" class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Ajouter à la liste rouge</h3>
             <p class="text-sm text-slate-500">Signaler un talent qui ne doit pas être recruté. Cette action nécessite une justification et au moins un document justificatif.</p>
 
             <div class="space-y-1.5">
@@ -194,7 +194,7 @@
                 <div id="modal-redlist-files-list" class="space-y-1"></div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button id="modal-redlist-add-cancel" class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="modal-redlist-add-cancel" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
                 <button id="modal-redlist-add-confirm" disabled class="bg-red-600 hover:bg-red-700 text-white font-semibold text-sm px-4 py-2 rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <span id="modal-redlist-add-confirm-label">Inscrire</span>
                     <div id="redlist-add-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
