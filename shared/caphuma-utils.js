@@ -551,3 +551,52 @@ async function capHumaWithRetry(callFn, { attempts = 2, delayMs = 1500 } = {}) {
         }
     }
 }
+
+// ----------------------------------------------------------------------------
+// 12. SIGNALER UN PROBLÈME (backlog B16-O2, priorité P21)
+// ----------------------------------------------------------------------------
+// Bouton "🚨 Signaler un problème" (#reportIssueBtn), injecté dans le header
+// partagé par shared/caphuma-layout.js (renderPageLayout() ET
+// renderDashboardLayout(), pour couvrir les 12 pages authentifiées — même
+// périmètre que l'intercepteur d'erreurs ci-dessus, section 8). Le clic est
+// câblé ICI, une seule fois pour tout le site, en écoute déléguée sur
+// document — inutile que le bouton existe déjà au moment où ce fichier
+// s'exécute, puisque caphuma-layout.js l'injecte plus tard dans le script de
+// chaque page. Même séparation que le reste du site : caphuma-layout.js ne
+// fait que le balisage, la logique reste centralisée ici avec
+// CAP_HUMA_ERROR_BUFFER, dont elle dépend directement.
+//
+// Copie dans le presse-papiers un rapport JSON (page, navigateur, les 20
+// dernières erreurs du buffer) prêt à coller dans un e-mail/message à
+// l'administrateur — volontairement AUCUN backend/nouvelle table (décision
+// utilisateur, 01/09/2026) : équipe cible non technique sur le terrain, ce
+// lien doit rester "copier-coller", pas un formulaire de plus à remplir.
+//
+// Repli si navigator.clipboard.writeText() échoue (contexte non sécurisé,
+// permission refusée, ancien navigateur — public cible parfois sur du
+// matériel/réseau terrain daté, décision utilisateur) : affiche le rapport
+// dans une invite sélectionnable (window.prompt()) plutôt que d'échouer
+// silencieusement — pas de nouvelle modale pour un cas de repli rare.
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#reportIssueBtn');
+    if (!btn) return;
+
+    const report = {
+        page: location.href,
+        userAgent: navigator.userAgent,
+        at: new Date().toISOString(),
+        errors: CAP_HUMA_ERROR_BUFFER
+    };
+    const reportText = JSON.stringify(report, null, 2);
+
+    try {
+        await navigator.clipboard.writeText(reportText);
+        toastMessage("Rapport copié — collez-le dans un message à l'administrateur.", "success");
+    } catch (err) {
+        console.warn("[Signaler un problème] Échec de la copie automatique :", err);
+        window.prompt(
+            "Impossible de copier automatiquement — sélectionnez ce texte (Ctrl/Cmd+C) puis collez-le dans un message à l'administrateur :",
+            reportText
+        );
+    }
+});

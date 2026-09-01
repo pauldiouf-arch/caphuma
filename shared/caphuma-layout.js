@@ -65,6 +65,13 @@
 //                 du className du bouton logout — id-card.html utilise 'no-print'
 //   actionsHtml   (optionnel, défaut '') HTML des boutons spécifiques à la page,
 //                 inséré juste avant le badge utilisateur + le bouton de déconnexion
+//
+// Correctif P21 (B16-O2, 01/09/2026) : #reportIssueBtn ("🚨 Signaler un
+// problème") injecté inconditionnellement dans les DEUX fonctions de header
+// de ce fichier (ici et renderDashboardLayout() plus bas) — pas un paramètre
+// d'options, il n'y a rien à personnaliser page par page. Le clic est câblé
+// dans shared/caphuma-utils.js (section 12), pas ici : ce fichier ne fait que
+// le balisage, cohérent avec le reste du site.
 // ============================================================================
 
 function renderPageLayout(options) {
@@ -138,6 +145,9 @@ function renderPageLayout(options) {
                 </div>
                 <div class="flex items-center gap-2 flex-wrap justify-end">
                     ${actionsHtml}
+                    <button id="reportIssueBtn" type="button" title="Copier un rapport technique à transmettre à l'administrateur" class="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors">
+                        🚨 Signaler un problème
+                    </button>
                     <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
                     <button id="logoutBtn" class="${logoutClass}">Déconnexion</button>
                 </div>
@@ -283,6 +293,10 @@ function renderDashboardLayout() {
                         </div>
                     </div>
                 </span>
+
+                <button id="reportIssueBtn" type="button" title="Copier un rapport technique à transmettre à l'administrateur" class="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors">
+                    🚨 Signaler un problème
+                </button>
 
                 <button id="logoutBtn" class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Déconnexion" aria-label="Se déconnecter">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
