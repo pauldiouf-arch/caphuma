@@ -1,3 +1,11 @@
+// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
+// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
+// top-level de cette page masque silencieusement une fonction/variable
+// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
+// masquée par une autre page à l'avenir. Aucun changement de comportement :
+// refactoring pur (règle de méthode citée en Master Context §0). Dernier des
+// 15 fichiers de page traités par ce chantier.
+(() => {
         // ============================================================================
         // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
         // pour que #user-display-name, #logoutBtn, #back-btn et #back-btn-text
@@ -1757,3 +1765,4 @@
         });
 
         window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); }); // P15 (B18-A3)
+})();
