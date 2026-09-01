@@ -1,3 +1,10 @@
+// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
+// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
+// top-level de cette page masque silencieusement une fonction/variable
+// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
+// masquée par une autre page à l'avenir. Aucun changement de comportement :
+// refactoring pur (règle de méthode citée en Master Context §0).
+(() => {
         // ============================================================================
         // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
         // (chargé dans le <head>), qui est la source unique pour les 15 pages.
@@ -72,3 +79,4 @@
                 submitLoginBtn.textContent = 'Se connecter';
             }
         });
+})();
