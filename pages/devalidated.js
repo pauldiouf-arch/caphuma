@@ -485,6 +485,38 @@
         const redListModalError = document.getElementById('redListModalError');
         const redListModalTalentName = document.getElementById('redListModalTalentName');
 
+        // ----------------------------------------------------------------------------
+        // BROUILLON LOCAL (backlog B15-R1, priorité P20) — un seul champ (motif), clé
+        // par talent puisque cette modale s'ouvre toujours pour un talent précis (t.id,
+        // paramètre de openRedListModal ci-dessous). Même schéma que talentForm/
+        // evaluationForm : ouverture → offre de restauration + autosave ; Annuler/× →
+        // arrêt seul (le brouillon reste, voir correctif du 01/09/2026 sur talentForm) ;
+        // succès → effacement définitif.
+        let currentRedListDraftKey = null;
+        let currentRedListDraftBinding = null;
+
+        function startRedListDraftTracking(talentId) {
+            stopRedListDraftTracking();
+            currentRedListDraftKey = `draft:redlist_devalidated:${talentId}`;
+            capHumaOfferDraftRestore(currentRedListDraftKey, (data) => capHumaDefaultDraftRestore(redListModal, data));
+            currentRedListDraftBinding = capHumaAttachDraftAutosave(redListModal, currentRedListDraftKey);
+        }
+
+        function stopRedListDraftTracking() {
+            if (currentRedListDraftBinding) {
+                currentRedListDraftBinding.stop();
+                currentRedListDraftBinding = null;
+            }
+        }
+
+        function discardRedListDraft() {
+            stopRedListDraftTracking();
+            if (currentRedListDraftKey) {
+                capHumaDraftClear(currentRedListDraftKey);
+                currentRedListDraftKey = null;
+            }
+        }
+
         function openRedListModal(t) {
             redListTargetTalent = t;
             redListReasonInput.value = '';
@@ -492,6 +524,7 @@
             redListModalTalentName.textContent = `${t.first_name} ${t.last_name}`;
             redListModal.classList.remove('hidden');
             redListModal.classList.add('flex');
+            startRedListDraftTracking(t.id);
         }
 
         function closeRedListModal() {
@@ -500,7 +533,10 @@
             redListTargetTalent = null;
         }
 
-        document.getElementById('redListModalCancel').addEventListener('click', closeRedListModal);
+        document.getElementById('redListModalCancel').addEventListener('click', () => {
+            closeRedListModal();
+            stopRedListDraftTracking();
+        });
 
         document.getElementById('redListModalConfirm').addEventListener('click', async () => {
             const reason = redListReasonInput.value.trim();
@@ -530,6 +566,7 @@
                 // couvert désormais par le trigger Postgres trg_audit_talents (reprend
                 // le motif via red_list_reason).
                 closeRedListModal();
+                discardRedListDraft();
                 await loadDevalidatedTalents();
 
             } catch (error) {

@@ -1261,14 +1261,44 @@
                 }
             };
 
+            // ----------------------------------------------------------------------------
+            // BROUILLON LOCAL (backlog B15-R1, priorité P20) — un seul champ (motif), clé
+            // par talent (talentId, connu dès le chargement de la page — pas d'ambiguïté
+            // possible ici, contrairement à red_list.js). Même schéma que les autres lots :
+            // ouverture → offre de restauration + autosave ; Annuler/× → arrêt seul (le
+            // brouillon reste, voir correctif du 01/09/2026) ; succès → effacement définitif.
+            let currentRedListReasonDraftKey = null;
+            let currentRedListReasonDraftBinding = null;
+
+            function stopRedListReasonDraftTracking() {
+                if (currentRedListReasonDraftBinding) {
+                    currentRedListReasonDraftBinding.stop();
+                    currentRedListReasonDraftBinding = null;
+                }
+            }
+
+            function discardRedListReasonDraft() {
+                stopRedListReasonDraftTracking();
+                if (currentRedListReasonDraftKey) {
+                    capHumaDraftClear(currentRedListReasonDraftKey);
+                    currentRedListReasonDraftKey = null;
+                }
+            }
+
             // 🚨 Inscrire en Liste Rouge
             const redlistModal = document.getElementById('redlist-modal');
             document.getElementById('btn-redlist').onclick = () => {
                 document.getElementById('modal-redlist-reason').value = "";
                 redlistModal.classList.remove('hidden');
+                currentRedListReasonDraftKey = `draft:redlist_reason:${talentId}`;
+                capHumaOfferDraftRestore(currentRedListReasonDraftKey, (data) => capHumaDefaultDraftRestore(redlistModal, data));
+                currentRedListReasonDraftBinding = capHumaAttachDraftAutosave(redlistModal, currentRedListReasonDraftKey);
             };
 
-            document.getElementById('modal-redlist-cancel').onclick = () => redlistModal.classList.add('hidden');
+            document.getElementById('modal-redlist-cancel').onclick = () => {
+                redlistModal.classList.add('hidden');
+                stopRedListReasonDraftTracking();
+            };
 
             document.getElementById('modal-redlist-confirm').onclick = async () => {
                 const reasonVal = document.getElementById('modal-redlist-reason').value.trim();
@@ -1294,6 +1324,7 @@
                     if (error) throw error;
 
                     redlistModal.classList.add('hidden');
+                    discardRedListReasonDraft();
                     toastMessage("Le talent est inscrit en Liste Rouge.", "success");
                     // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
                     // couvert désormais par le trigger Postgres trg_audit_talents (reprend
