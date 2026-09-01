@@ -1135,9 +1135,27 @@
         let currentEvaluationDraftKey = null;
         let currentEvaluationDraftBinding = null;
 
+        // Correctif (signalé par l'utilisateur, même bug que new-comment-input dans
+        // id-card.js — P20 Lot 5, Master Context §7) : un collect() qui renvoie des
+        // champs tous vides écrivait quand même un brouillon "vide" en
+        // sessionStorage — la prochaine ouverture du panneau proposait alors de
+        // restaurer... un formulaire sans contenu. Sert à la fois au filtre de
+        // collectEvaluationDraft() ci-dessous et au garde-fou local posé plus bas.
+        function isEvaluationDraftNonEmpty(data) {
+            return Object.entries(data).some(([key, value]) => {
+                if (key === 'evaluationId') return false; // champ technique (hidden), jamais un contenu saisi
+                return typeof value === 'string' ? value.trim() !== '' : !!value;
+            });
+        }
+
         function collectEvaluationDraft() {
             if (document.getElementById('evaluationId').value) return undefined; // en édition : rien à sauvegarder
-            return capHumaDefaultDraftCollect(evaluationForm);
+            const data = capHumaDefaultDraftCollect(evaluationForm);
+            // Rien à sauvegarder si le formulaire est entièrement vide — évite que
+            // l'autosave différé (500 ms) ne réécrive un brouillon vide juste après
+            // le garde-fou local ci-dessous.
+            if (!isEvaluationDraftNonEmpty(data)) return undefined;
+            return data;
         }
 
         function restoreEvaluationDraft(data) {
@@ -1179,6 +1197,20 @@
         document.getElementById('closeEvaluationsModalBtn').addEventListener('click', () => {
             evaluationsModal.classList.add('hidden');
             stopEvaluationDraftTracking();
+        });
+
+        // Garde-fou local (pas dans shared/caphuma-form-draft.js, même logique que
+        // new-comment-input dans id-card.js, P20 Lot 5) : posé UNE SEULE FOIS ici —
+        // evaluationForm n'est jamais recréé, seul son contenu est réécrit. Dès que
+        // le formulaire redevient entièrement vide (saisie effacée sans valider),
+        // le brouillon déjà en sessionStorage est effacé tout de suite plutôt que
+        // d'attendre l'autosave différé : sinon la prochaine ouverture du panneau
+        // proposerait de restaurer un formulaire vide.
+        evaluationForm.addEventListener('input', () => {
+            if (document.getElementById('evaluationId').value) return; // en édition, aucun rapport avec le brouillon de création
+            if (currentEvaluationDraftKey && !isEvaluationDraftNonEmpty(capHumaDefaultDraftCollect(evaluationForm))) {
+                capHumaDraftClear(currentEvaluationDraftKey);
+            }
         });
 
         async function openEvaluationsModal(missionId) {
