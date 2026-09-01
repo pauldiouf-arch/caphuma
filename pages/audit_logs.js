@@ -1,3 +1,10 @@
+// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
+// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
+// top-level de cette page masque silencieusement une fonction/variable
+// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
+// masquée par une autre page à l'avenir. Aucun changement de comportement :
+// refactoring pur (règle de méthode citée en Master Context §0).
+(() => {
         // ============================================================================
         // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
         // pour que #user-display-name et #logoutBtn existent dès la suite du script.
@@ -409,3 +416,4 @@
                 alert("Erreur lors de l'export : " + (err && err.message ? err.message : 'erreur inconnue.'));
             }
         });
+})();
