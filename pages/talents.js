@@ -1274,6 +1274,92 @@
         }
 
         // ============================================================================
+        // 8bis. BROUILLON LOCAL (backlog B15-R1, priorité P20)
+        // ============================================================================
+        // Sauvegarde locale du contenu du formulaire en cours de saisie, pour ne pas
+        // tout perdre en cas de fermeture d'onglet, crash, ou rechargement pendant une
+        // erreur affichée — voir shared/caphuma-form-draft.js pour le mécanisme
+        // générique et les décisions de périmètre (Master Context §7, P20).
+        //
+        // Portée : création ET édition. Clé propre à chaque cas (`draft:talent:new`
+        // en création, `draft:talent:edit:<id>` en édition) pour qu'un brouillon ne
+        // s'applique jamais par erreur à une autre fiche que celle visée.
+        //
+        // collectTalentDraft()/restoreTalentDraft() réutilisent volontairement les
+        // fonctions déjà existantes (getTagValues()/setTagValues() §5,
+        // getTrainingsValues()/addTrainingRow() ci-dessus) plutôt que de dupliquer la
+        // logique de lecture/écriture des tags et formations — ces champs ne sont pas
+        // couverts par la collecte par défaut de caphuma-form-draft.js (chips et
+        // lignes dynamiques sans name=).
+        let currentTalentDraftKey = null;
+        let currentTalentDraftBinding = null;
+
+        function collectTalentDraft() {
+            const data = capHumaDefaultDraftCollect(talentForm);
+            data.__tags = {
+                languages: getTagValues('languages'),
+                other_languages: getTagValues('other_languages'),
+                intervention_contexts: getTagValues('intervention_contexts'),
+                intervention_zones: getTagValues('intervention_zones'),
+                key_skills: getTagValues('key_skills')
+            };
+            data.__trainings = getTrainingsValues();
+            return data;
+        }
+
+        function restoreTalentDraft(data) {
+            capHumaDefaultDraftRestore(talentForm, data);
+
+            if (data.__tags) {
+                Object.entries(data.__tags).forEach(([field, values]) => setTagValues(field, values));
+            }
+            if (data.__trainings) {
+                document.getElementById('trainingsList').innerHTML = '';
+                data.__trainings.forEach(tr => addTrainingRow(tr));
+            }
+
+            // Champs conditionnels pilotés par des écouteurs 'change' (jamais
+            // déclenchés par une affectation .value/.checked programmatique) — même
+            // logique que celle déjà appliquée par openEditModal() pour ces mêmes
+            // champs, réappliquée ici après restauration des valeurs du brouillon.
+            const availabilityTypeField = talentForm.querySelector('[name="availability_type"]');
+            if (availabilityTypeField) {
+                document.getElementById('availabilityMonthsWrap').classList.toggle('hidden', availabilityTypeField.value !== 'notice');
+                document.getElementById('availabilityDateWrap').classList.toggle('hidden', availabilityTypeField.value !== 'date');
+            }
+            syncMissionFields();
+            document.querySelectorAll('.mission-checkbox').forEach(cb => {
+                document.querySelector(`textarea[name="${cb.dataset.target}"]`).classList.toggle('hidden', !cb.checked);
+            });
+        }
+
+        // Démarre le suivi de brouillon pour la modale qui vient de s'ouvrir — appelé
+        // en toute fin de openCreateModal()/openEditModal(), une fois le formulaire
+        // entièrement rempli (données réelles du talent en édition), pour que l'offre
+        // de restauration ne porte que sur ce que l'utilisateur avait tapé en plus.
+        function startTalentDraftTracking(draftKey) {
+            if (currentTalentDraftBinding) currentTalentDraftBinding.stop();
+            currentTalentDraftKey = draftKey;
+            capHumaOfferDraftRestore(draftKey, restoreTalentDraft);
+            currentTalentDraftBinding = capHumaAttachDraftAutosave(talentForm, draftKey, { collect: collectTalentDraft });
+        }
+
+        // Sur Annuler/× : abandon volontaire du formulaire, le brouillon est effacé
+        // tout de suite (décision utilisateur — R1 vise la perte ACCIDENTELLE, pas
+        // l'abandon assumé). Sur enregistrement réussi : même fonction, appelée
+        // plus bas en section 10.
+        function discardTalentDraft() {
+            if (currentTalentDraftBinding) {
+                currentTalentDraftBinding.stop();
+                currentTalentDraftBinding = null;
+            }
+            if (currentTalentDraftKey) {
+                capHumaDraftClear(currentTalentDraftKey);
+                currentTalentDraftKey = null;
+            }
+        }
+
+        // ============================================================================
         // 9. OUVERTURE / FERMETURE DE LA MODALE
         // ============================================================================
         const talentModal = document.getElementById('talentModal');
@@ -1297,6 +1383,7 @@
             syncMissionFields();
             formError.classList.add('hidden');
             resetTabsToFirst();
+            startTalentDraftTracking('draft:talent:new');
             talentModal.classList.remove('hidden');
         }
 
@@ -1373,18 +1460,31 @@
 
             formError.classList.add('hidden');
             resetTabsToFirst();
+            startTalentDraftTracking(`draft:talent:edit:${talent.id}`);
             talentModal.classList.remove('hidden');
         }
 
         document.getElementById('newTalentBtn').addEventListener('click', openCreateModal);
-        document.getElementById('closeModalBtn').addEventListener('click', () => talentModal.classList.add('hidden'));
-        document.getElementById('cancelBtn').addEventListener('click', () => talentModal.classList.add('hidden'));
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            talentModal.classList.add('hidden');
+            discardTalentDraft();
+        });
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            talentModal.classList.add('hidden');
+            discardTalentDraft();
+        });
 
         // ============================================================================
         // 10. ENREGISTREMENT (création ou mise à jour)
         // ============================================================================
         document.getElementById('saveTalentBtn').addEventListener('click', async function () {
             formError.classList.add('hidden');
+
+            // Filet de sécurité (P20) : capture immédiate avant validation, sans
+            // attendre le debounce de l'autosave — la fenêtre entre le clic et la
+            // fin de l'enregistrement est justement le moment où un crash/une
+            // fermeture accidentelle serait le plus coûteux à perdre.
+            if (currentTalentDraftBinding) currentTalentDraftBinding.saveNow();
 
             const formData = new FormData(talentForm);
             const payload = {};
@@ -1440,6 +1540,7 @@
                     // même texte "Pool : X").
                 }
                 talentModal.classList.add('hidden');
+                discardTalentDraft();
                 await loadTalents();
             } catch (err) {
                 console.error(err);
