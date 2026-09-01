@@ -236,20 +236,6 @@
                     </td>
                 </tr>`;
             }).join('');
-
-            attachAccountRowListeners();
-        }
-
-        function attachAccountRowListeners() {
-            document.querySelectorAll('.btn-toggle-active').forEach(btn => {
-                btn.addEventListener('click', () => onToggleActive(btn.dataset.id, btn.dataset.active === 'true'));
-            });
-            document.querySelectorAll('.btn-reset-password').forEach(btn => {
-                btn.addEventListener('click', () => onResetPassword(btn.dataset.id));
-            });
-            document.querySelectorAll('.btn-delete-account').forEach(btn => {
-                btn.addEventListener('click', () => onDeleteAccount(btn.dataset.id, btn.dataset.email));
-            });
         }
 
         // Suspension / réactivation : client direct sur is_active (pas besoin d'Edge Function, section 8)
@@ -438,10 +424,6 @@
                     </td>
                 </tr>`;
             }).join('');
-
-            document.querySelectorAll('.btn-toggle-pool-archive').forEach(btn => {
-                btn.addEventListener('click', () => onTogglePoolArchive(btn.dataset.id, btn.dataset.archived === 'true', btn.dataset.code));
-            });
         }
 
         async function onTogglePoolArchive(poolId, currentlyArchived, code) {
@@ -606,6 +588,36 @@
 
 
         // ============ INITIALISATION ============
+
+        // Correctif P24 (B13-Q5, Master Context §7) : un seul écouteur délégué par
+        // tableau, posé UNE FOIS ici plutôt que dans renderAccounts()/renderPools()
+        // (voir plus haut), au lieu de re-sélectionner et ré-attacher N écouteurs
+        // sur tout le conteneur à chaque rendu. Comportement strictement identique
+        // — mêmes fonctions appelées avec le même dataset.id/dataset.active/
+        // dataset.email/dataset.archived/dataset.code, seul le mécanisme
+        // d'attachement change. Les <tbody> ciblés sont des éléments statiques du
+        // HTML (jamais recréés, seul leur contenu est réécrit via innerHTML), donc
+        // un écouteur posé ici une fois reste valide sur tous les rendus suivants.
+        document.getElementById('accounts-tbody').addEventListener('click', (e) => {
+            const toggleBtn = e.target.closest('.btn-toggle-active');
+            if (toggleBtn) { onToggleActive(toggleBtn.dataset.id, toggleBtn.dataset.active === 'true'); return; }
+
+            const resetBtn = e.target.closest('.btn-reset-password');
+            if (resetBtn) { onResetPassword(resetBtn.dataset.id); return; }
+
+            const deleteBtn = e.target.closest('.btn-delete-account');
+            if (deleteBtn) { onDeleteAccount(deleteBtn.dataset.id, deleteBtn.dataset.email); return; }
+        });
+
+        // Trouvé en route (même défaut que ci-dessus, non nommé dans Q5 mais
+        // identique : renderPools() ré-attachait un écouteur .btn-toggle-pool-archive
+        // à chaque rendu) — corrigé dans la même passe.
+        document.getElementById('pools-tbody').addEventListener('click', (e) => {
+            const archiveBtn = e.target.closest('.btn-toggle-pool-archive');
+            if (archiveBtn) {
+                onTogglePoolArchive(archiveBtn.dataset.id, archiveBtn.dataset.archived === 'true', archiveBtn.dataset.code);
+            }
+        });
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);

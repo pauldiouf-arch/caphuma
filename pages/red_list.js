@@ -491,13 +491,9 @@
                     </td>
                 </tr>`;
             }).join('');
-
-            document.querySelectorAll('.btn-view-reason').forEach(btn => {
-                btn.addEventListener('click', () => showReasonModal(btn.dataset.id));
-            });
-            document.querySelectorAll('.btn-remove-redlist').forEach(btn => {
-                btn.addEventListener('click', () => onRemoveFromRedList(btn.dataset.id, btn.dataset.name));
-            });
+            // Correctif P24 (B13-Q5) : les 2 boucles de ré-attachement qui étaient
+            // ici (.btn-view-reason/.btn-remove-redlist) sont remplacées par
+            // l'écouteur délégué unique posé une seule fois en INITIALISATION.
         }
 
         async function showReasonModal(talentId) {
@@ -609,6 +605,21 @@
         });
 
         // ============ INITIALISATION ============
+
+        // Correctif P24 (B13-Q5, Master Context §7) : un seul écouteur délégué,
+        // posé UNE FOIS ici plutôt que dans renderRedList() (voir plus haut), au
+        // lieu de re-sélectionner et ré-attacher N écouteurs sur tout le
+        // conteneur à chaque rendu. Comportement strictement identique — mêmes
+        // fonctions appelées avec le même dataset.id/dataset.name, seul le
+        // mécanisme d'attachement change. #redlist-tbody est un élément statique
+        // du HTML (jamais recréé, seul son contenu est réécrit via innerHTML).
+        document.getElementById('redlist-tbody').addEventListener('click', (e) => {
+            const reasonBtn = e.target.closest('.btn-view-reason');
+            if (reasonBtn) { showReasonModal(reasonBtn.dataset.id); return; }
+
+            const removeBtn = e.target.closest('.btn-remove-redlist');
+            if (removeBtn) { onRemoveFromRedList(removeBtn.dataset.id, removeBtn.dataset.name); return; }
+        });
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);

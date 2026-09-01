@@ -48,6 +48,26 @@
         const poolSubheading = document.getElementById('poolSubheading');
         const navTalents = document.getElementById('navTalents');
         const missionsGrid = document.getElementById('missionsGrid');
+
+        // Correctif P24 (B13-Q5, Master Context §7) : un seul écouteur délégué,
+        // posé UNE FOIS ici plutôt que dans renderMissions() (voir plus bas), au
+        // lieu de re-sélectionner et ré-attacher N écouteurs sur tout le
+        // conteneur à chaque rendu (4 boucles avant ce correctif). Comportement
+        // strictement identique — mêmes fonctions appelées avec le même
+        // dataset.id, seul le mécanisme d'attachement change.
+        missionsGrid.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.editMissionBtn');
+            if (editBtn) { openEditModal(editBtn.dataset.id); return; }
+
+            const deleteBtn = e.target.closest('.deleteMissionBtn');
+            if (deleteBtn) { deleteMission(deleteBtn.dataset.id); return; }
+
+            const evalBtn = e.target.closest('.evaluationsBtn');
+            if (evalBtn) { openEvaluationsModal(evalBtn.dataset.id); return; }
+
+            const resyncBtn = e.target.closest('.resyncOccupantBtn');
+            if (resyncBtn) { resyncOccupant(resyncBtn.dataset.id); return; }
+        });
         const missionsError = document.getElementById('missionsError');
         const missionsEmpty = document.getElementById('missionsEmpty');
         const readOnlyNotice = document.getElementById('readOnlyNotice');
@@ -593,19 +613,10 @@
                 ?.addEventListener('click', () => goToMissionsPage(missionsPage - 1));
             paginationEl.querySelector('[data-page-nav="next"]')
                 ?.addEventListener('click', () => goToMissionsPage(missionsPage + 1));
-
-            document.querySelectorAll('.editMissionBtn').forEach(btn => {
-                btn.addEventListener('click', () => openEditModal(btn.dataset.id));
-            });
-            document.querySelectorAll('.deleteMissionBtn').forEach(btn => {
-                btn.addEventListener('click', () => deleteMission(btn.dataset.id));
-            });
-            document.querySelectorAll('.evaluationsBtn').forEach(btn => {
-                btn.addEventListener('click', () => openEvaluationsModal(btn.dataset.id));
-            });
-            document.querySelectorAll('.resyncOccupantBtn').forEach(btn => {
-                btn.addEventListener('click', () => resyncOccupant(btn.dataset.id));
-            });
+            // Correctif P24 (B13-Q5) : les 4 boucles de ré-attachement qui étaient
+            // ici (.editMissionBtn/.deleteMissionBtn/.evaluationsBtn/
+            // .resyncOccupantBtn) sont remplacées par l'écouteur délégué unique
+            // posé une seule fois sur missionsGrid, voir sa déclaration plus haut.
         }
 
         // Correction ponctuelle pour les postes déjà occupés avant l'introduction de la
