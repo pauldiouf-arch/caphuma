@@ -1162,7 +1162,9 @@
             let currentCommentDraftKey = null;
 
             function collectCommentDraft() {
-                return { content: document.getElementById('new-comment-input').value };
+                const val = document.getElementById('new-comment-input').value;
+                if (!val || !val.trim()) return undefined; // rien à sauvegarder — évite que l'autosave différé ne réécrive un brouillon vide juste après le garde-fou ci-dessous
+                return { content: val };
             }
 
             function restoreCommentDraft(data) {
