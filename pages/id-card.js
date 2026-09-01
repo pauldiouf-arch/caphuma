@@ -1153,8 +1153,43 @@
             // 🖨️ Imprimer
             document.getElementById('print-btn').onclick = () => window.print();
 
+            // ----------------------------------------------------------------------------
+            // BROUILLON LOCAL (backlog B15-R1, priorité P20, Lot 5) — pas de modale ici,
+            // le champ est visible en permanence sur la fiche : le suivi démarre une
+            // seule fois au chargement de la page (pas de croix/Annuler à câbler), et
+            // s'efface après un ajout réussi. Clé par talent (talentId, connu dès le
+            // chargement de la page).
+            let currentCommentDraftKey = null;
+
+            function collectCommentDraft() {
+                return { content: document.getElementById('new-comment-input').value };
+            }
+
+            function restoreCommentDraft(data) {
+                if (data && typeof data.content === 'string') {
+                    document.getElementById('new-comment-input').value = data.content;
+                }
+            }
+
             // 💬 Ajouter un commentaire
             const btnAddComment = document.getElementById('btn-add-comment');
+            const newCommentInput = document.getElementById('new-comment-input');
+            if (btnAddComment && newCommentInput && currentUserRole !== 'visitor') {
+                currentCommentDraftKey = `draft:comment:${talentId}`;
+                capHumaOfferDraftRestore(currentCommentDraftKey, restoreCommentDraft);
+                capHumaAttachDraftAutosave(newCommentInput, currentCommentDraftKey, { collect: collectCommentDraft });
+
+                // Garde-fou local (pas dans le fichier partagé, propre à ce champ) : dès
+                // que le champ redevient vide (l'utilisateur a tout effacé sans valider),
+                // on efface le brouillon tout de suite plutôt que d'attendre l'autosave —
+                // sinon la prochaine visite proposerait de restaurer... un champ vide.
+                newCommentInput.addEventListener('input', () => {
+                    if (!newCommentInput.value.trim() && currentCommentDraftKey) {
+                        capHumaDraftClear(currentCommentDraftKey);
+                    }
+                });
+            }
+
             if (btnAddComment) {
                 btnAddComment.onclick = async () => {
                     const input = document.getElementById('new-comment-input');
@@ -1187,6 +1222,7 @@
                         }
 
                         input.value = '';
+                        if (currentCommentDraftKey) capHumaDraftClear(currentCommentDraftKey);
                         toastMessage("Commentaire ajouté.", "success");
                         await logAuditAction('create', 'comment', data[0].id, null, `Sur talent ${talentId}`);
                         await loadComments();
