@@ -1097,8 +1097,70 @@
 
         let currentEvaluationMission = null;
 
+        // ============================================================================
+        // BROUILLON LOCAL (backlog B15-R1, priorité P20) — evaluationForm
+        // ----------------------------------------------------------------------------
+        // Portée décidée avec l'utilisateur : CRÉATION uniquement, jamais en édition
+        // d'une évaluation existante (ce même <form> sert aux deux cas via
+        // startEditEvaluation()/resetEvaluationForm() — voir plus bas). Une clé par
+        // mission (`draft:evaluation:<missionId>`), le formulaire ne concernant
+        // qu'une mission/occupant à la fois (currentEvaluationMission).
+        //
+        // Garde-fou mode édition : collectEvaluationDraft() retourne `undefined` tant
+        // que #evaluationId n'est pas vide — capHumaAttachDraftAutosave() (voir
+        // shared/caphuma-form-draft.js) n'écrit alors RIEN, pour ne jamais écraser un
+        // éventuel brouillon de création avec du contenu d'édition. Solution retenue
+        // après discussion avec l'utilisateur (moins de points de branchement qu'un
+        // détachement/rattachement à chaque bascule création↔édition, donc moins de
+        // risque d'oubli, et aucune confirmation intempestive pour le recruteur en
+        // dehors de l'ouverture du panneau).
+        let currentEvaluationDraftKey = null;
+        let currentEvaluationDraftBinding = null;
+
+        function collectEvaluationDraft() {
+            if (document.getElementById('evaluationId').value) return undefined; // en édition : rien à sauvegarder
+            return capHumaDefaultDraftCollect(evaluationForm);
+        }
+
+        function restoreEvaluationDraft(data) {
+            capHumaDefaultDraftRestore(evaluationForm, data);
+        }
+
+        // Démarre le suivi pour la mission dont le panneau vient de s'ouvrir — appelé
+        // en fin de openEvaluationsModal(), juste après resetEvaluationForm() (donc
+        // #evaluationId est garanti vide à ce moment, contexte création).
+        function startEvaluationDraftTracking(missionId) {
+            stopEvaluationDraftTracking();
+            currentEvaluationDraftKey = `draft:evaluation:${missionId}`;
+            capHumaOfferDraftRestore(currentEvaluationDraftKey, restoreEvaluationDraft);
+            currentEvaluationDraftBinding = capHumaAttachDraftAutosave(evaluationForm, currentEvaluationDraftKey, { collect: collectEvaluationDraft });
+        }
+
+        // Fermeture du panneau (croix/Échap) : on arrête juste l'autosave, sans
+        // effacer le brouillon — même règle que talentForm (P20/Lot 2, correctif du
+        // 01/09/2026) : fermer sert aussi à sortir provisoirement, pas forcément à
+        // abandonner délibérément une saisie en cours.
+        function stopEvaluationDraftTracking() {
+            if (currentEvaluationDraftBinding) {
+                currentEvaluationDraftBinding.stop();
+                currentEvaluationDraftBinding = null;
+            }
+        }
+
+        // Effacement DÉFINITIF — appelé UNIQUEMENT après une CRÉATION réussie (jamais
+        // après une modification d'évaluation existante, qui n'a rien à voir avec un
+        // éventuel brouillon de création en attente pour cette mission).
+        function discardEvaluationDraft() {
+            stopEvaluationDraftTracking();
+            if (currentEvaluationDraftKey) {
+                capHumaDraftClear(currentEvaluationDraftKey);
+                currentEvaluationDraftKey = null;
+            }
+        }
+
         document.getElementById('closeEvaluationsModalBtn').addEventListener('click', () => {
             evaluationsModal.classList.add('hidden');
+            stopEvaluationDraftTracking();
         });
 
         async function openEvaluationsModal(missionId) {
@@ -1117,6 +1179,11 @@
             // Ajout réservé admin + user, lecture ouverte à tous (même pattern que le reste de la page)
             const canEdit = currentUserRole === 'admin' || currentUserRole === 'user';
             evaluationForm.classList.toggle('hidden', !canEdit);
+            if (canEdit) {
+                startEvaluationDraftTracking(mission.id);
+            } else {
+                stopEvaluationDraftTracking();
+            }
 
             evaluationsModal.classList.remove('hidden');
             await loadEvaluations(mission.id);
@@ -1258,6 +1325,11 @@
 
             if (!currentEvaluationMission) return;
 
+            // Filet de sécurité (P20) : capture immédiate avant validation, sans
+            // attendre le debounce — ignorée si on est en édition (collectEvaluationDraft
+            // renvoie undefined dans ce cas, voir plus haut).
+            if (currentEvaluationDraftBinding) currentEvaluationDraftBinding.saveNow();
+
             const evaluationId = document.getElementById('evaluationId').value;
 
             const payload = {
@@ -1302,6 +1374,7 @@
                         .insert(payload);
                     if (error) throw error;
                     toastMessage('Évaluation ajoutée.', 'success');
+                    discardEvaluationDraft(); // création réussie : le brouillon n'a plus lieu d'être
                 }
 
                 resetEvaluationForm();

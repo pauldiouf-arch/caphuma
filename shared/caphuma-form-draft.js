@@ -158,7 +158,13 @@ function capHumaDefaultDraftRestore(containerEl, data) {
  *        `draft:talent:edit:${talentId}` — voir chaque page pour son schéma
  *        de clé complet.
  * @param {Object} [options]
- * @param {Function} [options.collect]  () => objet sérialisable. Par défaut
+ * @param {Function} [options.collect]  () => objet sérialisable, OU
+ *        `undefined` pour signaler "rien à sauvegarder cette fois" (ex. un
+ *        formulaire de création réutilisé pour éditer une entrée existante,
+ *        le temps de cette édition — voir missions.js/evaluationForm, P21).
+ *        Un `undefined` explicite n'écrit RIEN en sessionStorage : le
+ *        brouillon déjà présent, s'il y en a un, reste intact plutôt que
+ *        d'être écrasé par un contenu qui n'a rien à voir. Par défaut
  *        capHumaDefaultDraftCollect(containerEl) — à fournir explicitement
  *        dès que le formulaire a des champs non standard (voir §2).
  * @param {number} [options.debounceMs=500]  Délai après la dernière frappe
@@ -180,7 +186,9 @@ function capHumaAttachDraftAutosave(containerEl, draftKey, options = {}) {
     function saveNow() {
         clearTimeout(timer);
         try {
-            capHumaDraftSave(draftKey, collect());
+            const data = collect();
+            if (data === undefined) return; // rien à sauvegarder cette fois (voir JSDoc ci-dessus)
+            capHumaDraftSave(draftKey, data);
         } catch (e) {
             console.warn("[Draft] Échec de la collecte du formulaire :", e);
         }
