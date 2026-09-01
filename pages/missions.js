@@ -553,6 +553,13 @@
 
             const canEdit = currentUserRole === 'admin' || currentUserRole === 'user';
 
+            // Correctif P25 (B17-L2, Master Context §7) : les cartes sont construites
+            // dans un DocumentFragment (hors DOM, aucun reflow) puis ajoutées à
+            // missionsGrid en un seul appendChild final, au lieu d'un appendChild par
+            // carte comme avant (jusqu'à MISSIONS_PAGE_SIZE reflows par rendu).
+            // Comportement identique : mêmes cartes, même contenu, même ordre.
+            const fragment = document.createDocumentFragment();
+
             pageMissions.forEach(mission => {
                 const statusLabel = STATUS_LABELS[mission.status] || mission.status || '—';
                 const occupantName = mission.occupant_id ? (talentNameById[mission.occupant_id] || 'Talent introuvable') : null;
@@ -605,8 +612,10 @@
                     </div>` : ''}` : ''}
                 `;
 
-                missionsGrid.appendChild(card);
+                fragment.appendChild(card);
             });
+
+            missionsGrid.appendChild(fragment);
 
             paginationEl.innerHTML = renderPaginationControls(missionsPage, totalPages, currentMissions.length);
             paginationEl.querySelector('[data-page-nav="prev"]')
