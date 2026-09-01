@@ -365,6 +365,12 @@
         </div>
     </div>
 
+    <!-- Correctif P26 (B13-Q2, Master Context §7) : missions.js scindé en 4
+         fichiers par responsabilité. Ordre de chargement obligatoire — voir
+         l'en-tête de pages/missions.js pour le détail (MissionsPage). -->
     <script src="pages/missions.js"></script>
+    <script src="pages/missions-render.js"></script>
+    <script src="pages/missions-crud.js"></script>
+    <script src="pages/missions-evaluations.js"></script>
 </body>
 </html>
