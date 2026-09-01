@@ -33,11 +33,24 @@
  * ne doit survivre qu'à l'onglet qui l'a écrit, jamais traverser vers un
  * autre poste ou un autre navigateur.
  *
- * Effacement volontaire (décision utilisateur) : R1 vise la perte
- * ACCIDENTELLE (fermeture d'onglet, crash, rechargement), pas l'abandon
- * volontaire d'un formulaire. C'est donc à la charge de CHAQUE PAGE
- * d'appeler capHumaDraftClear() sur ses propres boutons Annuler/×/Fermer —
- * ce fichier ne peut pas deviner l'intention à leur place.
+ * Effacement du brouillon — décision RÉVISÉE après test en conditions
+ * réelles (01/09/2026, Lot 2 / talentForm — même méthode que pour affiner
+ * P19 sur manage-users, voir Master Context §7 B15-R2) : la version initiale
+ * prévoyait un effacement immédiat sur Annuler/×, en assimilant ce clic à un
+ * abandon délibéré. En pratique, fermer la boîte de cette façon sert aussi
+ * simplement à « sortir provisoirement » sans avoir tranché — effacer
+ * immédiatement dans ce cas va à l'encontre du but même de R1 (aucun moyen
+ * de sortir sans soit enregistrer, soit perdre la saisie pour de bon).
+ *
+ * Règle retenue, pour TOUTES les pages qui utilisent ce module :
+ *   - Annuler/×/Fermer  → arrêter seulement l'autosave (stop() sur la valeur
+ *     retournée par capHumaAttachDraftAutosave), NE PAS appeler
+ *     capHumaDraftClear() ici.
+ *   - Enregistrement réussi → capHumaDraftClear().
+ *   - Refus EXPLICITE de restauration à la réouverture (répondre « non » au
+ *     confirm()) → déjà effacé automatiquement par capHumaOfferDraftRestore()
+ *     ci-dessous (§4) : on ne redemande pas indéfiniment, mais ça reste un
+ *     choix explicite de l'utilisateur, pas une fermeture accidentelle.
  *
  * Inclure APRÈS caphuma-utils.js (aucune dépendance stricte à ce jour, mais
  * cohérent avec l'ordre déjà en place dans le <head> des pages).

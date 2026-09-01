@@ -1338,21 +1338,30 @@
         // entièrement rempli (données réelles du talent en édition), pour que l'offre
         // de restauration ne porte que sur ce que l'utilisateur avait tapé en plus.
         function startTalentDraftTracking(draftKey) {
-            if (currentTalentDraftBinding) currentTalentDraftBinding.stop();
+            stopTalentDraftTracking();
             currentTalentDraftKey = draftKey;
             capHumaOfferDraftRestore(draftKey, restoreTalentDraft);
             currentTalentDraftBinding = capHumaAttachDraftAutosave(talentForm, draftKey, { collect: collectTalentDraft });
         }
 
-        // Sur Annuler/× : abandon volontaire du formulaire, le brouillon est effacé
-        // tout de suite (décision utilisateur — R1 vise la perte ACCIDENTELLE, pas
-        // l'abandon assumé). Sur enregistrement réussi : même fonction, appelée
-        // plus bas en section 10.
-        function discardTalentDraft() {
+        // Correctif (01/09/2026, test en conditions réelles) : Annuler/× ferme la
+        // boîte SANS effacer le brouillon — un clic sur la croix sert souvent juste
+        // à sortir provisoirement, pas à jeter délibérément la saisie. Le brouillon
+        // reste donc en sessionStorage et sera reproposé à la prochaine ouverture de
+        // la même fiche (voir shared/caphuma-form-draft.js pour la règle complète).
+        // Seul l'autosave est arrêté, pour ne pas continuer à écrire sur un
+        // formulaire désormais masqué.
+        function stopTalentDraftTracking() {
             if (currentTalentDraftBinding) {
                 currentTalentDraftBinding.stop();
                 currentTalentDraftBinding = null;
             }
+        }
+
+        // Effacement DÉFINITIF — appelé uniquement après un enregistrement réussi
+        // (section 10) : le brouillon n'a alors plus lieu d'être.
+        function discardTalentDraft() {
+            stopTalentDraftTracking();
             if (currentTalentDraftKey) {
                 capHumaDraftClear(currentTalentDraftKey);
                 currentTalentDraftKey = null;
@@ -1467,11 +1476,11 @@
         document.getElementById('newTalentBtn').addEventListener('click', openCreateModal);
         document.getElementById('closeModalBtn').addEventListener('click', () => {
             talentModal.classList.add('hidden');
-            discardTalentDraft();
+            stopTalentDraftTracking();
         });
         document.getElementById('cancelBtn').addEventListener('click', () => {
             talentModal.classList.add('hidden');
-            discardTalentDraft();
+            stopTalentDraftTracking();
         });
 
         // ============================================================================
