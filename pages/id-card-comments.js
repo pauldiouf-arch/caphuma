@@ -13,11 +13,11 @@
         //   users, pour éviter le même risque RLS déjà documenté pour evaluations).
         // ============================================================================
         async function loadComments() {
-            const container = document.getElementById('IdCardPage.comments-list-container');
+            const container = document.getElementById('comments-list-container');
             try {
                 const { data, error } = await capHumaWithRetry(() =>
                     IdCardPage.supabaseClient
-                        .from('IdCardPage.comments')
+                        .from('comments')
                         .select('id, talent_id, user_id, content, author_email, created_at')
                         .eq('talent_id', IdCardPage.talentId)
                         .order('created_at', { ascending: false })
@@ -36,7 +36,7 @@
         }
 
         function renderComments() {
-            const container = document.getElementById('IdCardPage.comments-list-container');
+            const container = document.getElementById('comments-list-container');
             const formContainer = document.getElementById('comment-form-container');
             if (!container) return;
 
@@ -102,7 +102,7 @@
                         // détecter un blocage RLS silencieux (règle de méthode n°15), pas
                         // une suppression déjà effective.
                         const { data, error } = await IdCardPage.supabaseClient
-                            .from('IdCardPage.comments')
+                            .from('comments')
                             .delete()
                             .eq('id', id)
                             .select('id');
@@ -160,7 +160,7 @@
                             // dessous reste donc fiable.
                             const { data, error } = await capHumaWithRetry(() =>
                                 IdCardPage.supabaseClient
-                                    .from('IdCardPage.comments')
+                                    .from('comments')
                                     .update({ content: newContent })
                                     .eq('id', id)
                                     .select('id')

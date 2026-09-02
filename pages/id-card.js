@@ -443,8 +443,8 @@ const IdCardPage = {};
                     const endStr = endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
 
                     let evalHtml = "";
-                    if (p.IdCardPage.comments && p.IdCardPage.comments.length > 0) {
-                        p.IdCardPage.comments.forEach(rawComment => {
+                    if (p.comments && p.comments.length > 0) {
+                        p.comments.forEach(rawComment => {
                             const c = normalizePassageComment(rawComment);
                             evalHtml += `
                                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1 mt-2">
@@ -631,13 +631,13 @@ const IdCardPage = {};
 
                     try {
                         // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
-                        // IdCardPage.comments n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
+                        // comments n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
                         // — si la 1re tentative a en fait réussi côté serveur mais que sa
                         // réponse s'est perdue, une relance créerait un second commentaire
                         // identique, silencieusement (data.length resterait à 1, aucune
                         // erreur, le contrôle RLS ci-dessous ne verrait rien d'anormal).
                         const { data, error } = await IdCardPage.supabaseClient
-                            .from('IdCardPage.comments')
+                            .from('comments')
                             .insert({
                                 talent_id: IdCardPage.talentId,
                                 user_id: IdCardPage.currentUserId,
@@ -917,7 +917,7 @@ const IdCardPage = {};
                     // éventuelle (cf. Master Context, règle de méthode : ne jamais deviner un
                     // comportement de schéma non vérifié).
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('evaluations').delete().eq('talent_id', IdCardPage.talentId));
-                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('IdCardPage.comments').delete().eq('talent_id', IdCardPage.talentId));
+                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('comments').delete().eq('talent_id', IdCardPage.talentId));
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('share_tokens').delete().eq('talent_id', IdCardPage.talentId));
 
                     // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : même
