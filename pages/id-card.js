@@ -1,10 +1,24 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0). Dernier des
-// 15 fichiers de page traités par ce chantier.
+// Correctif P26 (B13-Q2, Master Context §7) : id-card.js scindé en 4 fichiers
+// par responsabilité — session/données/rendu/actions admin (ce fichier),
+// commentaires (id-card-comments.js), export PDF (id-card-pdf.js), liens de
+// partage (id-card-share.js).
+//
+// Ce fichier N'EST PAS enveloppé dans une IIFE, contrairement aux 15 pages du
+// site (P23) — même raison que missions.js/talents.js : les 4 fichiers de
+// cette page doivent partager un état commun (session, talent chargé...),
+// impossible entre balises <script> classiques sans un point de partage
+// explicite. IdCardPage est ce point unique, propre à cette page.
+//
+// Contient aussi le correctif B10 (parallélisation de loadTalentData) —
+// fusionné à ce chantier car il touche directement cette fonction.
+//
+// Chargement requis dans id-card.html, DANS CET ORDRE :
+//   1. pages/id-card.js            (ce fichier — déclare IdCardPage)
+//   2. pages/id-card-comments.js
+//   3. pages/id-card-pdf.js
+//   4. pages/id-card-share.js
+const IdCardPage = {};
+
 (() => {
         // ============================================================================
         // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
@@ -25,15 +39,15 @@
         });
 
         const appBody = document.getElementById('appBody');
-        let supabaseClient = null;
-        let talentId = null;
+        IdCardPage.supabaseClient = null;
+        IdCardPage.talentId = null;
         let talent = null;
         let activeMission = null;
-        let currentUserId = null;
+        IdCardPage.currentUserId = null;
         let currentUserEmail = null;
-        let currentUserRole = null;
+        IdCardPage.currentUserRole = null;
         let currentUserName = null;
-        let comments = [];
+        IdCardPage.comments = [];
 
         // ============================================================================
         // JOURNAL D'AUDIT (Étape 8) — enregistre une action métier sensible dans
@@ -46,8 +60,8 @@
             // le fait que user_name n'était jamais transmis sur certaines pages.
             const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
             await capHumaLogAudit(
-                supabaseClient,
-                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
+                IdCardPage.supabaseClient,
+                { userId: IdCardPage.currentUserId, userEmail: currentUserEmail, userName: userName },
                 action, entityType, entityId, entityName, details
             );
         }
@@ -89,30 +103,30 @@
         // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            IdCardPage.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
         async function checkSession() {
-            if (!supabaseClient) {
+            if (!IdCardPage.supabaseClient) {
                 showError("Configuration Supabase introuvable dans le localStorage.");
                 return;
             }
             try {
                 let s;
                 try {
-                    s = await capHumaInitSession(supabaseClient);
+                    s = await capHumaInitSession(IdCardPage.supabaseClient);
                 } catch (sessionErr) {
                     window.location.replace('login.html');
                     return;
                 }
 
                 document.getElementById('user-display-name').textContent = s.email;
-                currentUserId = s.userId;
+                IdCardPage.currentUserId = s.userId;
                 currentUserEmail = s.email;
-                currentUserRole = s.role;
+                IdCardPage.currentUserRole = s.role;
                 currentUserName = s.name;
 
-                capHumaStartIdleTimeout(supabaseClient);
+                capHumaStartIdleTimeout(IdCardPage.supabaseClient);
                 appBody.style.display = '';
 
                 // Cible par défaut du bouton Retour, remplacée par "Retour au pool X"
@@ -123,8 +137,8 @@
                 
                 // Récupérer l'ID du talent dans l'URL
                 const urlParams = new URLSearchParams(window.location.search);
-                talentId = urlParams.get('id');
-                if (!talentId || talentId === 'undefined' || talentId === 'null') {
+                IdCardPage.talentId = urlParams.get('id');
+                if (!IdCardPage.talentId || IdCardPage.talentId === 'undefined' || IdCardPage.talentId === 'null') {
                     showError("ID du talent invalide ou non fourni dans l'URL.");
                     setTimeout(() => window.location.replace('dashboard.html'), 3000);
                     return;
@@ -145,52 +159,64 @@
 
         async function loadTalentData() {
             try {
-                // Recherche croisée id ou _id pour robustesse absolue
-                const { data: t, error: et } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('talents')
-                        .select('*')
-                        .eq('id', talentId)
-                        .maybeSingle()
-                );
-                
-                if (et) {
-                    console.error("Échec Supabase :", et);
-                    throw et;
-                }
+                // Correctif (B10, fusionné à P26 puisqu'on est déjà dans cette
+                // fonction) : talent (avec son repli _id) et poste occupé ne
+                // dépendent pas l'un de l'autre — lancés en parallèle au lieu
+                // de 2 allers-retours réseau séquentiels. Comportement
+                // identique : mêmes données, mêmes erreurs gérées pareil.
+                const [talentResult, missionResult] = await Promise.all([
+                    (async () => {
+                        // Recherche croisée id ou _id pour robustesse absolue
+                        const { data: t, error: et } = await capHumaWithRetry(() =>
+                            IdCardPage.supabaseClient
+                                .from('talents')
+                                .select('*')
+                                .eq('id', IdCardPage.talentId)
+                                .maybeSingle()
+                        );
 
-                if (!t) {
-                    const { data: tAlt, error: etAlt } = await capHumaWithRetry(() =>
-                        supabaseClient
-                            .from('talents')
+                        if (et) {
+                            console.error("Échec Supabase :", et);
+                            throw et;
+                        }
+
+                        if (!t) {
+                            const { data: tAlt, error: etAlt } = await capHumaWithRetry(() =>
+                                IdCardPage.supabaseClient
+                                    .from('talents')
+                                    .select('*')
+                                    .eq('_id', IdCardPage.talentId)
+                                    .maybeSingle()
+                            );
+
+                            if (etAlt || !tAlt) {
+                                throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
+                            }
+                            return tAlt;
+                        }
+                        return t;
+                    })(),
+                    // Récupérer le poste actuellement occupé
+                    capHumaWithRetry(() =>
+                        IdCardPage.supabaseClient
+                            .from('missions')
                             .select('*')
-                            .eq('_id', talentId)
+                            .eq('occupant_id', IdCardPage.talentId)
+                            .eq('status', 'occupied')
                             .maybeSingle()
-                    );
-                    
-                    if (etAlt || !tAlt) {
-                        throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
-                    }
-                    talent = tAlt;
-                } else {
-                    talent = t;
-                }
+                    )
+                ]);
 
-                // Récupérer le poste actuellement occupé
-                const { data: mission } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('missions')
-                        .select('*')
-                        .eq('occupant_id', talentId)
-                        .eq('status', 'occupied')
-                        .maybeSingle()
-                );
-                
-                activeMission = mission;
+                talent = talentResult;
+                activeMission = missionResult.data;
 
                 renderTalentCard();
-                await loadComments();
-                await loadPoolHistory();
+                // Commentaires et historique des pools ne dépendent pas l'un de
+                // l'autre non plus — même principe.
+                await Promise.all([
+                    IdCardPage.loadComments(),
+                    loadPoolHistory()
+                ]);
             } catch (err) {
                 console.error("Erreur complète :", err);
                 showError(err.message || "Erreur lors du chargement des données.");
@@ -204,10 +230,10 @@
             const container = document.getElementById('pool-history-container');
             try {
                 const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient
+                    IdCardPage.supabaseClient
                         .from('pool_history')
                         .select('from_pool, to_pool, changed_at, changed_by_name')
-                        .eq('talent_id', talentId)
+                        .eq('talent_id', IdCardPage.talentId)
                         .order('changed_at', { ascending: false })
                 );
 
@@ -248,6 +274,7 @@
         // calculateMonthsWithoutMission() a été retirée d'ici : elle vient désormais
         // de shared/caphuma-utils.js (chargé ligne 12). Comportement strictement
         // identique — cette page utilisait déjà la méthode calendaire.
+
 
         function renderTalentCard() {
             // Lecture robuste et sécurisée des propriétés en snake_case et camelCase
@@ -416,8 +443,8 @@
                     const endStr = endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?';
 
                     let evalHtml = "";
-                    if (p.comments && p.comments.length > 0) {
-                        p.comments.forEach(rawComment => {
+                    if (p.IdCardPage.comments && p.IdCardPage.comments.length > 0) {
+                        p.IdCardPage.comments.forEach(rawComment => {
                             const c = normalizePassageComment(rawComment);
                             evalHtml += `
                                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1 mt-2">
@@ -480,613 +507,6 @@
             });
         }
 
-        // ============================================================================
-        // COMMENTAIRES LIBRES (Étape 7)
-        // - Lecture : tout rôle connecté (admin/user/visitor).
-        // - Ajout : admin et user uniquement.
-        // - Modification/Suppression : admin sur tout commentaire, user uniquement
-        //   sur ses propres commentaires (comparaison user_id === currentUserId).
-        // - author_email enregistré directement à la création (pas de jointure vers
-        //   users, pour éviter le même risque RLS déjà documenté pour evaluations).
-        // ============================================================================
-        async function loadComments() {
-            const container = document.getElementById('comments-list-container');
-            try {
-                const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('comments')
-                        .select('id, talent_id, user_id, content, author_email, created_at')
-                        .eq('talent_id', talentId)
-                        .order('created_at', { ascending: false })
-                );
-
-                if (error) throw error;
-
-                comments = data || [];
-                renderComments();
-            } catch (err) {
-                console.error("Erreur de chargement des commentaires :", err);
-                if (container) {
-                    container.innerHTML = `<p class="text-sm text-red-500 italic">Impossible de charger les commentaires.</p>`;
-                }
-            }
-        }
-
-        function renderComments() {
-            const container = document.getElementById('comments-list-container');
-            const formContainer = document.getElementById('comment-form-container');
-            if (!container) return;
-
-            // Formulaire d'ajout masqué pour visitor (lecture seule)
-            if (formContainer) {
-                formContainer.classList.toggle('hidden', currentUserRole === 'visitor');
-            }
-
-            if (comments.length === 0) {
-                container.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun commentaire pour le moment.</p>`;
-                return;
-            }
-
-            container.innerHTML = '';
-            comments.forEach(c => {
-                const canManage = currentUserRole === 'admin' ||
-                    (currentUserRole === 'user' && c.user_id === currentUserId);
-                const dateStr = c.created_at ? new Date(c.created_at).toLocaleString('fr-FR') : '';
-                const authorLabel = c.author_email || 'Auteur inconnu';
-
-                const actionsHtml = canManage ? `
-                    <div class="flex items-center gap-2 shrink-0">
-                        <button class="btn-edit-comment text-xs font-semibold text-primary hover:underline" data-id="${escapeHtml(c.id)}">Modifier</button>
-                        <button class="btn-delete-comment text-xs font-semibold text-red-600 hover:underline" data-id="${escapeHtml(c.id)}">Supprimer</button>
-                    </div>
-                ` : '';
-
-                container.innerHTML += `
-                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm space-y-1" data-comment-id="${escapeHtml(c.id)}">
-                        <div class="flex justify-between items-start gap-2">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 text-[10px] text-slate-400 mb-1">
-                                    <span>${escapeHtml(authorLabel)}</span>
-                                    <span>•</span>
-                                    <span>${escapeHtml(dateStr)}</span>
-                                </div>
-                                <p class="comment-content-text text-slate-700 whitespace-pre-wrap break-words">${escapeHtml(c.content)}</p>
-                            </div>
-                            ${actionsHtml}
-                        </div>
-                    </div>
-                `;
-            });
-
-            bindCommentButtons();
-        }
-
-        function bindCommentButtons() {
-            // 🗑️ Suppression d'un commentaire
-            document.querySelectorAll('.btn-delete-comment').forEach(btn => {
-                btn.onclick = async () => {
-                    const id = btn.getAttribute('data-id');
-                    if (!confirm("Supprimer définitivement ce commentaire ?")) return;
-
-                    try {
-                        // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
-                        // contrairement à un update par id (la ligne existe toujours après
-                        // une 1re tentative réussie, donc une 2e tentative la retrouve sans
-                        // problème), un DELETE par id fait disparaître la ligne — si la 1re
-                        // tentative a en fait réussi mais que sa réponse s'est perdue, la
-                        // 2e tentative ne trouve plus rien à supprimer et déclencherait à
-                        // tort le contrôle "0 ligne affectée" juste en dessous, conçu pour
-                        // détecter un blocage RLS silencieux (règle de méthode n°15), pas
-                        // une suppression déjà effective.
-                        const { data, error } = await supabaseClient
-                            .from('comments')
-                            .delete()
-                            .eq('id', id)
-                            .select('id');
-
-                        if (error) throw error;
-                        if (!data || data.length === 0) {
-                            throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
-                        }
-
-                        toastMessage("Commentaire supprimé.", "success");
-                        await logAuditAction('delete', 'comment', id, null, `Sur talent ${talentId}`);
-                        await loadComments();
-                    } catch (err) {
-                        console.error(err);
-                        toastMessage("Échec de la suppression : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
-                    }
-                };
-            });
-
-            // ✏️ Modification d'un commentaire (édition en ligne)
-            document.querySelectorAll('.btn-edit-comment').forEach(btn => {
-                btn.onclick = () => {
-                    const id = btn.getAttribute('data-id');
-                    const card = document.querySelector(`[data-comment-id="${id}"]`);
-                    const comment = comments.find(c => c.id === id);
-                    if (!card || !comment) return;
-
-                    const textEl = card.querySelector('.comment-content-text');
-                    if (!textEl) return;
-
-                    textEl.outerHTML = `
-                        <div class="space-y-2">
-                            <textarea class="edit-comment-textarea w-full rounded-xl border border-slate-200 p-2 text-sm outline-none focus:border-primary resize-none" rows="3">${escapeHtml(comment.content)}</textarea>
-                            <div class="flex justify-end gap-2">
-                                <button class="btn-cancel-edit-comment text-xs font-semibold text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-lg">Annuler</button>
-                                <button class="btn-save-edit-comment text-xs font-semibold text-white bg-primary hover:bg-primary-dark px-3 py-1.5 rounded-lg">Enregistrer</button>
-                            </div>
-                        </div>
-                    `;
-
-                    card.querySelector('.btn-cancel-edit-comment').onclick = () => renderComments();
-
-                    card.querySelector('.btn-save-edit-comment').onclick = async () => {
-                        const newContent = card.querySelector('.edit-comment-textarea').value.trim();
-                        if (!newContent) {
-                            alert("Le commentaire ne peut pas être vide.");
-                            return;
-                        }
-
-                        try {
-                            // Enveloppé dans capHumaWithRetry() (P19) : contrairement à un
-                            // DELETE, la ligne existe toujours après une 1re tentative
-                            // réussie — une 2e tentative la retrouve et réapplique le même
-                            // contenu (idempotent), le contrôle "0 ligne affectée" juste en
-                            // dessous reste donc fiable.
-                            const { data, error } = await capHumaWithRetry(() =>
-                                supabaseClient
-                                    .from('comments')
-                                    .update({ content: newContent })
-                                    .eq('id', id)
-                                    .select('id')
-                            );
-
-                            if (error) throw error;
-                            if (!data || data.length === 0) {
-                                throw new Error("La modification n'a affecté aucune ligne (policy RLS ?).");
-                            }
-
-                            toastMessage("Commentaire modifié.", "success");
-                            await loadComments();
-                        } catch (err) {
-                            console.error(err);
-                            toastMessage("Échec de la modification : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
-                        }
-                    };
-                };
-            });
-        }
-
-        // ============================================================================
-        // GÉNÉRATION PDF — FICHE D'IDENTITÉ TALENT
-        // Retranscription HTML/JS natif de la logique originale Hercules
-        // (pdf-talent-card.ts, cf. Mon_code_hercules.txt), adaptée aux colonnes
-        // Supabase réelles (snake_case). jsPDF + jspdf-autotable via CDN (UMD).
-        // Aucune donnée "availability" / "project_status" : ces champs ne sont
-        // pas dans notre schéma/formulaire validés (voir Master Context §0/§3).
-        // ============================================================================
-        const PDF_ALIMA_BLUE = [29, 78, 216]; // #1d4ed8 — primary Cap Huma
-
-        function pdfFormatExpAlima(months) {
-            const m = Number(months) || 0;
-            const y = Math.floor(m / 12);
-            const rem = m % 12;
-            return `${y} an${y !== 1 ? "s" : ""} ${rem} mois`;
-        }
-
-        function pdfFormatMissions(count) {
-            const map = { three_plus: "3+", two: "2", one: "1", none: "0" };
-            return (count && map[count]) || "0";
-        }
-
-        function pdfFormatLanguages(languages) {
-            if (Array.isArray(languages)) return languages.join(", ") || "N/A";
-            if (typeof languages === 'string' && languages.trim()) return languages;
-            return "N/A";
-        }
-
-        function pdfDrawHeader(doc, talent, fName, lName, fFunction) {
-            const pageW = doc.internal.pageSize.getWidth();
-            doc.setFillColor(...PDF_ALIMA_BLUE);
-            doc.rect(0, 0, pageW, 42, "F");
-
-            doc.setFontSize(8);
-            doc.setTextColor(255, 255, 255);
-            doc.setFont("helvetica", "normal");
-            doc.text("ALIMA TalentHub", 14, 10);
-
-            doc.setFontSize(20);
-            doc.setFont("helvetica", "bold");
-            doc.text(`${fName} ${lName}`.trim() || "N/A", 14, 20);
-
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text(fFunction, 14, 27);
-
-            doc.setFontSize(9);
-            doc.text(`Pool : ${talent.pool || "—"}`, 14, 33);
-
-            doc.setTextColor(30, 30, 30);
-            return 50;
-        }
-
-        function pdfDrawSectionTitle(doc, title, y) {
-            const pageW = doc.internal.pageSize.getWidth();
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(30, 30, 30);
-            doc.text(title, 14, y);
-
-            doc.setDrawColor(200, 200, 200);
-            doc.setLineWidth(0.3);
-            doc.line(14, y + 2, pageW - 14, y + 2);
-
-            return y + 8;
-        }
-
-        function pdfDrawField(doc, label, value, x, y, maxWidth = 80) {
-            doc.setFontSize(8);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(100, 100, 100);
-            doc.text(label, x, y);
-
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(30, 30, 30);
-
-            const lines = doc.splitTextToSize(String(value ?? "N/A"), maxWidth);
-            doc.text(lines, x, y + 5);
-
-            return y + 5 + lines.length * 5;
-        }
-
-        function pdfEnsureSpace(doc, y, needed) {
-            const pageH = doc.internal.pageSize.getHeight();
-            if (y + needed > pageH - 20) {
-                doc.addPage();
-                return 20;
-            }
-            return y;
-        }
-
-        // Dessine une rangée de badges (retour à la ligne automatique)
-        function pdfDrawBadgeRow(doc, items, y, pageW, fill, stroke, textColor, fontSize) {
-            let bx = 14;
-            const bPaddingX = 3;
-            const bHeight = fontSize + 2;
-            const bMargin = 2;
-
-            doc.setFontSize(fontSize);
-            doc.setFont("helvetica", "normal");
-
-            items.forEach(label => {
-                const tw = doc.getTextWidth(String(label)) + bPaddingX * 2;
-                if (bx + tw > pageW - 14) {
-                    bx = 14;
-                    y += bHeight + bMargin + 1;
-                }
-                doc.setFillColor(...fill);
-                doc.setDrawColor(...stroke);
-                doc.setLineWidth(0.2);
-                doc.roundedRect(bx, y - 4, tw, bHeight, 1.5, 1.5, "FD");
-                doc.setTextColor(...textColor);
-                doc.text(String(label), bx + bPaddingX, y);
-                bx += tw + bMargin;
-            });
-
-            return y + bHeight + 4;
-        }
-
-        /**
-         * Génère et télécharge le PDF de la carte d'identité talent.
-         * @param {object} talent - Ligne Supabase brute de la table `talents`.
-         * @param {object|null} currentPosition - Mission active (table `missions`), si présente.
-         */
-        function exportTalentCardPDF(talent, currentPosition) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-            const pageW = doc.internal.pageSize.getWidth();
-            const COL_LEFT = 14;
-            const COL_MID = pageW / 2 + 4;
-
-            // Lecture robuste snake_case / camelCase, cohérente avec renderTalentCard()
-            const fName = talent.first_name || talent.firstName || "";
-            const lName = talent.last_name || talent.lastName || "";
-            const fFunction = talent.current_function || talent.currentFunction || "N/A";
-            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
-            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
-            const eduLvl = talent.education_level || talent.educationLevel || "none";
-            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
-            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
-            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
-            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
-            const keySkills = talent.key_skills || talent.keySkills || [];
-            const contexts = talent.intervention_contexts || talent.interventionContexts || [];
-            const zones = talent.intervention_zones || talent.interventionZones || [];
-
-            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS/
-            // MISSION_COUNT_LABELS viennent désormais de shared/caphuma-utils.js
-            // — voir renderTalentCard() plus haut pour le même correctif.
-
-            let y = pdfDrawHeader(doc, talent, fName, lName, fFunction);
-
-            // ── Section 1 : Informations Générales ───────────────────────────────
-            y = pdfDrawSectionTitle(doc, "Informations Générales", y);
-            const l1 = pdfDrawField(doc, "Email", talent.email || "N/A", COL_LEFT, y, 85);
-            const m1 = pdfDrawField(doc, "Statut", talent.status || "N/A", COL_MID, y, 80);
-            y = Math.max(l1, m1) + 3;
-
-            const genderLabel = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
-            const l2 = pdfDrawField(doc, "Genre", genderLabel, COL_LEFT, y, 85);
-            const m2 = pdfDrawField(doc, "Pool", talent.pool || "N/A", COL_MID, y, 80);
-            y = Math.max(l2, m2) + 6;
-
-            // ── Section 2 : Expérience ────────────────────────────────────────────
-            y = pdfEnsureSpace(doc, y, 30);
-            y = pdfDrawSectionTitle(doc, "Expérience", y);
-            const l3 = pdfDrawField(doc, "Expérience ALIMA", pdfFormatExpAlima(expAlima), COL_LEFT, y, 85);
-            const m3 = pdfDrawField(doc, "Expérience Humanitaire", pdfFormatExpAlima(expHum), COL_MID, y, 80);
-            y = Math.max(l3, m3) + 3;
-
-            const l4 = pdfDrawField(doc, "Missions ALIMA", MISSION_COUNT_LABELS[nbMissions] || pdfFormatMissions(nbMissions), COL_LEFT, y, 85);
-            const m4 = pdfDrawField(doc, "Date d'intégration pool", intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A", COL_MID, y, 80);
-            y = Math.max(l4, m4) + 6;
-
-            // ── Section 3 : Formation & Compétences ──────────────────────────────
-            y = pdfEnsureSpace(doc, y, 30);
-            y = pdfDrawSectionTitle(doc, "Formation & Compétences", y);
-            const l5 = pdfDrawField(doc, "Niveau d'études", EDU_LEVEL_LABELS[eduLvl] || "N/A", COL_LEFT, y, 85);
-            const m5 = pdfDrawField(doc, "Spécialité", eduSpec, COL_MID, y, 80);
-            y = Math.max(l5, m5) + 6;
-
-            if (keySkills.length > 0) {
-                y = pdfEnsureSpace(doc, y, 20);
-                y = pdfDrawSectionTitle(doc, "Compétences clés", y);
-                y = pdfDrawBadgeRow(doc, keySkills, y, pageW, [219, 234, 254], [147, 197, 253], [30, 64, 175], 9);
-            }
-
-            // ── Section 4 : Géographie & Langues ─────────────────────────────────
-            y = pdfEnsureSpace(doc, y, 30);
-            y = pdfDrawSectionTitle(doc, "Géographie & Langues", y);
-            const l7 = pdfDrawField(doc, "Nationalité", talent.nationality || "N/A", COL_LEFT, y, 85);
-            const m7 = pdfDrawField(doc, "Pays de résidence", cRes, COL_MID, y, 80);
-            y = Math.max(l7, m7) + 3;
-
-            const l8 = pdfDrawField(doc, "Langues", pdfFormatLanguages(talent.languages), COL_LEFT, y, pageW - 28);
-            y = l8 + 6;
-
-            // ── Section 5 : Contextes & Zones d'intervention ─────────────────────
-            if (contexts.length > 0 || zones.length > 0) {
-                y = pdfEnsureSpace(doc, y, 30);
-                y = pdfDrawSectionTitle(doc, "Contextes & Zones d'intervention", y);
-
-                if (contexts.length > 0) {
-                    y = pdfEnsureSpace(doc, y, 20);
-                    doc.setFontSize(8);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(60, 60, 60);
-                    doc.text("Types de contextes vécus :", 14, y);
-                    y += 5;
-                    y = pdfDrawBadgeRow(doc, contexts, y, pageW, [219, 234, 254], [147, 197, 253], [30, 64, 175], 8);
-                }
-
-                if (zones.length > 0) {
-                    y = pdfEnsureSpace(doc, y, 20);
-                    doc.setFontSize(8);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(60, 60, 60);
-                    doc.text("Zones géographiques :", 14, y);
-                    y += 5;
-                    y = pdfDrawBadgeRow(doc, zones, y, pageW, [220, 252, 231], [134, 239, 172], [21, 128, 61], 7.5);
-                }
-                y += 2;
-            }
-
-            // ── Section 6 : Parcours de missions ALIMA ───────────────────────────
-            let passages = [];
-            try {
-                const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
-                if (Array.isArray(rawPassages)) {
-                    passages = rawPassages;
-                } else if (typeof rawPassages === 'string' && rawPassages.trim()) {
-                    passages = JSON.parse(rawPassages);
-                }
-            } catch (e) {
-                console.error("Erreur de parsing des passages (PDF) :", e);
-            }
-
-            if (currentPosition || passages.length > 0) {
-                y = pdfEnsureSpace(doc, y, 20);
-                y = pdfDrawSectionTitle(doc, "Parcours de missions ALIMA", y);
-
-                if (currentPosition) {
-                    y = pdfEnsureSpace(doc, y, 20);
-                    doc.setFillColor(240, 253, 244);
-                    doc.setDrawColor(134, 239, 172);
-                    doc.roundedRect(14, y - 2, pageW - 28, 18, 2, 2, "FD");
-
-                    doc.setFontSize(8);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(21, 128, 61);
-                    doc.text("● EN COURS", 18, y + 4);
-
-                    doc.setFontSize(9);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(30, 30, 30);
-                    doc.text(currentPosition.title || "Mission ALIMA", 46, y + 4);
-
-                    doc.setFontSize(8);
-                    doc.setFont("helvetica", "normal");
-                    doc.setTextColor(80, 80, 80);
-                    const details = [];
-                    if (currentPosition.pool_id || currentPosition.pool) details.push(currentPosition.pool_id || currentPosition.pool);
-                    if (currentPosition.country) details.push(currentPosition.country);
-                    const startD = currentPosition.contract_start_date || currentPosition.contractStartDate;
-                    if (startD) details.push(`Depuis ${new Date(startD).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`);
-                    doc.text(details.join("  |  "), 18, y + 11);
-
-                    y += 24;
-                }
-
-                const sortedPassages = [...passages].sort((a, b) => (passageDateMs(b.startDate) || 0) - (passageDateMs(a.startDate) || 0));
-
-                sortedPassages.forEach(passage => {
-                    const comments = (passage.comments || []).map(normalizePassageComment);
-                    let neededH = 28;
-                    comments.forEach(c => {
-                        if (c.context) neededH += 12;
-                        if (c.positivePoints) neededH += 12;
-                        if (c.negativePoints) neededH += 12;
-                        if (c.legacyContent) neededH += 10;
-                        neededH += 6; // ligne "Évaluation par ..." de chaque commentaire
-                    });
-                    y = pdfEnsureSpace(doc, y, neededH);
-
-                    doc.setFillColor(248, 250, 252);
-                    doc.setDrawColor(210, 210, 220);
-                    doc.setLineWidth(0.3);
-                    doc.roundedRect(14, y - 2, pageW - 28, neededH, 2, 2, "FD");
-
-                    doc.setFontSize(10);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(30, 30, 30);
-                    doc.text(passage.positionTitle || "Mission ALIMA", 18, y + 5);
-
-                    doc.setFontSize(8);
-                    doc.setFont("helvetica", "normal");
-                    doc.setTextColor(100, 100, 100);
-                    const startMs = passageDateMs(passage.startDate);
-                    const endMs = passageDateMs(passage.endDate);
-                    const dateStr = `${startMs !== null ? new Date(startMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'} → ${endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'}`;
-                    const durationMonths = (startMs !== null && endMs !== null) ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24 * 30)) : null;
-                    const metaLine = [passage.country || "", dateStr, durationMonths !== null ? `(${durationMonths} mois)` : ''].filter(Boolean).join("  |  ");
-                    doc.text(metaLine, 18, y + 11);
-
-                    const firstRating = comments[0] ? comments[0].rating : null;
-                    if (firstRating !== null) {
-                        doc.setFontSize(10);
-                        doc.setFont("helvetica", "bold");
-                        doc.setTextColor(...PDF_ALIMA_BLUE);
-                        doc.text(`★ ${firstRating}/10`, pageW - 18, y + 5, { align: "right" });
-                    }
-
-                    let cy = y + 17;
-                    comments.forEach(comment => {
-                        if (comment.context) {
-                            cy = pdfEnsureSpace(doc, cy, 10);
-                            doc.setFontSize(7.5);
-                            doc.setFont("helvetica", "bold");
-                            doc.setTextColor(60, 60, 60);
-                            doc.text("Contexte :", 18, cy);
-                            doc.setFont("helvetica", "normal");
-                            const lines = doc.splitTextToSize(comment.context, pageW - 40);
-                            doc.text(lines, 18, cy + 4);
-                            cy += 4 + lines.length * 4;
-                        }
-                        if (comment.positivePoints) {
-                            cy = pdfEnsureSpace(doc, cy, 10);
-                            doc.setFontSize(7.5);
-                            doc.setFont("helvetica", "bold");
-                            doc.setTextColor(21, 128, 61);
-                            doc.text("Points forts :", 18, cy);
-                            doc.setFont("helvetica", "normal");
-                            doc.setTextColor(30, 80, 30);
-                            const lines = doc.splitTextToSize(comment.positivePoints, pageW - 40);
-                            doc.text(lines, 18, cy + 4);
-                            cy += 4 + lines.length * 4;
-                        }
-                        if (comment.negativePoints) {
-                            cy = pdfEnsureSpace(doc, cy, 10);
-                            doc.setFontSize(7.5);
-                            doc.setFont("helvetica", "bold");
-                            doc.setTextColor(194, 65, 12);
-                            doc.text("Axes d'amélioration :", 18, cy);
-                            doc.setFont("helvetica", "normal");
-                            doc.setTextColor(80, 30, 10);
-                            const lines = doc.splitTextToSize(comment.negativePoints, pageW - 40);
-                            doc.text(lines, 18, cy + 4);
-                            cy += 4 + lines.length * 4;
-                        }
-                        if (comment.legacyContent) {
-                            cy = pdfEnsureSpace(doc, cy, 10);
-                            doc.setFontSize(8);
-                            doc.setFont("helvetica", "normal");
-                            doc.setTextColor(80, 80, 80);
-                            const lines = doc.splitTextToSize(comment.legacyContent, pageW - 40);
-                            doc.text(lines, 18, cy);
-                            cy += lines.length * 4;
-                        }
-
-                        doc.setFontSize(7);
-                        doc.setFont("helvetica", "italic");
-                        doc.setTextColor(130, 130, 130);
-                        doc.text(
-                            `Évaluation par ${comment.authorLabel || "N/A"}`,
-                            pageW - 18, cy + 3, { align: "right" }
-                        );
-                        cy += 6;
-                    });
-
-                    y = cy + 8;
-                });
-            }
-
-            // ── Tableau récapitulatif ─────────────────────────────────────────────
-            y = pdfEnsureSpace(doc, y, 40);
-            y = pdfDrawSectionTitle(doc, "Récapitulatif Expérience", y);
-
-            const recapBody = [
-                ["Expérience ALIMA", pdfFormatExpAlima(expAlima)],
-                ["Expérience humanitaire", pdfFormatExpAlima(expHum)],
-                ["Nombre de missions ALIMA", MISSION_COUNT_LABELS[nbMissions] || pdfFormatMissions(nbMissions)],
-                ["Niveau d'études", EDU_LEVEL_LABELS[eduLvl] || "N/A"],
-            ];
-            if (keySkills.length > 0) recapBody.push(["Compétences clés", keySkills.join(", ")]);
-            if (contexts.length > 0) recapBody.push(["Contextes d'intervention", contexts.join(", ")]);
-            if (zones.length > 0) recapBody.push(["Zones géographiques", zones.join(", ")]);
-
-            doc.autoTable({
-                startY: y,
-                head: [["Critère", "Valeur"]],
-                body: recapBody,
-                theme: "striped",
-                headStyles: { fillColor: PDF_ALIMA_BLUE, textColor: 255, fontStyle: "bold", fontSize: 9 },
-                bodyStyles: { fontSize: 9 },
-                columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 90 } },
-                margin: { left: 14, right: 14 }
-            });
-
-            y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : y + 40) + 8;
-
-            // ── Pied de page ───────────────────────────────────────────────────
-            y = pdfEnsureSpace(doc, y, 20);
-            doc.setDrawColor(200, 200, 200);
-            doc.setLineWidth(0.3);
-            doc.line(14, y, pageW - 14, y);
-            y += 5;
-
-            doc.setFontSize(8);
-            doc.setFont("helvetica", "italic");
-            doc.setTextColor(130, 130, 130);
-            const generatedDate = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
-            doc.text(`Carte générée le ${generatedDate} — ALIMA TalentHub`, pageW / 2, y, { align: "center" });
-
-            const totalPages = doc.getNumberOfPages();
-            for (let i = 1; i <= totalPages; i++) {
-                doc.setPage(i);
-                doc.setFontSize(7);
-                doc.setFont("helvetica", "normal");
-                doc.setTextColor(150, 150, 150);
-                doc.text(`Page ${i}/${totalPages}`, pageW - 14, doc.internal.pageSize.getHeight() - 8, { align: "right" });
-            }
-
-            const safeFirst = (fName || "talent").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            const safeLast = (lName || "").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            const fileName = `talent-${safeFirst}${safeLast ? '-' + safeLast : ''}.pdf`;
-            doc.save(fileName);
-        }
 
         function setupAdminActions(isInvalid) {
             const btnManageMissions = document.getElementById('btn-manage-missions');
@@ -1113,7 +533,7 @@
             // Dévalider/Réintégrer/Liste Rouge restaient visibles pour visitor, alors
             // que ce sont des actions réservées admin/user partout ailleurs sur le
             // site. Masquage supplémentaire par-dessus la logique isInvalid ci-dessus.
-            if (currentUserRole === 'visitor') {
+            if (IdCardPage.currentUserRole === 'visitor') {
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
                 btnRedlist.classList.add('hidden');
@@ -1129,7 +549,7 @@
             // Un talent dévalidé se supprime depuis devalidated.html — deux chemins de
             // suppression différents selon l'état du talent, jamais les deux en même temps
             // sur la même fiche (décision utilisateur).
-            if (currentUserRole === 'admin' && !isInvalid) {
+            if (IdCardPage.currentUserRole === 'admin' && !isInvalid) {
                 btnDeleteTalent.classList.remove('hidden');
             } else {
                 btnDeleteTalent.classList.add('hidden');
@@ -1144,13 +564,13 @@
             // révocation), plutôt que de créer un nouveau lien à chaque clic (ancien
             // comportement, jamais permis de voir ni révoquer les liens précédents).
             document.getElementById('share-btn').onclick = () => {
-                openShareLinksModal();
+                IdCardPage.openShareLinksModal();
             };
 
             // 📄 Fiche PDF
             document.getElementById('pdf-btn').onclick = () => {
                 try {
-                    exportTalentCardPDF(talent, activeMission);
+                    IdCardPage.exportTalentCardPDF(talent, activeMission);
                     toastMessage("Document PDF généré et téléchargé.", "success");
                 } catch (err) {
                     console.error("Erreur génération PDF :", err);
@@ -1165,7 +585,7 @@
             // BROUILLON LOCAL (backlog B15-R1, priorité P20, Lot 5) — pas de modale ici,
             // le champ est visible en permanence sur la fiche : le suivi démarre une
             // seule fois au chargement de la page (pas de croix/Annuler à câbler), et
-            // s'efface après un ajout réussi. Clé par talent (talentId, connu dès le
+            // s'efface après un ajout réussi. Clé par talent (IdCardPage.talentId, connu dès le
             // chargement de la page).
             let currentCommentDraftKey = null;
 
@@ -1184,8 +604,8 @@
             // 💬 Ajouter un commentaire
             const btnAddComment = document.getElementById('btn-add-comment');
             const newCommentInput = document.getElementById('new-comment-input');
-            if (btnAddComment && newCommentInput && currentUserRole !== 'visitor') {
-                currentCommentDraftKey = `draft:comment:${talentId}`;
+            if (btnAddComment && newCommentInput && IdCardPage.currentUserRole !== 'visitor') {
+                currentCommentDraftKey = `draft:comment:${IdCardPage.talentId}`;
                 capHumaOfferDraftRestore(currentCommentDraftKey, restoreCommentDraft);
                 capHumaAttachDraftAutosave(newCommentInput, currentCommentDraftKey, { collect: collectCommentDraft });
 
@@ -1211,16 +631,16 @@
 
                     try {
                         // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
-                        // comments n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
+                        // IdCardPage.comments n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
                         // — si la 1re tentative a en fait réussi côté serveur mais que sa
                         // réponse s'est perdue, une relance créerait un second commentaire
                         // identique, silencieusement (data.length resterait à 1, aucune
                         // erreur, le contrôle RLS ci-dessous ne verrait rien d'anormal).
-                        const { data, error } = await supabaseClient
-                            .from('comments')
+                        const { data, error } = await IdCardPage.supabaseClient
+                            .from('IdCardPage.comments')
                             .insert({
-                                talent_id: talentId,
-                                user_id: currentUserId,
+                                talent_id: IdCardPage.talentId,
+                                user_id: IdCardPage.currentUserId,
                                 content: content,
                                 author_email: document.getElementById('user-display-name').textContent
                             })
@@ -1234,8 +654,8 @@
                         input.value = '';
                         if (currentCommentDraftKey) capHumaDraftClear(currentCommentDraftKey);
                         toastMessage("Commentaire ajouté.", "success");
-                        await logAuditAction('create', 'comment', data[0].id, null, `Sur talent ${talentId}`);
-                        await loadComments();
+                        await logAuditAction('create', 'comment', data[0].id, null, `Sur talent ${IdCardPage.talentId}`);
+                        await IdCardPage.loadComments();
                     } catch (err) {
                         console.error(err);
                         toastMessage("Échec de l'ajout du commentaire : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
@@ -1248,7 +668,7 @@
                 if (!confirm("Voulez-vous vraiment dévalider ce talent ?")) return;
                 try {
                     const { error } = await capHumaWithRetry(() =>
-                        supabaseClient
+                        IdCardPage.supabaseClient
                             .from('talents')
                             .update({
                                 is_valid: false,
@@ -1259,7 +679,7 @@
                                 devalidation_extension_granted_by_name: null,
                                 devalidation_extension_granted_at: null
                             })
-                            .eq('id', talentId)
+                            .eq('id', IdCardPage.talentId)
                     );
                     
                     if (error) throw error;
@@ -1277,7 +697,7 @@
             document.getElementById('btn-revalidate').onclick = async () => {
                 try {
                     const { error } = await capHumaWithRetry(() =>
-                        supabaseClient
+                        IdCardPage.supabaseClient
                             .from('talents')
                             // Correctif du 19/08/2026 : la réintégration doit faire repartir la
                             // jauge "mois sans mission" à zéro à partir d'AUJOURD'HUI, pas depuis
@@ -1293,7 +713,7 @@
                                 last_mission_end_date: null,
                                 pool_integration_date: new Date().toISOString()
                             })
-                            .eq('id', talentId)
+                            .eq('id', IdCardPage.talentId)
                     );
                     
                     if (error) throw error;
@@ -1309,7 +729,7 @@
 
             // ----------------------------------------------------------------------------
             // BROUILLON LOCAL (backlog B15-R1, priorité P20) — un seul champ (motif), clé
-            // par talent (talentId, connu dès le chargement de la page — pas d'ambiguïté
+            // par talent (IdCardPage.talentId, connu dès le chargement de la page — pas d'ambiguïté
             // possible ici, contrairement à red_list.js). Même schéma que les autres lots :
             // ouverture → offre de restauration + autosave ; Annuler/× → arrêt seul (le
             // brouillon reste, voir correctif du 01/09/2026) ; succès → effacement définitif.
@@ -1336,7 +756,7 @@
             document.getElementById('btn-redlist').onclick = () => {
                 document.getElementById('modal-redlist-reason').value = "";
                 redlistModal.classList.remove('hidden');
-                currentRedListReasonDraftKey = `draft:redlist_reason:${talentId}`;
+                currentRedListReasonDraftKey = `draft:redlist_reason:${IdCardPage.talentId}`;
                 capHumaOfferDraftRestore(currentRedListReasonDraftKey, (data) => capHumaDefaultDraftRestore(redlistModal, data));
                 currentRedListReasonDraftBinding = capHumaAttachDraftAutosave(redlistModal, currentRedListReasonDraftKey);
             };
@@ -1355,16 +775,16 @@
 
                 try {
                     const { error } = await capHumaWithRetry(() =>
-                        supabaseClient
+                        IdCardPage.supabaseClient
                             .from('talents')
                             .update({
                                 is_red_listed: true,
                                 red_list_date: new Date().toISOString(),
                                 red_list_reason: reasonVal,
-                                red_list_added_by: currentUserId,
+                                red_list_added_by: IdCardPage.currentUserId,
                                 red_list_added_by_name: document.getElementById('user-display-name').textContent
                             })
-                            .eq('id', talentId)
+                            .eq('id', IdCardPage.talentId)
                     );
                     
                     if (error) throw error;
@@ -1394,7 +814,7 @@
 
                 try {
                     const { data: pools, error } = await capHumaWithRetry(() =>
-                        supabaseClient
+                        IdCardPage.supabaseClient
                             .from('pools')
                             .select('pool_id, name, full_name')
                             .order('name', { ascending: true })
@@ -1439,11 +859,11 @@
                     // update/delete, §4.3) — un doublon créé par une relance après perte
                     // de réponse serait silencieux ET définitivement impossible à corriger
                     // depuis l'interface.
-                    const { error: histError } = await supabaseClient.from('pool_history').insert({
-                        talent_id: talentId,
+                    const { error: histError } = await IdCardPage.supabaseClient.from('pool_history').insert({
+                        talent_id: IdCardPage.talentId,
                         from_pool: previousPool,
                         to_pool: newPool,
-                        changed_by: currentUserId,
+                        changed_by: IdCardPage.currentUserId,
                         changed_by_name: currentUserName || currentUserEmail
                     });
                     if (histError) throw histError;
@@ -1452,10 +872,10 @@
                     // retenter — voir le commentaire équivalent sur la modification de
                     // commentaire plus haut dans ce fichier.
                     const { data, error } = await capHumaWithRetry(() =>
-                        supabaseClient
+                        IdCardPage.supabaseClient
                             .from('talents')
                             .update({ pool: newPool })
-                            .eq('id', talentId)
+                            .eq('id', IdCardPage.talentId)
                             .select('id')
                     );
                     if (error) throw error;
@@ -1496,9 +916,9 @@
                     // donc suppression explicite plutôt que de compter sur une cascade
                     // éventuelle (cf. Master Context, règle de méthode : ne jamais deviner un
                     // comportement de schéma non vérifié).
-                    await capHumaWithRetry(() => supabaseClient.from('evaluations').delete().eq('talent_id', talentId));
-                    await capHumaWithRetry(() => supabaseClient.from('comments').delete().eq('talent_id', talentId));
-                    await capHumaWithRetry(() => supabaseClient.from('share_tokens').delete().eq('talent_id', talentId));
+                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('evaluations').delete().eq('talent_id', IdCardPage.talentId));
+                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('IdCardPage.comments').delete().eq('talent_id', IdCardPage.talentId));
+                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('share_tokens').delete().eq('talent_id', IdCardPage.talentId));
 
                     // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : même
                     // raison que la suppression de commentaire plus haut — un DELETE par id
@@ -1506,10 +926,10 @@
                     // réussie (réponse perdue) ne trouverait plus rien et déclencherait à
                     // tort le contrôle "0 ligne affectée" (règle de méthode n°15/19)
                     // juste en dessous.
-                    const { data, error } = await supabaseClient
+                    const { data, error } = await IdCardPage.supabaseClient
                         .from('talents')
                         .delete()
-                        .eq('id', talentId)
+                        .eq('id', IdCardPage.talentId)
                         .select('id');
 
                     if (error) throw error;
@@ -1529,238 +949,15 @@
             };
         }
 
-        // ============================================================================
-        // GESTION DES LIENS DE PARTAGE (point ouvert historique, jamais construit
-        // jusqu'ici) — génération, liste des liens actifs par talent, révocation
-        // manuelle. `is_revoked` existait déjà en base (section 6 du Master Context)
-        // mais n'était jusqu'ici jamais exploité côté client.
-        // ============================================================================
-        function buildShareUrl(token) {
-            // Reconstruction à partir du dossier de la page actuelle (jamais
-            // window.location.origin seul), pour rester valide en hébergement GitHub
-            // Pages "project site" (cf. règle de méthode n°27 du Master Context).
-            const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-            // Correctif P12 (B12-S3, 28/08/2026, trouvé en marge de l'audit initial) :
-            // token est aujourd'hui 'st_' + crypto.randomUUID(), donc déjà propre —
-            // encodé par précaution, même logique que les 2 points ci-dessus.
-            return `${window.location.origin}${basePath}shared-talent.html?token=${encodeURIComponent(token)}`;
-        }
 
-        function maskToken(token) {
-            if (!token || token.length <= 12) return token || '';
-            return token.substring(0, 6) + '••••••••' + token.substring(token.length - 4);
-        }
-
-        function openShareLinksModal() {
-            document.getElementById('share-links-modal').classList.remove('hidden');
-            document.getElementById('share-links-modal').classList.add('flex');
-            document.getElementById('share-links-duration').value = '30';
-            document.getElementById('share-links-custom-date').value = '';
-            document.getElementById('share-links-custom-date').classList.add('hidden');
-            loadShareLinks();
-        }
-
-        function closeShareLinksModal() {
-            document.getElementById('share-links-modal').classList.add('hidden');
-            document.getElementById('share-links-modal').classList.remove('flex');
-        }
-
-        document.getElementById('share-links-close').addEventListener('click', closeShareLinksModal);
-
-        // Ne montre que les liens réellement encore utilisables (ni révoqués, ni
-        // expirés) — un lien expiré tout seul disparaît de la liste sans action
-        // nécessaire, un lien révoqué aussi (plus besoin de le voir une fois révoqué).
-        async function loadShareLinks() {
-            const loadingEl = document.getElementById('share-links-loading');
-            const emptyEl = document.getElementById('share-links-empty');
-            const listEl = document.getElementById('share-links-list');
-
-            loadingEl.classList.remove('hidden');
-            emptyEl.classList.add('hidden');
-            listEl.innerHTML = '';
-
-            try {
-                const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('share_tokens')
-                        .select('id, token, expires_at, is_revoked, view_count, last_viewed_at, created_at')
-                        .eq('talent_id', talentId)
-                        .eq('is_revoked', false)
-                        .order('created_at', { ascending: false })
-                );
-
-                if (error) throw error;
-
-                const now = Date.now();
-                const activeLinks = (data || []).filter(l => !l.expires_at || new Date(l.expires_at).getTime() > now);
-
-                loadingEl.classList.add('hidden');
-
-                if (activeLinks.length === 0) {
-                    emptyEl.classList.remove('hidden');
-                    return;
-                }
-
-                activeLinks.forEach(link => listEl.appendChild(renderShareLinkRow(link)));
-
-            } catch (err) {
-                console.error("Erreur de chargement des liens de partage :", err);
-                loadingEl.classList.add('hidden');
-                emptyEl.textContent = "Impossible de charger les liens de partage.";
-                emptyEl.classList.remove('hidden');
-            }
-        }
-
-        function renderShareLinkRow(link) {
-            const row = document.createElement('div');
-            row.className = "border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 flex-wrap";
-
-            const createdStr = link.created_at ? new Date(link.created_at).toLocaleDateString('fr-FR') : '—';
-            const expiresStr = link.expires_at ? new Date(link.expires_at).toLocaleDateString('fr-FR') : 'jamais';
-            const viewsStr = link.view_count || 0;
-
-            row.innerHTML = `
-                <div class="min-w-0">
-                    <p class="text-xs font-mono text-slate-600 truncate">${escapeHtml(maskToken(link.token))}</p>
-                    <p class="text-[11px] text-slate-400">Créé le ${createdStr} · Expire le ${expiresStr} · Vu ${viewsStr} fois</p>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <button class="btn-copy-share-link text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Copier</button>
-                    <button class="btn-revoke-share-link text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-all">Révoquer</button>
-                </div>
-            `;
-
-            row.querySelector('.btn-copy-share-link').addEventListener('click', async () => {
-                await navigator.clipboard.writeText(buildShareUrl(link.token));
-                toastMessage("Lien copié dans le presse-papiers.", "success");
-            });
-
-            row.querySelector('.btn-revoke-share-link').addEventListener('click', () => revokeShareLink(link.id));
-
-            return row;
-        }
-
-        async function revokeShareLink(linkId) {
-            const confirmed = confirm("Révoquer ce lien ? Toute personne qui l'utilise perdra immédiatement l'accès à la fiche.");
-            if (!confirmed) return;
-
-            try {
-                // Enveloppé dans capHumaWithRetry() (P19) : UPDATE par id, sûr à
-                // retenter (voir le raisonnement détaillé sur la modification de
-                // commentaire plus haut dans ce fichier).
-                const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('share_tokens')
-                        .update({ is_revoked: true })
-                        .eq('id', linkId)
-                        .select('id')
-                );
-
-                if (error) throw error;
-                // Cf. règle de méthode n°15 : un .update() peut "réussir" sans rien
-                // affecter si une policy RLS bloque silencieusement la ligne.
-                if (!data || data.length === 0) {
-                    throw new Error("La révocation n'a affecté aucune ligne (policy RLS ?).");
-                }
-
-                // logAuditAction('update', 'share_link', ...) retiré le 18/08/2026 (A5) :
-                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
-                toastMessage("Lien révoqué.", "success");
-                await loadShareLinks();
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec de la révocation : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
-            }
-        }
-
-        document.getElementById('share-links-duration').addEventListener('change', (e) => {
-            document.getElementById('share-links-custom-date').classList.toggle('hidden', e.target.value !== 'custom');
-        });
-
-        // Calcule la date d'expiration ISO selon le choix du sélecteur de durée —
-        // renvoie null si la sélection est invalide (date précise manquante ou déjà
-        // passée), pour ne jamais créer un lien déjà expiré silencieusement.
-        function computeShareExpiresAt() {
-            const duration = document.getElementById('share-links-duration').value;
-
-            if (duration === 'custom') {
-                const dateVal = document.getElementById('share-links-custom-date').value;
-                if (!dateVal) return { error: "Choisissez une date d'expiration précise." };
-                // Fin de journée (23:59:59) du jour choisi, en heure locale.
-                const expiresAt = new Date(dateVal + 'T23:59:59');
-                if (expiresAt.getTime() <= Date.now()) {
-                    return { error: "La date d'expiration doit être dans le futur." };
-                }
-                return { value: expiresAt.toISOString() };
-            }
-
-            const days = parseInt(duration, 10) || 30;
-            return { value: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() };
-        }
-
-        document.getElementById('share-links-generate').addEventListener('click', async () => {
-            const btn = document.getElementById('share-links-generate');
-
-            const expiry = computeShareExpiresAt();
-            if (expiry.error) {
-                toastMessage(expiry.error, "error");
-                return;
-            }
-
-            btn.disabled = true;
-            try {
-                // Correctif sécurité du 17/07/2026 : l'ancienne génération
-                // ('st_' + Math.random()...) n'était PAS cryptographiquement sûre —
-                // Math.random() est prévisible en théorie. crypto.randomUUID() est le
-                // générateur d'aléa sécurisé natif du navigateur (Web Crypto API,
-                // disponible nativement, aucune dépendance ajoutée), utilisé ici pour
-                // protéger l'accès à des fiches talent confidentielles partagées sans
-                // compte. Format légèrement différent (UUID v4 avec tirets) mais la
-                // colonne `token` est un simple texte UNIQUE, donc sans impact sur le
-                // schéma ni sur les liens déjà générés (ils restent valides tels quels).
-                const token = 'st_' + crypto.randomUUID();
-                // created_at retiré du payload (DEFAULT now() côté base) ; expires_at
-                // envoyé en ISO string, jamais en timestamp JS numérique (la colonne est
-                // "timestamp with time zone" — cf. règle de méthode n°26).
-                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter — token est
-                // calculé une seule fois juste au-dessus (pas régénéré à chaque tentative)
-                // et share_tokens.token porte une contrainte UNIQUE (Dossier de passation
-                // §4.2), donc une relance après perte de réponse retomberait proprement
-                // sur une violation de contrainte plutôt que de créer un second lien.
-                const { error } = await capHumaWithRetry(() =>
-                    supabaseClient.from('share_tokens').insert({
-                        token,
-                        talent_id: talentId,
-                        created_by: currentUserId,
-                        created_by_name: document.getElementById('user-display-name').textContent,
-                        expires_at: expiry.value,
-                        is_revoked: false,
-                        view_count: 0
-                    })
-                );
-
-                if (error) throw error;
-
-                await navigator.clipboard.writeText(buildShareUrl(token));
-                toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
-                // logAuditAction('create', 'share_link', ...) retiré le 18/08/2026 (A5) :
-                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
-                await loadShareLinks();
-            } catch (err) {
-                console.error(err);
-                toastMessage("Échec de la génération du lien de partage.", "error");
-            } finally {
-                btn.disabled = false;
-            }
-        });
-
-        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // ⚠️ Petit changement : z-index 50→70 et durée 3000→3500ms (harmonisé
-        // avec la majorité des pages — voir MC13 Addendum, point A3).
+        // Exposé sur IdCardPage pour appel depuis les autres fichiers de la page
+        IdCardPage.logAuditAction = logAuditAction;
+        IdCardPage.passageDateMs = passageDateMs;
+        IdCardPage.normalizePassageComment = normalizePassageComment;
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', currentUserId, null, null);
-            await supabaseClient.auth.signOut();
+            await logAuditAction('logout', 'user', IdCardPage.currentUserId, null, null);
+            await IdCardPage.supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });
 
