@@ -455,7 +455,11 @@
         </div>
     </div>
 
-    <script src="pages/talents.js"></script>    <!-- ═══════════════════════════════════ HOVER CARD (Étape D) ═══════════════════════════════════
+    <!-- Correctif P26 (B13-Q2, Master Context §7) : talents.js scindé en 2
+         fichiers. Ordre obligatoire — voir l'en-tête de pages/talents.js. -->
+    <script src="pages/talents.js"></script>
+    <script src="pages/talents-modal.js"></script>
+    <!-- ═══════════════════════════════════ HOVER CARD (Étape D) ═══════════════════════════════════
          Carte d'aperçu rapide au survol du nom d'un talent dans la liste. Un seul élément
          réutilisé pour toute la liste (repositionné dynamiquement), pour éviter de créer un
          nœud DOM par ligne. -->
