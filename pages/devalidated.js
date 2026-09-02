@@ -379,10 +379,20 @@
                     existing = devalidatedPoolSections[poolId];
                 }
 
+                // Correctif P25 (B17-L2, Master Context §7) : les lignes du lot sont
+                // construites dans un DocumentFragment (hors DOM, aucun reflow) puis
+                // ajoutées à `list` en un seul appendChild final, au lieu d'un
+                // appendChild par ligne comme avant — que `list` soit une section de
+                // pool tout juste créée ou une section déjà affichée (mode append,
+                // lots suivants). Comportement identique : mêmes lignes, même
+                // contenu, même ordre. Même pattern que missions-render.js/
+                // renderMissions() et talents.js/renderTalents().
+                const fragment = document.createDocumentFragment();
                 grouped[poolId].forEach(t => {
-                    list.appendChild(renderTalentRow(t));
+                    fragment.appendChild(renderTalentRow(t));
                     existing.count++;
                 });
+                list.appendChild(fragment);
                 countBadge.textContent = `${existing.count} talent(s)`;
             });
         }

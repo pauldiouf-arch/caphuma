@@ -396,16 +396,28 @@ const IdCardPage = {};
 
             // Timeline
             const timeline = document.getElementById('timeline-container');
-            timeline.innerHTML = "";
             let hasTimelineElements = false;
+
+            // Correctif P25 (B17-L2, Master Context §7) : les entrées de la timeline
+            // sont construites dans un DocumentFragment (hors DOM, aucun reflow) puis
+            // ajoutées à `timeline` en un seul appendChild final, au lieu d'une
+            // concaténation `timeline.innerHTML += ...` par entrée comme avant. Ce
+            // pattern était en fait pire qu'un simple appendChild répété : le
+            // navigateur ré-analysait tout le HTML déjà affiché à chaque `+=`, pas
+            // seulement le nouveau morceau. Comportement identique : mêmes entrées,
+            // même contenu, même ordre. Même pattern que missions-render.js/
+            // renderMissions(), talents.js/renderTalents() et devalidated.js/
+            // renderGroupedByPool().
+            const timelineFragment = document.createDocumentFragment();
 
             if (activeMission) {
                 hasTimelineElements = true;
                 const startStr = activeMission.contract_start_date || activeMission.contractStartDate
                     ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).toLocaleDateString('fr-FR')
                     : "En cours";
-                
-                timeline.innerHTML += `
+
+                const activeEntry = document.createElement('div');
+                activeEntry.innerHTML = `
                     <div class="relative pl-6 border-l-2 border-green-500">
                         <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
                         <div class="space-y-1">
@@ -415,6 +427,7 @@ const IdCardPage = {};
                         </div>
                     </div>
                 `;
+                timelineFragment.appendChild(activeEntry.firstElementChild);
             }
 
             // Parsing sécurisé de l'historique
@@ -461,7 +474,8 @@ const IdCardPage = {};
                         });
                     }
 
-                    timeline.innerHTML += `
+                    const passageEntry = document.createElement('div');
+                    passageEntry.innerHTML = `
                         <div class="relative pl-6 border-l-2 border-slate-200">
                             <div class="absolute -left-[6px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white shadow"></div>
                             <div class="space-y-1">
@@ -472,10 +486,14 @@ const IdCardPage = {};
                             </div>
                         </div>
                     `;
+                    timelineFragment.appendChild(passageEntry.firstElementChild);
                 });
             }
 
-            if (!hasTimelineElements) {
+            if (hasTimelineElements) {
+                timeline.innerHTML = '';
+                timeline.appendChild(timelineFragment);
+            } else {
                 timeline.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun parcours de mission ALIMA archivé.</p>`;
             }
 

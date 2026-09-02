@@ -399,6 +399,16 @@ const TalentsPage = {};
             // visible dans ce mode.
             const batch = talents.slice(renderedTalentsCount, renderedTalentsCount + RENDER_BATCH_SIZE);
 
+            // Correctif P25 (B17-L2, Master Context §7) : les lignes sont construites
+            // dans un DocumentFragment (hors DOM, aucun reflow) puis ajoutées à listEl
+            // en un seul appendChild final, au lieu d'un appendChild par ligne comme
+            // avant (jusqu'à RENDER_BATCH_SIZE reflows par lot). Les écouteurs par
+            // ligne (survol, focus, boutons) restent posés ici sur chaque `row` avant
+            // son ajout au fragment — inutile que l'élément soit déjà dans le DOM pour
+            // ça. Comportement identique : mêmes lignes, même contenu, même ordre,
+            // mêmes écouteurs. Même pattern que missions-render.js/renderMissions().
+            const fragment = document.createDocumentFragment();
+
             batch.forEach(t => {
                 const row = document.createElement('div');
                 const eligible = TalentsPage.isDevalidationEligible(t);
@@ -503,8 +513,10 @@ const TalentsPage = {};
                     });
                 }
 
-                listEl.appendChild(row);
+                fragment.appendChild(row);
             });
+
+            listEl.appendChild(fragment);
 
             renderedTalentsCount += batch.length;
             updateShowMoreControls(talents);
