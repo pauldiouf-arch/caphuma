@@ -338,6 +338,11 @@
     </main>
 
     <!-- Script de logique et liaison Supabase -->
+    <!-- Scission P26 (B13-Q2, Master Context §7) — ordre de chargement strict :
+         statistics.js déclare StatisticsPage et doit rester en premier. -->
     <script src="pages/statistics.js"></script>
+    <script src="pages/statistics-charts.js"></script>
+    <script src="pages/statistics-pool-ai.js"></script>
+    <script src="pages/statistics-ai-report.js"></script>
 </body>
 </html>
