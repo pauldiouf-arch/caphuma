@@ -129,35 +129,18 @@
          * @param {object} talent - Ligne Supabase brute de la table `talents`.
          * @param {object|null} currentPosition - Mission active (table `missions`), si présente.
          */
-        function exportTalentCardPDF(talent, currentPosition) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-            const pageW = doc.internal.pageSize.getWidth();
-            const COL_LEFT = 14;
-            const COL_MID = pageW / 2 + 4;
+        // ============================================================================
+        // Correctif P27 (B13-Q3, Master Context §7) — exportTalentCardPDF() décomposée
+        // en une fonction par section de contenu, sur le modèle des helpers pdfDraw*
+        // déjà en place (pdfDrawHeader, pdfDrawField, pdfDrawSectionTitle,
+        // pdfDrawBadgeRow). Chaque section reçoit `y` en paramètre et renvoie le `y`
+        // mis à jour, exactement comme ces helpers — composées séquentiellement dans
+        // exportTalentCardPDF() qui devient un simple orchestrateur. Comportement
+        // strictement inchangé : même contenu, même mise en page, mêmes calculs.
+        // ============================================================================
 
-            // Lecture robuste snake_case / camelCase, cohérente avec IdCardPage.renderTalentCard()
-            const fName = talent.first_name || talent.firstName || "";
-            const lName = talent.last_name || talent.lastName || "";
-            const fFunction = talent.current_function || talent.currentFunction || "N/A";
-            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
-            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
-            const eduLvl = talent.education_level || talent.educationLevel || "none";
-            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
-            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
-            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
-            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
-            const keySkills = talent.key_skills || talent.keySkills || [];
-            const contexts = talent.intervention_contexts || talent.interventionContexts || [];
-            const zones = talent.intervention_zones || talent.interventionZones || [];
-
-            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS/
-            // MISSION_COUNT_LABELS viennent désormais de shared/caphuma-utils.js
-            // — voir IdCardPage.renderTalentCard() plus haut pour le même correctif.
-
-            let y = pdfDrawHeader(doc, talent, fName, lName, fFunction);
-
-            // ── Section 1 : Informations Générales ───────────────────────────────
+        // ── Section 1 : Informations Générales ───────────────────────────────
+        function pdfDrawGeneralInfoSection(doc, y, talent, COL_LEFT, COL_MID) {
             y = pdfDrawSectionTitle(doc, "Informations Générales", y);
             const l1 = pdfDrawField(doc, "Email", talent.email || "N/A", COL_LEFT, y, 85);
             const m1 = pdfDrawField(doc, "Statut", talent.status || "N/A", COL_MID, y, 80);
@@ -168,7 +151,11 @@
             const m2 = pdfDrawField(doc, "Pool", talent.pool || "N/A", COL_MID, y, 80);
             y = Math.max(l2, m2) + 6;
 
-            // ── Section 2 : Expérience ────────────────────────────────────────────
+            return y;
+        }
+
+        // ── Section 2 : Expérience ────────────────────────────────────────────
+        function pdfDrawExperienceSection(doc, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate) {
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, "Expérience", y);
             const l3 = pdfDrawField(doc, "Expérience ALIMA", pdfFormatExpAlima(expAlima), COL_LEFT, y, 85);
@@ -179,7 +166,11 @@
             const m4 = pdfDrawField(doc, "Date d'intégration pool", intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A", COL_MID, y, 80);
             y = Math.max(l4, m4) + 6;
 
-            // ── Section 3 : Formation & Compétences ──────────────────────────────
+            return y;
+        }
+
+        // ── Section 3 : Formation & Compétences ──────────────────────────────
+        function pdfDrawEducationSection(doc, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills) {
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, "Formation & Compétences", y);
             const l5 = pdfDrawField(doc, "Niveau d'études", EDU_LEVEL_LABELS[eduLvl] || "N/A", COL_LEFT, y, 85);
@@ -192,7 +183,11 @@
                 y = pdfDrawBadgeRow(doc, keySkills, y, pageW, [219, 234, 254], [147, 197, 253], [30, 64, 175], 9);
             }
 
-            // ── Section 4 : Géographie & Langues ─────────────────────────────────
+            return y;
+        }
+
+        // ── Section 4 : Géographie & Langues ─────────────────────────────────
+        function pdfDrawGeoLanguagesSection(doc, y, pageW, COL_LEFT, COL_MID, talent, cRes) {
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, "Géographie & Langues", y);
             const l7 = pdfDrawField(doc, "Nationalité", talent.nationality || "N/A", COL_LEFT, y, 85);
@@ -202,7 +197,11 @@
             const l8 = pdfDrawField(doc, "Langues", pdfFormatLanguages(talent.languages), COL_LEFT, y, pageW - 28);
             y = l8 + 6;
 
-            // ── Section 5 : Contextes & Zones d'intervention ─────────────────────
+            return y;
+        }
+
+        // ── Section 5 : Contextes & Zones d'intervention ─────────────────────
+        function pdfDrawInterventionSection(doc, y, pageW, contexts, zones) {
             if (contexts.length > 0 || zones.length > 0) {
                 y = pdfEnsureSpace(doc, y, 30);
                 y = pdfDrawSectionTitle(doc, "Contextes & Zones d'intervention", y);
@@ -229,7 +228,11 @@
                 y += 2;
             }
 
-            // ── Section 6 : Parcours de missions ALIMA ───────────────────────────
+            return y;
+        }
+
+        // ── Section 6 : Parcours de missions ALIMA ───────────────────────────
+        function pdfDrawMissionHistorySection(doc, y, pageW, talent, currentPosition) {
             let passages = [];
             try {
                 const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
@@ -378,7 +381,11 @@
                 });
             }
 
-            // ── Tableau récapitulatif ─────────────────────────────────────────────
+            return y;
+        }
+
+        // ── Tableau récapitulatif ─────────────────────────────────────────────
+        function pdfDrawRecapTable(doc, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones) {
             y = pdfEnsureSpace(doc, y, 40);
             y = pdfDrawSectionTitle(doc, "Récapitulatif Expérience", y);
 
@@ -405,7 +412,11 @@
 
             y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : y + 40) + 8;
 
-            // ── Pied de page ───────────────────────────────────────────────────
+            return y;
+        }
+
+        // ── Pied de page ───────────────────────────────────────────────────
+        function pdfDrawFooter(doc, y, pageW) {
             y = pdfEnsureSpace(doc, y, 20);
             doc.setDrawColor(200, 200, 200);
             doc.setLineWidth(0.3);
@@ -426,6 +437,46 @@
                 doc.setTextColor(150, 150, 150);
                 doc.text(`Page ${i}/${totalPages}`, pageW - 14, doc.internal.pageSize.getHeight() - 8, { align: "right" });
             }
+
+            return y;
+        }
+
+        function exportTalentCardPDF(talent, currentPosition) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+            const pageW = doc.internal.pageSize.getWidth();
+            const COL_LEFT = 14;
+            const COL_MID = pageW / 2 + 4;
+
+            // Lecture robuste snake_case / camelCase, cohérente avec IdCardPage.renderTalentCard()
+            const fName = talent.first_name || talent.firstName || "";
+            const lName = talent.last_name || talent.lastName || "";
+            const fFunction = talent.current_function || talent.currentFunction || "N/A";
+            const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
+            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
+            const eduLvl = talent.education_level || talent.educationLevel || "none";
+            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
+            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
+            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
+            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
+            const keySkills = talent.key_skills || talent.keySkills || [];
+            const contexts = talent.intervention_contexts || talent.interventionContexts || [];
+            const zones = talent.intervention_zones || talent.interventionZones || [];
+
+            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS/
+            // MISSION_COUNT_LABELS viennent désormais de shared/caphuma-utils.js
+            // — voir IdCardPage.renderTalentCard() plus haut pour le même correctif.
+
+            let y = pdfDrawHeader(doc, talent, fName, lName, fFunction);
+
+            y = pdfDrawGeneralInfoSection(doc, y, talent, COL_LEFT, COL_MID);
+            y = pdfDrawExperienceSection(doc, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate);
+            y = pdfDrawEducationSection(doc, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills);
+            y = pdfDrawGeoLanguagesSection(doc, y, pageW, COL_LEFT, COL_MID, talent, cRes);
+            y = pdfDrawInterventionSection(doc, y, pageW, contexts, zones);
+            y = pdfDrawMissionHistorySection(doc, y, pageW, talent, currentPosition);
+            y = pdfDrawRecapTable(doc, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones);
+            y = pdfDrawFooter(doc, y, pageW);
 
             const safeFirst = (fName || "talent").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
             const safeLast = (lName || "").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');

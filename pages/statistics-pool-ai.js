@@ -43,12 +43,21 @@
         // transmises au modèle. Valeur fixée par l'utilisateur le 18/08/2026.
         const AI_DIVERSITY_MIN_ACTIVE_TALENTS = 5;
 
-        function buildPoolAnalysisStats(mData, talentsForPool) {
-            const now = Date.now();
-            const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
-            const threeMonthsLater = now + 3 * 30 * 24 * 60 * 60 * 1000;
-            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
+        // Correctif P27 (B13-Q3, Master Context §7) — buildPoolAnalysisStats()
+        // décomposée en une fonction par famille de stats, assemblées dans l'objet
+        // `stats` final par l'orchestrateur (buildPoolAnalysisStats elle-même) — même
+        // pattern que exportTalentCardPDF()/bindButtonListeners(). `now` et les 3
+        // horizons temporels sont calculés une seule fois par l'orchestrateur et
+        // transmis en paramètre (au lieu d'un Date.now() par bloc) pour garantir un
+        // instantané cohérent entre tous les blocs, comme avant. `activeTalents` est
+        // calculé une seule fois (computeActiveTalents) et partagé entre les 2 blocs
+        // qui en ont besoin, pour la même raison. Comportement strictement inchangé :
+        // mêmes calculs, mêmes clés d'objet, même valeurs.
 
+        // KPIs de postes du pool — cf. Hercules positions/analytics.ts et
+        // getRecruitmentAnalytics (candidateTypeDistribution / countryDistribution /
+        // deskDistribution / preparationRate).
+        function computePositionStats(mData, now, oneMonthLater, threeMonthsLater, sixMonthsLater) {
             const total = mData.length;
             const occupied = mData.filter(m => m.status === 'occupied').length;
             const recruiting = mData.filter(m => m.status === 'recruiting').length;
@@ -91,12 +100,36 @@
             const positionsWithFutureTalent = mData.filter(m => !!m.future_talent_id).length;
             const preparationRate = total > 0 ? Math.round((positionsWithFutureTalent / total) * 100) : 0;
 
-            let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
-            const activeTalents = talentsForPool.filter(t => {
+            return {
+                totalPositions: total,
+                occupiedPositions: occupied,
+                recruitingPositions: recruiting,
+                vacantPositions: vacant,
+                endingIn1Month: endingWithin(oneMonthLater),
+                endingIn3Months: endingWithin(threeMonthsLater),
+                endingIn6Months: endingWithin(sixMonthsLater),
+                renewableContractsSoon: renewableSoon,
+                candidateTypeDistribution: { expatries: expatPositions, nationaux: nationalPositions },
+                positionsByCountry,
+                positionsByDesk,
+                preparationRatePercent: preparationRate
+            };
+        }
+
+        // Talents actifs du pool (valides, non Liste Rouge) — base commune aux blocs
+        // disponibilité et diversité ci-dessous, calculée une seule fois.
+        function computeActiveTalents(talentsForPool) {
+            return talentsForPool.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
                 const isRed = t.isRedListed || t.is_red_listed;
                 return isVal && !isRed;
             });
+        }
+
+        // Disponibilité des talents actifs — logique inchangée depuis avant l'Étape E
+        // (adaptée de Hercules positions/analytics.ts, getRecommendations).
+        function computeAvailabilityStats(activeTalents, now, sixMonthsLater) {
+            let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
 
             activeTalents.forEach(t => {
                 if (t.status === 'En poste ALIMA') return;
@@ -114,14 +147,24 @@
                 }
             });
 
+            return { availableNow, availableSoon, experiencedAvailable, juniorAvailable };
+        }
+
+        // Liste Rouge et risque de dévalidation — sur l'ensemble du pool (pas
+        // seulement activeTalents, contrairement aux blocs disponibilité/diversité).
+        function computeRedListAndRiskStats(talentsForPool) {
             const redListedCount = talentsForPool.filter(t => t.is_red_listed || t.isRedListed).length;
             const atRiskCount = talentsForPool.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
                 return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
             }).length;
+            return { redListedCount, atRiskCount };
+        }
 
-            // Répartition Homme/Femme — comptage agrégé uniquement (cf. décision utilisateur :
-            // acceptable à l'échelle moyenne d'un pool ~30 personnes, jamais par individu).
+        // Répartitions genre / nationalité / langue / expérience — comptages agrégés
+        // uniquement (cf. décision utilisateur : acceptable à l'échelle moyenne d'un
+        // pool ~30 personnes, jamais par individu), cf. Hercules getTalentAnalytics.
+        function computeDiversityStats(activeTalents) {
             const genderDistribution = { hommes: 0, femmes: 0, nonRenseigne: 0 };
             activeTalents.forEach(t => {
                 if (t.gender === 'H') genderDistribution.hommes++;
@@ -129,16 +172,13 @@
                 else genderDistribution.nonRenseigne++;
             });
 
-            // Répartition par nationalité — comptage agrégé (cf. Hercules getTalentAnalytics,
-            // nationalityDistribution).
             const nationalityDistribution = {};
             activeTalents.forEach(t => {
                 if (!t.nationality) return;
                 nationalityDistribution[t.nationality] = (nationalityDistribution[t.nationality] || 0) + 1;
             });
 
-            // Répartition par langue parlée — comptage agrégé (cf. Hercules getTalentAnalytics,
-            // languageDistribution). `languages` est un tableau côté talents.
+            // `languages` est un tableau côté talents.
             const languageDistribution = {};
             activeTalents.forEach(t => {
                 const langs = Array.isArray(t.languages) ? t.languages : (t.languages ? [t.languages] : []);
@@ -158,30 +198,36 @@
                 else experienceDistribution.expert++;
             });
 
+            return { genderDistribution, nationalityDistribution, languageDistribution, experienceDistribution };
+        }
+
+        function buildPoolAnalysisStats(mData, talentsForPool) {
+            const now = Date.now();
+            const oneMonthLater = now + 30 * 24 * 60 * 60 * 1000;
+            const threeMonthsLater = now + 3 * 30 * 24 * 60 * 60 * 1000;
+            const sixMonthsLater = now + 6 * 30 * 24 * 60 * 60 * 1000;
+
+            const positionStats = computePositionStats(mData, now, oneMonthLater, threeMonthsLater, sixMonthsLater);
+            const activeTalents = computeActiveTalents(talentsForPool);
+            const availabilityStats = computeAvailabilityStats(activeTalents, now, sixMonthsLater);
+            const { redListedCount, atRiskCount } = computeRedListAndRiskStats(talentsForPool);
+            const { genderDistribution, nationalityDistribution, languageDistribution, experienceDistribution } = computeDiversityStats(activeTalents);
+
             // Taux d'adéquation talents/postes — cf. Hercules getRecruitmentAnalytics,
             // talentMatchRate (talents disponibles sous 6 mois rapportés au nb de postes).
-            const talentMatchRate = total > 0 ? Math.round((availableSoon / total) * 100) : 0;
+            const talentMatchRate = positionStats.totalPositions > 0
+                ? Math.round((availabilityStats.availableSoon / positionStats.totalPositions) * 100)
+                : 0;
 
             const stats = {
                 // Postes
-                totalPositions: total,
-                occupiedPositions: occupied,
-                recruitingPositions: recruiting,
-                vacantPositions: vacant,
-                endingIn1Month: endingWithin(oneMonthLater),
-                endingIn3Months: endingWithin(threeMonthsLater),
-                endingIn6Months: endingWithin(sixMonthsLater),
-                renewableContractsSoon: renewableSoon,
-                candidateTypeDistribution: { expatries: expatPositions, nationaux: nationalPositions },
-                positionsByCountry,
-                positionsByDesk,
-                preparationRatePercent: preparationRate,
+                ...positionStats,
 
                 // Talents
-                availableTalentsNow: availableNow,
-                availableTalentsWithin6Months: availableSoon,
-                experiencedAvailableTalents: experiencedAvailable,
-                juniorAvailableTalents: juniorAvailable,
+                availableTalentsNow: availabilityStats.availableNow,
+                availableTalentsWithin6Months: availabilityStats.availableSoon,
+                experiencedAvailableTalents: availabilityStats.experiencedAvailable,
+                juniorAvailableTalents: availabilityStats.juniorAvailable,
                 redListedTalents: redListedCount,
                 talentsAtRiskOfDevalidation: atRiskCount,
                 genderDistribution,
