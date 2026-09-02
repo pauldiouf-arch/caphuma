@@ -490,11 +490,18 @@
             talentModal.classList.remove('hidden');
         }
 
-        function openEditModal(talent) {
-            editingTalentId = talent.id;
-            talentForm.reset();
-            document.getElementById('modalTitle').textContent = `${talent.first_name} ${talent.last_name}`;
+        // Correctif P27 (B13-Q3, Master Context §7) — openEditModal() décomposée en
+        // 5 fonctions nommées par responsabilité, chacune peuplant une zone distincte
+        // du formulaire/modale, composées séquentiellement dans openEditModal qui
+        // devient un simple orchestrateur — même pattern que exportTalentCardPDF()
+        // (id-card-pdf.js) et bindButtonListeners() (id-card.js). Toutes locales à ce
+        // fichier (IIFE) : aucune n'est appelée depuis un autre fichier de la page,
+        // donc aucune exposée sur TalentsPage. Comportement strictement inchangé :
+        // mêmes lectures/écritures DOM, même ordre, même contenu.
 
+        // Onglets 1-2 — champs simples du formulaire (texte, nombre, date, checkbox),
+        // peuplés génériquement depuis les clés de l'objet talent.
+        function populateBasicFields(talent) {
             Object.keys(talent).forEach(key => {
                 const field = talentForm.querySelector(`[name="${key}"]`);
                 if (!field) return;
@@ -502,16 +509,28 @@
                 else if (field.type === 'date' && talent[key]) field.value = talent[key].substring(0, 10);
                 else if (talent[key] !== null && talent[key] !== undefined) field.value = talent[key];
             });
+        }
 
+        // Les 5 champs "tags" (chips) — setTagValues() vide déjà le conteneur avant
+        // de le repeupler, d'où le nom : chaque champ est réinitialisé puis rempli.
+        function resetTagFields(talent) {
             setTagValues('languages', talent.languages);
             setTagValues('other_languages', talent.other_languages);
             setTagValues('intervention_contexts', talent.intervention_contexts);
             setTagValues('intervention_zones', talent.intervention_zones);
             setTagValues('key_skills', talent.key_skills);
+        }
 
+        // Onglet 3 — liste des formations ALIMA (lignes dynamiques).
+        function populateTrainingFields(talent) {
             document.getElementById('trainingsList').innerHTML = '';
             (talent.alima_trainings || []).forEach(tr => addTrainingRow(tr));
+        }
 
+        // Onglet 4 — disponibilité, cohérence "mission ALIMA"/nombre de missions/date
+        // de fin, et indicateur de validité qui en dépend (doit être calculé après
+        // que ces champs soient posés).
+        function populateMissionAndValidityFields(talent) {
             document.getElementById('availabilityMonthsWrap').classList.toggle('hidden', talent.availability_type !== 'notice');
             document.getElementById('availabilityDateWrap').classList.toggle('hidden', talent.availability_type !== 'date');
 
@@ -525,7 +544,11 @@
             document.querySelectorAll('.mission-checkbox').forEach(cb => {
                 document.querySelector(`textarea[name="${cb.dataset.target}"]`).classList.toggle('hidden', !cb.checked);
             });
+        }
 
+        // Onglets 5-6 — panneaux Liste Rouge et Historique, tous deux en lecture
+        // seule dans cette modale (gérés exclusivement depuis Admin).
+        function populateReadonlyPanels(talent) {
             // Onglet 5 — Liste Rouge (lecture seule)
             if (talent.is_red_listed) {
                 document.getElementById('redListReadonly').innerHTML = `
@@ -560,6 +583,18 @@
                 }
                 document.getElementById('historyReadonly').innerHTML = html;
             }
+        }
+
+        function openEditModal(talent) {
+            editingTalentId = talent.id;
+            talentForm.reset();
+            document.getElementById('modalTitle').textContent = `${talent.first_name} ${talent.last_name}`;
+
+            populateBasicFields(talent);
+            resetTagFields(talent);
+            populateTrainingFields(talent);
+            populateMissionAndValidityFields(talent);
+            populateReadonlyPanels(talent);
 
             formError.classList.add('hidden');
             resetTabsToFirst();
