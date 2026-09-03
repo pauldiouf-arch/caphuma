@@ -1,21 +1,17 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 4/4 : liens de partage public
-// de la fiche (génération, liste, révocation). Voir id-card.js (chargé
-// AVANT ce fichier) pour l'explication de IdCardPage.
+// Liens de partage public de la fiche talent : génération, liste, révocation.
+// Voir id-card.js (chargé AVANT ce fichier) pour l'explication de IdCardPage.
 (() => {
         // ============================================================================
-        // GESTION DES LIENS DE PARTAGE (point ouvert historique, jamais construit
-        // jusqu'ici) — génération, liste des liens actifs par talent, révocation
-        // manuelle. `is_revoked` existait déjà en base (section 6 du Master Context)
-        // mais n'était jusqu'ici jamais exploité côté client.
+        // GESTION DES LIENS DE PARTAGE — génération, liste des liens actifs par
+        // talent, révocation manuelle.
         // ============================================================================
         function buildShareUrl(token) {
             // Reconstruction à partir du dossier de la page actuelle (jamais
             // window.location.origin seul), pour rester valide en hébergement GitHub
-            // Pages "project site" (cf. règle de méthode n°27 du Master Context).
+            // Pages "project site".
             const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-            // Correctif P12 (B12-S3, 28/08/2026, trouvé en marge de l'audit initial) :
-            // token est aujourd'hui 'st_' + crypto.randomUUID(), donc déjà propre —
-            // encodé par précaution, même logique que les 2 points ci-dessus.
+            // token est 'st_' + crypto.randomUUID(), donc déjà propre — encodé par
+            // précaution.
             return `${window.location.origin}${basePath}shared-talent.html?token=${encodeURIComponent(token)}`;
         }
 
@@ -118,9 +114,9 @@
             if (!confirmed) return;
 
             try {
-                // Enveloppé dans capHumaWithRetry() (P19) : UPDATE par id, sûr à
-                // retenter (voir le raisonnement détaillé sur la modification de
-                // commentaire plus haut dans ce fichier).
+                // Enveloppé dans capHumaWithRetry() : UPDATE par id, sûr à retenter —
+                // la ligne existe toujours après une 1re tentative réussie, une 2e
+                // tentative la retrouve et réapplique le même changement (idempotent).
                 const { data, error } = await capHumaWithRetry(() =>
                     IdCardPage.supabaseClient
                         .from('share_tokens')
@@ -130,14 +126,13 @@
                 );
 
                 if (error) throw error;
-                // Cf. règle de méthode n°15 : un .update() peut "réussir" sans rien
-                // affecter si une policy RLS bloque silencieusement la ligne.
+                // Un .update() peut "réussir" sans rien affecter si une policy RLS
+                // bloque silencieusement la ligne — d'où le contrôle ci-dessous.
                 if (!data || data.length === 0) {
                     throw new Error("La révocation n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // IdCardPage.logAuditAction('update', 'share_link', ...) retiré le 18/08/2026 (A5) :
-                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
+                // Journalisé automatiquement par le trigger Postgres trg_audit_share_tokens.
                 toastMessage("Lien révoqué.", "success");
                 await loadShareLinks();
             } catch (err) {
@@ -182,24 +177,20 @@
 
             btn.disabled = true;
             try {
-                // Correctif sécurité du 17/07/2026 : l'ancienne génération
-                // ('st_' + Math.random()...) n'était PAS cryptographiquement sûre —
-                // Math.random() est prévisible en théorie. crypto.randomUUID() est le
-                // générateur d'aléa sécurisé natif du navigateur (Web Crypto API,
-                // disponible nativement, aucune dépendance ajoutée), utilisé ici pour
-                // protéger l'accès à des fiches talent confidentielles partagées sans
-                // compte. Format légèrement différent (UUID v4 avec tirets) mais la
-                // colonne `token` est un simple texte UNIQUE, donc sans impact sur le
-                // schéma ni sur les liens déjà générés (ils restent valides tels quels).
+                // crypto.randomUUID() (Web Crypto API, natif, sans dépendance) plutôt
+                // que Math.random() : nécessaire pour protéger l'accès à des fiches
+                // talent confidentielles partagées sans compte, Math.random() étant
+                // prévisible en théorie. La colonne `token` est un simple texte UNIQUE,
+                // donc sans impact sur le schéma.
                 const token = 'st_' + crypto.randomUUID();
                 // created_at retiré du payload (DEFAULT now() côté base) ; expires_at
                 // envoyé en ISO string, jamais en timestamp JS numérique (la colonne est
-                // "timestamp with time zone" — cf. règle de méthode n°26).
-                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter — token est
-                // calculé une seule fois juste au-dessus (pas régénéré à chaque tentative)
-                // et share_tokens.token porte une contrainte UNIQUE (Dossier de passation
-                // §4.2), donc une relance après perte de réponse retomberait proprement
-                // sur une violation de contrainte plutôt que de créer un second lien.
+                // "timestamp with time zone").
+                // Enveloppé dans capHumaWithRetry() : sûr à retenter — token est calculé
+                // une seule fois juste au-dessus (pas régénéré à chaque tentative) et
+                // share_tokens.token porte une contrainte UNIQUE, donc une relance après
+                // perte de réponse retomberait proprement sur une violation de contrainte
+                // plutôt que de créer un second lien.
                 const { error } = await capHumaWithRetry(() =>
                     IdCardPage.supabaseClient.from('share_tokens').insert({
                         token,
@@ -216,8 +207,7 @@
 
                 await navigator.clipboard.writeText(buildShareUrl(token));
                 toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
-                // IdCardPage.logAuditAction('create', 'share_link', ...) retiré le 18/08/2026 (A5) :
-                // couvert désormais par le trigger Postgres trg_audit_share_tokens.
+                // Journalisé automatiquement par le trigger Postgres trg_audit_share_tokens.
                 await loadShareLinks();
             } catch (err) {
                 console.error(err);
@@ -227,9 +217,8 @@
             }
         });
 
-        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // ⚠️ Petit changement : z-index 50→70 et durée 3000→3500ms (harmonisé
-        // avec la majorité des pages — voir MC13 Addendum, point A3).
+        // toastMessage() vient de shared/caphuma-utils.js (z-index 70, durée 3500ms,
+        // harmonisé avec la majorité des pages).
 
 
         // Exposé sur IdCardPage pour appel depuis un autre fichier de la page

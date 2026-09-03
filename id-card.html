@@ -2,11 +2,9 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
-         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
-         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
-         chargées après elle). Détail des directives et rationale : voir le
-         commentaire équivalent dans audit_logs.html. -->
+    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP
+         en <meta> ne s'applique qu'aux ressources chargées après elle). Détail
+         des directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -22,20 +20,16 @@
     <title>Fiche d'Identité Talent - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS, hébergé localement -->
     <script src="shared/vendor/tailwind-browser-4.js"></script>
-    <!-- Supabase JS Client via CDN -->
+    <!-- Supabase JS Client, hébergé localement -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
-    <!-- Brouillon local de formulaire (backlog B15-R1, priorité P20) -->
     <script src="shared/caphuma-form-draft.js"></script>
     <script src="shared/caphuma-auth.js"></script>
     <script src="shared/caphuma-layout.js"></script>
-    <!-- jsPDF & jsPDF-AutoTable — hébergés localement depuis le 25/08/2026 (shared/vendor/),
-         auparavant chargés depuis cdnjs.cloudflare.com à chaque visite (découverte hors
-         périmètre B3, jamais migrés lors du passage des 4 autres libs au local le 17/07/2026).
-         Versions inchangées (2.5.1 / 3.5.29), même contenu, juste servi depuis le dépôt. -->
+    <!-- jsPDF & jsPDF-AutoTable, hébergés localement (shared/vendor/) -->
     <script src="shared/vendor/jspdf-2.5.1.js"></script>
     <script src="shared/vendor/jspdf-autotable-3.5.29.js"></script>
     
@@ -289,7 +283,7 @@
             </div>
         </div>
 
-        <!-- Section Commentaires libres (Étape 7, no-print) -->
+        <!-- Section Commentaires libres (no-print) -->
         <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 no-print" id="comments-card">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
                 <span>💬</span> Commentaires
@@ -322,11 +316,10 @@
                 <label class="text-xs font-bold text-slate-500 uppercase" for="modal-redlist-reason">Motif / Justification *</label>
                 <textarea id="modal-redlist-reason" placeholder="Veuillez consigner les faits de manière précise..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-primary resize-none" rows="4" required></textarea>
             </div>
-            <!-- Correctif (trouvé le 28/08/2026, hors backlog officiel, décision
-                 utilisateur "option 3") : cette fenêtre ne permet pas de joindre de
-                 document justificatif, contrairement au formulaire dédié de
-                 red_list.html qui en exige au moins un. Avertissement visible plutôt
-                 que de bloquer ou de dupliquer ici toute la logique d'upload. -->
+            <!-- Cette fenêtre ne permet pas de joindre de document justificatif,
+                 contrairement au formulaire dédié de red_list.html qui en exige au
+                 moins un. Avertissement visible plutôt que de bloquer ou de dupliquer
+                 ici toute la logique d'upload. -->
             <p class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
                 ⚠️ Cette fenêtre n'inclut pas de document justificatif. Pour en joindre un, utilisez le formulaire dédié depuis la page Liste Rouge.
             </p>
@@ -400,8 +393,8 @@
     </div>
 
     <!-- JS de logique et SDK Supabase -->
-    <!-- Correctif P26 (B13-Q2, Master Context §7) : id-card.js scindé en 4
-         fichiers. Ordre obligatoire — voir l'en-tête de pages/id-card.js. -->
+    <!-- id-card.js est scindé en 4 fichiers. Ordre obligatoire — voir l'en-tête
+         de pages/id-card.js. -->
     <script src="pages/id-card.js"></script>
     <script src="pages/id-card-comments.js"></script>
     <script src="pages/id-card-pdf.js"></script>

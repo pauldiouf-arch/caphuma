@@ -1,16 +1,13 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 3/4 : génération de la fiche
-// PDF (jsPDF). Fichier déjà largement autonome avant la scission (talent et
-// poste reçus en paramètres de exportTalentCardPDF(), pas via l'état de
-// page) — seuls passageDateMs()/normalizePassageComment() (id-card.js)
-// passent désormais par IdCardPage. Voir id-card.js pour l'explication.
+// Génération de la fiche PDF (jsPDF). Fichier autonome : talent et poste sont
+// reçus en paramètres de exportTalentCardPDF(), pas via l'état de page —
+// seuls passageDateMs()/normalizePassageComment() passent par IdCardPage
+// (définis dans id-card.js, voir ce fichier pour l'explication de IdCardPage).
 (() => {
         // ============================================================================
         // GÉNÉRATION PDF — FICHE D'IDENTITÉ TALENT
-        // Retranscription HTML/JS natif de la logique originale Hercules
-        // (pdf-talent-card.ts, cf. Mon_code_hercules.txt), adaptée aux colonnes
-        // Supabase réelles (snake_case). jsPDF + jspdf-autotable via CDN (UMD).
-        // Aucune donnée "availability" / "project_status" : ces champs ne sont
-        // pas dans notre schéma/formulaire validés (voir Master Context §0/§3).
+        // jsPDF + jspdf-autotable, colonnes Supabase réelles (snake_case). Aucune
+        // donnée "availability" / "project_status" : ces champs ne sont pas dans
+        // le schéma/formulaire validés.
         // ============================================================================
         const PDF_ALIMA_BLUE = [29, 78, 216]; // #1d4ed8 — primary Cap Huma
 
@@ -129,15 +126,10 @@
          * @param {object} talent - Ligne Supabase brute de la table `talents`.
          * @param {object|null} currentPosition - Mission active (table `missions`), si présente.
          */
-        // ============================================================================
-        // Correctif P27 (B13-Q3, Master Context §7) — exportTalentCardPDF() décomposée
-        // en une fonction par section de contenu, sur le modèle des helpers pdfDraw*
-        // déjà en place (pdfDrawHeader, pdfDrawField, pdfDrawSectionTitle,
-        // pdfDrawBadgeRow). Chaque section reçoit `y` en paramètre et renvoie le `y`
-        // mis à jour, exactement comme ces helpers — composées séquentiellement dans
-        // exportTalentCardPDF() qui devient un simple orchestrateur. Comportement
-        // strictement inchangé : même contenu, même mise en page, mêmes calculs.
-        // ============================================================================
+        // Une fonction par section de contenu, sur le modèle des helpers pdfDraw*
+        // (pdfDrawHeader, pdfDrawField, pdfDrawSectionTitle, pdfDrawBadgeRow) :
+        // chaque section reçoit `y` en paramètre et renvoie le `y` mis à jour,
+        // composées séquentiellement dans exportTalentCardPDF() ci-dessous.
 
         // ── Section 1 : Informations Générales ───────────────────────────────
         function pdfDrawGeneralInfoSection(doc, y, talent, COL_LEFT, COL_MID) {
@@ -462,10 +454,6 @@
             const keySkills = talent.key_skills || talent.keySkills || [];
             const contexts = talent.intervention_contexts || talent.interventionContexts || [];
             const zones = talent.intervention_zones || talent.interventionZones || [];
-
-            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS/
-            // MISSION_COUNT_LABELS viennent désormais de shared/caphuma-utils.js
-            // — voir IdCardPage.renderTalentCard() plus haut pour le même correctif.
 
             let y = pdfDrawHeader(doc, talent, fName, lName, fFunction);
 

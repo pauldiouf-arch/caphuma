@@ -1,10 +1,9 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 2/4 : commentaires libres sur
-// la fiche talent (lecture, ajout, modification, suppression, brouillon
-// local P20). Voir id-card.js (chargé AVANT ce fichier) pour l'explication
-// de IdCardPage.
+// Commentaires libres sur la fiche talent : lecture, ajout, modification,
+// suppression, brouillon local. Voir id-card.js (chargé AVANT ce fichier)
+// pour l'explication de IdCardPage.
 (() => {
         // ============================================================================
-        // COMMENTAIRES LIBRES (Étape 7)
+        // COMMENTAIRES LIBRES
         // - Lecture : tout rôle connecté (admin/user/visitor).
         // - Ajout : admin et user uniquement.
         // - Modification/Suppression : admin sur tout commentaire, user uniquement
@@ -85,22 +84,22 @@
         }
 
         function bindCommentButtons() {
-            // 🗑️ Suppression d'un commentaire
+            // Suppression d'un commentaire
             document.querySelectorAll('.btn-delete-comment').forEach(btn => {
                 btn.onclick = async () => {
                     const id = btn.getAttribute('data-id');
                     if (!confirm("Supprimer définitivement ce commentaire ?")) return;
 
                     try {
-                        // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
+                        // Volontairement pas enveloppé dans capHumaWithRetry() :
                         // contrairement à un update par id (la ligne existe toujours après
                         // une 1re tentative réussie, donc une 2e tentative la retrouve sans
                         // problème), un DELETE par id fait disparaître la ligne — si la 1re
                         // tentative a en fait réussi mais que sa réponse s'est perdue, la
                         // 2e tentative ne trouve plus rien à supprimer et déclencherait à
                         // tort le contrôle "0 ligne affectée" juste en dessous, conçu pour
-                        // détecter un blocage RLS silencieux (règle de méthode n°15), pas
-                        // une suppression déjà effective.
+                        // détecter un blocage RLS silencieux, pas une suppression déjà
+                        // effective.
                         const { data, error } = await IdCardPage.supabaseClient
                             .from('comments')
                             .delete()
@@ -122,7 +121,7 @@
                 };
             });
 
-            // ✏️ Modification d'un commentaire (édition en ligne)
+            // Modification d'un commentaire (édition en ligne)
             document.querySelectorAll('.btn-edit-comment').forEach(btn => {
                 btn.onclick = () => {
                     const id = btn.getAttribute('data-id');
@@ -153,11 +152,11 @@
                         }
 
                         try {
-                            // Enveloppé dans capHumaWithRetry() (P19) : contrairement à un
-                            // DELETE, la ligne existe toujours après une 1re tentative
-                            // réussie — une 2e tentative la retrouve et réapplique le même
-                            // contenu (idempotent), le contrôle "0 ligne affectée" juste en
-                            // dessous reste donc fiable.
+                            // Enveloppé dans capHumaWithRetry() : contrairement à un DELETE,
+                            // la ligne existe toujours après une 1re tentative réussie — une
+                            // 2e tentative la retrouve et réapplique le même contenu
+                            // (idempotent), le contrôle "0 ligne affectée" juste en dessous
+                            // reste donc fiable.
                             const { data, error } = await capHumaWithRetry(() =>
                                 IdCardPage.supabaseClient
                                     .from('comments')

@@ -1,18 +1,14 @@
-// Correctif P26 (B13-Q2, Master Context §7) : id-card.js scindé en 4 fichiers
-// par responsabilité — session/données/rendu/actions admin (ce fichier),
-// commentaires (id-card-comments.js), export PDF (id-card-pdf.js), liens de
-// partage (id-card-share.js).
+// id-card.js est scindé en 4 fichiers par responsabilité : session/données/
+// rendu/actions admin (ce fichier), commentaires (id-card-comments.js),
+// export PDF (id-card-pdf.js), liens de partage (id-card-share.js).
 //
-// Ce fichier N'EST PAS enveloppé dans une IIFE, contrairement aux 15 pages du
-// site (P23) — même raison que missions.js/talents.js : les 4 fichiers de
+// Ce fichier n'est pas enveloppé dans une IIFE, contrairement aux autres
+// pages du site — même raison que missions.js/talents.js : les 4 fichiers de
 // cette page doivent partager un état commun (session, talent chargé...),
 // impossible entre balises <script> classiques sans un point de partage
 // explicite. IdCardPage est ce point unique, propre à cette page.
 //
-// Contient aussi le correctif B10 (parallélisation de loadTalentData) —
-// fusionné à ce chantier car il touche directement cette fonction.
-//
-// Chargement requis dans id-card.html, DANS CET ORDRE :
+// Chargement requis dans id-card.html, dans cet ordre :
 //   1. pages/id-card.js            (ce fichier — déclare IdCardPage)
 //   2. pages/id-card-comments.js
 //   3. pages/id-card-pdf.js
@@ -21,12 +17,11 @@ const IdCardPage = {};
 
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
-        // pour que #user-display-name, #logoutBtn, #back-btn et #back-btn-text
-        // existent dès la suite du script. backButton:true car cette page réassigne
-        // la cible du bouton Retour en JS (ligne ~89 : dashboard.html par défaut,
-        // puis ligne ~228 : "talents.html?pool=X" une fois le talent chargé) — la
-        // logique elle-même n'est pas touchée, comportement strictement inchangé.
+        // HEADER COMMUN — injecté avant toute autre chose, pour que
+        // #user-display-name, #logoutBtn, #back-btn et #back-btn-text existent dès
+        // la suite du script. backButton:true car cette page réassigne la cible du
+        // bouton Retour en JS (dashboard.html par défaut dans checkSession(), puis
+        // "talents.html?pool=X" une fois le talent chargé dans renderTalentCard()).
         // ============================================================================
         renderPageLayout({
             icon: '🧭',
@@ -50,7 +45,7 @@ const IdCardPage = {};
         IdCardPage.comments = [];
 
         // ============================================================================
-        // JOURNAL D'AUDIT (Étape 8) — enregistre une action métier sensible dans
+        // JOURNAL D'AUDIT — enregistre une action métier sensible dans
         // public.audit_logs. Ne bloque JAMAIS l'action métier elle-même si
         // l'écriture du log échoue (le log est secondaire à l'action réelle) :
         // erreur avalée en console uniquement, jamais remontée à l'utilisateur.
@@ -73,8 +68,8 @@ const IdCardPage = {};
         //  - Ancien (créé par l'ex-mini-workflow de id-card.html, retiré depuis) :
         //    dates en nombre (epoch ms), commentaire unique par passage, champs
         //    camelCase (positivePoints, negativePoints, createdByName, createdAt).
-        //  - Nouveau (créé par missions.html, Étape 5) : dates en texte ISO,
-        //    plusieurs commentaires par passage possibles, champs snake_case
+        //  - Nouveau (créé par missions.html) : dates en texte ISO, plusieurs
+        //    commentaires par passage possibles, champs snake_case
         //    (positive_points, negative_points, author_email, created_at).
         // Ces fonctions lisent les deux indifféremment pour l'affichage (Historique
         // + export PDF), sans jamais réécrire les anciennes entrées en base.
@@ -99,8 +94,8 @@ const IdCardPage = {};
         // Échappement HTML systématique de toute donnée venant de la base
         // avant injection via innerHTML — prévention XSS (audit sécurité).
 
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // SUPABASE_URL / SUPABASE_ANON_KEY viennent de shared/caphuma-config.js
+        // (chargé dans le head).
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             IdCardPage.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -151,19 +146,11 @@ const IdCardPage = {};
             }
         }
 
-        // checkUserRole() a été retirée : shared/caphuma-auth.js (capHumaInitSession)
-        // fournit désormais role + name directement dans checkSession() ci-dessus.
-
-        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js
-        // (comportement identique — cette page avait déjà cette version).
-
         async function loadTalentData() {
             try {
-                // Correctif (B10, fusionné à P26 puisqu'on est déjà dans cette
-                // fonction) : talent (avec son repli _id) et poste occupé ne
-                // dépendent pas l'un de l'autre — lancés en parallèle au lieu
-                // de 2 allers-retours réseau séquentiels. Comportement
-                // identique : mêmes données, mêmes erreurs gérées pareil.
+                // talent (avec son repli _id) et poste occupé ne dépendent pas
+                // l'un de l'autre — lancés en parallèle au lieu de 2 allers-retours
+                // réseau séquentiels.
                 const [talentResult, missionResult] = await Promise.all([
                     (async () => {
                         // Recherche croisée id ou _id pour robustesse absolue
@@ -292,9 +279,8 @@ const IdCardPage = {};
 
             document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
             document.getElementById('back-btn').onclick = () => {
-                // Correctif P12 (B12-S3, 28/08/2026) : talent.pool est aujourd'hui un
-                // code pool forcé en majuscules par admin.html, donc déjà propre —
-                // encodé par précaution, même logique que talents.js.
+                // talent.pool est un code pool forcé en majuscules par admin.html,
+                // donc déjà propre — encodé par précaution, même logique que talents.js.
                 window.location.href = `talents.html?pool=${encodeURIComponent(talent.pool)}`;
             };
 
@@ -377,10 +363,7 @@ const IdCardPage = {};
             document.getElementById('info-languages').textContent = langs;
 
             // Parcours & éducation
-            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS/
-            // MISSION_COUNT_LABELS viennent désormais de shared/caphuma-utils.js
-            // (valeurs identiques à l'ancienne copie locale, vérifié avant
-            // centralisation).
+            // EDU_LEVEL_LABELS / MISSION_COUNT_LABELS viennent de shared/caphuma-utils.js.
             document.getElementById('info-edu-level').textContent = EDU_LEVEL_LABELS[eduLvl] || "N/A";
             document.getElementById('info-edu-specialty').textContent = eduSpec;
             document.getElementById('info-integration-date').textContent = intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A";
@@ -398,16 +381,10 @@ const IdCardPage = {};
             const timeline = document.getElementById('timeline-container');
             let hasTimelineElements = false;
 
-            // Correctif P25 (B17-L2, Master Context §7) : les entrées de la timeline
-            // sont construites dans un DocumentFragment (hors DOM, aucun reflow) puis
-            // ajoutées à `timeline` en un seul appendChild final, au lieu d'une
-            // concaténation `timeline.innerHTML += ...` par entrée comme avant. Ce
-            // pattern était en fait pire qu'un simple appendChild répété : le
-            // navigateur ré-analysait tout le HTML déjà affiché à chaque `+=`, pas
-            // seulement le nouveau morceau. Comportement identique : mêmes entrées,
-            // même contenu, même ordre. Même pattern que missions-render.js/
-            // renderMissions(), talents.js/renderTalents() et devalidated.js/
-            // renderGroupedByPool().
+            // Les entrées de la timeline sont construites dans un DocumentFragment
+            // (hors DOM, aucun reflow) puis ajoutées à `timeline` en un seul
+            // appendChild final — une concaténation `innerHTML += ...` par entrée
+            // ferait ré-analyser tout le HTML déjà affiché à chaque itération.
             const timelineFragment = document.createDocumentFragment();
 
             if (activeMission) {
@@ -498,7 +475,7 @@ const IdCardPage = {};
             }
 
             setupAdminActions(isInvalid);
-            bindButtonListeners(); // Étape clé : lier les événements APRÈS le rendu réussi du profil
+            bindButtonListeners(); // après le rendu du profil : les éléments DOM doivent exister
         }
 
         function renderBadges(containerId, list, colorClass) {
@@ -534,9 +511,8 @@ const IdCardPage = {};
             const btnDeleteTalent = document.getElementById('btn-delete-talent');
 
             // La gestion des postes (affectation, évaluations, fin de mission) se fait
-            // désormais entièrement depuis missions.html — ce lien y renvoie, filtré sur
-            // le pool du talent (Étape 5, décision utilisateur : retrait du mini-workflow
-            // "Démarrer/Terminer mission" qui existait auparavant dans id-card.html).
+            // entièrement depuis missions.html — ce lien y renvoie, filtré sur le pool
+            // du talent.
             btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || '');
 
             if (isInvalid) {
@@ -547,10 +523,9 @@ const IdCardPage = {};
                 btnDevalidate.classList.remove('hidden');
             }
 
-            // Correctif (bug identique à celui déjà corrigé sur talents.html) :
-            // Dévalider/Réintégrer/Liste Rouge restaient visibles pour visitor, alors
-            // que ce sont des actions réservées admin/user partout ailleurs sur le
-            // site. Masquage supplémentaire par-dessus la logique isInvalid ci-dessus.
+            // Dévalider/Réintégrer/Liste Rouge sont des actions réservées admin/user
+            // partout ailleurs sur le site — masquage supplémentaire par-dessus la
+            // logique isInvalid ci-dessus, pour visitor.
             if (IdCardPage.currentUserRole === 'visitor') {
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
@@ -575,17 +550,18 @@ const IdCardPage = {};
         }
 
         // ============================================================================
-        // LIAISON ET ACTIONNABILITÉ DES BOUTONS (Événements)
+        // LIAISON DES BOUTONS — une fonction par bouton/action, toutes appelées
+        // depuis bindButtonListeners() (orchestrateur, tout en bas de ce bloc).
         // ============================================================================
-        function bindButtonListeners() {
-            // 🔗 Partager — ouvre la modale de gestion des liens (liste + génération +
-            // révocation), plutôt que de créer un nouveau lien à chaque clic (ancien
-            // comportement, jamais permis de voir ni révoquer les liens précédents).
+        function bindShareButton() {
+            // Ouvre la modale de gestion des liens (liste + génération + révocation)
+            // plutôt que de créer un nouveau lien à chaque clic.
             document.getElementById('share-btn').onclick = () => {
                 IdCardPage.openShareLinksModal();
             };
+        }
 
-            // 📄 Fiche PDF
+        function bindPdfButton() {
             document.getElementById('pdf-btn').onclick = () => {
                 try {
                     IdCardPage.exportTalentCardPDF(talent, activeMission);
@@ -595,16 +571,16 @@ const IdCardPage = {};
                     toastMessage("Échec de la génération du PDF.", "error");
                 }
             };
+        }
 
-            // 🖨️ Imprimer
+        function bindPrintButton() {
             document.getElementById('print-btn').onclick = () => window.print();
+        }
 
-            // ----------------------------------------------------------------------------
-            // BROUILLON LOCAL (backlog B15-R1, priorité P20, Lot 5) — pas de modale ici,
-            // le champ est visible en permanence sur la fiche : le suivi démarre une
-            // seule fois au chargement de la page (pas de croix/Annuler à câbler), et
-            // s'efface après un ajout réussi. Clé par talent (IdCardPage.talentId, connu dès le
-            // chargement de la page).
+        function bindCommentButton() {
+            // Brouillon local : pas de modale, le champ est visible en permanence sur
+            // la fiche — le suivi démarre une seule fois au chargement de la page et
+            // s'efface après un ajout réussi. Clé par talent (IdCardPage.talentId).
             let currentCommentDraftKey = null;
 
             function collectCommentDraft() {
@@ -619,7 +595,6 @@ const IdCardPage = {};
                 }
             }
 
-            // 💬 Ajouter un commentaire
             const btnAddComment = document.getElementById('btn-add-comment');
             const newCommentInput = document.getElementById('new-comment-input');
             if (btnAddComment && newCommentInput && IdCardPage.currentUserRole !== 'visitor') {
@@ -627,10 +602,10 @@ const IdCardPage = {};
                 capHumaOfferDraftRestore(currentCommentDraftKey, restoreCommentDraft);
                 capHumaAttachDraftAutosave(newCommentInput, currentCommentDraftKey, { collect: collectCommentDraft });
 
-                // Garde-fou local (pas dans le fichier partagé, propre à ce champ) : dès
-                // que le champ redevient vide (l'utilisateur a tout effacé sans valider),
-                // on efface le brouillon tout de suite plutôt que d'attendre l'autosave —
-                // sinon la prochaine visite proposerait de restaurer... un champ vide.
+                // Garde-fou local, propre à ce champ : dès que le champ redevient vide
+                // (l'utilisateur a tout effacé sans valider), on efface le brouillon tout
+                // de suite plutôt que d'attendre l'autosave — sinon la prochaine visite
+                // proposerait de restaurer... un champ vide.
                 newCommentInput.addEventListener('input', () => {
                     if (!newCommentInput.value.trim() && currentCommentDraftKey) {
                         capHumaDraftClear(currentCommentDraftKey);
@@ -648,12 +623,10 @@ const IdCardPage = {};
                     }
 
                     try {
-                        // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
-                        // comments n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
-                        // — si la 1re tentative a en fait réussi côté serveur mais que sa
-                        // réponse s'est perdue, une relance créerait un second commentaire
-                        // identique, silencieusement (data.length resterait à 1, aucune
-                        // erreur, le contrôle RLS ci-dessous ne verrait rien d'anormal).
+                        // Volontairement pas enveloppé dans capHumaWithRetry() : comments
+                        // n'a aucune contrainte UNIQUE — si la 1re tentative a en fait
+                        // réussi côté serveur mais que sa réponse s'est perdue, une relance
+                        // créerait un second commentaire identique, silencieusement.
                         const { data, error } = await IdCardPage.supabaseClient
                             .from('comments')
                             .insert({
@@ -680,8 +653,9 @@ const IdCardPage = {};
                     }
                 };
             }
+        }
 
-            // ⛔ Dévalider le talent
+        function bindDevalidateButton() {
             document.getElementById('btn-devalidate').onclick = async () => {
                 if (!confirm("Voulez-vous vraiment dévalider ce talent ?")) return;
                 try {
@@ -702,28 +676,29 @@ const IdCardPage = {};
                     
                     if (error) throw error;
                     toastMessage("Le talent a été dévalidé.", "success");
-                    // logAuditAction('devalidate', ...) retiré le 19/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_talents.
+                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de la dévalidation.", "error");
                 }
             };
+        }
 
-            // 🔄 Réintégrer le talent
+        function bindRevalidateButton() {
             document.getElementById('btn-revalidate').onclick = async () => {
                 try {
                     const { error } = await capHumaWithRetry(() =>
                         IdCardPage.supabaseClient
                             .from('talents')
-                            // Correctif du 19/08/2026 : la réintégration doit faire repartir la
-                            // jauge "mois sans mission" à zéro à partir d'AUJOURD'HUI, pas depuis
-                            // l'ancienne fin de mission (calculateMonthsWithoutMission priorise
-                            // last_mission_end_date sur pool_integration_date — la vider est donc
-                            // nécessaire, pas juste pool_integration_date). months_without_mission
-                            // est gardé à jour aussi pour les stats SQL du tableau de bord, qui
-                            // lisent cette colonne stockée plutôt que de la recalculer en direct.
+                            // La réintégration doit faire repartir la jauge "mois sans
+                            // mission" à zéro à partir d'aujourd'hui, pas depuis l'ancienne
+                            // fin de mission (calculateMonthsWithoutMission priorise
+                            // last_mission_end_date sur pool_integration_date — la vider est
+                            // donc nécessaire, pas juste pool_integration_date).
+                            // months_without_mission est gardé à jour aussi pour les stats
+                            // SQL du tableau de bord, qui lisent cette colonne stockée
+                            // plutôt que de la recalculer en direct.
                             .update({
                                 is_valid: true,
                                 devalidation_date: null,
@@ -736,21 +711,21 @@ const IdCardPage = {};
                     
                     if (error) throw error;
                     toastMessage("Le talent a été réintégré dans le pool.", "success");
-                    // logAuditAction('reintegrate', ...) retiré le 19/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_talents.
+                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de la réintégration.", "error");
                 }
             };
+        }
 
-            // ----------------------------------------------------------------------------
-            // BROUILLON LOCAL (backlog B15-R1, priorité P20) — un seul champ (motif), clé
-            // par talent (IdCardPage.talentId, connu dès le chargement de la page — pas d'ambiguïté
-            // possible ici, contrairement à red_list.js). Même schéma que les autres lots :
-            // ouverture → offre de restauration + autosave ; Annuler/× → arrêt seul (le
-            // brouillon reste, voir correctif du 01/09/2026) ; succès → effacement définitif.
+        function bindRedlistButton() {
+            // Brouillon local : un seul champ (motif), clé par talent
+            // (IdCardPage.talentId, connu dès le chargement de la page). À
+            // l'ouverture : offre de restauration + autosave. Sur Annuler/fermeture :
+            // arrêt du suivi seul, le brouillon reste en mémoire. Sur succès :
+            // effacement définitif.
             let currentRedListReasonDraftKey = null;
             let currentRedListReasonDraftBinding = null;
 
@@ -769,7 +744,6 @@ const IdCardPage = {};
                 }
             }
 
-            // 🚨 Inscrire en Liste Rouge
             const redlistModal = document.getElementById('redlist-modal');
             document.getElementById('btn-redlist').onclick = () => {
                 document.getElementById('modal-redlist-reason').value = "";
@@ -810,18 +784,18 @@ const IdCardPage = {};
                     redlistModal.classList.add('hidden');
                     discardRedListReasonDraft();
                     toastMessage("Le talent est inscrit en Liste Rouge.", "success");
-                    // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
-                    // couvert désormais par le trigger Postgres trg_audit_talents (reprend
-                    // le motif via red_list_reason).
+                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de l'inscription.", "error");
                 }
             };
+        }
 
-            // 🔀 Changer de pool — enregistre le changement dans pool_history avant de
-            // mettre à jour talents.pool, pour garder une trace "de X vers Y à telle date".
+        function bindChangePoolButton() {
+            // Enregistre le changement dans pool_history avant de mettre à jour
+            // talents.pool, pour garder une trace "de X vers Y à telle date".
             const poolChangeModal = document.getElementById('pool-change-modal');
             document.getElementById('btn-change-pool').onclick = async () => {
                 document.getElementById('pool-change-error').classList.add('hidden');
@@ -868,15 +842,14 @@ const IdCardPage = {};
                 const previousPool = talent.pool || null;
 
                 try {
-                    // 1. Historique d'abord (source de vérité de "qui a changé quoi, quand"),
-                    //    puis mise à jour du talent — dans cet ordre, si l'étape 2 échoue on
-                    //    garde au moins une trace de la tentative plutôt que l'inverse.
-                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
-                    // pool_history n'a aucune contrainte UNIQUE (Dossier de passation
-                    // §4.2) et est une table "append-only" voulue (aucune policy
-                    // update/delete, §4.3) — un doublon créé par une relance après perte
-                    // de réponse serait silencieux ET définitivement impossible à corriger
-                    // depuis l'interface.
+                    // Historique d'abord (source de vérité de "qui a changé quoi, quand"),
+                    // puis mise à jour du talent — dans cet ordre, si l'étape 2 échoue on
+                    // garde au moins une trace de la tentative plutôt que l'inverse.
+                    // Volontairement pas enveloppé dans capHumaWithRetry() : pool_history
+                    // n'a aucune contrainte UNIQUE et est une table "append-only" (aucune
+                    // policy update/delete) — un doublon créé par une relance après perte
+                    // de réponse serait silencieux et impossible à corriger depuis
+                    // l'interface.
                     const { error: histError } = await IdCardPage.supabaseClient.from('pool_history').insert({
                         talent_id: IdCardPage.talentId,
                         from_pool: previousPool,
@@ -886,9 +859,7 @@ const IdCardPage = {};
                     });
                     if (histError) throw histError;
 
-                    // Enveloppé dans capHumaWithRetry() (P19) : UPDATE par id, sûr à
-                    // retenter — voir le commentaire équivalent sur la modification de
-                    // commentaire plus haut dans ce fichier.
+                    // Enveloppé dans capHumaWithRetry() : UPDATE par id, sûr à retenter.
                     const { data, error } = await capHumaWithRetry(() =>
                         IdCardPage.supabaseClient
                             .from('talents')
@@ -903,9 +874,7 @@ const IdCardPage = {};
 
                     poolChangeModal.classList.add('hidden');
                     toastMessage("Pool mis à jour.", "success");
-                    // logAuditAction('update', ...) retiré le 19/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_talents (détecte le
-                    // changement de pool et reproduit le même texte).
+                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -913,8 +882,11 @@ const IdCardPage = {};
                     errorEl.classList.remove('hidden');
                 }
             };
+        }
 
-            // 🗑️ Supprimer définitivement le talent (admin uniquement, talent actif)
+        function bindDeleteTalentButton() {
+            // Suppression définitive : réservée admin, et uniquement pour un talent
+            // actif (visibilité du bouton déjà gérée par setupAdminActions).
             document.getElementById('btn-delete-talent').onclick = async () => {
                 const fullName = `${talent.first_name || talent.firstName || ''} ${talent.last_name || talent.lastName || ''}`.trim() || "ce talent";
 
@@ -929,21 +901,18 @@ const IdCardPage = {};
                 if (!confirm(`Confirmation finale : ${fullName} sera supprimé(e) de façon permanente. Continuer ?`)) return;
 
                 try {
-                    // Nettoyage des données liées avant suppression du talent — la contrainte
-                    // FK de ces tables vers talents.id n'a pas de règle ON DELETE confirmée,
-                    // donc suppression explicite plutôt que de compter sur une cascade
-                    // éventuelle (cf. Master Context, règle de méthode : ne jamais deviner un
-                    // comportement de schéma non vérifié).
+                    // Nettoyage des données liées avant suppression du talent — la
+                    // contrainte FK de ces tables vers talents.id n'a pas de règle ON
+                    // DELETE confirmée, donc suppression explicite plutôt que de compter
+                    // sur une cascade éventuelle.
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('evaluations').delete().eq('talent_id', IdCardPage.talentId));
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('comments').delete().eq('talent_id', IdCardPage.talentId));
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('share_tokens').delete().eq('talent_id', IdCardPage.talentId));
 
-                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : même
-                    // raison que la suppression de commentaire plus haut — un DELETE par id
-                    // fait disparaître la ligne, donc une 2e tentative après une 1re en fait
-                    // réussie (réponse perdue) ne trouverait plus rien et déclencherait à
-                    // tort le contrôle "0 ligne affectée" (règle de méthode n°15/19)
-                    // juste en dessous.
+                    // Volontairement pas enveloppé dans capHumaWithRetry() : un DELETE
+                    // par id fait disparaître la ligne, donc une 2e tentative après une
+                    // 1re en fait réussie (réponse perdue) ne trouverait plus rien et
+                    // déclencherait à tort le contrôle "0 ligne affectée" juste en dessous.
                     const { data, error } = await IdCardPage.supabaseClient
                         .from('talents')
                         .delete()
@@ -956,15 +925,30 @@ const IdCardPage = {};
                     }
 
                     toastMessage("Talent supprimé définitivement.", "success");
-                    // logAuditAction('delete', ...) retiré le 19/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_talents (distingue
-                    // actif/dévalidé via is_valid au moment de la suppression).
+                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de la suppression : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");
                 }
             };
+        }
+
+        // Orchestrateur : lie les 9 boutons/actions de la fiche, un appel par
+        // fonction ci-dessus. Chaque fonction ne connaît que son propre bouton — état
+        // de brouillon local à bindCommentButton()/bindRedlistButton(), rien de
+        // partagé entre elles au-delà de talent/activeMission (fermeture de l'IIFE
+        // englobante).
+        function bindButtonListeners() {
+            bindShareButton();
+            bindPdfButton();
+            bindPrintButton();
+            bindCommentButton();
+            bindDevalidateButton();
+            bindRevalidateButton();
+            bindRedlistButton();
+            bindChangePoolButton();
+            bindDeleteTalentButton();
         }
 
 
@@ -979,5 +963,5 @@ const IdCardPage = {};
             window.location.href = 'login.html';
         });
 
-        window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); }); // P15 (B18-A3)
+        window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); });
 })();
