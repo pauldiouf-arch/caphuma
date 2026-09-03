@@ -1,26 +1,15 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 4/4 : rapport IA global du Hub
-// (payload anonymisé consolidé, rendu Markdown, appel à l'Edge Function
-// ai-proxy). renderMarkdownToHtml() est un utilitaire de rendu générique,
-// réutilisé tel quel par statistics-pool-ai.js (analyse d'un pool précis) —
-// d'où son exposition sur StatisticsPage ci-dessous, bien qu'interne à ce
-// fichier par ailleurs. Voir statistics.js (chargé AVANT ce fichier) pour
-// l'explication de StatisticsPage.
+// Rapport IA global du Hub (payload anonymisé consolidé, rendu Markdown, appel
+// à l'Edge Function ai-proxy). renderMarkdownToHtml() est un utilitaire de
+// rendu générique, réutilisé tel quel par statistics-pool-ai.js (analyse d'un
+// pool précis) — d'où son exposition sur StatisticsPage ci-dessous, bien
+// qu'interne à ce fichier par ailleurs. Voir statistics.js (chargé AVANT ce
+// fichier) pour l'explication de StatisticsPage.
 (() => {
-        function buildAnonymizedPayload() {
-            const selectorValue = document.getElementById('pool-selector').value;
-            
-            let talents = [...StatisticsPage.rawTalents];
-            let mData = [...StatisticsPage.rawMissions];
-
-            if (selectorValue !== 'global') {
-                talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
-                mData = mData.filter(m => {
-                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
-                    return mPool === selectorValue.toUpperCase();
-                });
-            }
-
-            const payload = {
+        // Agrégat anonymisé (comptages uniquement) pour le pool ou l'ensemble
+        // désigné par selectorValue — talents/mData sont déjà filtrés par l'appelant
+        // quand selectorValue n'est pas 'global'.
+        function computeGlobalPayload(selectorValue, talents, mData) {
+            return {
                 pool: selectorValue,
                 totalTalents: talents.length,
                 talentsActifs: talents.filter(t => t.isValid !== false && t.is_valid !== false).length,
@@ -40,58 +29,74 @@
                 proportionExpat: mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length,
                 proportionNational: mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length
             };
+        }
 
-            // ------------------------------------------------------------------
-            // VENTILATION PAR POOL — vue globale uniquement (18/08/2026, A2 étape 3)
-            // ------------------------------------------------------------------
-            // Motif : en vue globale, cette fonction ne renvoyait QUE des totaux
-            // fusionnés (pool: "global"). L'IA n'avait donc aucune donnée par pool et
-            // ne pouvait ni les nommer, ni les comparer, ni désigner le plus à risque —
-            // constat de l'utilisateur le 18/08/2026, confirmé dans le code. Ce n'était
-            // pas un défaut de formulation du prompt : la donnée était absente.
-            //
-            // Ce qui est ajouté : uniquement des COMPTAGES par pool, plus le nom du
-            // pool. Un pool est une catégorie de poste (Coordinateur Logistique, Chef
-            // de mission...), pas une personne — aucune donnée à caractère personnel.
-            //
-            // Ce qui n'est PAS ajouté, volontairement : genre, nationalités et langues
-            // par pool. Ces répartitions restent réservées à l'analyse d'un pool
-            // précis, où elles sont soumises au seuil AI_DIVERSITY_MIN_ACTIVE_TALENTS.
-            // Les ajouter ici reviendrait à contourner ce seuil pour les 7 pools d'un
-            // seul appel. Ne pas "compléter" ce bloc par symétrie sans repasser par la
-            // décision de l'utilisateur (règle 16).
+        // VENTILATION PAR POOL — vue globale uniquement. Motif : en vue globale,
+        // computeGlobalPayload() ci-dessus ne renvoie que des totaux fusionnés
+        // (pool: "global") — l'IA n'a alors aucune donnée par pool et ne peut ni les
+        // nommer, ni les comparer, ni désigner le plus à risque.
+        //
+        // Ce qui est ajouté : uniquement des comptages par pool, plus le nom du pool.
+        // Un pool est une catégorie de poste (Coordinateur Logistique, Chef de
+        // mission...), pas une personne — aucune donnée à caractère personnel.
+        //
+        // Ce qui n'est PAS ajouté, volontairement : genre, nationalités et langues
+        // par pool. Ces répartitions restent réservées à l'analyse d'un pool précis,
+        // où elles sont soumises au seuil AI_DIVERSITY_MIN_ACTIVE_TALENTS. Les
+        // ajouter ici reviendrait à contourner ce seuil pour les 7 pools d'un seul
+        // appel. Ne pas "compléter" ce bloc par symétrie sans repasser par la
+        // décision de l'utilisateur (règle 16).
+        function computePoolBreakdown() {
+            return StatisticsPage.poolList.map(p => {
+                const code = (p.pool_id || p.poolId || '').toUpperCase();
+                if (!code) return null;
+
+                const tPool = StatisticsPage.rawTalents.filter(t => (t.pool || '').toUpperCase() === code);
+                const mPool = StatisticsPage.rawMissions.filter(m => {
+                    const mp = (m.pool_id || m.poolId || m.pool || '').toUpperCase();
+                    return mp === code;
+                });
+
+                return {
+                    pool: code,
+                    nom: p.full_name || p.name || code,
+                    totalTalents: tPool.length,
+                    talentsActifs: tPool.filter(t => t.isValid !== false && t.is_valid !== false).length,
+                    talentsDisponibles: tPool.filter(t => {
+                        const isVal = t.isValid !== false && t.is_valid !== false;
+                        const isRed = t.isRedListed || t.is_red_listed;
+                        return isVal && !isRed && t.status === 'En attente de poste';
+                    }).length,
+                    talentsARisque: tPool.filter(t => {
+                        const isVal = t.isValid !== false && t.is_valid !== false;
+                        return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
+                    }).length,
+                    totalPostes: mPool.length,
+                    postesOccupes: mPool.filter(m => m.status === 'occupied').length,
+                    postesEnRecrutement: mPool.filter(m => m.status === 'recruiting').length,
+                    postesVacants: mPool.filter(m => m.status === 'vacant').length
+                };
+            }).filter(Boolean);
+        }
+
+        function buildAnonymizedPayload() {
+            const selectorValue = document.getElementById('pool-selector').value;
+
+            let talents = [...StatisticsPage.rawTalents];
+            let mData = [...StatisticsPage.rawMissions];
+
+            if (selectorValue !== 'global') {
+                talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
+                mData = mData.filter(m => {
+                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
+                    return mPool === selectorValue.toUpperCase();
+                });
+            }
+
+            const payload = computeGlobalPayload(selectorValue, talents, mData);
+
             if (selectorValue === 'global') {
-                const poolsVentiles = StatisticsPage.poolList.map(p => {
-                    const code = (p.pool_id || p.poolId || '').toUpperCase();
-                    if (!code) return null;
-
-                    const tPool = StatisticsPage.rawTalents.filter(t => (t.pool || '').toUpperCase() === code);
-                    const mPool = StatisticsPage.rawMissions.filter(m => {
-                        const mp = (m.pool_id || m.poolId || m.pool || '').toUpperCase();
-                        return mp === code;
-                    });
-
-                    return {
-                        pool: code,
-                        nom: p.full_name || p.name || code,
-                        totalTalents: tPool.length,
-                        talentsActifs: tPool.filter(t => t.isValid !== false && t.is_valid !== false).length,
-                        talentsDisponibles: tPool.filter(t => {
-                            const isVal = t.isValid !== false && t.is_valid !== false;
-                            const isRed = t.isRedListed || t.is_red_listed;
-                            return isVal && !isRed && t.status === 'En attente de poste';
-                        }).length,
-                        talentsARisque: tPool.filter(t => {
-                            const isVal = t.isValid !== false && t.is_valid !== false;
-                            return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
-                        }).length,
-                        totalPostes: mPool.length,
-                        postesOccupes: mPool.filter(m => m.status === 'occupied').length,
-                        postesEnRecrutement: mPool.filter(m => m.status === 'recruiting').length,
-                        postesVacants: mPool.filter(m => m.status === 'vacant').length
-                    };
-                }).filter(Boolean);
-
+                const poolsVentiles = computePoolBreakdown();
                 if (poolsVentiles.length > 0) {
                     payload.repartitionParPool = poolsVentiles;
                 }
@@ -125,18 +130,11 @@
             return html;
         }
 
-        async function generateAIReport(customQuery = "") {
-            const promptInput = document.getElementById('ai-prompt-input');
-            const generateBtn = document.getElementById('ai-generate-btn');
-            const spinner = document.getElementById('ai-spinner');
-            const resultBox = document.getElementById('ai-result-box');
-            const resultContent = document.getElementById('ai-result-content');
-
-            generateBtn.disabled = true;
-            spinner.classList.remove('hidden');
-
-            const statsSummary = buildAnonymizedPayload();
-
+        // Construit le prompt envoyé à l'IA pour le rapport global du Hub — même
+        // pattern que buildPoolAnalysisPrompt() (statistics-pool-ai.js) : fonction
+        // pure, prend les données déjà calculées et la question éventuelle, renvoie
+        // le texte du prompt.
+        function buildGlobalReportPrompt(statsSummary, finalQuery) {
             const systemContext = `Tu es l'analyste stratégique RH senior pour ALIMA.
 Analyse les données statistiques consolidées suivantes de manière professionnelle, courte et structurée (puces et gras). Ne mentionne aucun nom ni e-mail individuel.
 
@@ -152,13 +150,11 @@ Données consolidées du pool (${statsSummary.pool}) :
 - Postes Expatriés : ${statsSummary.proportionExpat}
 - Postes Nationaux : ${statsSummary.proportionNational}`;
 
-            const finalQuery = customQuery.trim() || promptInput.value.trim() || "";
-
-            // Ventilation par pool — vue globale uniquement (18/08/2026, A2 étape 3).
-            // Sans ce bloc, l'IA ne dispose que de totaux fusionnés et ne peut ni citer
-            // un pool par son nom ni en comparer deux. Rendue sous forme de tableau
-            // lisible plutôt qu'en JSON brut : le reste de ce prompt est déjà en texte,
-            // et un format homogène donne de meilleures réponses qu'un mélange des deux.
+            // Ventilation par pool — vue globale uniquement. Sans ce bloc, l'IA ne
+            // dispose que de totaux fusionnés et ne peut ni citer un pool par son nom
+            // ni en comparer deux. Rendue sous forme de tableau lisible plutôt qu'en
+            // JSON brut : le reste de ce prompt est déjà en texte, et un format
+            // homogène donne de meilleures réponses qu'un mélange des deux.
             let ventilationBloc = "";
             if (Array.isArray(statsSummary.repartitionParPool) && statsSummary.repartitionParPool.length > 0) {
                 const lignes = statsSummary.repartitionParPool.map(p =>
@@ -172,11 +168,9 @@ Données consolidées du pool (${statsSummary.pool}) :
                     `quand tu compares ou désignes un pool précis) :\n${lignes}`;
             }
 
-            // Chantier A2 (18/08/2026) — la question passe EN TÊTE du prompt.
-            // Avant : 30 lignes de cadrage + 10 chiffres identiques d'un clic à l'autre,
-            // puis la question en dernier — elle pesait trop peu face au reste, d'où des
-            // réponses très proches quelle que soit la question posée.
-            // Sans question saisie, la consigne générale d'origine est utilisée telle quelle.
+            // La question passe EN TÊTE du prompt — pesée plus lourd que le reste du
+            // cadrage, pour éviter des réponses trop proches d'une question à l'autre.
+            // Sans question saisie, la consigne générale ci-dessous est utilisée.
             const objectif = finalQuery
                 ? `Question à traiter en priorité : ${finalQuery}\n\n` +
                   `Réponds à cette question en t'appuyant sur les données ci-dessous. ` +
@@ -185,22 +179,36 @@ Données consolidées du pool (${statsSummary.pool}) :
                 : `Analyse la santé du pool et formule des recommandations, à partir des ` +
                   `données ci-dessous.`;
 
-            const fullPrompt = `${objectif}\n\n${systemContext}${ventilationBloc}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
+            return `${objectif}\n\n${systemContext}${ventilationBloc}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
+        }
+
+        async function generateAIReport(customQuery = "") {
+            const promptInput = document.getElementById('ai-prompt-input');
+            const generateBtn = document.getElementById('ai-generate-btn');
+            const spinner = document.getElementById('ai-spinner');
+            const resultBox = document.getElementById('ai-result-box');
+            const resultContent = document.getElementById('ai-result-content');
+
+            generateBtn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            const statsSummary = buildAnonymizedPayload();
+            const finalQuery = customQuery.trim() || promptInput.value.trim() || "";
+            const fullPrompt = buildGlobalReportPrompt(statsSummary, finalQuery);
 
             try {
                 // Appel à la Edge Function générique ai-proxy (partagée avec missions.html) —
                 // vérifie le rôle côté serveur (visitor exclu) et détient seule la clé IA.
                 const { data: { session } } = await StatisticsPage.supabaseClient.auth.getSession();
                 if (!session) {
-                    // Correctif complémentaire à P10 (28/08/2026) : voir
-                    // callManageUsers() (admin.js) pour la justification complète.
+                    // Voir callManageUsers() (admin.js) pour la justification complète.
                     window.location.href = 'login.html';
                     return;
                 }
 
-                // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19,
-                // décision n°15) : même raison que callPoolAiProxy() plus haut dans
-                // ce fichier — palier gratuit limité chez le fournisseur d'IA.
+                // Volontairement pas enveloppé dans capHumaWithRetry() : même raison que
+                // callPoolAiProxy() plus haut dans ce fichier — palier gratuit limité chez
+                // le fournisseur d'IA.
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                     method: 'POST',
                     headers: {
@@ -211,11 +219,10 @@ Données consolidées du pool (${statsSummary.pool}) :
                     body: JSON.stringify({ prompt: fullPrompt })
                 });
 
-                // Correctif P10 (B14-I3, 28/08/2026) : voir callManageUsers()
-                // (admin.js) pour la justification complète. Ce bloc reste
-                // volontairement séparé de callPoolAiProxy() (voir commentaire
-                // plus haut sur ce choix) — même correctif appliqué aux deux
-                // implémentations plutôt que de les fusionner maintenant.
+                // Un 401/403 ne doit jamais rester un simple message d'erreur affiché
+                // dans le panneau de résultat — l'utilisateur doit être renvoyé se
+                // reconnecter. Ce bloc reste volontairement séparé de callPoolAiProxy()
+                // (implémentation dédiée, voir commentaire plus haut sur ce choix).
                 if (response.status === 401 || response.status === 403) {
                     await StatisticsPage.supabaseClient.auth.signOut();
                     window.location.href = 'login.html';
@@ -239,9 +246,8 @@ Données consolidées du pool (${statsSummary.pool}) :
             }
         }
 
-        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // ⚠️ Petit changement : z-index 50→70 et durée 3000→3500ms (harmonisé
-        // avec la majorité des pages — voir MC13 Addendum, point A3).
+        // toastMessage() vient de shared/caphuma-utils.js (z-index 70, durée 3500ms,
+        // harmonisé avec la majorité des pages).
 
         document.getElementById('ai-generate-btn').addEventListener('click', () => generateAIReport());
         document.getElementById('ai-clear-btn').addEventListener('click', () => {

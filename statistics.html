@@ -2,11 +2,9 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
-         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
-         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
-         chargées après elle). Détail des directives et rationale : voir le
-         commentaire équivalent dans audit_logs.html. -->
+    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
+         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
+         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -22,20 +20,17 @@
     <title>Hub Statistique & IA - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS, hébergé localement -->
     <script src="shared/vendor/tailwind-browser-4.js"></script>
     
-    <!-- Chart.js via CDN pour le rendu des graphiques -->
-    <!-- Version figée le 17/07/2026 (même logique que supabase-js, §6.5 de la
-         présentation) : auparavant chargée SANS AUCUNE version (toujours la
-         dernière publiée), contrairement à supabase-js déjà figé — corrigé ici.
-         4.4.4 = version stable connue de Chart.js v4, API identique à celle
-         utilisée dans ce fichier (type: 'pie'/'bar'/'doughnut', options
-         responsive/legend/scales). À re-vérifier une fois par an (cf. Guide
-         de Maintenance, §2.2) plutôt que de laisser filer automatiquement. -->
+    <!-- Chart.js, hébergé localement pour le rendu des graphiques -->
+    <!-- Version figée à 4.4.4 (version stable connue de Chart.js v4, API identique
+         à celle utilisée dans ce fichier : type 'pie'/'bar'/'doughnut', options
+         responsive/legend/scales). À re-vérifier une fois par an (cf. Guide de
+         Maintenance, §2.2) plutôt que de laisser filer automatiquement. -->
     <script src="shared/vendor/chart-4.4.4.js"></script>
     
-    <!-- Supabase JS Client via CDN pour la communication BDD -->
+    <!-- Supabase JS Client, hébergé localement -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
@@ -45,7 +40,7 @@
     <!-- Polices -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Configuration Tailwind personnalisée selon la section 3 du Master Context -->
+    <!-- Configuration Tailwind personnalisée -->
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;
@@ -63,11 +58,11 @@
 </head>
 <body id="appBody" style="display:none;" class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- En-tête pleine largeur — harmonisé (Étape A, même souci que red_list.html) :
-         plus de nav complète dupliquant le dashboard, juste Retour + titre de page. -->
+    <!-- En-tête pleine largeur — harmonisé avec red_list.html : plus de nav complète
+         dupliquant le dashboard, juste Retour + titre de page. -->
     <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js (B4, Master
-         Context §7). Voir renderPageLayout() dans pages/statistics.js.
+         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
+         renderPageLayout() dans pages/statistics.js.
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
@@ -208,10 +203,9 @@
             </div>
         </div>
 
-        <!-- Statistiques détaillées des contrats (Étape C, cf. Hercules positions/stats.ts :
-             getDetailedPositionStats). Visible UNIQUEMENT en vue par pool — jamais sur la vue
-             globale, qui reste inchangée par décision explicite de l'utilisateur (Master Context,
-             Étape E : "Aucune modification sur le Hub Statistique global"). -->
+        <!-- Statistiques détaillées des contrats. Visible UNIQUEMENT en vue par pool
+             — jamais sur la vue globale, qui reste inchangée par décision explicite
+             de l'utilisateur ("Aucune modification sur le Hub Statistique global"). -->
         <div id="detailed-stats-card" class="hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-1">
                 <span>📈</span> Statistiques détaillées des contrats — <span id="detailed-stats-pool-name">ce pool</span>
@@ -256,10 +250,9 @@
             </div>
         </div>
 
-        <!-- Analyse IA par pool (Étape E) — reconstruite ici depuis missions.html, sur le
-             modèle Hercules "Analyse IA - {pool}" (Analyse Talents / Analyse Postes /
-             Recommandations Stratégiques). Visible uniquement en vue par pool, jamais sur
-             la vue globale (déjà jugée satisfaisante par l'utilisateur). Générée à la
+        <!-- Analyse IA par pool — "Analyse Talents / Analyse Postes / Recommandations
+             Stratégiques". Visible uniquement en vue par pool, jamais sur la vue
+             globale (déjà jugée satisfaisante par l'utilisateur). Générée à la
              demande (bouton), jamais automatiquement, sur des données agrégées et
              anonymisées uniquement — aucun nom, email ou évaluation individuelle n'est
              envoyé à l'IA — via le moteur ai-proxy déjà en place (partagé avec le Hub
@@ -277,8 +270,8 @@
                     <div id="pool-ai-analysis-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 </button>
             </div>
-            <!-- Champ de question facultatif (ajouté le 18/08/2026, chantier A2).
-                 Laissé vide, l'analyse générale en 3 sections est produite comme avant. -->
+            <!-- Champ de question facultatif. Laissé vide, l'analyse générale en 3
+                 sections est produite. -->
             <div class="space-y-1.5">
                 <label for="pool-ai-question" class="text-xs font-bold text-slate-500 uppercase">Question sur ce pool (facultatif)</label>
                 <input id="pool-ai-question" type="text" maxlength="500"
@@ -302,7 +295,7 @@
                 </div>
             </div>
 
-            <!-- Boutons de questions de l'assistant Hercules original -->
+            <!-- Boutons de questions rapides -->
             <div class="flex flex-wrap gap-2 py-2">
                 <button type="button" class="ai-quick-btn text-xs bg-slate-100 hover:bg-primary hover:text-white px-3 py-1.5 rounded-full transition-all">Quelle est la situation de santé globale du pool ?</button>
                 <button type="button" class="ai-quick-btn text-xs bg-slate-100 hover:bg-primary hover:text-white px-3 py-1.5 rounded-full transition-all">Quels pools de talents présentent un risque de pénurie ?</button>
@@ -338,8 +331,8 @@
     </main>
 
     <!-- Script de logique et liaison Supabase -->
-    <!-- Scission P26 (B13-Q2, Master Context §7) — ordre de chargement strict :
-         statistics.js déclare StatisticsPage et doit rester en premier. -->
+    <!-- Ordre de chargement strict : statistics.js déclare StatisticsPage et doit
+         rester en premier. -->
     <script src="pages/statistics.js"></script>
     <script src="pages/statistics-charts.js"></script>
     <script src="pages/statistics-pool-ai.js"></script>

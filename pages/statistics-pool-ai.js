@@ -1,14 +1,14 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 3/4 : analyse par IA d'un pool
-// précis (construction des stats agrégées, du prompt, appel à l'Edge Function
-// ai-proxy). Uniquement cette chaîne — les statistiques de contrats détaillées,
-// bien que "par pool" elles aussi, vivent dans statistics-charts.js (aucun lien
-// avec l'IA, voir note dans ce dernier fichier). Voir statistics.js (chargé
-// AVANT ce fichier) pour l'explication de StatisticsPage.
+// Analyse par IA d'un pool précis (construction des stats agrégées, du
+// prompt, appel à l'Edge Function ai-proxy). Uniquement cette chaîne — les
+// statistiques de contrats détaillées, bien que "par pool" elles aussi,
+// vivent dans statistics-charts.js (aucun lien avec l'IA, voir note dans ce
+// dernier fichier). Voir statistics.js (chargé AVANT ce fichier) pour
+// l'explication de StatisticsPage.
 (() => {
         // ============================================================================
-        // ANALYSE IA PAR POOL (Étape E) — reconstruite depuis missions.html. Statistiques
-        // agrégées calculées en mémoire (StatisticsPage.rawTalents/StatisticsPage.rawMissions déjà chargés pour tous les
-        // pools, filtrage synchrone, pas de requête réseau supplémentaire).
+        // ANALYSE IA PAR POOL — statistiques agrégées calculées en mémoire
+        // (StatisticsPage.rawTalents/StatisticsPage.rawMissions déjà chargés pour
+        // tous les pools, filtrage synchrone, pas de requête réseau supplémentaire).
         // ============================================================================
         function updatePoolAiAnalysisVisibility(selectorValue, talentsForPool, mData) {
             const card = document.getElementById('pool-ai-analysis-card');
@@ -30,33 +30,28 @@
         }
 
         // Instantané agrégé et anonymisé (comptages uniquement, aucune donnée
-        // nominative) — logique de disponibilité identique à celle d'avant l'Étape E
-        // sur missions.html (adaptée de Hercules positions/analytics.ts, getRecommendations),
-        // enrichie a posteriori avec d'autres KPI repérés dans Hercules
-        // (getRecruitmentAnalytics / getTalentAnalytics) : genre, nationalité, langues,
-        // tranches d'expérience, type de candidat, pays/desk des postes, taux
-        // d'anticipation (postes avec un futur occupant identifié). Toujours uniquement
-        // des comptages agrégés — jamais un nom, un email ou une évaluation individuelle.
-        // Seuil d'anonymat pour les données envoyées à l'IA — voir le bloc explicatif
-        // en fin de buildPoolAnalysisStats(). En dessous de ce nombre de talents actifs
-        // dans le pool, les répartitions genre / nationalités / langues ne sont pas
-        // transmises au modèle. Valeur fixée par l'utilisateur le 18/08/2026.
+        // nominative) — disponibilité, genre, nationalité, langues, tranches
+        // d'expérience, type de candidat, pays/desk des postes, taux d'anticipation
+        // (postes avec un futur occupant identifié). Toujours uniquement des
+        // comptages agrégés — jamais un nom, un email ou une évaluation
+        // individuelle. Seuil d'anonymat pour les données envoyées à l'IA — voir le
+        // bloc explicatif en fin de buildPoolAnalysisStats(). En dessous de ce
+        // nombre de talents actifs dans le pool, les répartitions genre /
+        // nationalités / langues ne sont pas transmises au modèle.
         const AI_DIVERSITY_MIN_ACTIVE_TALENTS = 5;
 
-        // Correctif P27 (B13-Q3, Master Context §7) — buildPoolAnalysisStats()
-        // décomposée en une fonction par famille de stats, assemblées dans l'objet
-        // `stats` final par l'orchestrateur (buildPoolAnalysisStats elle-même) — même
-        // pattern que exportTalentCardPDF()/bindButtonListeners(). `now` et les 3
-        // horizons temporels sont calculés une seule fois par l'orchestrateur et
-        // transmis en paramètre (au lieu d'un Date.now() par bloc) pour garantir un
-        // instantané cohérent entre tous les blocs, comme avant. `activeTalents` est
-        // calculé une seule fois (computeActiveTalents) et partagé entre les 2 blocs
-        // qui en ont besoin, pour la même raison. Comportement strictement inchangé :
-        // mêmes calculs, mêmes clés d'objet, même valeurs.
+        // buildPoolAnalysisStats() est décomposée en une fonction par famille de
+        // stats, assemblées dans l'objet `stats` final par l'orchestrateur
+        // (buildPoolAnalysisStats elle-même) — même pattern que
+        // exportTalentCardPDF()/bindButtonListeners(). `now` et les 3 horizons
+        // temporels sont calculés une seule fois par l'orchestrateur et transmis en
+        // paramètre (au lieu d'un Date.now() par bloc) pour garantir un instantané
+        // cohérent entre tous les blocs. `activeTalents` est calculé une seule fois
+        // (computeActiveTalents) et partagé entre les 2 blocs qui en ont besoin,
+        // pour la même raison.
 
-        // KPIs de postes du pool — cf. Hercules positions/analytics.ts et
-        // getRecruitmentAnalytics (candidateTypeDistribution / countryDistribution /
-        // deskDistribution / preparationRate).
+        // KPIs de postes du pool (occupation, échéances de contrat, répartition par
+        // type de candidat/pays/desk, taux d'anticipation).
         function computePositionStats(mData, now, oneMonthLater, threeMonthsLater, sixMonthsLater) {
             const total = mData.length;
             const occupied = mData.filter(m => m.status === 'occupied').length;
@@ -75,9 +70,7 @@
                 return t > now && t <= sixMonthsLater;
             }).length;
 
-            // Répartition par type de candidat, pays et desk (postes) — cf. Hercules
-            // getRecruitmentAnalytics (candidateTypeDistribution / countryDistribution /
-            // deskDistribution), pas encore envoyée à l'IA jusqu'ici.
+            // Répartition par type de candidat, pays et desk (postes).
             const expatPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length;
             const nationalPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length;
 
@@ -96,7 +89,7 @@
             });
 
             // Taux d'anticipation : proportion de postes pour lesquels un futur occupant
-            // est déjà identifié (cf. Hercules getRecruitmentAnalytics, preparationRate).
+            // est déjà identifié.
             const positionsWithFutureTalent = mData.filter(m => !!m.future_talent_id).length;
             const preparationRate = total > 0 ? Math.round((positionsWithFutureTalent / total) * 100) : 0;
 
@@ -126,8 +119,7 @@
             });
         }
 
-        // Disponibilité des talents actifs — logique inchangée depuis avant l'Étape E
-        // (adaptée de Hercules positions/analytics.ts, getRecommendations).
+        // Disponibilité des talents actifs.
         function computeAvailabilityStats(activeTalents, now, sixMonthsLater) {
             let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
 
@@ -162,8 +154,8 @@
         }
 
         // Répartitions genre / nationalité / langue / expérience — comptages agrégés
-        // uniquement (cf. décision utilisateur : acceptable à l'échelle moyenne d'un
-        // pool ~30 personnes, jamais par individu), cf. Hercules getTalentAnalytics.
+        // uniquement (décision utilisateur : acceptable à l'échelle moyenne d'un pool
+        // ~30 personnes, jamais par individu).
         function computeDiversityStats(activeTalents) {
             const genderDistribution = { hommes: 0, femmes: 0, nonRenseigne: 0 };
             activeTalents.forEach(t => {
@@ -187,8 +179,7 @@
                 });
             });
 
-            // Tranches d'expérience ALIMA — cf. Hercules getTalentAnalytics,
-            // experienceDistribution (junior/intermediate/senior/expert).
+            // Tranches d'expérience ALIMA (junior/intermédiaire/senior/expert).
             const experienceDistribution = { junior: 0, intermediaire: 0, senior: 0, expert: 0 };
             activeTalents.forEach(t => {
                 const exp = t.experience_months_alima || 0;
@@ -213,8 +204,8 @@
             const { redListedCount, atRiskCount } = computeRedListAndRiskStats(talentsForPool);
             const { genderDistribution, nationalityDistribution, languageDistribution, experienceDistribution } = computeDiversityStats(activeTalents);
 
-            // Taux d'adéquation talents/postes — cf. Hercules getRecruitmentAnalytics,
-            // talentMatchRate (talents disponibles sous 6 mois rapportés au nb de postes).
+            // Taux d'adéquation talents/postes (talents disponibles sous 6 mois
+            // rapportés au nombre de postes).
             const talentMatchRate = positionStats.totalPositions > 0
                 ? Math.round((availabilityStats.availableSoon / positionStats.totalPositions) * 100)
                 : 0;
@@ -238,19 +229,19 @@
             };
 
             // ------------------------------------------------------------------
-            // SEUIL D'ANONYMAT (18/08/2026, chantier A2)
+            // SEUIL D'ANONYMAT
             // ------------------------------------------------------------------
             // Sur un pool à très faible effectif, une "répartition" cesse d'être un
             // agrégat : "1 femme, nationalité X" dans un pool de 3 personnes est
             // reconstituable par quiconque connaît l'équipe. En dessous du seuil, ces
             // trois répartitions ne sont donc PAS transmises au modèle d'IA.
             //
-            // ⚠️ Ne concerne QUE ce qui part vers l'IA. Les graphiques de diversité
+            // Ne concerne QUE ce qui part vers l'IA. Les graphiques de diversité
             // (updateDiversityCharts) restent affichés normalement quel que soit
             // l'effectif : ils sont dessinés dans le navigateur de l'utilisateur, aucune
             // donnée ne sort du site. Ne pas "harmoniser" les deux par réflexe.
             //
-            // Seuil fixé à 5 par l'utilisateur le 18/08/2026 (règle 16).
+            // Seuil fixé à 5 par l'utilisateur (règle 16).
             if (activeTalents.length < AI_DIVERSITY_MIN_ACTIVE_TALENTS) {
                 delete stats.genderDistribution;
                 delete stats.nationalityDistribution;
@@ -261,12 +252,11 @@
             return stats;
         }
 
-        // Chantier A2 (18/08/2026) — la question de l'utilisateur passe désormais EN TÊTE
-        // du prompt, formulée comme objectif principal. Avant ce changement, cette
-        // fonction ne recevait aucune question et imposait 3 sections fixes : le prompt
-        // était donc identique d'un clic à l'autre, et la réponse identique par
-        // construction (c'est l'origine du symptôme "l'IA répond toujours la même chose").
-        // Sans question saisie, l'ancien comportement est conservé À L'IDENTIQUE.
+        // La question de l'utilisateur passe EN TÊTE du prompt, formulée comme
+        // objectif principal — sans quoi le prompt imposait 3 sections fixes et était
+        // identique d'un clic à l'autre, d'où des réponses très proches quelle que
+        // soit la question posée. Sans question saisie, l'analyse générale à 3
+        // sections ci-dessous est utilisée.
         function buildPoolAnalysisPrompt(poolLabel, stats, userQuestion) {
             const question = (userQuestion || '').trim();
 
@@ -309,17 +299,15 @@
         async function callPoolAiProxy(prompt) {
             const { data: { session } } = await StatisticsPage.supabaseClient.auth.getSession();
             if (!session) {
-                // Correctif complémentaire à P10 (28/08/2026) : voir
-                // callManageUsers() (admin.js) pour la justification complète.
+                // Voir callManageUsers() (admin.js) pour la justification complète.
                 window.location.href = 'login.html';
                 throw new Error("Session expirée — reconnectez-vous.");
             }
 
-            // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19, décision
-            // n°15) : ai-proxy est hors périmètre — palier gratuit limité chez le
-            // fournisseur d'IA (Dossier de passation §7.14), un retry sur faux négatif
-            // réseau doublerait la consommation d'un quota rare pour une fonctionnalité
-            // analytique non critique.
+            // Volontairement pas enveloppé dans capHumaWithRetry() : ai-proxy est hors
+            // périmètre — palier gratuit limité chez le fournisseur d'IA, un retry sur
+            // faux négatif réseau doublerait la consommation d'un quota rare pour une
+            // fonctionnalité analytique non critique.
             const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                 method: 'POST',
                 headers: {
@@ -330,15 +318,15 @@
                 body: JSON.stringify({ prompt })
             });
 
-            // Correctif P10 (B14-I3, 28/08/2026) : voir callManageUsers()
-            // (admin.js) pour la justification complète — un 401/403 ne doit
-            // jamais rester un simple message d'erreur affiché dans le panneau
-            // d'analyse, l'utilisateur doit être renvoyé se reconnecter.
+            // Voir callManageUsers() (admin.js) pour la justification complète — un
+            // 401/403 ne doit jamais rester un simple message d'erreur affiché dans le
+            // panneau d'analyse, l'utilisateur doit être renvoyé se reconnecter.
             if (response.status === 401 || response.status === 403) {
                 await StatisticsPage.supabaseClient.auth.signOut();
                 window.location.href = 'login.html';
                 throw new Error('Session expirée ou accès refusé — redirection vers la connexion.');
             }
+
 
             const result = await response.json();
             if (!response.ok || result.error) {
