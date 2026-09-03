@@ -1,8 +1,8 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 2/2 : fiche talent — onglets de
-// la modale, champs "tags" réutilisables, affichage conditionnel, compteur de
-// validité, arbitrage (prolonger/dévalider), formations ALIMA, brouillon
-// local (P20), ouverture/fermeture et enregistrement de la modale. Voir
-// talents.js (chargé AVANT ce fichier) pour l'explication de TalentsPage.
+// Fiche talent — onglets de la modale, champs "tags" réutilisables, affichage
+// conditionnel, compteur de validité, arbitrage (prolonger/dévalider),
+// formations ALIMA, brouillon local, ouverture/fermeture et enregistrement de
+// la modale. Voir talents.js (chargé AVANT ce fichier) pour l'explication de
+// TalentsPage.
 (() => {
 
         // ============================================================================
@@ -29,10 +29,10 @@
         // ============================================================================
         function createTagField(containerId, fieldName, label, maxTags) {
             const container = document.getElementById(containerId);
-            // Correctif P14 (B18-A1, accessibilité) : id dérivé de fieldName (déjà un
-            // identifiant simple sans espace, cf. les 5 appels de createTagField()) pour
-            // associer le label généré à son champ via for=/id=, sur le même modèle
-            // que les labels statiques des autres pages.
+            // id dérivé de fieldName (déjà un identifiant simple sans espace, cf. les 5
+            // appels de createTagField()) pour associer le label généré à son champ
+            // via for=/id=, sur le même modèle que les labels statiques des autres
+            // pages.
             const inputId = `tagfield-input-${fieldName.replace(/_/g, '-')}`;
             container.innerHTML = `
                 <label class="text-xs font-bold text-slate-500 uppercase" for="${inputId}">${label}</label>
@@ -114,20 +114,14 @@
         // 7. COMPTEUR DE VALIDITÉ & BARRE DE PROGRESSION (DevalidationProgressBar)
         // ============================================================================
         // DEVALIDATION_MAX_MONTHS (et DEVALIDATION_AT_RISK_MONTHS/CRITICAL_MONTHS,
-        // utilisées plus bas) ont été retirées d'ici le 18/08/2026 : cette page avait
-        // sa propre copie locale, désormais fournie par shared/caphuma-utils.js
-        // (chargé ligne 10) — seul endroit du site où ces 3 seuils sont définis.
-        // Ne PAS les redéclarer ici : un second "const" du même nom dans une balise
-        // <script> différente de la même page provoque une erreur de syntaxe qui
-        // casse tout le script (constaté concrètement lors de cette centralisation).
+        // utilisées plus bas) viennent de shared/caphuma-utils.js (chargé ligne 10)
+        // — seul endroit du site où ces 3 seuils sont définis. Ne PAS les redéclarer
+        // ici : un second "const" du même nom dans une balise <script> différente de
+        // la même page provoque une erreur de syntaxe qui casse tout le script.
 
-        // calculateMonthsWithoutMission() a été retirée d'ici : cette page avait
-        // l'ANCIENNE méthode (tranches de 30 jours, bug 55 MC13 §4). Elle vient
-        // désormais de shared/caphuma-utils.js (chargé ligne 10), qui utilise la
-        // méthode calendaire correcte — la même que statistics.html et id-card.html.
-        // ⚠️ Les chiffres affichés sur cette page vont légèrement BAISSER par
-        // rapport à avant (l'ancienne méthode surestimait). Ce n'est pas une
-        // régression : c'était cette page qui avait tort.
+        // calculateMonthsWithoutMission() vient de shared/caphuma-utils.js (chargé
+        // ligne 10), qui utilise la méthode calendaire — la même que statistics.html
+        // et id-card.html.
 
         // Une prolongation est active tant que devalidation_extension_until est dans le futur.
         function hasActiveExtension(talent) {
@@ -189,9 +183,8 @@
 
                 if (error) throw error;
 
-                // logAuditAction('update', ...) retiré le 19/08/2026 (A5) : couvert
-                // désormais par le trigger Postgres trg_audit_talents (détecte la
-                // prolongation via devalidation_extension_until et reproduit le même texte).
+                // Journalisé automatiquement par le trigger Postgres trg_audit_talents
+                // (détecte la prolongation via devalidation_extension_until).
                 prolongModal.classList.add('hidden');
                 toastMessage(`Prolongation de ${months} mois accordée.`);
                 talentPendingArbitration = null;
@@ -230,8 +223,7 @@
 
                 if (error) throw error;
 
-                // logAuditAction('devalidate', ...) retiré le 19/08/2026 (A5) : couvert
-                // désormais par le trigger Postgres trg_audit_talents.
+                // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 toastMessage(`${fullName} a été dévalidé(e).`);
                 await TalentsPage.loadTalents();
             } catch (err) {
@@ -265,9 +257,7 @@
         // renderValidityIndicator() (libellé + explication contextuelle selon la
         // position du talent), mais retourne une chaîne HTML autonome au lieu
         // d'injecter dans un unique élément #validityIndicator, pour être utilisable
-        // une fois par ligne dans la liste des talents (demande explicite de
-        // l'utilisateur : ne pas se limiter à une barre nue, cf. Hercules
-        // devalidation-progress-bar.tsx).
+        // une fois par ligne dans la liste des talents.
         function renderInlineValidityBar(talent) {
             const v = getValidityData(talent);
             let labelHtml, bottomHtml;
@@ -368,12 +358,12 @@
         }
 
         // ============================================================================
-        // 8bis. BROUILLON LOCAL (backlog B15-R1, priorité P20)
+        // 8bis. BROUILLON LOCAL
         // ============================================================================
         // Sauvegarde locale du contenu du formulaire en cours de saisie, pour ne pas
         // tout perdre en cas de fermeture d'onglet, crash, ou rechargement pendant une
         // erreur affichée — voir shared/caphuma-form-draft.js pour le mécanisme
-        // générique et les décisions de périmètre (Master Context §7, P20).
+        // générique et les décisions de périmètre.
         //
         // Portée : création ET édition. Clé propre à chaque cas (`draft:talent:new`
         // en création, `draft:talent:edit:<id>` en édition) pour qu'un brouillon ne
@@ -438,13 +428,12 @@
             currentTalentDraftBinding = capHumaAttachDraftAutosave(talentForm, draftKey, { collect: collectTalentDraft });
         }
 
-        // Correctif (01/09/2026, test en conditions réelles) : Annuler/× ferme la
-        // boîte SANS effacer le brouillon — un clic sur la croix sert souvent juste
-        // à sortir provisoirement, pas à jeter délibérément la saisie. Le brouillon
-        // reste donc en sessionStorage et sera reproposé à la prochaine ouverture de
-        // la même fiche (voir shared/caphuma-form-draft.js pour la règle complète).
-        // Seul l'autosave est arrêté, pour ne pas continuer à écrire sur un
-        // formulaire désormais masqué.
+        // Annuler/× ferme la boîte SANS effacer le brouillon — un clic sur la croix
+        // sert souvent juste à sortir provisoirement, pas à jeter délibérément la
+        // saisie. Le brouillon reste donc en sessionStorage et sera reproposé à la
+        // prochaine ouverture de la même fiche (voir shared/caphuma-form-draft.js
+        // pour la règle complète). Seul l'autosave est arrêté, pour ne pas continuer
+        // à écrire sur un formulaire désormais masqué.
         function stopTalentDraftTracking() {
             if (currentTalentDraftBinding) {
                 currentTalentDraftBinding.stop();
@@ -490,14 +479,12 @@
             talentModal.classList.remove('hidden');
         }
 
-        // Correctif P27 (B13-Q3, Master Context §7) — openEditModal() décomposée en
-        // 5 fonctions nommées par responsabilité, chacune peuplant une zone distincte
-        // du formulaire/modale, composées séquentiellement dans openEditModal qui
-        // devient un simple orchestrateur — même pattern que exportTalentCardPDF()
-        // (id-card-pdf.js) et bindButtonListeners() (id-card.js). Toutes locales à ce
-        // fichier (IIFE) : aucune n'est appelée depuis un autre fichier de la page,
-        // donc aucune exposée sur TalentsPage. Comportement strictement inchangé :
-        // mêmes lectures/écritures DOM, même ordre, même contenu.
+        // openEditModal() est décomposée en 5 fonctions nommées par responsabilité,
+        // chacune peuplant une zone distincte du formulaire/modale, composées
+        // séquentiellement dans openEditModal ci-dessous — même pattern que
+        // exportTalentCardPDF() (id-card-pdf.js) et bindButtonListeners()
+        // (id-card.js). Toutes locales à ce fichier (IIFE) : aucune n'est appelée
+        // depuis un autre fichier de la page, donc aucune exposée sur TalentsPage.
 
         // Onglets 1-2 — champs simples du formulaire (texte, nombre, date, checkbox),
         // peuplés génériquement depuis les clés de l'objet talent.
@@ -618,10 +605,10 @@
         document.getElementById('saveTalentBtn').addEventListener('click', async function () {
             formError.classList.add('hidden');
 
-            // Filet de sécurité (P20) : capture immédiate avant validation, sans
-            // attendre le debounce de l'autosave — la fenêtre entre le clic et la
-            // fin de l'enregistrement est justement le moment où un crash/une
-            // fermeture accidentelle serait le plus coûteux à perdre.
+            // Filet de sécurité : capture immédiate avant validation, sans attendre
+            // le debounce de l'autosave — la fenêtre entre le clic et la fin de
+            // l'enregistrement est justement le moment où un crash/une fermeture
+            // accidentelle serait le plus coûteux à perdre.
             if (currentTalentDraftBinding) currentTalentDraftBinding.saveNow();
 
             const formData = new FormData(talentForm);
@@ -661,21 +648,17 @@
                         TalentsPage.supabaseClient.from('talents').update(payload).eq('id', editingTalentId)
                     );
                     if (error) throw error;
-                    // logAuditAction('update', ...) retiré le 19/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_talents.
+                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 } else {
                     payload.pool = TalentsPage.currentPoolId;
                     payload.created_by = TalentsPage.currentUserId;
                     payload.is_valid = true;
-                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19,
-                    // décision n°15) : talents n'a aucune contrainte UNIQUE (Dossier de
-                    // passation §4.2) — une relance après perte de réponse dupliquerait
-                    // silencieusement la fiche talent créée.
+                    // Volontairement pas enveloppé dans capHumaWithRetry() : talents n'a
+                    // aucune contrainte UNIQUE — une relance après perte de réponse
+                    // dupliquerait silencieusement la fiche talent créée.
                     const { error } = await TalentsPage.supabaseClient.from('talents').insert(payload);
                     if (error) throw error;
-                    // logAuditAction('create', ...) retiré le 19/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_talents (reproduit le
-                    // même texte "Pool : X").
+                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 }
                 talentModal.classList.add('hidden');
                 discardTalentDraft();

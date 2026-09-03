@@ -2,11 +2,9 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
-         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
-         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
-         chargées après elle). Détail des directives et rationale : voir le
-         commentaire équivalent dans audit_logs.html. -->
+    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
+         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
+         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -26,7 +24,6 @@
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
-    <!-- Brouillon local de formulaire (backlog B15-R1, priorité P20) -->
     <script src="shared/caphuma-form-draft.js"></script>
     <script src="shared/caphuma-auth.js"></script>
     <script src="shared/caphuma-layout.js"></script>
@@ -57,7 +54,7 @@
 </head>
 <body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
-    <!-- ═══════════════════════════════════ HEADER — injecté par shared/caphuma-layout.js (B4, Master Context §7). Voir renderPageLayout() dans pages/talents.js. ═══════════════════════════════════ -->
+    <!-- ═══════════════════════════════════ HEADER — injecté par shared/caphuma-layout.js. Voir renderPageLayout() dans pages/talents.js. ═══════════════════════════════════ -->
     <div id="layoutHeaderMount"></div>
 
     <!-- ═══════════════════════════════════ RECHERCHE & FILTRES AVANCÉS ═══════════════════════════════════ -->
@@ -90,14 +87,13 @@
                     </select>
                 </div>
                 <div>
-                    <!-- Filtre ajouté le 18/08/2026 : sans lui, un talent dévalidé OU en
-                         Liste Rouge reste mélangé aux actifs dans cette liste
-                         (comportement volontaire du site — ne pas les retirer facilite
-                         leur suivi/réintégration), ce qui rend la recherche pénible. Par
-                         défaut sur "Actifs uniquement" pour ne plus voir ni l'un ni
-                         l'autre sans action de ta part. Pages dédiées pour les consulter
-                         en détail : devalidated.html (dévalidés) et red_list.html
-                         (Liste Rouge), toutes pools confondues. -->
+                    <!-- Sans ce filtre, un talent dévalidé OU en Liste Rouge reste mélangé
+                         aux actifs dans cette liste (comportement volontaire du site — ne
+                         pas les retirer facilite leur suivi/réintégration), ce qui rend la
+                         recherche pénible. Par défaut sur "Actifs uniquement" pour ne plus
+                         voir ni l'un ni l'autre sans action explicite. Pages dédiées pour
+                         les consulter en détail : devalidated.html (dévalidés) et
+                         red_list.html (Liste Rouge), toutes pools confondues. -->
                     <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterValidity">Validité</label>
                     <select id="filterValidity" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
                         <option value="active">Actifs uniquement</option>
@@ -124,10 +120,10 @@
                 </div>
             </div>
 
-            <!-- Filtres avancés (repliables) — hauteur plafonnée + défilement interne
-                 (Étape D) : avant ce correctif, un panneau trop grand poussait les derniers
-                 champs (zone géographique, etc.) hors de l'écran sans aucun moyen d'y accéder,
-                 le body de la page étant en overflow-hidden (seule la liste en dessous défilait). -->
+            <!-- Filtres avancés (repliables) — hauteur plafonnée + défilement interne :
+                 un panneau trop grand pousserait les derniers champs (zone géographique,
+                 etc.) hors de l'écran sans aucun moyen d'y accéder, le body de la page
+                 étant en overflow-hidden (seule la liste en dessous défile). -->
             <div id="advancedFiltersPanel" class="hidden space-y-3 pt-3 border-t border-slate-100 max-h-[55vh] overflow-y-auto pr-1">
                 <div class="bg-primary-light border border-blue-100 rounded-lg p-3 space-y-1.5">
                     <label class="text-xs font-bold text-primary flex items-center gap-1.5" for="filterKeyword">🔎 Recherche par compétences / mots-clés</label>
@@ -220,11 +216,10 @@
         <p id="emptyState" class="hidden text-center text-sm text-slate-500 font-semibold py-12">Aucun talent ne correspond à ta recherche.</p>
         <p id="listError" class="hidden mt-4 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
 
-        <!-- Correctif P7 (B17-L1, 27/08/2026) : affichage progressif en mode
-             "liste complète" (recherche/filtre avancé). Masqué par défaut,
-             piloté entièrement par updateShowMoreControls() dans talents.js —
-             invisible en mode paginé normal (jamais assez de résultats pour
-             dépasser un lot). -->
+        <!-- Affichage progressif en mode "liste complète" (recherche/filtre avancé).
+             Masqué par défaut, piloté entièrement par updateShowMoreControls() dans
+             talents.js — invisible en mode paginé normal (jamais assez de résultats
+             pour dépasser un lot). -->
         <div class="mt-4 flex flex-col items-center gap-2">
             <p id="talentsRenderedCountLabel" class="hidden text-xs font-semibold text-slate-500"></p>
             <button id="talentsShowMoreBtn" type="button" class="hidden border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold transition-all">
@@ -232,10 +227,10 @@
             </button>
         </div>
 
-        <!-- Pagination réelle (Étape D, Option A) — visible uniquement en navigation
-             normale (statut/tri simples). Dès qu'une recherche par mot-clé ou un filtre
-             avancé est actif, la page bascule en mode "liste complète" (comme avant
-             cette étape) et ces contrôles se masquent : voir computeIsFullListMode(). -->
+        <!-- Pagination réelle — visible uniquement en navigation normale
+             (statut/tri simples). Dès qu'une recherche par mot-clé ou un filtre
+             avancé est actif, la page bascule en mode "liste complète" et ces
+             contrôles se masquent : voir computeIsFullListMode(). -->
         <div id="paginationControls" class="hidden mt-6 flex items-center justify-between gap-3">
             <button id="prevPageBtn" type="button" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all">
                 ← Page précédente
@@ -455,11 +450,11 @@
         </div>
     </div>
 
-    <!-- Correctif P26 (B13-Q2, Master Context §7) : talents.js scindé en 2
-         fichiers. Ordre obligatoire — voir l'en-tête de pages/talents.js. -->
+    <!-- talents.js est scindé en 2 fichiers. Ordre obligatoire — voir l'en-tête de
+         pages/talents.js. -->
     <script src="pages/talents.js"></script>
     <script src="pages/talents-modal.js"></script>
-    <!-- ═══════════════════════════════════ HOVER CARD (Étape D) ═══════════════════════════════════
+    <!-- ═══════════════════════════════════ HOVER CARD ═══════════════════════════════════
          Carte d'aperçu rapide au survol du nom d'un talent dans la liste. Un seul élément
          réutilisé pour toute la liste (repositionné dynamiquement), pour éviter de créer un
          nœud DOM par ligne. -->

@@ -1,29 +1,29 @@
-// Correctif P26 (B13-Q2, Master Context §7) : talents.js scindé en 2 fichiers
-// par responsabilité — liste/recherche/export (ce fichier) et fiche/formulaire
-// talent (talents-modal.js). Découpage en 2 plutôt que 3-4 (comme id-card.js
-// ou missions.js) : les sections 4 à 10 de l'ancien fichier (onglets, tags,
-// champs conditionnels, validité, formations, brouillon, ouverture/
-// enregistrement de la modale) sont fortement imbriquées entre elles — les
-// séparer aurait démultiplié les échanges inter-fichiers pour un gain de
-// lisibilité marginal. Cette limite entre "liste" et "fiche" est en revanche
-// nette : très peu de dépendances croisées (voir ci-dessous).
+// talents.js est scindé en 2 fichiers par responsabilité — liste/recherche/
+// export (ce fichier) et fiche/formulaire talent (talents-modal.js).
+// Découpage en 2 plutôt que 3-4 (comme id-card.js ou missions.js) : les
+// sections de l'ancien fichier (onglets, tags, champs conditionnels,
+// validité, formations, brouillon, ouverture/enregistrement de la modale)
+// sont fortement imbriquées entre elles — les séparer aurait démultiplié les
+// échanges inter-fichiers pour un gain de lisibilité marginal. La limite
+// entre "liste" et "fiche" est en revanche nette : très peu de dépendances
+// croisées (voir ci-dessous).
 //
-// Ce fichier N'EST PAS enveloppé dans une IIFE, contrairement aux 15 pages du
-// site (P23) — même raison que missions.js/missions-render.js etc. : les 2
+// Ce fichier n'est pas enveloppé dans une IIFE, contrairement aux autres
+// pages du site — même raison que missions.js/missions-render.js etc. : les 2
 // fichiers de cette page doivent partager un état commun (session, pool
 // courant), impossible entre 2 balises <script> classiques sans un point de
 // partage explicite. TalentsPage est ce point unique, propre à cette page.
 //
-// Chargement requis dans talents.html, DANS CET ORDRE :
+// Chargement requis dans talents.html, dans cet ordre :
 //   1. pages/talents.js         (ce fichier — déclare TalentsPage)
 //   2. pages/talents-modal.js
 const TalentsPage = {};
 
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose, y
-        // compris avant checkSession() plus bas qui référence #newTalentBtn (masqué
-        // pour le rôle visitor) et écrit dans #poolSubtitle une fois le pool chargé.
+        // HEADER COMMUN — injecté avant toute autre chose, y compris avant
+        // checkSession() plus bas qui référence #newTalentBtn (masqué pour le rôle
+        // visitor) et écrit dans #poolSubtitle une fois le pool chargé.
         // ============================================================================
         renderPageLayout({
             icon: '👤',
@@ -41,8 +41,8 @@ const TalentsPage = {};
         // ============================================================================
         // 1. INIT SUPABASE + GARDE DE SESSION
         // ============================================================================
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // SUPABASE_URL / SUPABASE_ANON_KEY viennent de shared/caphuma-config.js
+        // (chargé dans le head).
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) window.location.replace('index.html');
 
         const { createClient } = supabase;
@@ -62,8 +62,8 @@ const TalentsPage = {};
         let currentUserName = null;
 
         // ============================================================================
-        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
-        // Ne bloque jamais l'action métier si l'écriture du log échoue.
+        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée. Ne bloque
+        // jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         async function logAuditAction(action, entityType, entityId, entityName, details) {
             // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
@@ -96,7 +96,7 @@ const TalentsPage = {};
             }
         }
         checkSession();
-        capHumaInitModalA11y(); // P15 (B18-A3) — voir shared/caphuma-utils.js
+        capHumaInitModalA11y(); // définie dans shared/caphuma-utils.js
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', TalentsPage.currentUserId, TalentsPage.currentUserEmail, null);
@@ -124,7 +124,7 @@ const TalentsPage = {};
         }
 
         // ============================================================================
-        // 3. CHARGEMENT + RENDU DE LA LISTE (Étape D, Option A — pagination réelle)
+        // 3. CHARGEMENT + RENDU DE LA LISTE (pagination réelle)
         // ============================================================================
         // Deux modes, choisis à chaque appel de loadTalents() selon les filtres actifs :
         //   - Mode PAGINÉ (par défaut) : une seule page de PAGE_SIZE talents est demandée
@@ -143,9 +143,8 @@ const TalentsPage = {};
         let totalCount = 0;
         let isFullListMode = false;
 
-        // Correctif P7 (B17-L1, 27/08/2026, décision utilisateur) : affichage
-        // progressif en mode "liste complète" (recherche/filtre avancé), pour
-        // éviter de créer d'un coup plusieurs centaines de nœuds DOM sur un
+        // Affichage progressif en mode "liste complète" (recherche/filtre avancé),
+        // pour éviter de créer d'un coup plusieurs centaines de nœuds DOM sur un
         // pool qui grossirait beaucoup. Sans effet en mode paginé normal
         // (PAGE_SIZE = 20, déjà petit) — voir renderTalents() plus bas.
         const RENDER_BATCH_SIZE = 25;
@@ -181,16 +180,16 @@ const TalentsPage = {};
             }
         }
 
-        // Chargement complet (une seule fois, mis en cache) — comportement identique
-        // à celui d'avant l'Étape D, utilisé uniquement en mode liste complète.
+        // Chargement complet (une seule fois, mis en cache), utilisé uniquement en
+        // mode liste complète.
         async function fetchAllTalents() {
             const listEl = document.getElementById('talentsList');
             const errorEl = document.getElementById('listError');
             try {
-                // capHumaWithRetry() (P19) : la construction de la requête est déplacée
-                // À L'INTÉRIEUR de la fonction passée en paramètre, pour qu'un retry
-                // reconstruise un query builder tout neuf (avec les mêmes filtres)
-                // plutôt que de réutiliser un objet déjà attendu une 1re fois.
+                // La construction de la requête est déplacée à l'intérieur de la
+                // fonction passée à capHumaWithRetry(), pour qu'un retry reconstruise
+                // un query builder tout neuf (avec les mêmes filtres) plutôt que de
+                // réutiliser un objet déjà attendu une 1re fois.
                 const { data, error } = await capHumaWithRetry(() => {
                     let query = TalentsPage.supabaseClient.from('talents').select('*').order('last_name', { ascending: true });
                     if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
@@ -207,9 +206,9 @@ const TalentsPage = {};
             }
         }
 
-        // Chargement paginé côté requête (Étape D, Option A) — ne demande à Supabase
-        // que les PAGE_SIZE lignes de la page courante, filtrées par statut et triées
-        // côté serveur si ces filtres simples sont actifs.
+        // Chargement paginé côté requête — ne demande à Supabase que les PAGE_SIZE
+        // lignes de la page courante, filtrées par statut et triées côté serveur si
+        // ces filtres simples sont actifs.
         async function fetchPagedTalents() {
             const listEl = document.getElementById('talentsList');
             const errorEl = document.getElementById('listError');
@@ -226,9 +225,9 @@ const TalentsPage = {};
                 const from = currentPage * PAGE_SIZE;
                 const to = from + PAGE_SIZE - 1;
 
-                // capHumaWithRetry() (P19) : même principe que fetchAllTalents() plus
-                // haut — la requête entière (avec tous ses filtres conditionnels) est
-                // reconstruite à chaque tentative.
+                // Même principe que fetchAllTalents() plus haut — la requête entière
+                // (avec tous ses filtres conditionnels) est reconstruite à chaque
+                // tentative de capHumaWithRetry().
                 const { data, error, count } = await capHumaWithRetry(() => {
                     let query = TalentsPage.supabaseClient
                         .from('talents')
@@ -239,14 +238,13 @@ const TalentsPage = {};
                     if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                     if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
 
-                    // Filtre "Validité" (ajouté le 18/08/2026, corrigé le même jour) : doit
-                    // être répété ici, côté serveur, car ce mode paginé est celui utilisé
-                    // par défaut (pas de recherche/filtre avancé actif) — le filtrage fait
-                    // dans filterAndSortTalents() ne s'applique, lui, qu'au mode "liste
-                    // complète". Tolère NULL comme le fait le filtre client (is_valid/
-                    // is_red_listed ont un défaut mais une ancienne ligne pourrait ne pas
-                    // l'avoir) : "actif" = is_valid pas explicitement false ET is_red_listed
-                    // pas explicitement true.
+                    // Le filtre "Validité" doit être répété ici, côté serveur, car ce
+                    // mode paginé est celui utilisé par défaut (pas de recherche/filtre
+                    // avancé actif) — le filtrage fait dans filterTalents() ne s'applique,
+                    // lui, qu'au mode "liste complète". Tolère NULL comme le fait le
+                    // filtre client (is_valid/is_red_listed ont un défaut mais une
+                    // ancienne ligne pourrait ne pas l'avoir) : "actif" = is_valid pas
+                    // explicitement false ET is_red_listed pas explicitement true.
                     if (searchFilters.validityFilter === 'active') {
                         query = query.or('is_valid.is.null,is_valid.eq.true')
                                      .or('is_red_listed.is.null,is_red_listed.eq.false');
@@ -273,15 +271,13 @@ const TalentsPage = {};
             }
         }
 
-        // Renommée depuis renderPaginationControls() — ce nom collidait silencieusement
-        // avec la fonction partagée du même nom dans shared/caphuma-utils.js (signature
-        // différente : celle-ci lit totalCount/PAGE_SIZE/currentPage en globals de page
-        // et pilote des boutons statiques prevPageBtn/nextPageBtn, la version partagée
-        // prend 5 paramètres et génère du HTML avec onclick). Aucun bug de comportement
-        // (la déclaration de cette page écrasait silencieusement la version partagée,
-        // jamais utilisée ici), mais un piège si quelqu'un modifie un jour la version
-        // partagée en pensant qu'elle s'applique aussi ici. Même correctif que
-        // audit_logs.js, trouvé via ESLint (no-redeclare) le 25/08/2026.
+        // Nommée différemment de renderPaginationControls() : ce nom collide
+        // silencieusement avec la fonction partagée du même nom dans
+        // shared/caphuma-utils.js (signature différente : celle-ci lit
+        // totalCount/PAGE_SIZE/currentPage en globals de page et pilote des boutons
+        // statiques prevPageBtn/nextPageBtn, la version partagée prend 5 paramètres
+        // et génère du HTML avec onclick). Garder ce nom distinct évite de
+        // réintroduire ce piège si la version partagée est modifiée un jour.
         function updateTalentsPaginationControls() {
             const controls = document.getElementById('paginationControls');
             const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -312,10 +308,10 @@ const TalentsPage = {};
             }
         });
 
-        // Correctif P7 : "Afficher plus" ajoute le lot suivant à la liste déjà
-        // affichée (append = true), sans tout reconstruire — s'appuie sur
-        // currentFilteredTalents, le tableau déjà en mémoire pour le mode
-        // "liste complète" (recherche/filtre avancé).
+        // "Afficher plus" ajoute le lot suivant à la liste déjà affichée (append =
+        // true), sans tout reconstruire — s'appuie sur currentFilteredTalents, le
+        // tableau déjà en mémoire pour le mode "liste complète" (recherche/filtre
+        // avancé).
         document.getElementById('talentsShowMoreBtn')?.addEventListener('click', () => {
             renderTalents(currentFilteredTalents, true);
         });
@@ -331,17 +327,17 @@ const TalentsPage = {};
         }
 
         // ============================================================================
-        // HOVER CARD (Étape D) — aperçu rapide au survol du nom : fonction, statut,
+        // HOVER CARD — aperçu rapide au survol du nom : fonction, statut,
         // disponibilité, expérience ALIMA/humanitaire. Un seul élément DOM réutilisé
         // et repositionné à chaque survol (voir formatAvailabilityLabel plus bas,
         // function déclarée donc "hoisted" — utilisable ici malgré l'ordre du fichier).
         // ============================================================================
-        // Correctif (19/08/2026) : la div #talentHoverCard est placée dans le HTML
-        // APRÈS la balise <script>, donc une capture au chargement (const = ...)
-        // retournait toujours null (le parseur n'avait pas encore atteint cette div
-        // au moment de l'exécution de cette ligne). Récupération à la demande à la
-        // place — inoffensif en performance (un seul élément, recherché seulement
-        // au survol/à la sortie, pas dans une boucle).
+        // La div #talentHoverCard est placée dans le HTML APRÈS la balise <script>,
+        // donc une capture au chargement (const = ...) retournerait toujours null (le
+        // parseur n'a pas encore atteint cette div au moment de l'exécution de cette
+        // ligne). Récupération à la demande à la place — inoffensif en performance
+        // (un seul élément, recherché seulement au survol/à la sortie, pas dans une
+        // boucle).
         function getHoverCardEl() {
             return document.getElementById('talentHoverCard');
         }
@@ -391,34 +387,31 @@ const TalentsPage = {};
             }
             emptyEl.classList.add('hidden');
 
-            // Correctif P7 : seul le prochain lot (RENDER_BATCH_SIZE éléments) est
-            // construit ici, pas tout le tableau — le reste attend un clic sur
-            // "Afficher plus" (voir updateShowMoreControls() et son écouteur plus
-            // bas). En mode paginé normal, talents.length ≤ PAGE_SIZE (20) < 25,
-            // donc ce lot contient déjà tout : aucun changement de comportement
-            // visible dans ce mode.
+            // Seul le prochain lot (RENDER_BATCH_SIZE éléments) est construit ici, pas
+            // tout le tableau — le reste attend un clic sur "Afficher plus" (voir
+            // updateShowMoreControls() et son écouteur plus bas). En mode paginé
+            // normal, talents.length ≤ PAGE_SIZE (20) < 25, donc ce lot contient déjà
+            // tout : aucun changement de comportement visible dans ce mode.
             const batch = talents.slice(renderedTalentsCount, renderedTalentsCount + RENDER_BATCH_SIZE);
 
-            // Correctif P25 (B17-L2, Master Context §7) : les lignes sont construites
-            // dans un DocumentFragment (hors DOM, aucun reflow) puis ajoutées à listEl
-            // en un seul appendChild final, au lieu d'un appendChild par ligne comme
-            // avant (jusqu'à RENDER_BATCH_SIZE reflows par lot). Les écouteurs par
-            // ligne (survol, focus, boutons) restent posés ici sur chaque `row` avant
-            // son ajout au fragment — inutile que l'élément soit déjà dans le DOM pour
-            // ça. Comportement identique : mêmes lignes, même contenu, même ordre,
-            // mêmes écouteurs. Même pattern que missions-render.js/renderMissions().
+            // Les lignes sont construites dans un DocumentFragment (hors DOM, aucun
+            // reflow) puis ajoutées à listEl en un seul appendChild final — un
+            // appendChild par ligne coûterait jusqu'à RENDER_BATCH_SIZE reflows par
+            // lot. Les écouteurs par ligne (survol, focus, boutons) restent posés ici
+            // sur chaque `row` avant son ajout au fragment — inutile que l'élément
+            // soit déjà dans le DOM pour ça. Même pattern que
+            // missions-render.js/renderMissions().
             const fragment = document.createDocumentFragment();
 
             batch.forEach(t => {
                 const row = document.createElement('div');
                 const eligible = TalentsPage.isDevalidationEligible(t);
                 const isDevalidated = t.is_valid === false;
-                // Correctif P12 (B12-S3, 28/08/2026) : idKey est aujourd'hui un
-                // UUID généré par Postgres, donc déjà propre — encodé par précaution
-                // avant qu'un futur cas limite (import en masse, saisie manuelle)
-                // n'introduise un caractère réservé qui casserait la navigation.
-                // Calculé ici (avant innerHTML) depuis le correctif P16, pour servir
-                // de href au lien du nom ci-dessous.
+                // idKey est un UUID généré par Postgres, donc déjà propre — encodé par
+                // précaution avant qu'un futur cas limite (import en masse, saisie
+                // manuelle) n'introduise un caractère réservé qui casserait la
+                // navigation. Calculé ici (avant innerHTML) pour servir de href au
+                // lien du nom ci-dessous.
                 const idKey = t.id || t._id;
 
                 row.className = "bg-white border rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-sm transition-all " +
@@ -442,14 +435,12 @@ const TalentsPage = {};
                             ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <!-- Nom du talent redirigeant vers la carte d'identité — lien réel
-                                 (correctif P16, natif au clavier, plus besoin de gestionnaire
-                                 de clic sur toute la carte) -->
+                            <!-- Nom du talent redirigeant vers la carte d'identité — lien
+                                 réel, natif au clavier. -->
                             <a href="id-card.html?id=${encodeURIComponent(idKey)}" class="talent-name-hover block font-bold text-slate-800 hover:text-primary hover:underline truncate">
                                 ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? '🚩' : ''}
                             </a>
-                            <!-- Ligne d'infos secondaires (fonction, expérience, disponibilité) —
-                                 sur le modèle Hercules talent-list.tsx, absente jusqu'ici de cette liste. -->
+                            <!-- Ligne d'infos secondaires (fonction, expérience, disponibilité) -->
                             <p class="text-xs text-slate-500 truncate mt-0.5">
                                 <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
                                 <span class="mx-1.5 text-slate-300">·</span>
@@ -482,9 +473,8 @@ const TalentsPage = {};
                     </div>
                 `;
                 
-                // Hover card (Étape D) : aperçu rapide au survol OU au focus clavier du
-                // nom (correctif P18 — avant, uniquement mouseenter/mouseleave, aucun
-                // équivalent clavier), sans ouvrir la fiche.
+                // Aperçu rapide au survol OU au focus clavier du nom, sans ouvrir la
+                // fiche.
                 const nameEl = row.querySelector('.talent-name-hover');
                 if (nameEl) {
                     nameEl.addEventListener('mouseenter', () => showHoverCard(t, nameEl));
@@ -493,10 +483,9 @@ const TalentsPage = {};
                     nameEl.addEventListener('blur', hideHoverCard);
                 }
 
-                // Clic sur le bouton d'édition : ouvre le modal. e.stopPropagation()
-                // retiré (correctif P16) : n'était utile que pour bloquer le clic de
-                // toute la ligne, qui n'existe plus — seul le nom (lien ci-dessus) est
-                // désormais cliquable.
+                // Clic sur le bouton d'édition : ouvre le modal. Seul le nom (lien
+                // ci-dessus) est cliquable sur la ligne, donc pas besoin de
+                // e.stopPropagation() ici.
                 const editBtn = row.querySelector('.edit-btn');
                 if (editBtn) {
                     editBtn.addEventListener('click', () => {
@@ -522,9 +511,9 @@ const TalentsPage = {};
             updateShowMoreControls(talents);
         }
 
-        // Correctif P7 : affiche/masque le bouton "Afficher plus" et le petit
-        // texte "X sur Y affichés", selon qu'il reste ou non des talents non
-        // encore rendus dans le tableau complet passé à renderTalents().
+        // Affiche/masque le bouton "Afficher plus" et le petit texte "X sur Y
+        // affichés", selon qu'il reste ou non des talents non encore rendus dans le
+        // tableau complet passé à renderTalents().
         function updateShowMoreControls(talents) {
             const showMoreBtn = document.getElementById('talentsShowMoreBtn');
             const countLabel = document.getElementById('talentsRenderedCountLabel');
@@ -544,9 +533,9 @@ const TalentsPage = {};
         }
 
         // ============================================================================
-        // 3 BIS. RECHERCHE AVANCÉE (adaptée de AdvancedSearch / filterAndSortTalents,
-        //    Mon_code_hercules.txt) — filtrage et tri appliqués en mémoire sur
-        //    allTalents (déjà chargé pour ce pool), pas de nouvelle requête réseau.
+        // 3 BIS. RECHERCHE AVANCÉE — filtrage (filterTalents) et tri (sortTalents)
+        //    appliqués en mémoire sur allTalents (déjà chargé pour ce pool), pas de
+        //    nouvelle requête réseau.
         // ============================================================================
         const searchFilters = {
             searchQuery: '',
@@ -594,14 +583,12 @@ const TalentsPage = {};
             const skills = t.key_skills || [];
             if (skills.some(s => String(s).toLowerCase().includes(kw))) return true;
 
-            // Correctif (21/08/2026) : les 3 commentaires libres associés aux cases
-            // "A fait des ouvertures / missions d'urgence / fermetures de projet"
-            // (mission_opening_comments, emergency_mission_comments,
-            // closure_mission_comments) n'étaient jusqu'ici jamais scannés par la
-            // recherche par mot-clé — seules les compétences clés et l'historique
-            // archivé l'étaient. Un recruteur qui décrit cette expérience en texte
-            // libre sans cocher la case correspondante restait invisible à la
-            // recherche ; désormais couvert.
+            // Les 3 commentaires libres associés aux cases "A fait des ouvertures /
+            // missions d'urgence / fermetures de projet" (mission_opening_comments,
+            // emergency_mission_comments, closure_mission_comments) sont aussi
+            // scannés ici, pas seulement les compétences clés et l'historique
+            // archivé — un recruteur qui décrit cette expérience en texte libre sans
+            // cocher la case correspondante reste ainsi visible à la recherche.
             const freeTextFields = [
                 t.mission_opening_comments,
                 t.emergency_mission_comments,
@@ -622,7 +609,7 @@ const TalentsPage = {};
             });
         }
 
-        function filterAndSortTalents(talents, f) {
+        function filterTalents(talents, f) {
             let filtered = [...talents];
 
             if (f.searchQuery) {
@@ -643,13 +630,11 @@ const TalentsPage = {};
                 filtered = filtered.filter(t => t.status === f.statusFilter);
             }
 
-            // Filtre ajouté le 18/08/2026, corrigé le même jour pour couvrir aussi la
-            // Liste Rouge (pas seulement la dévalidation) : par défaut ('active'),
-            // masque les talents dévalidés ET ceux en Liste Rouge — les deux restent
-            // dans "talents" en base (choix volontaire du site : ne pas les retirer
-            // facilite leur suivi), mais n'ont rien à faire dans la liste courante d'un
-            // pool au quotidien. 'devalidated' isole les dévalidés (Liste Rouge ou non).
-            // '' (Tous) désactive le filtre, comportement identique à avant son ajout.
+            // Par défaut ('active'), masque les talents dévalidés ET ceux en Liste
+            // Rouge — les deux restent dans "talents" en base (choix volontaire du
+            // site : ne pas les retirer facilite leur suivi), mais n'ont rien à faire
+            // dans la liste courante d'un pool au quotidien. 'devalidated' isole les
+            // dévalidés (Liste Rouge ou non). '' (Tous) désactive le filtre.
             if (f.validityFilter === 'active') {
                 filtered = filtered.filter(t => t.is_valid !== false && !t.is_red_listed);
             } else if (f.validityFilter === 'devalidated') {
@@ -730,7 +715,11 @@ const TalentsPage = {};
                 filtered = filtered.filter(t => (t.intervention_zones || []).some(z => String(z).toLowerCase().includes(q)));
             }
 
-            filtered.sort((a, b) => {
+            return filtered;
+        }
+
+        function sortTalents(talents, f) {
+            talents.sort((a, b) => {
                 let cmp = 0;
                 switch (f.sortBy) {
                     case 'name': {
@@ -762,7 +751,14 @@ const TalentsPage = {};
                 return f.sortOrder === 'asc' ? cmp : -cmp;
             });
 
-            return filtered;
+            return talents;
+        }
+
+        // Point d'entrée utilisé par applyFiltersAndRender() ci-dessous : filtre
+        // (17 critères indépendants) puis trie (5 modes), deux responsabilités
+        // propres à filterTalents()/sortTalents() ci-dessus.
+        function filterAndSortTalents(talents, f) {
+            return sortTalents(filterTalents(talents, f), f);
         }
 
         let currentFilteredTalents = [];
@@ -870,8 +866,8 @@ const TalentsPage = {};
         document.getElementById('exportPoolExcelBtn').addEventListener('click', async () => {
             // En mode paginé, currentFilteredTalents ne contient que la page affichée
             // (PAGE_SIZE lignes) — on récupère toujours l'intégralité du pool filtré
-            // avant d'exporter, pour ne jamais produire un fichier tronqué silencieusement
-            // (Étape D, Option A). En mode liste complète, currentFilteredTalents est déjà
+            // avant d'exporter, pour ne jamais produire un fichier tronqué
+            // silencieusement. En mode liste complète, currentFilteredTalents est déjà
             // le résultat complet filtré, rien à refaire.
             let rowsToExport;
             if (isFullListMode) {

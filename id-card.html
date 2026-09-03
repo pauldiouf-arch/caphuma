@@ -58,11 +58,10 @@
 <body id="appBody" style="display:none;" class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js (B4, Master
-         Context §7). Voir renderPageLayout() dans pages/id-card.js. back-btn/
-         back-btn-text gardent leurs id : id-card.js réassigne la cible en JS
-         (dashboard.html par défaut, puis "talents.html?pool=X" une fois le
-         talent chargé) — comportement inchangé.
+         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
+         renderPageLayout() dans pages/id-card.js. back-btn/back-btn-text gardent
+         leurs id : id-card.js réassigne la cible en JS (dashboard.html par défaut,
+         puis "talents.html?pool=X" une fois le talent chargé).
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
@@ -353,11 +352,8 @@
     </div>
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         MODALE : GESTION DES LIENS DE PARTAGE (révocation + liste des liens actifs)
-         Point ouvert historique du Master Context, jamais construit jusqu'ici :
-         auparavant, chaque clic sur "Partager" créait un nouveau lien sans jamais
-         montrer ni permettre de révoquer les précédents (is_revoked existait déjà en
-         base, colonne inutilisée côté client).
+         MODALE : GESTION DES LIENS DE PARTAGE — liste des liens actifs, révocation
+         manuelle, génération d'un nouveau lien.
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="share-links-modal" role="dialog" aria-modal="true" aria-labelledby="share-links-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[85vh] overflow-y-auto">
