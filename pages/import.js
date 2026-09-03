@@ -1,15 +1,13 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement
+// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
+// soit elle-même masquée par une autre page à l'avenir.
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
-        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // HEADER COMMUN — injecté avant toute autre chose, pour que
+        // #user-display-name et #logoutBtn existent dès la suite du script.
         // pageHeaderTitle garde son id pour rester réécrivable en JS selon l'onglet
-        // actif (Talents/Postes, ligne ~68 plus bas, comportement inchangé).
+        // actif (Talents/Postes, voir setImportMode() plus bas).
         // ============================================================================
         renderPageLayout({
             icon: '📥',
@@ -22,8 +20,8 @@
 
         const appBody = document.getElementById('appBody');
 
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // SUPABASE_URL / SUPABASE_ANON_KEY viennent de shared/caphuma-config.js
+        // (chargé dans le head).
         let supabaseClient = null;
         let currentUserId = null;
         let currentUserEmail = null;
@@ -99,8 +97,9 @@
         tabBtnMissions.addEventListener('click', () => setImportMode('missions'));
 
         // ============================================================================
-        // ÉTAPE 2 — Lecture réelle du fichier, validation ligne par ligne, aperçu.
-        // Aucune écriture en base à ce stade : l'insertion réelle est l'étape suivante.
+        // LECTURE DU FICHIER — validation ligne par ligne, aperçu. Aucune écriture en
+        // base à ce stade : l'insertion réelle est une étape distincte, déclenchée
+        // par un clic sur le bouton d'import (voir plus bas).
         // ============================================================================
         let cachedPools = [];
         let cachedExistingEmails = new Set();
@@ -159,6 +158,30 @@
             return d.toISOString().slice(0, 10);
         }
 
+        // Aide partagée pour les champs "optionnel, valeur parmi une liste connue" :
+        // absent → null, sans erreur ; présent et reconnu → valeur normalisée (le
+        // libellé Excel tel quel pour un Set, la valeur mappée pour une table de
+        // correspondance) ; présent et non reconnu → erreur, valeur = le libellé Excel
+        // tel quel pour un Set (cohérent avec le comportement existant sur
+        // gender/education_level, qui laissaient passer la valeur brute invalide),
+        // valeur = null pour une table de correspondance (rien à quoi la mapper).
+        function validateOptionalEnumField(rawValue, allowedValues, fieldLabel) {
+            if (!rawValue) return { value: null, error: null };
+            const isSet = allowedValues instanceof Set;
+            const isValid = isSet ? allowedValues.has(rawValue) : (rawValue in allowedValues);
+            if (!isValid) {
+                return { value: isSet ? rawValue : null, error: `${fieldLabel} "${rawValue}" invalide` };
+            }
+            return { value: isSet ? rawValue : allowedValues[rawValue], error: null };
+        }
+
+        const TALENT_OPTIONAL_ENUM_FIELDS = [
+            { key: 'education_level', label: "Niveau d'études", allowed: EDU_LEVELS_VALID },
+            { key: 'has_visa', label: 'Visa', allowed: HAS_VISA_LABEL_TO_BOOL },
+            { key: 'number_of_alima_missions', label: 'Missions', allowed: MISSIONS_LABEL_TO_ENUM },
+            { key: 'availability_type', label: 'Disponibilité', allowed: AVAILABILITY_LABEL_TO_ENUM }
+        ];
+
         function validateAndNormalizeRow(raw, rowNumber, seenEmailsInFile) {
             const errors = [];
             const get = (key) => {
@@ -190,11 +213,9 @@
             const gender = get('gender');
             if (gender && gender !== 'H' && gender !== 'F') errors.push(`Genre "${gender}" invalide`);
 
-            // Correctif (21/08/2026) : la colonne 'status' était lue depuis le
-            // fichier mais jamais reportée dans l'objet inséré en base — silencieusement
-            // perdue à chaque import. Les 4 valeurs valides sont celles du filtre
-            // "Statut" de talents.html (aucune liste centralisée dans caphuma-utils.js
-            // pour ce champ précis, donc reprise ici à l'identique).
+            // Les 4 valeurs valides sont celles du filtre "Statut" de talents.html (aucune
+            // liste centralisée dans caphuma-utils.js pour ce champ précis, donc reprise
+            // ici à l'identique).
             const TALENT_STATUS_VALID = new Set([
                 'En poste ALIMA', 'En attente de poste', 'En poste autre ONG', 'En poste hors humanitaire'
             ]);
@@ -203,39 +224,22 @@
                 errors.push(`Statut "${status}" invalide (attendu : ${Array.from(TALENT_STATUS_VALID).join(' / ')})`);
             }
 
-            const eduLevel = get('education_level');
-            if (eduLevel && !EDU_LEVELS_VALID.has(eduLevel)) errors.push(`Niveau d'études "${eduLevel}" invalide`);
-
-            let hasVisa = null;
-            const hasVisaRaw = get('has_visa');
-            if (hasVisaRaw) {
-                if (!(hasVisaRaw in HAS_VISA_LABEL_TO_BOOL)) errors.push(`Visa "${hasVisaRaw}" invalide`);
-                else hasVisa = HAS_VISA_LABEL_TO_BOOL[hasVisaRaw];
-            }
-
-            let missionsEnum = null;
-            const missionsRaw = get('number_of_alima_missions');
-            if (missionsRaw) {
-                if (!(missionsRaw in MISSIONS_LABEL_TO_ENUM)) errors.push(`Missions "${missionsRaw}" invalide`);
-                else missionsEnum = MISSIONS_LABEL_TO_ENUM[missionsRaw];
-            }
-
-            let availType = null;
-            const availTypeRaw = get('availability_type');
-            if (availTypeRaw) {
-                if (!(availTypeRaw in AVAILABILITY_LABEL_TO_ENUM)) errors.push(`Disponibilité "${availTypeRaw}" invalide`);
-                else availType = AVAILABILITY_LABEL_TO_ENUM[availTypeRaw];
-            }
+            const enumResults = {};
+            TALENT_OPTIONAL_ENUM_FIELDS.forEach(({ key, label, allowed }) => {
+                const { value, error } = validateOptionalEnumField(get(key), allowed, label);
+                if (error) errors.push(error);
+                enumResults[key] = value;
+            });
 
             let availDate = null;
-            if (availType === 'date') {
+            if (enumResults.availability_type === 'date') {
                 availDate = parseDateCell(raw['availability_date']);
                 if (!availDate) errors.push('Date de disponibilité requise (type = Date précise)');
             }
 
             let availMonths = null;
             const availMonthsRaw = get('availability_months');
-            if (availType === 'notice') {
+            if (enumResults.availability_type === 'notice') {
                 availMonths = Number(availMonthsRaw);
                 if (availMonthsRaw === '' || availMonthsRaw == null || isNaN(availMonths)) errors.push('Préavis (mois) requis (type = Préavis)');
             } else if (availMonthsRaw !== '' && availMonthsRaw != null) {
@@ -273,19 +277,19 @@
                 nationality: get('nationality') || null,
                 country_of_residence: get('country_of_residence') || null,
                 current_function: get('current_function') || null,
-                education_level: eduLevel || null,
+                education_level: enumResults.education_level,
                 education_specialty: get('education_specialty') || null,
                 languages: splitMultiValue(get('languages')),
                 other_languages: splitMultiValue(get('other_languages')),
                 key_skills: splitMultiValue(get('key_skills')),
                 intervention_contexts: splitMultiValue(get('intervention_contexts')),
                 intervention_zones: splitMultiValue(get('intervention_zones')),
-                has_visa: hasVisa,
+                has_visa: enumResults.has_visa,
                 pool_integration_date: poolIntegrationDate ? toISODate(poolIntegrationDate) : null,
                 experience_months_alima: expAlima,
                 experience_months_humanitarian: expHum,
-                number_of_alima_missions: missionsEnum,
-                availability_type: availType,
+                number_of_alima_missions: enumResults.number_of_alima_missions,
+                availability_type: enumResults.availability_type,
                 availability_date: availDate ? toISODate(availDate) : null,
                 availability_months: availMonths,
                 status: status || null
@@ -406,8 +410,8 @@
         }
 
         // ============================================================================
-        // ÉTAPE 3 — Insertion réelle, par lots de 25 lignes, avec rapport détaillé.
-        // Les lignes en erreur (déjà filtrées avant l'appel) ne sont jamais envoyées.
+        // INSERTION EN BASE — par lots de 25 lignes, avec rapport détaillé. Les
+        // lignes en erreur (déjà filtrées avant l'appel) ne sont jamais envoyées.
         // ============================================================================
         const IMPORT_BATCH_SIZE = 25;
 
@@ -434,12 +438,12 @@
                 const payload = batch.map(r => ({ ...r.normalized, created_by: currentUserId }));
 
                 try {
-                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : c'est
-                    // l'insert le plus risqué du site à retenter — un lot de jusqu'à
+                    // Volontairement pas enveloppé dans capHumaWithRetry() : c'est l'insert
+                    // le plus risqué du site à retenter — un lot de jusqu'à
                     // IMPORT_BATCH_SIZE (25) talents à la fois, sans aucune contrainte
-                    // UNIQUE sur talents (Dossier de passation §4.2). Si ce lot a en fait
-                    // réussi côté serveur mais que sa réponse s'est perdue, une relance
-                    // dupliquerait silencieusement jusqu'à 25 fiches talent d'un coup.
+                    // UNIQUE sur talents. Si ce lot a en fait réussi côté serveur mais que
+                    // sa réponse s'est perdue, une relance dupliquerait silencieusement
+                    // jusqu'à 25 fiches talent d'un coup.
                     const { data, error } = await supabaseClient.from('talents').insert(payload).select('id');
                     if (error) throw error;
                     successCount += (data || []).length;
@@ -484,7 +488,7 @@
         }
 
         // ============================================================================
-        // ═══════════════ MODULE IMPORT DE POSTES (masse) — 21/08/2026 ═══════════════
+        // ═══════════════ MODULE IMPORT DE POSTES (masse) ═══════════════
         // Miroir du module talents ci-dessus (mêmes étapes : modèle → dépôt → aperçu →
         // insertion par lots), mais pour la table `missions`. Décision produit (voir
         // échange avec l'utilisateur) : un poste importé n'a JAMAIS d'occupant à ce
@@ -493,7 +497,7 @@
         // depuis missions.html, y compris pour un talent "En poste ALIMA" lui-même
         // importé au même moment. Colonnes canoniques confirmées dans pages/missions.js
         // (MISSIONS_COLUMNS) : `pool` (pas `pool_id`), `occupant_id`/`future_talent_id`
-        // (pas les colonnes `current_occupant_id`/`future_occupant_id`, voir Dossier §4.5).
+        // (pas les colonnes `current_occupant_id`/`future_occupant_id`).
         // ============================================================================
 
         const MISSION_IMPORT_COLUMNS = [
@@ -506,7 +510,7 @@
         // Réutilise les libellés déjà centralisés dans shared/caphuma-utils.js (DESK_LABELS,
         // CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS) plutôt que de les redéfinir en
         // dur ici — une seule source pour ces 3 énumérations, cohérent avec le reste du
-        // site (cf. règle de centralisation du 18/08/2026).
+        // site.
         function invertLabelMap(labelMap) {
             const inv = {};
             Object.keys(labelMap).forEach(k => { inv[labelMap[k]] = k; });
@@ -525,6 +529,12 @@
         const MISSION_STATUS_LABEL_TO_ENUM = { 'Vacant': 'vacant', 'En recrutement': 'recruiting' };
 
         let cachedMissionRows = [];
+
+        const MISSION_OPTIONAL_ENUM_FIELDS = [
+            { key: 'candidate_type', label: 'Type de candidat', allowed: CANDIDATE_TYPE_LABEL_TO_ENUM },
+            { key: 'desk', label: 'Desk', allowed: DESK_LABEL_TO_ENUM },
+            { key: 'contract_status', label: 'Statut du contrat', allowed: CONTRACT_STATUS_LABEL_TO_ENUM }
+        ];
 
         function validateAndNormalizeMissionRow(raw, rowNumber) {
             const errors = [];
@@ -559,26 +569,14 @@
             else if (!(statusRaw in MISSION_STATUS_LABEL_TO_ENUM)) errors.push(`Statut "${statusRaw}" invalide (attendu : Vacant / En recrutement)`);
             else status = MISSION_STATUS_LABEL_TO_ENUM[statusRaw];
 
-            const candidateTypeRaw = get('candidate_type');
-            let candidateType = null;
-            if (candidateTypeRaw) {
-                if (!(candidateTypeRaw in CANDIDATE_TYPE_LABEL_TO_ENUM)) errors.push(`Type de candidat "${candidateTypeRaw}" invalide`);
-                else candidateType = CANDIDATE_TYPE_LABEL_TO_ENUM[candidateTypeRaw];
-            }
-
-            const deskRaw = get('desk');
-            let desk = null;
-            if (deskRaw) {
-                if (!(deskRaw in DESK_LABEL_TO_ENUM)) errors.push(`Desk "${deskRaw}" invalide`);
-                else desk = DESK_LABEL_TO_ENUM[deskRaw];
-            }
-
-            const contractStatusRaw = get('contract_status');
-            let contractStatus = null;
-            if (contractStatusRaw) {
-                if (!(contractStatusRaw in CONTRACT_STATUS_LABEL_TO_ENUM)) errors.push(`Statut du contrat "${contractStatusRaw}" invalide`);
-                else contractStatus = CONTRACT_STATUS_LABEL_TO_ENUM[contractStatusRaw];
-            }
+            // Mêmes 3 champs "optionnel, valeur parmi une liste connue" que côté talent
+            // — réduits via validateOptionalEnumField() ci-dessus.
+            const enumResults = {};
+            MISSION_OPTIONAL_ENUM_FIELDS.forEach(({ key, label, allowed }) => {
+                const { value, error } = validateOptionalEnumField(get(key), allowed, label);
+                if (error) errors.push(error);
+                enumResults[key] = value;
+            });
 
             let contractStart = null;
             const contractStartRaw = get('contract_start_date');
@@ -601,16 +599,16 @@
                 country: country || null,
                 location: location || null,
                 project_name: get('project_name') || null,
-                candidate_type: candidateType,
+                candidate_type: enumResults.candidate_type,
                 // is_expat maintenue en cohérence avec candidate_type, comme le fait le
                 // formulaire manuel de missions.html (évite une colonne fantôme jamais à jour).
-                is_expat: candidateType ? candidateType === 'expat' : null,
-                desk: desk,
+                is_expat: enumResults.candidate_type ? enumResults.candidate_type === 'expat' : null,
+                desk: enumResults.desk,
                 // Toujours null à l'import — voir note en tête de module.
                 occupant_id: null,
                 contract_start_date: contractStart ? toISODate(contractStart) : null,
                 contract_end_date: contractEnd ? toISODate(contractEnd) : null,
-                contract_status: contractStatus
+                contract_status: enumResults.contract_status
             };
 
             return { rowNumber, errors, normalized };
@@ -749,11 +747,11 @@
                 const payload = batch.map(r => ({ ...r.normalized }));
 
                 try {
-                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : même
-                    // raison que l'import de talents ci-dessus — lot de jusqu'à
-                    // IMPORT_BATCH_SIZE (25) postes à la fois, sans contrainte UNIQUE sur
-                    // missions (Dossier de passation §4.2). Un retry après perte de réponse
-                    // dupliquerait silencieusement jusqu'à 25 postes d'un coup.
+                    // Volontairement pas enveloppé dans capHumaWithRetry() : même raison
+                    // que l'import de talents ci-dessus — lot de jusqu'à IMPORT_BATCH_SIZE
+                    // (25) postes à la fois, sans contrainte UNIQUE sur missions. Un retry
+                    // après perte de réponse dupliquerait silencieusement jusqu'à 25 postes
+                    // d'un coup.
                     const { data, error } = await supabaseClient.from('missions').insert(payload).select('id');
                     if (error) throw error;
                     successCount += (data || []).length;

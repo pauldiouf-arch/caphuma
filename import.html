@@ -2,11 +2,9 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
-         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
-         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
-         chargées après elle). Détail des directives et rationale : voir le
-         commentaire équivalent dans audit_logs.html. -->
+    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
+         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
+         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -22,19 +20,18 @@
     <title>Import en masse - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS, hébergé localement -->
     <script src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase JS Client via CDN (version figée, cf. §6.5 de la présentation) -->
+    <!-- Supabase JS Client, hébergé localement (version figée) -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
     <script src="shared/caphuma-auth.js"></script>
     <script src="shared/caphuma-layout.js"></script>
 
-    <!-- SheetJS (lecture du fichier .xlsx) — version figée dès le départ,
-         leçon retenue de l'audit sécurité du 17/07/2026 (ne jamais charger
-         une dépendance sans version exacte). -->
+    <!-- SheetJS (lecture du fichier .xlsx) — version figée dès le départ, jamais
+         chargée sans version exacte. -->
     <script src="shared/vendor/xlsx-0.18.5.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,9 +54,9 @@
 <body id="appBody" style="display:none;" class="bg-slate-50 min-h-screen text-slate-800">
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js (B4, Master
-         Context §7). Voir renderPageLayout() dans pages/import.js. pageHeaderTitle
-         garde son id pour rester réécrivable en JS selon l'onglet actif (Talents/Postes).
+         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
+         renderPageLayout() dans pages/import.js. pageHeaderTitle garde son id pour
+         rester réécrivable en JS selon l'onglet actif (Talents/Postes).
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
@@ -117,13 +114,13 @@
                 <p id="fileStatusMsg" class="text-xs text-slate-500 mt-2"></p>
             </div>
 
-            <!-- Étape C : aperçu (construit à l'étape 2 de notre feuille de route) -->
+            <!-- Étape C : aperçu -->
             <div id="previewCard" class="hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
                     <span>3️⃣</span> Aperçu avant import
                 </h2>
                 <div id="previewContent" class="text-sm text-slate-500">
-                    <!-- Rempli à l'étape 2 -->
+                    <!-- Rempli dynamiquement -->
                 </div>
             </div>
 
