@@ -1,21 +1,12 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0). Note :
-// showError(title, message) reste ici local et masque volontairement le
-// showError(msg) de caphuma-utils.js — comportement déjà en place et
-// documenté dans caphuma-utils.js (signature différente, pages ciblées
-// différentes) ; le wrap ne fait que rendre ce choix structurel au lieu
-// d'implicite (voir audit P23).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement une
+// fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou soit
+// elle-même masquée par une autre page à l'avenir. Note : showError(title,
+// message) reste ici local et masque volontairement le showError(msg) de
+// caphuma-utils.js — signature différente, pages ciblées différentes.
 (() => {
-        // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
-        // (chargé dans le <head>), qui est la source unique pour les 15 pages.
-        // Voir MC13 Addendum §1.5 (U3) : ceci remplace l'ancienne copie
-        // indépendante qui existait ici (cette page ne pouvait pas compter sur
-        // le pont localStorage — elle a maintenant le même fichier partagé que
-        // toutes les autres pages).
+        // SUPABASE_URL / SUPABASE_ANON_KEY viennent de shared/caphuma-config.js
+        // (chargé dans le <head>), source unique pour toutes les pages.
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
@@ -51,57 +42,9 @@
             talent_not_found: ["Profil introuvable", "Le profil associé à ce lien n'est plus disponible."]
         };
 
-        function renderTalent(payload) {
-            const talent = payload.talent;
-            const mission = payload.mission;
-
-            document.getElementById('loading-state').classList.add('hidden');
-            document.getElementById('talent-card').classList.remove('hidden');
-
-            const fName = talent.first_name || "";
-            const lName = talent.last_name || "";
-            document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "N/A";
-            document.getElementById('talent-function').textContent = talent.current_function || "N/A";
-            document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool || '—'}`;
-
-            const statusBadge = document.getElementById('talent-status-badge');
-            statusBadge.textContent = talent.status || "N/A";
-            if (talent.status === 'En poste ALIMA') {
-                statusBadge.classList.add('bg-green-600');
-            }
-
-            document.getElementById('info-email').textContent = talent.email || "N/A";
-            document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
-            document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
-            document.getElementById('info-residence').textContent = talent.country_of_residence || "N/A";
-            document.getElementById('info-visa').textContent = talent.has_visa ? "Valide" : "Non valide / N/A";
-            const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
-            document.getElementById('info-languages').textContent = langs;
-
-            // Correctif P11 (B13-Q4, 28/08/2026) : EDU_LEVEL_LABELS vient
-            // désormais de shared/caphuma-utils.js (valeurs identiques à
-            // l'ancienne copie locale, vérifié avant centralisation).
-            document.getElementById('info-edu-level').textContent = EDU_LEVEL_LABELS[talent.education_level] || "N/A";
-            document.getElementById('info-edu-specialty').textContent = talent.education_specialty || "N/A";
-            document.getElementById('info-integration-date').textContent = talent.pool_integration_date
-                ? new Date(talent.pool_integration_date).toLocaleDateString('fr-FR') : "N/A";
-
-            const expHum = talent.experience_months_humanitarian || 0;
-            document.getElementById('info-exp-humanitarian').textContent = `${Math.floor(expHum / 12)}a ${expHum % 12}m`;
-
-            const expAlima = talent.experience_months_alima || 0;
-            document.getElementById('info-exp-alima').textContent = `${Math.floor(expAlima / 12)}a ${expAlima % 12}m`;
-
-            // Correctif P11 (B13-Q4, 28/08/2026) : MISSION_COUNT_LABELS vient
-            // désormais de shared/caphuma-utils.js.
-            document.getElementById('info-alima-missions').textContent = MISSION_COUNT_LABELS[talent.number_of_alima_missions] || "0";
-
-            renderBadges('skills-badges-container', talent.key_skills);
-            renderBadges('contexts-badges-container', talent.intervention_contexts);
-            renderBadges('zones-badges-container', talent.intervention_zones);
-
-            // Timeline (parcours de missions) — informations professionnelles
-            // uniquement, jamais les commentaires/évaluations internes.
+        // Timeline (parcours de missions) — informations professionnelles uniquement,
+        // jamais les commentaires/évaluations internes.
+        function renderTimeline(mission, passages) {
             const timeline = document.getElementById('timeline-container');
             timeline.innerHTML = "";
             let hasTimelineElements = false;
@@ -121,18 +64,6 @@
                         </div>
                     </div>
                 `;
-            }
-
-            let passages = [];
-            try {
-                const rawPassages = talent.archived_position_passages;
-                if (Array.isArray(rawPassages)) {
-                    passages = rawPassages;
-                } else if (typeof rawPassages === 'string' && rawPassages.trim()) {
-                    passages = JSON.parse(rawPassages);
-                }
-            } catch (e) {
-                console.error("Erreur de parsing des passages :", e);
             }
 
             if (passages.length > 0) {
@@ -165,6 +96,66 @@
             }
         }
 
+        function renderTalent(payload) {
+            const talent = payload.talent;
+            const mission = payload.mission;
+
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('talent-card').classList.remove('hidden');
+
+            const fName = talent.first_name || "";
+            const lName = talent.last_name || "";
+            document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "N/A";
+            document.getElementById('talent-function').textContent = talent.current_function || "N/A";
+            document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool || '—'}`;
+
+            const statusBadge = document.getElementById('talent-status-badge');
+            statusBadge.textContent = talent.status || "N/A";
+            if (talent.status === 'En poste ALIMA') {
+                statusBadge.classList.add('bg-green-600');
+            }
+
+            document.getElementById('info-email').textContent = talent.email || "N/A";
+            document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
+            document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
+            document.getElementById('info-residence').textContent = talent.country_of_residence || "N/A";
+            document.getElementById('info-visa').textContent = talent.has_visa ? "Valide" : "Non valide / N/A";
+            const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
+            document.getElementById('info-languages').textContent = langs;
+
+            // EDU_LEVEL_LABELS / MISSION_COUNT_LABELS viennent de shared/caphuma-utils.js.
+            document.getElementById('info-edu-level').textContent = EDU_LEVEL_LABELS[talent.education_level] || "N/A";
+            document.getElementById('info-edu-specialty').textContent = talent.education_specialty || "N/A";
+            document.getElementById('info-integration-date').textContent = talent.pool_integration_date
+                ? new Date(talent.pool_integration_date).toLocaleDateString('fr-FR') : "N/A";
+
+            const expHum = talent.experience_months_humanitarian || 0;
+            document.getElementById('info-exp-humanitarian').textContent = `${Math.floor(expHum / 12)}a ${expHum % 12}m`;
+
+            const expAlima = talent.experience_months_alima || 0;
+            document.getElementById('info-exp-alima').textContent = `${Math.floor(expAlima / 12)}a ${expAlima % 12}m`;
+
+            document.getElementById('info-alima-missions').textContent = MISSION_COUNT_LABELS[talent.number_of_alima_missions] || "0";
+
+            renderBadges('skills-badges-container', talent.key_skills);
+            renderBadges('contexts-badges-container', talent.intervention_contexts);
+            renderBadges('zones-badges-container', talent.intervention_zones);
+
+            let passages = [];
+            try {
+                const rawPassages = talent.archived_position_passages;
+                if (Array.isArray(rawPassages)) {
+                    passages = rawPassages;
+                } else if (typeof rawPassages === 'string' && rawPassages.trim()) {
+                    passages = JSON.parse(rawPassages);
+                }
+            } catch (e) {
+                console.error("Erreur de parsing des passages :", e);
+            }
+
+            renderTimeline(mission, passages);
+        }
+
         async function loadSharedTalent() {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
@@ -175,9 +166,9 @@
             }
 
             try {
-                // Enveloppé dans capHumaWithRetry() (P19) : page publique, sans session —
-                // les visiteurs externes sur connexion instable bénéficient d'autant plus
-                // du retry qu'ils n'ont pas le réflexe "recharger" d'un utilisateur habitué
+                // Enveloppé dans capHumaWithRetry() : page publique, sans session — les
+                // visiteurs externes sur connexion instable bénéficient d'autant plus du
+                // retry qu'ils n'ont pas le réflexe "recharger" d'un utilisateur habitué
                 // au site.
                 const { data, error } = await capHumaWithRetry(() =>
                     supabaseClient.rpc('get_shared_talent', { p_token: token })
