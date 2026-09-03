@@ -435,7 +435,17 @@
                 const batch = validRows.slice(i, i + IMPORT_BATCH_SIZE);
                 statusEl.textContent = `Import en cours... ${Math.min(i + IMPORT_BATCH_SIZE, validRows.length)} / ${validRows.length}`;
 
-                const payload = batch.map(r => ({ ...r.normalized, created_by: currentUserId }));
+                // talents.status est NOT NULL avec un défaut ('En attente de poste')
+                // côté base — un défaut Postgres ne s'applique que si la colonne est
+                // absente de l'INSERT, jamais si elle est envoyée explicitement à null.
+                // Comme ce champ est volontairement laissé vide la plupart du temps
+                // (voir modèle Excel), on retire la clé plutôt que d'envoyer null, pour
+                // laisser Postgres appliquer son défaut.
+                const payload = batch.map(r => {
+                    const row = { ...r.normalized, created_by: currentUserId };
+                    if (!row.status) delete row.status;
+                    return row;
+                });
 
                 try {
                     // Volontairement pas enveloppé dans capHumaWithRetry() : c'est l'insert
