@@ -58,8 +58,8 @@ const TalentsPage = {};
         const talentForm = document.getElementById('talentForm');
         TalentsPage.currentUserId = null;
         TalentsPage.currentUserEmail = null;
-        let currentUserRole = null;
-        let currentUserName = null;
+        TalentsPage.currentUserRole = null;
+        TalentsPage.currentUserName = null;
 
         // ============================================================================
         // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée. Ne bloque
@@ -70,7 +70,7 @@ const TalentsPage = {};
             () => ({
                 userId: TalentsPage.currentUserId,
                 userEmail: TalentsPage.currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
+                userName: typeof TalentsPage.currentUserName !== 'undefined' ? TalentsPage.currentUserName : null
             })
         );
 
@@ -79,14 +79,14 @@ const TalentsPage = {};
                 const s = await capHumaInitSession(TalentsPage.supabaseClient);
                 TalentsPage.currentUserId = s.userId;
                 TalentsPage.currentUserEmail = s.email;
-                currentUserName = s.name;
-                currentUserRole = s.role;
+                TalentsPage.currentUserName = s.name;
+                TalentsPage.currentUserRole = s.role;
 
                 document.getElementById('user-display-name').textContent = TalentsPage.currentUserEmail;
                 // Confort d'affichage, pas un contrôle de sécurité : la policy RLS sur
                 // talents (insert) est la vraie barrière si un visitor appelait ce
                 // endpoint directement.
-                document.getElementById('newTalentBtn').classList.toggle('hidden', currentUserRole === 'visitor');
+                document.getElementById('newTalentBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');
 
                 appBody.style.display = '';
                 await loadPoolInfo();
@@ -134,25 +134,25 @@ const TalentsPage = {};
         //   - Mode LISTE COMPLÈTE : dès qu'une recherche par mot-clé ou un filtre avancé
         //     est actif (voir computeIsFullListMode), on revient au comportement d'avant
         //     cette étape — tout le pool est chargé une fois (mis en cache dans
-        //     allTalents) puis filtré/trié entièrement côté client. Nécessaire car la
+        //     TalentsPage.allTalents) puis filtré/trié entièrement côté client. Nécessaire car la
         //     recherche par mot-clé fouille aussi l'historique de missions archivées,
         //     ce qui ne se traduit pas simplement en requête Supabase paginée.
         // ============================================================================
-        let allTalents = null; // null = pas encore chargé (chargement paresseux, seulement si le mode liste complète est activé)
+        TalentsPage.allTalents = null; // null = pas encore chargé (chargement paresseux, seulement si le mode liste complète est activé)
         const PAGE_SIZE = 20;
-        let currentPage = 0;
-        let totalCount = 0;
-        let isFullListMode = false;
+        TalentsPage.currentPage = 0;
+        TalentsPage.totalCount = 0;
+        TalentsPage.isFullListMode = false;
 
         // Affichage progressif en mode "liste complète" (recherche/filtre avancé),
         // pour éviter de créer d'un coup plusieurs centaines de nœuds DOM sur un
         // pool qui grossirait beaucoup. Sans effet en mode paginé normal
         // (PAGE_SIZE = 20, déjà petit) — voir renderTalents() plus bas.
         const RENDER_BATCH_SIZE = 25;
-        let renderedTalentsCount = 0;
+        TalentsPage.renderedTalentsCount = 0;
 
         function computeIsFullListMode() {
-            const f = searchFilters;
+            const f = TalentsPage.searchFilters;
             if (f.searchQuery) return true;
             if (f.keywordFilter) return true;
             // Le tri "Disponibilité" est calculé à partir de 3 colonnes combinées
@@ -168,11 +168,11 @@ const TalentsPage = {};
         }
 
         async function loadTalents() {
-            isFullListMode = computeIsFullListMode();
+            TalentsPage.isFullListMode = computeIsFullListMode();
 
-            if (isFullListMode) {
+            if (TalentsPage.isFullListMode) {
                 document.getElementById('paginationControls').classList.add('hidden');
-                if (allTalents === null) {
+                if (TalentsPage.allTalents === null) {
                     await fetchAllTalents();
                 }
                 applyFiltersAndRender();
@@ -197,13 +197,13 @@ const TalentsPage = {};
                     return query;
                 });
                 if (error) throw error;
-                allTalents = data || [];
+                TalentsPage.allTalents = data || [];
             } catch (err) {
                 console.error(err);
                 listEl.innerHTML = '';
                 errorEl.textContent = "Impossible de charger les talents : " + err.message;
                 errorEl.classList.remove('hidden');
-                allTalents = [];
+                TalentsPage.allTalents = [];
             }
         }
 
@@ -220,10 +220,10 @@ const TalentsPage = {};
                     expAlima: 'experience_months_alima',
                     expHumanitarian: 'experience_months_humanitarian'
                 };
-                const sortColumn = sortColumnMap[searchFilters.sortBy] || 'pool_integration_date';
-                const ascending = searchFilters.sortOrder === 'asc';
+                const sortColumn = sortColumnMap[TalentsPage.searchFilters.sortBy] || 'pool_integration_date';
+                const ascending = TalentsPage.searchFilters.sortOrder === 'asc';
 
-                const from = currentPage * PAGE_SIZE;
+                const from = TalentsPage.currentPage * PAGE_SIZE;
                 const to = from + PAGE_SIZE - 1;
 
                 // Même principe que fetchAllTalents() plus haut — la requête entière
@@ -237,7 +237,7 @@ const TalentsPage = {};
                         .range(from, to);
 
                     if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
-                    if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
+                    if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
 
                     // Le filtre "Validité" doit être répété ici, côté serveur, car ce
                     // mode paginé est celui utilisé par défaut (pas de recherche/filtre
@@ -246,10 +246,10 @@ const TalentsPage = {};
                     // filtre client (is_valid/is_red_listed ont un défaut mais une
                     // ancienne ligne pourrait ne pas l'avoir) : "actif" = is_valid pas
                     // explicitement false ET is_red_listed pas explicitement true.
-                    if (searchFilters.validityFilter === 'active') {
+                    if (TalentsPage.searchFilters.validityFilter === 'active') {
                         query = query.or('is_valid.is.null,is_valid.eq.true')
                                      .or('is_red_listed.is.null,is_red_listed.eq.false');
-                    } else if (searchFilters.validityFilter === 'devalidated') {
+                    } else if (TalentsPage.searchFilters.validityFilter === 'devalidated') {
                         query = query.eq('is_valid', false);
                     }
 
@@ -257,9 +257,9 @@ const TalentsPage = {};
                 });
                 if (error) throw error;
 
-                totalCount = count || 0;
-                currentFilteredTalents = data || [];
-                renderTalents(currentFilteredTalents);
+                TalentsPage.totalCount = count || 0;
+                TalentsPage.currentFilteredTalents = data || [];
+                renderTalents(TalentsPage.currentFilteredTalents);
                 updateSearchSummary();
                 updateResetButtonVisibility();
                 updateTalentsPaginationControls();
@@ -275,46 +275,46 @@ const TalentsPage = {};
         // Nommée différemment de renderPaginationControls() : ce nom collide
         // silencieusement avec la fonction partagée du même nom dans
         // shared/caphuma-utils.js (signature différente : celle-ci lit
-        // totalCount/PAGE_SIZE/currentPage en globals de page et pilote des boutons
-        // statiques prevPageBtn/nextPageBtn, la version partagée prend 5 paramètres
+        // TalentsPage.totalCount, PAGE_SIZE et TalentsPage.currentPage, et pilote des
+        // boutons statiques prevPageBtn/nextPageBtn, la version partagée prend 5 paramètres
         // et génère du HTML avec onclick). Garder ce nom distinct évite de
         // réintroduire ce piège si la version partagée est modifiée un jour.
         function updateTalentsPaginationControls() {
             const controls = document.getElementById('paginationControls');
-            const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+            const totalPages = Math.max(1, Math.ceil(TalentsPage.totalCount / PAGE_SIZE));
 
-            if (totalCount === 0) {
+            if (TalentsPage.totalCount === 0) {
                 controls.classList.add('hidden');
                 return;
             }
             controls.classList.remove('hidden');
 
-            document.getElementById('paginationLabel').textContent = `Page ${currentPage + 1} sur ${totalPages}`;
-            document.getElementById('prevPageBtn').disabled = currentPage === 0;
-            document.getElementById('nextPageBtn').disabled = currentPage >= totalPages - 1;
+            document.getElementById('paginationLabel').textContent = `Page ${TalentsPage.currentPage + 1} sur ${totalPages}`;
+            document.getElementById('prevPageBtn').disabled = TalentsPage.currentPage === 0;
+            document.getElementById('nextPageBtn').disabled = TalentsPage.currentPage >= totalPages - 1;
         }
 
         document.getElementById('prevPageBtn').addEventListener('click', () => {
-            if (currentPage > 0) {
-                currentPage -= 1;
+            if (TalentsPage.currentPage > 0) {
+                TalentsPage.currentPage -= 1;
                 loadTalents();
             }
         });
 
         document.getElementById('nextPageBtn').addEventListener('click', () => {
-            const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-            if (currentPage < totalPages - 1) {
-                currentPage += 1;
+            const totalPages = Math.max(1, Math.ceil(TalentsPage.totalCount / PAGE_SIZE));
+            if (TalentsPage.currentPage < totalPages - 1) {
+                TalentsPage.currentPage += 1;
                 loadTalents();
             }
         });
 
         // "Afficher plus" ajoute le lot suivant à la liste déjà affichée (append =
-        // true), sans tout reconstruire — s'appuie sur currentFilteredTalents, le
+        // true), sans tout reconstruire — s'appuie sur TalentsPage.currentFilteredTalents, le
         // tableau déjà en mémoire pour le mode "liste complète" (recherche/filtre
         // avancé).
         document.getElementById('talentsShowMoreBtn')?.addEventListener('click', () => {
-            renderTalents(currentFilteredTalents, true);
+            renderTalents(TalentsPage.currentFilteredTalents, true);
         });
 
         function statusBadge(status) {
@@ -378,7 +378,7 @@ const TalentsPage = {};
 
             if (!append) {
                 listEl.innerHTML = '';
-                renderedTalentsCount = 0;
+                TalentsPage.renderedTalentsCount = 0;
             }
 
             if (!talents.length) {
@@ -393,7 +393,7 @@ const TalentsPage = {};
             // updateShowMoreControls() et son écouteur plus bas). En mode paginé
             // normal, talents.length ≤ PAGE_SIZE (20) < 25, donc ce lot contient déjà
             // tout : aucun changement de comportement visible dans ce mode.
-            const batch = talents.slice(renderedTalentsCount, renderedTalentsCount + RENDER_BATCH_SIZE);
+            const batch = talents.slice(TalentsPage.renderedTalentsCount, TalentsPage.renderedTalentsCount + RENDER_BATCH_SIZE);
 
             // Les lignes sont construites dans un DocumentFragment (hors DOM, aucun
             // reflow) puis ajoutées à listEl en un seul appendChild final — un
@@ -431,7 +431,7 @@ const TalentsPage = {};
                 // Confort d'affichage, pas un contrôle de sécurité : gate les boutons
                 // d'action de la ligne (édition, etc.) ci-dessous ; la vraie barrière est
                 // la policy RLS côté Postgres sur ces actions.
-                const canManage = currentUserRole !== 'visitor';
+                const canManage = TalentsPage.currentUserRole !== 'visitor';
 
                 row.innerHTML = `
                     <div class="flex items-start gap-3 min-w-0 flex-1">
@@ -511,7 +511,7 @@ const TalentsPage = {};
 
             listEl.appendChild(fragment);
 
-            renderedTalentsCount += batch.length;
+            TalentsPage.renderedTalentsCount += batch.length;
             updateShowMoreControls(talents);
         }
 
@@ -530,18 +530,18 @@ const TalentsPage = {};
             }
 
             countLabel.classList.remove('hidden');
-            const shown = Math.min(renderedTalentsCount, talents.length);
+            const shown = Math.min(TalentsPage.renderedTalentsCount, talents.length);
             countLabel.textContent = `${shown} sur ${talents.length} affiché${talents.length > 1 ? 's' : ''}`;
 
-            showMoreBtn.classList.toggle('hidden', renderedTalentsCount >= talents.length);
+            showMoreBtn.classList.toggle('hidden', TalentsPage.renderedTalentsCount >= talents.length);
         }
 
         // ============================================================================
         // 3 BIS. RECHERCHE AVANCÉE — filtrage (filterTalents) et tri (sortTalents)
-        //    appliqués en mémoire sur allTalents (déjà chargé pour ce pool), pas de
+        //    appliqués en mémoire sur TalentsPage.allTalents (déjà chargé pour ce pool), pas de
         //    nouvelle requête réseau.
         // ============================================================================
-        const searchFilters = {
+        TalentsPage.searchFilters = {
             searchQuery: '',
             keywordFilter: '',
             statusFilter: '',
@@ -562,7 +562,7 @@ const TalentsPage = {};
             interventionContextFilter: '',
             interventionZoneFilter: ''
         };
-        const defaultSearchFilters = { ...searchFilters };
+        const defaultSearchFilters = { ...TalentsPage.searchFilters };
 
         // Estimation d'une date de disponibilité exploitable pour filtre/tri, à
         // partir de availability_type ('none' | 'asap' | 'notice' | 'date').
@@ -765,11 +765,11 @@ const TalentsPage = {};
             return sortTalents(filterTalents(talents, f), f);
         }
 
-        let currentFilteredTalents = [];
+        TalentsPage.currentFilteredTalents = [];
 
         function applyFiltersAndRender() {
-            currentFilteredTalents = filterAndSortTalents(allTalents, searchFilters);
-            renderTalents(currentFilteredTalents);
+            TalentsPage.currentFilteredTalents = filterAndSortTalents(TalentsPage.allTalents, TalentsPage.searchFilters);
+            renderTalents(TalentsPage.currentFilteredTalents);
             document.getElementById('paginationControls').classList.add('hidden');
             updateSearchSummary();
             updateResetButtonVisibility();
@@ -779,31 +779,31 @@ const TalentsPage = {};
         // actif (liste complète filtrée en mémoire, ou page issue de Supabase).
         function updateSearchSummary() {
             const summary = document.getElementById('searchResultsSummary');
-            if (isFullListMode) {
-                if (currentFilteredTalents.length === allTalents.length) {
-                    summary.textContent = `${allTalents.length} talent${allTalents.length > 1 ? 's' : ''} au total`;
+            if (TalentsPage.isFullListMode) {
+                if (TalentsPage.currentFilteredTalents.length === TalentsPage.allTalents.length) {
+                    summary.textContent = `${TalentsPage.allTalents.length} talent${TalentsPage.allTalents.length > 1 ? 's' : ''} au total`;
                 } else {
-                    summary.textContent = `${currentFilteredTalents.length} talent${currentFilteredTalents.length > 1 ? 's' : ''} trouvé${currentFilteredTalents.length > 1 ? 's' : ''} sur ${allTalents.length} au total`;
+                    summary.textContent = `${TalentsPage.currentFilteredTalents.length} talent${TalentsPage.currentFilteredTalents.length > 1 ? 's' : ''} trouvé${TalentsPage.currentFilteredTalents.length > 1 ? 's' : ''} sur ${TalentsPage.allTalents.length} au total`;
                 }
             } else {
-                summary.textContent = `${totalCount} talent${totalCount > 1 ? 's' : ''} au total`;
+                summary.textContent = `${TalentsPage.totalCount} talent${TalentsPage.totalCount > 1 ? 's' : ''} au total`;
             }
         }
 
         function updateResetButtonVisibility() {
-            const hasAnyFilter = JSON.stringify(searchFilters) !== JSON.stringify(defaultSearchFilters);
+            const hasAnyFilter = JSON.stringify(TalentsPage.searchFilters) !== JSON.stringify(defaultSearchFilters);
             document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasAnyFilter);
         }
 
         // Toute modification de filtre repart de la page 1 et redéclenche loadTalents(),
         // qui décide lui-même du mode (paginé ou liste complète) à appliquer.
         function onFiltersChanged() {
-            currentPage = 0;
+            TalentsPage.currentPage = 0;
             loadTalents();
         }
 
         document.getElementById('searchInput').addEventListener('input', e => {
-            searchFilters.searchQuery = e.target.value.trim();
+            TalentsPage.searchFilters.searchQuery = e.target.value.trim();
             onFiltersChanged();
         });
 
@@ -812,7 +812,7 @@ const TalentsPage = {};
         });
 
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-            Object.assign(searchFilters, defaultSearchFilters);
+            Object.assign(TalentsPage.searchFilters, defaultSearchFilters);
             document.getElementById('searchInput').value = '';
             document.getElementById('filterStatus').value = '';
             document.getElementById('filterValidity').value = 'active';
@@ -847,7 +847,7 @@ const TalentsPage = {};
             const el = document.getElementById(elId);
             const evt = (el.tagName === 'SELECT') ? 'change' : 'input';
             el.addEventListener(evt, e => {
-                searchFilters[filterKey] = e.target.value;
+                TalentsPage.searchFilters[filterKey] = e.target.value;
                 onFiltersChanged();
             });
         });
@@ -868,14 +868,14 @@ const TalentsPage = {};
         }
 
         document.getElementById('exportPoolExcelBtn').addEventListener('click', async () => {
-            // En mode paginé, currentFilteredTalents ne contient que la page affichée
+            // En mode paginé, TalentsPage.currentFilteredTalents ne contient que la page affichée
             // (PAGE_SIZE lignes) — on récupère toujours l'intégralité du pool filtré
             // avant d'exporter, pour ne jamais produire un fichier tronqué
-            // silencieusement. En mode liste complète, currentFilteredTalents est déjà
+            // silencieusement. En mode liste complète, TalentsPage.currentFilteredTalents est déjà
             // le résultat complet filtré, rien à refaire.
             let rowsToExport;
-            if (isFullListMode) {
-                rowsToExport = currentFilteredTalents;
+            if (TalentsPage.isFullListMode) {
+                rowsToExport = TalentsPage.currentFilteredTalents;
             } else {
                 try {
                     const sortColumnMap = {
@@ -884,12 +884,12 @@ const TalentsPage = {};
                         expAlima: 'experience_months_alima',
                         expHumanitarian: 'experience_months_humanitarian'
                     };
-                    const sortColumn = sortColumnMap[searchFilters.sortBy] || 'pool_integration_date';
-                    const ascending = searchFilters.sortOrder === 'asc';
+                    const sortColumn = sortColumnMap[TalentsPage.searchFilters.sortBy] || 'pool_integration_date';
+                    const ascending = TalentsPage.searchFilters.sortOrder === 'asc';
                     const { data, error } = await capHumaWithRetry(() => {
                         let query = TalentsPage.supabaseClient.from('talents').select('*').order(sortColumn, { ascending });
                         if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
-                        if (searchFilters.statusFilter) query = query.eq('status', searchFilters.statusFilter);
+                        if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
                         return query;
                     });
                     if (error) throw error;
