@@ -145,16 +145,17 @@ const MissionsPage = {};
         // trop bruyant pour peu de valeur RGPD, seules les actions sur les postes
         // eux-mêmes sont tracées ici.
         // ============================================================================
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
-            // le fait que user_name n'était jamais transmis sur certaines pages.
-            const userName = typeof MissionsPage.currentUserName !== 'undefined' ? MissionsPage.currentUserName : null;
-            await capHumaLogAudit(
-                MissionsPage.supabaseClient,
-                { userId: MissionsPage.currentUserId, userEmail: MissionsPage.currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        // Fabriquée avec des getters (pas des valeurs) : relit MissionsPage.supabaseClient
+        // et les MissionsPage.currentUser* à chaque appel de logAuditAction(), jamais
+        // figée à la création.
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => MissionsPage.supabaseClient,
+            () => ({
+                userId: MissionsPage.currentUserId,
+                userEmail: MissionsPage.currentUserEmail,
+                userName: typeof MissionsPage.currentUserName !== 'undefined' ? MissionsPage.currentUserName : null
+            })
+        );
 
         // Libellés d'affichage des valeurs stockées (jamais de valeur brute affichée à l'utilisateur)
         // STATUS_LABELS, DESK_LABELS, CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS
