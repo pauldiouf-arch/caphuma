@@ -55,16 +55,17 @@
         // Ajouté avec le bouton de déconnexion (Étape A bis), sur le même modèle que
         // les autres pages du site.
         // ============================================================================
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
-            // le fait que user_name n'était jamais transmis sur certaines pages.
-            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
-            await capHumaLogAudit(
-                supabaseClient,
-                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
+        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
+        // la création.
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => supabaseClient,
+            () => ({
+                userId: currentUserId,
+                userEmail: currentUserEmail,
+                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
+            })
+        );
 
         // ============================================================================
         // 2. GARDE DE SESSION — réservée admin + user (recruteur), bloquée pour visitor

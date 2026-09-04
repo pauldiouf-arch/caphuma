@@ -49,16 +49,17 @@
         // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
-            // le fait que user_name n'était jamais transmis sur certaines pages.
-            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
-            await capHumaLogAudit(
-                supabaseClient,
-                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
+        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
+        // la création.
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => supabaseClient,
+            () => ({
+                userId: currentUserId,
+                userEmail: currentUserEmail,
+                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
+            })
+        );
 
         // ============================================================================
         // 2. GARDE DE SESSION (identique au pattern de dashboard.html)
