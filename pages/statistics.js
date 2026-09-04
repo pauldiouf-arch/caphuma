@@ -53,16 +53,17 @@ const StatisticsPage = {};
         // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
-            // le fait que user_name n'était jamais transmis sur certaines pages.
-            const userName = typeof StatisticsPage.currentUserName !== 'undefined' ? StatisticsPage.currentUserName : null;
-            await capHumaLogAudit(
-                StatisticsPage.supabaseClient,
-                { userId: StatisticsPage.currentUserId, userEmail: StatisticsPage.currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        // Fabriquée avec des getters (pas des valeurs) : relit StatisticsPage.supabaseClient
+        // et les StatisticsPage.currentUser* à chaque appel de logAuditAction(), jamais
+        // figée à la création.
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => StatisticsPage.supabaseClient,
+            () => ({
+                userId: StatisticsPage.currentUserId,
+                userEmail: StatisticsPage.currentUserEmail,
+                userName: typeof StatisticsPage.currentUserName !== 'undefined' ? StatisticsPage.currentUserName : null
+            })
+        );
 
         async function checkSession() {
             if (!StatisticsPage.supabaseClient) {
