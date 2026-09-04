@@ -525,7 +525,9 @@ const IdCardPage = {};
 
             // Dévalider/Réintégrer/Liste Rouge sont des actions réservées admin/user
             // partout ailleurs sur le site — masquage supplémentaire par-dessus la
-            // logique isInvalid ci-dessus, pour visitor.
+            // logique isInvalid ci-dessus, pour visitor. Confort d'affichage
+            // uniquement : ce n'est pas un contrôle de sécurité, la protection réelle
+            // est la policy RLS côté Postgres sur ces actions.
             if (IdCardPage.currentUserRole === 'visitor') {
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
@@ -541,7 +543,9 @@ const IdCardPage = {};
             // Suppression définitive : réservée admin, et uniquement pour un talent ACTIF.
             // Un talent dévalidé se supprime depuis devalidated.html — deux chemins de
             // suppression différents selon l'état du talent, jamais les deux en même temps
-            // sur la même fiche (décision utilisateur).
+            // sur la même fiche (décision utilisateur). Ce masquage est un confort
+            // d'affichage, pas un contrôle de sécurité : la policy RLS sur talents est la
+            // vraie barrière si un non-admin appelait ce endpoint directement.
             if (IdCardPage.currentUserRole === 'admin' && !isInvalid) {
                 btnDeleteTalent.classList.remove('hidden');
             } else {

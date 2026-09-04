@@ -39,7 +39,10 @@
             const formContainer = document.getElementById('comment-form-container');
             if (!container) return;
 
-            // Formulaire d'ajout masqué pour visitor (lecture seule)
+            // Formulaire d'ajout masqué pour visitor (lecture seule). Confort
+            // d'affichage, pas un contrôle de sécurité : la policy RLS sur comments
+            // (insert) est la vraie barrière si un visitor appelait ce endpoint
+            // directement.
             if (formContainer) {
                 formContainer.classList.toggle('hidden', IdCardPage.currentUserRole === 'visitor');
             }

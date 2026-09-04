@@ -85,6 +85,9 @@ const TalentsPage = {};
                 currentUserRole = s.role;
 
                 document.getElementById('user-display-name').textContent = TalentsPage.currentUserEmail;
+                // Confort d'affichage, pas un contrôle de sécurité : la policy RLS sur
+                // talents (insert) est la vraie barrière si un visitor appelait ce
+                // endpoint directement.
                 document.getElementById('newTalentBtn').classList.toggle('hidden', currentUserRole === 'visitor');
 
                 appBody.style.display = '';
@@ -427,6 +430,9 @@ const TalentsPage = {};
                     extraBadge = `<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">⏳ Prolongé jusqu'au ${untilLabel}</span>`;
                 }
 
+                // Confort d'affichage, pas un contrôle de sécurité : gate les boutons
+                // d'action de la ligne (édition, etc.) ci-dessous ; la vraie barrière est
+                // la policy RLS côté Postgres sur ces actions.
                 const canManage = currentUserRole !== 'visitor';
 
                 row.innerHTML = `
