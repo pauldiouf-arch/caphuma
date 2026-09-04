@@ -38,16 +38,17 @@
         // JOURNAL D'AUDIT — la déconnexion depuis cette page est tracée aussi, par
         // cohérence avec toutes les autres pages (voir id-card.html pour le détail).
         // ============================================================================
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
-            // le fait que user_name n'était jamais transmis sur certaines pages.
-            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
-            await capHumaLogAudit(
-                supabaseClient,
-                { userId: currentUserId, userEmail: currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
+        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
+        // la création.
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => supabaseClient,
+            () => ({
+                userId: currentUserId,
+                userEmail: currentUserEmail,
+                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
+            })
+        );
 
         async function checkSession() {
             try {
