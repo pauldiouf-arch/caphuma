@@ -2,10 +2,10 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — page pilote, 25/08/2026.
-         Placée en tout premier dans le head : une CSP posée en <meta> ne s'applique
-         qu'aux ressources chargées APRÈS elle dans le document (spec CSP), donc tout
-         ce qui suit (scripts, fonts, styles) doit venir après cette balise.
+    <!-- Content-Security-Policy — placée en tout premier dans le head : une CSP
+         posée en <meta> ne s'applique qu'aux ressources chargées APRÈS elle dans le
+         document (spec CSP), donc tout ce qui suit (scripts, fonts, styles) doit
+         venir après cette balise.
          - script-src 'self' : aucune dépendance du site n'a besoin d'eval()/new
            Function() (vérifié sur Tailwind/supabase-js/Chart.js/xlsx/jsPDF), donc pas
            de 'unsafe-eval'. Le seul onclick= inline du site (pagination partagée) a
@@ -15,15 +15,12 @@
          - font-src : fonts.gstatic.com, où Google sert les fichiers de police.
          - connect-src : uniquement le projet Supabase (API + Edge Functions).
          - img-src : 'self' seul — aucune image externe ni data:/blob: trouvée sur le
-           site à ce jour.
+           site.
          - object-src/base-uri/form-action : durcissement standard sans risque ici
            (aucun <object>/<embed>, aucun <base>, aucun <form> à soumission native —
            tous les formulaires du site sont interceptés en JS).
          - frame-ancestors est ignoré dans une balise <meta> (exigence de la spec) :
-           reporté à un en-tête HTTP côté hébergeur, voir Bloc C / C3.
-         Test à faire avant généralisation : ouvrir la console sur cette page et
-         vérifier l'absence totale d'erreurs "Refused to..." pendant une navigation
-         complète (filtres, pagination, export Excel, connexion/déconnexion). -->
+           nécessiterait un en-tête HTTP côté hébergeur. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -73,8 +70,8 @@
 <body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js (B4, Master
-         Context §7). Voir renderPageLayout() dans pages/audit_logs.js.
+         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
+         renderPageLayout() dans pages/audit_logs.js.
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 

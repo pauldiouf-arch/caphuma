@@ -2,11 +2,9 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
-         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
-         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
-         chargées après elle). Détail des directives et rationale : voir le
-         commentaire équivalent dans audit_logs.html. -->
+    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
+         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
+         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -29,7 +27,7 @@
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
-    <!-- Brouillon local de formulaire (backlog B15-R1, priorité P20) -->
+    <!-- Brouillon local de formulaire -->
     <script src="shared/caphuma-form-draft.js"></script>
     <script src="shared/caphuma-auth.js"></script>
     <script src="shared/caphuma-layout.js"></script>
@@ -55,8 +53,8 @@
 <body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js (B4, Master
-         Context §7). Voir renderPageLayout() dans pages/missions.js.
+         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
+         renderPageLayout() dans pages/missions.js.
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
@@ -106,7 +104,7 @@
             </div>
         </div>
 
-        <!-- Statistiques détaillées des contrats (Étape C, cf. Hercules
+        <!-- Statistiques détaillées des contrats (cf. Hercules
              positions/stats.ts : getDetailedPositionStats) -->
         <div id="detailedStatsCard" class="hidden bg-white border border-slate-200 rounded-2xl p-6 mb-6">
             <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2 mb-1">
@@ -311,7 +309,7 @@
     <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-bold shadow-lg"></div>
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         MODALE ÉVALUATIONS DE L'OCCUPANT COURANT (Étape 5, point 9.2)
+         MODALE ÉVALUATIONS DE L'OCCUPANT COURANT
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="evaluationsModal" role="dialog" aria-modal="true" aria-labelledby="evaluationsModal-title" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
         <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -365,9 +363,9 @@
         </div>
     </div>
 
-    <!-- Correctif P26 (B13-Q2, Master Context §7) : missions.js scindé en 4
-         fichiers par responsabilité. Ordre de chargement obligatoire — voir
-         l'en-tête de pages/missions.js pour le détail (MissionsPage). -->
+    <!-- missions.js est scindé en 4 fichiers par responsabilité. Ordre de
+         chargement obligatoire — voir l'en-tête de pages/missions.js pour le
+         détail (MissionsPage). -->
     <script src="pages/missions.js"></script>
     <script src="pages/missions-render.js"></script>
     <script src="pages/missions-crud.js"></script>

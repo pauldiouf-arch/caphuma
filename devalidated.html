@@ -2,11 +2,9 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
-         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
-         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
-         chargées après elle). Détail des directives et rationale : voir le
-         commentaire équivalent dans audit_logs.html. -->
+    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
+         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
+         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -29,7 +27,7 @@
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script src="shared/caphuma-config.js"></script>
     <script src="shared/caphuma-utils.js"></script>
-    <!-- Brouillon local de formulaire (backlog B15-R1, priorité P20) -->
+    <!-- Brouillon local de formulaire -->
     <script src="shared/caphuma-form-draft.js"></script>
     <script src="shared/caphuma-auth.js"></script>
     <script src="shared/caphuma-layout.js"></script>
@@ -55,8 +53,8 @@
 <body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
     <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js (B4, Master
-         Context §7). Voir renderPageLayout() dans pages/devalidated.js.
+         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
+         renderPageLayout() dans pages/devalidated.js.
          ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
@@ -71,7 +69,7 @@
         </div>
 
         <!-- ────────────────────────────────────────────────────────────────────
-             FILTRES (Étape B) — pool, date de début et date de fin de dévalidation
+             FILTRES — pool, date de début et date de fin de dévalidation
              ──────────────────────────────────────────────────────────────────── -->
         <div class="bg-white border border-slate-200 rounded-2xl p-4 mb-6">
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -109,10 +107,10 @@
             ✅ Aucun talent dévalidé actuellement.
         </p>
 
-        <!-- Correctif P7 (B17-L1, 27/08/2026) : affichage progressif du mode
-             FILTRÉ uniquement (pool/date). Masqué par défaut, piloté par
-             updateDevalidatedShowMoreControls() dans devalidated.js — jamais
-             affiché en mode par défaut (déjà paginé Précédent/Suivant). -->
+        <!-- Affichage progressif du mode FILTRÉ uniquement (pool/date). Masqué par
+             défaut, piloté par updateDevalidatedShowMoreControls() dans
+             devalidated.js — jamais affiché en mode par défaut (déjà paginé
+             Précédent/Suivant). -->
         <div class="mt-4 flex flex-col items-center gap-2">
             <p id="devalidatedRenderedCountLabel" class="hidden text-xs font-semibold text-slate-500"></p>
             <button id="devalidatedShowMoreBtn" type="button" class="hidden border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold transition-all">
@@ -121,7 +119,7 @@
         </div>
 
         <!-- ────────────────────────────────────────────────────────────────────
-             ENCART EXPLICATIF (Étape B) — adapté au fonctionnement réel du site :
+             ENCART EXPLICATIF — adapté au fonctionnement réel du site :
              dévalidation manuelle uniquement, jamais automatique.
              ──────────────────────────────────────────────────────────────────── -->
         <div class="mt-8 bg-slate-50 border border-slate-200 rounded-2xl p-5">
@@ -144,11 +142,10 @@
             <p class="text-sm text-slate-500 mb-4" id="redListModalTalentName"></p>
             <label class="text-xs font-bold text-slate-600 mb-1 block" for="redListReasonInput">Motif (obligatoire)</label>
             <textarea id="redListReasonInput" rows="4" class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Expliquez le motif du signalement..."></textarea>
-            <!-- Correctif (trouvé le 28/08/2026, hors backlog officiel, décision
-                 utilisateur "option 3") : cette fenêtre ne permet pas de joindre de
-                 document justificatif, contrairement au formulaire dédié de
-                 red_list.html qui en exige au moins un. Avertissement visible plutôt
-                 que de bloquer ou de dupliquer ici toute la logique d'upload. -->
+            <!-- Cette fenêtre ne permet pas de joindre de document justificatif,
+                 contrairement au formulaire dédié de red_list.html qui en exige au
+                 moins un. Avertissement visible plutôt que de bloquer ou de
+                 dupliquer ici toute la logique d'upload. -->
             <p class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2.5 mt-2">
                 ⚠️ Cette fenêtre n'inclut pas de document justificatif. Pour en joindre un, utilisez le formulaire dédié depuis la page Liste Rouge.
             </p>

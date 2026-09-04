@@ -2,11 +2,9 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy (B3, Master Context §7) — généralisée depuis la
-         page pilote audit_logs.html, testée sans erreur le 25/08/2026. Placée en
-         tout premier dans le head (une CSP en <meta> ne s'applique qu'aux ressources
-         chargées après elle). Détail des directives et rationale : voir le
-         commentaire équivalent dans audit_logs.html. -->
+    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
+         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
+         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -22,14 +20,10 @@
     <title>Connexion - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS — hébergé localement depuis le 17/07/2026 (shared/vendor/),
-         auparavant chargé depuis le CDN jsdelivr à chaque visite. Version
-         inchangée (v4), même contenu, juste servi depuis le dépôt plutôt qu'un
-         serveur tiers. -->
+    <!-- Tailwind CSS, hébergé localement -->
     <script src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase JS — hébergé localement depuis le 17/07/2026 (shared/vendor/),
-         version inchangée (2.110.6). -->
+    <!-- Supabase JS Client, hébergé localement -->
     <script src="shared/vendor/supabase-js-2.110.6.js"></script>
 
     <!-- Configuration Supabase partagée (source unique — remplace le pont localStorage) -->
