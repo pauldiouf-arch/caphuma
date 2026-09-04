@@ -1,13 +1,11 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement
+// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
+// soit elle-même masquée par une autre page à l'avenir.
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
-        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // HEADER COMMUN — injecté avant toute autre chose, pour que
+        // #user-display-name et #logoutBtn existent dès la suite du script.
         // ============================================================================
         renderPageLayout({
             icon: '⚠️',
@@ -37,9 +35,9 @@
         let selectedTalentForRedlist = null;
         let selectedRedlistFiles = [];
 
-        // Correctif P13 (B12-S4, 28/08/2026) : whitelist MIME correspondant exactement
-        // à l'attribut accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" du champ de sélection
-        // dans red_list.html (cet attribut n'est qu'indicatif côté navigateur,
+        // Whitelist MIME correspondant exactement à l'attribut
+        // accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" du champ de sélection dans
+        // red_list.html (cet attribut n'est qu'indicatif côté navigateur,
         // contournable en glisser-déposer — d'où ce contrôle en plus, côté JS).
         // Taille max par fichier : 10 Mo, choix raisonnable pour un scan/photo de
         // document justificatif — à ajuster ici si besoin, une seule constante.
@@ -54,14 +52,14 @@
         const REDLIST_MAX_FILE_SIZE_BYTES = REDLIST_MAX_FILE_SIZE_MB * 1024 * 1024;
 
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
         // ============================================================================
-        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
@@ -118,17 +116,16 @@
         }
 
         // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // ⚠️ Petit changement : fait maintenant remonter la page en haut en plus
-        // d'afficher la bannière (harmonisé avec id-card.html — MC13 Addendum A3).
+        // Petit changement : fait maintenant remonter la page en haut en plus
+        // d'afficher la bannière (harmonisé avec id-card.html).
 
         // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js
         // (comportement identique — cette page avait déjà cette version).
 
 
-        // ============ SIGNALEMENT D'UN NOUVEAU TALENT (Étape A : tout se passe
-        // désormais dans le dialogue "redlist-add-modal", ouvert depuis le header
-        // ou depuis l'état vide — plus de sélecteur pool/talent affiché en permanence
-        // sur la page) ============
+        // ============ SIGNALEMENT D'UN NOUVEAU TALENT (tout se passe désormais dans
+        // le dialogue "redlist-add-modal", ouvert depuis le header ou depuis l'état
+        // vide — plus de sélecteur pool/talent affiché en permanence sur la page) ============
 
         async function loadPoolsForSelect() {
             const selectPool = document.getElementById('modal-select-pool');
@@ -188,11 +185,11 @@
 
         document.getElementById('modal-redlist-add-files').addEventListener('change', (e) => {
             if (e.target.files && e.target.files.length > 0) {
-                // Correctif P13 (B12-S4, 28/08/2026) : filtre chaque fichier avant de
-                // l'ajouter à la sélection, plutôt que de découvrir un refus seulement
-                // au moment de l'envoi — économise un aller-retour réseau inutile en
-                // cas d'erreur de manipulation, en complément des policies du bucket
-                // de stockage (non revues dans ce correctif, jamais en remplacement).
+                // Filtre chaque fichier avant de l'ajouter à la sélection, plutôt que
+                // de découvrir un refus seulement au moment de l'envoi — économise un
+                // aller-retour réseau inutile en cas d'erreur de manipulation, en
+                // complément des policies du bucket de stockage (jamais en
+                // remplacement).
                 const incoming = Array.from(e.target.files);
                 const accepted = [];
                 const rejected = [];
@@ -227,9 +224,9 @@
             const paths = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                // Défense en profondeur (P13, B12-S4, 28/08/2026) : revérifié ici même
-                // si déjà filtré à la sélection plus haut, pour ne jamais dépendre d'un
-                // seul point de contrôle si ce code est un jour appelé autrement.
+                // Défense en profondeur : revérifié ici même si déjà filtré à la
+                // sélection plus haut, pour ne jamais dépendre d'un seul point de
+                // contrôle si ce code est un jour appelé autrement.
                 if (!REDLIST_ALLOWED_MIME_TYPES.includes(file.type)) {
                     throw new Error(`Type de fichier non autorisé : "${file.name}".`);
                 }
@@ -237,7 +234,7 @@
                     throw new Error(`"${file.name}" dépasse la taille maximale autorisée (${REDLIST_MAX_FILE_SIZE_MB} Mo).`);
                 }
                 const path = `${talentId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`;
-                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter — path est
+                // Enveloppé dans capHumaWithRetry() : sûr à retenter — path est
                 // calculé une seule fois juste au-dessus (pas régénéré à chaque
                 // tentative) et aucun { upsert: true } n'est passé, donc une relance
                 // après perte de réponse tomberait proprement sur une erreur "déjà
@@ -363,9 +360,9 @@
 
                 if (error) throw error;
 
-                // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
-                // couvert désormais par le trigger Postgres trg_audit_talents (reprend
-                // le motif via red_list_reason).
+                // Pas d'appel à logAuditAction('add_to_red_list', ...) ici : couvert
+                // par le trigger Postgres trg_audit_talents (reprend le motif via
+                // red_list_reason).
                 document.getElementById('redlist-add-modal').classList.add('hidden');
                 toastMessage("Talent inscrit en Liste Rouge avec succès.");
 
@@ -404,7 +401,7 @@
                 // Pagination réelle côté requête (.range() + count: exact), sur le
                 // modèle déjà validé sur talents.html / audit_logs.html — évite de
                 // charger l'intégralité de la Liste Rouge en mémoire à chaque visite.
-                // Note (P19) : paginateQuery() retente déjà automatiquement en interne
+                // Note : paginateQuery() retente déjà automatiquement en interne
                 // depuis la mise à jour de shared/caphuma-utils.js — rien à changer ici.
                 const result = await paginateQuery(
                     (c) => c.from('talents')
@@ -463,12 +460,11 @@
                     : '—';
                 const docCount = Array.isArray(t.red_list_documents) ? t.red_list_documents.length : 0;
 
-                // Correctif P12 (B12-S3, 28/08/2026, trouvé en marge de l'audit initial) :
-                // le lien "Voir la fiche" juste en dessous utilisait escapeHtml(t.id) pour
+                // Le lien "Voir la fiche" juste en dessous utilisait escapeHtml(t.id) pour
                 // construire une URL — protège du HTML, pas d'une URL. Remplacé par
                 // encodeURIComponent(t.id), la bonne fonction pour ce contexte (t.id est
                 // aujourd'hui un UUID propre, donc sans conséquence visible aujourd'hui,
-                // mais habitude à corriger comme les 2 autres points de P12).
+                // mais habitude à corriger).
 
                 return `
                 <tr class="text-slate-700">
@@ -492,9 +488,9 @@
                     </td>
                 </tr>`;
             }).join('');
-            // Correctif P24 (B13-Q5) : les 2 boucles de ré-attachement qui étaient
-            // ici (.btn-view-reason/.btn-remove-redlist) sont remplacées par
-            // l'écouteur délégué unique posé une seule fois en INITIALISATION.
+            // Les 2 boucles de ré-attachement (.btn-view-reason/.btn-remove-redlist)
+            // sont remplacées par l'écouteur délégué unique posé une seule fois en
+            // INITIALISATION.
         }
 
         async function showReasonModal(talentId) {
@@ -562,8 +558,8 @@
                             .eq('id', talentId)
                     );
                     if (error) throw error;
-                    // logAuditAction('remove_from_red_list', ...) retiré le 19/08/2026 (A5) :
-                    // couvert désormais par le trigger Postgres trg_audit_talents.
+                    // Pas d'appel à logAuditAction('remove_from_red_list', ...) ici :
+                    // couvert par le trigger Postgres trg_audit_talents.
                     toastMessage("Talent retiré de la liste rouge.");
                     await loadRedList();
                 }
@@ -607,13 +603,13 @@
 
         // ============ INITIALISATION ============
 
-        // Correctif P24 (B13-Q5, Master Context §7) : un seul écouteur délégué,
-        // posé UNE FOIS ici plutôt que dans renderRedList() (voir plus haut), au
-        // lieu de re-sélectionner et ré-attacher N écouteurs sur tout le
-        // conteneur à chaque rendu. Comportement strictement identique — mêmes
-        // fonctions appelées avec le même dataset.id/dataset.name, seul le
-        // mécanisme d'attachement change. #redlist-tbody est un élément statique
-        // du HTML (jamais recréé, seul son contenu est réécrit via innerHTML).
+        // Un seul écouteur délégué, posé UNE FOIS ici plutôt que dans
+        // renderRedList() (voir plus haut), au lieu de re-sélectionner et
+        // ré-attacher N écouteurs sur tout le conteneur à chaque rendu. Comportement
+        // strictement identique — mêmes fonctions appelées avec le même
+        // dataset.id/dataset.name, seul le mécanisme d'attachement change.
+        // #redlist-tbody est un élément statique du HTML (jamais recréé, seul son
+        // contenu est réécrit via innerHTML).
         document.getElementById('redlist-tbody').addEventListener('click', (e) => {
             const reasonBtn = e.target.closest('.btn-view-reason');
             if (reasonBtn) { showReasonModal(reasonBtn.dataset.id); return; }
@@ -628,5 +624,5 @@
             window.location.replace('login.html');
         });
 
-        window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); }); // P15 (B18-A3)
+        window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); });
 })();

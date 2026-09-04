@@ -1,13 +1,11 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement
+// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
+// soit elle-même masquée par une autre page à l'avenir.
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
-        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // HEADER COMMUN — injecté avant toute autre chose, pour que
+        // #user-display-name et #logoutBtn existent dès la suite du script.
         // ============================================================================
         renderPageLayout({
             icon: '⛔',
@@ -23,7 +21,7 @@
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, pont de compatibilité)
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
@@ -38,8 +36,8 @@
         const emptyState = document.getElementById('emptyState');
 
         // État de page regroupé dans un objet unique plutôt que dispersé en une
-        // dizaine de variables locales (B13-Q7) — déclaré à l'intérieur de l'IIFE,
-        // pas exposé globalement : contrairement à TalentsPage/MissionsPage/etc.,
+        // dizaine de variables locales — déclaré à l'intérieur de l'IIFE, pas
+        // exposé globalement : contrairement à TalentsPage/MissionsPage/etc.,
         // cette page n'a jamais été scindée en plusieurs fichiers, donc aucun besoin
         // de partage inter-fichiers qui justifierait de sortir cet objet de l'IIFE.
         const pageState = {};
@@ -53,7 +51,7 @@
         // avant injection via innerHTML — prévention XSS.
 
         // ============================================================================
-        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         async function logAuditAction(action, entityType, entityId, entityName, details) {
@@ -119,9 +117,8 @@
         pageState.devalidatedPage = 1;
         const DEVALIDATED_PAGE_SIZE = 20;
 
-        // Correctif P7 (B17-L1, 27/08/2026, décision utilisateur) : affichage
-        // progressif en mode FILTRÉ uniquement (pool/date) — le mode par défaut
-        // ci-dessus est déjà paginé côté requête (20/page), pas concerné.
+        // Affichage progressif en mode FILTRÉ uniquement (pool/date) — le mode par
+        // défaut ci-dessus est déjà paginé côté requête (20/page), pas concerné.
         // pageState.devalidatedPoolSections garde une référence à chaque section de pool
         // déjà construite, pour que "Afficher plus" y AJOUTE des lignes au lieu
         // de dupliquer le pool dans une nouvelle section plus bas (voir
@@ -179,16 +176,15 @@
         async function loadAndRenderPaged(page) {
             pageState.devalidatedPage = page;
 
-            // Correctif P7 : ce mode a sa propre pagination (Précédent/Suivant),
-            // pas de "Afficher plus" ici — on efface l'état du mode filtré pour
-            // ne pas laisser un bouton/compteur d'une session de filtre précédente
-            // affiché par erreur.
+            // Ce mode a sa propre pagination (Précédent/Suivant), pas de "Afficher
+            // plus" ici — on efface l'état du mode filtré pour ne pas laisser un
+            // bouton/compteur d'une session de filtre précédente affiché par erreur.
             pageState.devalidatedFilteredTalents = [];
             pageState.devalidatedRenderedCount = 0;
             updateDevalidatedShowMoreControls();
 
-            // Note (P19) : paginateQuery() retente déjà automatiquement en interne
-            // depuis la mise à jour de shared/caphuma-utils.js — rien à changer ici.
+            // paginateQuery() retente déjà automatiquement en interne — rien à
+            // changer ici.
             const result = await paginateQuery(
                 (c) => c.from('talents')
                     .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission', { count: 'exact' })
@@ -285,8 +281,8 @@
 
             emptyState.classList.add('hidden');
 
-            // Correctif P7 : repart de zéro (nouveau filtre = nouveau résultat),
-            // puis affiche le premier lot seulement.
+            // Repart de zéro (nouveau filtre = nouveau résultat), puis affiche le
+            // premier lot seulement.
             pageState.devalidatedFilteredTalents = filtered;
             pageState.devalidatedRenderedCount = 0;
             pageState.devalidatedPoolSections = {};
@@ -294,9 +290,9 @@
             renderMoreDevalidated();
         }
 
-        // Correctif P7 : affiche le prochain lot de pageState.devalidatedFilteredTalents,
-        // en l'ajoutant aux sections de pool déjà à l'écran (append = true dès
-        // le 2ᵉ lot) plutôt qu'en reconstruisant toute la page.
+        // Affiche le prochain lot de pageState.devalidatedFilteredTalents, en
+        // l'ajoutant aux sections de pool déjà à l'écran (append = true dès le 2ᵉ
+        // lot) plutôt qu'en reconstruisant toute la page.
         function renderMoreDevalidated() {
             const isFirstBatch = pageState.devalidatedRenderedCount === 0;
             const batch = pageState.devalidatedFilteredTalents.slice(pageState.devalidatedRenderedCount, pageState.devalidatedRenderedCount + RENDER_BATCH_SIZE);
@@ -305,8 +301,8 @@
             updateDevalidatedShowMoreControls();
         }
 
-        // Correctif P7 : affiche/masque le bouton "Afficher plus" et le petit
-        // texte "X sur Y affichés" du mode filtré.
+        // Affiche/masque le bouton "Afficher plus" et le petit texte "X sur Y
+        // affichés" du mode filtré.
         function updateDevalidatedShowMoreControls() {
             const showMoreBtn = document.getElementById('devalidatedShowMoreBtn');
             const countLabel = document.getElementById('devalidatedRenderedCountLabel');
@@ -354,9 +350,9 @@
             });
 
             Object.keys(grouped).forEach(poolId => {
-                // Correctif P7 : si ce pool a déjà sa section (lot précédent), on
-                // récupère sa liste existante pour y AJOUTER les nouvelles lignes,
-                // au lieu de créer une 2ᵉ section dupliquée pour le même pool.
+                // Si ce pool a déjà sa section (lot précédent), on récupère sa liste
+                // existante pour y AJOUTER les nouvelles lignes, au lieu de créer une
+                // 2ᵉ section dupliquée pour le même pool.
                 let existing = pageState.devalidatedPoolSections[poolId];
                 let list;
                 let countBadge;
@@ -386,12 +382,11 @@
                     existing = pageState.devalidatedPoolSections[poolId];
                 }
 
-                // Correctif P25 (B17-L2, Master Context §7) : les lignes du lot sont
-                // construites dans un DocumentFragment (hors DOM, aucun reflow) puis
-                // ajoutées à `list` en un seul appendChild final, au lieu d'un
-                // appendChild par ligne comme avant — que `list` soit une section de
-                // pool tout juste créée ou une section déjà affichée (mode append,
-                // lots suivants). Comportement identique : mêmes lignes, même
+                // Les lignes du lot sont construites dans un DocumentFragment (hors
+                // DOM, aucun reflow) puis ajoutées à `list` en un seul appendChild
+                // final, au lieu d'un appendChild par ligne — que `list` soit une
+                // section de pool tout juste créée ou une section déjà affichée (mode
+                // append, lots suivants). Comportement identique : mêmes lignes, même
                 // contenu, même ordre. Même pattern que missions-render.js/
                 // renderMissions() et talents.js/renderTalents().
                 const fragment = document.createDocumentFragment();
@@ -467,10 +462,10 @@
                 const { error } = await capHumaWithRetry(() =>
                     supabaseClient
                         .from('talents')
-                        // Correctif du 19/08/2026 : même logique que id-card.html — la jauge
-                        // "mois sans mission" doit repartir de zéro à partir d'AUJOURD'HUI, pas
-                        // de l'ancienne fin de mission (last_mission_end_date est prioritaire
-                        // sur pool_integration_date dans calculateMonthsWithoutMission, donc la
+                        // Même logique que id-card.html — la jauge "mois sans mission" doit
+                        // repartir de zéro à partir d'AUJOURD'HUI, pas de l'ancienne fin de
+                        // mission (last_mission_end_date est prioritaire sur
+                        // pool_integration_date dans calculateMonthsWithoutMission, donc la
                         // vider est nécessaire). months_without_mission ajouté aussi ici : cette
                         // page ne le remettait pas à zéro, contrairement à id-card.html — écart
                         // corrigé au passage.
@@ -491,8 +486,8 @@
 
                 if (error) throw error;
 
-                // logAuditAction('reintegrate', ...) retiré le 19/08/2026 (A5) : couvert
-                // désormais par le trigger Postgres trg_audit_talents.
+                // Pas d'appel à logAuditAction('reintegrate', ...) ici : couvert par
+                // le trigger Postgres trg_audit_talents.
                 await loadDevalidatedTalents();
 
             } catch (error) {
@@ -510,12 +505,12 @@
         const redListModalTalentName = document.getElementById('redListModalTalentName');
 
         // ----------------------------------------------------------------------------
-        // BROUILLON LOCAL (backlog B15-R1, priorité P20) — un seul champ (motif), clé
-        // par talent puisque cette modale s'ouvre toujours pour un talent précis (t.id,
-        // paramètre de openRedListModal ci-dessous). Même schéma que talentForm/
-        // evaluationForm : ouverture → offre de restauration + autosave ; Annuler/× →
-        // arrêt seul (le brouillon reste, voir correctif du 01/09/2026 sur talentForm) ;
-        // succès → effacement définitif.
+        // BROUILLON LOCAL — un seul champ (motif), clé par talent puisque cette
+        // modale s'ouvre toujours pour un talent précis (t.id, paramètre de
+        // openRedListModal ci-dessous). Même schéma que talentForm/evaluationForm :
+        // ouverture → offre de restauration + autosave ; Annuler/× → arrêt seul (le
+        // brouillon reste, voir talentForm pour le même choix) ; succès →
+        // effacement définitif.
         pageState.currentRedListDraftKey = null;
         pageState.currentRedListDraftBinding = null;
 
@@ -586,9 +581,9 @@
 
                 if (error) throw error;
 
-                // logAuditAction('add_to_red_list', ...) retiré le 19/08/2026 (A5) :
-                // couvert désormais par le trigger Postgres trg_audit_talents (reprend
-                // le motif via red_list_reason).
+                // Pas d'appel à logAuditAction('add_to_red_list', ...) ici : couvert
+                // par le trigger Postgres trg_audit_talents (reprend le motif via
+                // red_list_reason).
                 closeRedListModal();
                 discardRedListDraft();
                 await loadDevalidatedTalents();
@@ -619,19 +614,18 @@
                 // Nettoyage des données liées avant suppression du talent — la règle
                 // ON DELETE de ces FK vers talents.id n'a jamais été vérifiée, donc
                 // suppression défensive plutôt que de compter sur une cascade non confirmée
-                // (même correctif que id-card.html, cf. Master Context règle de méthode n°19).
+                // (même logique que id-card.html).
                 await capHumaWithRetry(() => supabaseClient.from('evaluations').delete().eq('talent_id', t.id));
                 await capHumaWithRetry(() => supabaseClient.from('comments').delete().eq('talent_id', t.id));
                 await capHumaWithRetry(() => supabaseClient.from('share_tokens').delete().eq('talent_id', t.id));
 
-                // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) : le
-                // contrôle juste en dessous (data.length === 0 → throw) sert à
-                // détecter un DELETE bloqué silencieusement par une policy RLS
-                // (règle de méthode n°15). Avec un retry automatique, ce même
-                // signal ("0 ligne affectée") deviendrait ambigu : il pourrait
-                // aussi bien vouloir dire "1re tentative en fait réussie, réponse
-                // perdue, 2e tentative ne retrouve plus rien à supprimer" — ce qui
-                // ferait afficher à tort une erreur RLS après une suppression en
+                // Volontairement pas enveloppé dans capHumaWithRetry() : le contrôle
+                // juste en dessous (data.length === 0 → throw) sert à détecter un
+                // DELETE bloqué silencieusement par une policy RLS. Avec un retry
+                // automatique, ce même signal ("0 ligne affectée") deviendrait ambigu :
+                // il pourrait aussi bien vouloir dire "1re tentative en fait réussie,
+                // réponse perdue, 2e tentative ne retrouve plus rien à supprimer" — ce
+                // qui ferait afficher à tort une erreur RLS après une suppression en
                 // réalité déjà effective. Un retry casserait ici la fiabilité d'un
                 // contrôle conçu spécifiquement pour cette page.
                 const { data, error } = await supabaseClient
@@ -643,15 +637,15 @@
                 if (error) throw error;
 
                 // Un DELETE Supabase peut "réussir" sans erreur tout en n'affectant aucune
-                // ligne si une policy RLS bloque silencieusement (cf. Master Context règle de
-                // méthode n°15) — vérification explicite plutôt qu'un faux succès.
+                // ligne si une policy RLS bloque silencieusement — vérification explicite
+                // plutôt qu'un faux succès.
                 if (!data || data.length === 0) {
                     throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // logAuditAction('delete', ...) retiré le 19/08/2026 (A5) : couvert
-                // désormais par le trigger Postgres trg_audit_talents (distingue
-                // actif/dévalidé via is_valid au moment de la suppression).
+                // Pas d'appel à logAuditAction('delete', ...) ici : couvert par le
+                // trigger Postgres trg_audit_talents (distingue actif/dévalidé via
+                // is_valid au moment de la suppression).
                 await loadDevalidatedTalents();
 
             } catch (error) {

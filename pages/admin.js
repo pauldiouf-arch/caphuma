@@ -1,13 +1,11 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement
+// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
+// soit elle-même masquée par une autre page à l'avenir.
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
-        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // HEADER COMMUN — injecté avant toute autre chose, pour que
+        // #user-display-name et #logoutBtn existent dès la suite du script.
         // ============================================================================
         renderPageLayout({
             icon: '🛡️',
@@ -26,14 +24,14 @@
         let currentUserName = null;
 
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
         // ============================================================================
-        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
@@ -87,25 +85,23 @@
         }
 
         // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // ⚠️ Petit changement : fait maintenant remonter la page en haut en plus
-        // d'afficher la bannière (harmonisé avec id-card.html — MC13 Addendum A3).
+        // Petit changement : fait maintenant remonter la page en haut en plus
+        // d'afficher la bannière (harmonisé avec id-card.html).
 
         // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js
         // (comportement identique — cette page avait déjà cette version).
 
         // ============ APPEL SÉCURISÉ À manage-users ============
-        // Rappel section 2 du Master Context : le header 'apikey' est
-        // OBLIGATOIRE en plus de 'Authorization', sinon 401 systématique
-        // côté gateway avant même d'atteindre le code de la fonction.
+        // Le header 'apikey' est OBLIGATOIRE en plus de 'Authorization', sinon 401
+        // systématique côté gateway avant même d'atteindre le code de la fonction.
         async function callManageUsers(action, payload = {}) {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (!session) {
-                // Correctif complémentaire à P10 (28/08/2026, décision utilisateur,
-                // trouvé en testant P10) : même traitement que le 401/403 plus bas
-                // — si le navigateur n'a plus AUCUNE session locale (déconnexion
-                // depuis un autre onglet, stockage local vidé...), rester sur place
-                // avec un simple message d'erreur n'aide personne : chaque nouvelle
-                // action échouerait de la même façon jusqu'à un rechargement manuel.
+                // Même traitement que le 401/403 plus bas — si le navigateur n'a plus
+                // AUCUNE session locale (déconnexion depuis un autre onglet, stockage
+                // local vidé...), rester sur place avec un simple message d'erreur
+                // n'aide personne : chaque nouvelle action échouerait de la même façon
+                // jusqu'à un rechargement manuel.
                 window.location.href = 'login.html';
                 throw new Error("Session expirée, veuillez vous reconnecter.");
             }
@@ -120,26 +116,24 @@
                 body: JSON.stringify({ action, ...payload })
             });
 
-            // Correctif P19 (B15-R2, 31/08/2026, décision n°15) : retry
-            // UNIQUEMENT sur "create" et "delete", jamais sur
-            // "reset_password" — tranché après un test en conditions réelles
-            // le 31/08/2026 (Master Context §7 B15-R2) : create/delete
-            // échouent proprement à un 2e appel (email déjà utilisé, compte
-            // déjà supprimé), alors que reset_password réussit deux fois de
-            // suite sans protection — un double appel génère un second code
-            // d'accès ET une seconde ligne dans audit_logs pour une seule
-            // action voulue par l'admin (confirmé par le test).
+            // Retry UNIQUEMENT sur "create" et "delete", jamais sur "reset_password" —
+            // tranché après un test en conditions réelles : create/delete échouent
+            // proprement à un 2e appel (email déjà utilisé, compte déjà supprimé),
+            // alors que reset_password réussit deux fois de suite sans protection —
+            // un double appel génère un second code d'accès ET une seconde ligne
+            // dans audit_logs pour une seule action voulue par l'admin (confirmé par
+            // le test).
             const response = (action === 'create' || action === 'delete')
                 ? await capHumaWithRetry(doFetch)
                 : await doFetch();
 
-            // Correctif P10 (B14-I3, 28/08/2026) : un token expiré/refusé (401/403)
-            // remontait jusqu'ici comme une erreur générique ("Échec de l'action :
-            // ..."), sans jamais déconnecter ni rediriger vers login.html —
-            // l'utilisateur restait sur une page qui semblait fonctionner mais
-            // dont chaque nouvelle action échouerait de la même façon jusqu'à un
-            // rechargement manuel. Déconnexion + redirection explicites dès la
-            // détection, avant même de tenter de lire le corps de la réponse.
+            // Un token expiré/refusé (401/403) remontait jusqu'ici comme une erreur
+            // générique ("Échec de l'action : ..."), sans jamais déconnecter ni
+            // rediriger vers login.html — l'utilisateur restait sur une page qui
+            // semblait fonctionner mais dont chaque nouvelle action échouerait de la
+            // même façon jusqu'à un rechargement manuel. Déconnexion + redirection
+            // explicites dès la détection, avant même de tenter de lire le corps de
+            // la réponse.
             if (response.status === 401 || response.status === 403) {
                 await supabaseClient.auth.signOut();
                 window.location.href = 'login.html';
@@ -198,9 +192,9 @@
 
             // Rôles réels autorisés par la contrainte CHECK "users_role_check"
             // vérifiée en base : admin / user / visitor. "user" est libellé
-            // "Recruteur" côté métier (le Master Context affirmait à tort
-            // "recruteur" comme valeur stockée — même type d'erreur que
-            // tokenIdentifier, corrigé après vérification directe).
+            // "Recruteur" côté métier — la valeur stockée reste "user", pas
+            // "recruteur" (vérifié directement en base, ne pas se fier à la
+            // documentation sur ce point précis).
             const roleLabels = { admin: '🛡️ Admin', user: '👤 Recruteur', visitor: '👁️ Visiteur' };
             const roleColors = {
                 admin: 'bg-primary-light text-primary',
@@ -273,15 +267,15 @@
                 icon: "🔑",
                 onConfirm: async () => {
                     const result = await callManageUsers('reset_password', { userId });
-                    // Journalisation retirée d'ici le 17/07/2026 : manage-users l'écrit
-                    // désormais lui-même côté serveur (garanti, quel que soit le chemin
-                    // d'appel) — la laisser ici aurait créé une ligne en double.
+                    // Journalisation retirée d'ici : manage-users l'écrit désormais
+                    // lui-même côté serveur (garanti, quel que soit le chemin d'appel)
+                    // — la laisser ici aurait créé une ligne en double.
                     showAccessCodeModal(result.accessCode);
-                    // Correctif P9 (B12-S2, 28/08/2026) : manage-users peut renvoyer un
-                    // avertissement même en cas de succès (ex. révocation des sessions
-                    // actives échouée) — jusqu'ici silencieusement ignoré ici, alors que
-                    // ce champ existait déjà pour l'action delete ci-dessous (même angle
-                    // mort, corrigé pour les deux actions en même temps).
+                    // manage-users peut renvoyer un avertissement même en cas de succès
+                    // (ex. révocation des sessions actives échouée) — jusqu'ici
+                    // silencieusement ignoré ici, alors que ce champ existait déjà pour
+                    // l'action delete ci-dessous (même angle mort, corrigé pour les
+                    // deux actions en même temps).
                     if (result.warning) {
                         toastMessage(result.warning, "error");
                     } else {
@@ -299,12 +293,11 @@
                 icon: "🗑️",
                 onConfirm: async () => {
                     const result = await callManageUsers('delete', { userId });
-                    // Journalisation retirée d'ici le 17/07/2026 : manage-users l'écrit
-                    // désormais lui-même côté serveur, avant même la suppression de la
-                    // ligne 'users' — la laisser ici aurait créé une ligne en double.
-                    // Correctif P9 (B12-S2, 28/08/2026) : voir onResetPassword()
-                    // ci-dessus, même angle mort (champ "warning" ignoré) corrigé pour
-                    // les deux actions en même temps.
+                    // Journalisation retirée d'ici : manage-users l'écrit désormais
+                    // lui-même côté serveur, avant même la suppression de la ligne
+                    // 'users' — la laisser ici aurait créé une ligne en double.
+                    // Même angle mort que onResetPassword() ci-dessus (champ "warning"
+                    // ignoré), corrigé pour les deux actions en même temps.
                     if (result.warning) {
                         toastMessage(result.warning, "error");
                     } else {
@@ -341,11 +334,11 @@
             spinner.classList.remove('hidden');
             try {
                 // Paramètre envoyé à l'Edge Function : fullName, mappé sur la
-                // colonne 'name' en base (voir section 8 du Master Context).
+                // colonne 'name' en base.
                 const result = await callManageUsers('create', { email, role, fullName });
-                // Journalisation retirée d'ici le 17/07/2026 : manage-users l'écrit
-                // désormais lui-même côté serveur — la laisser ici aurait créé une
-                // ligne en double.
+                // Journalisation retirée d'ici : manage-users l'écrit désormais
+                // lui-même côté serveur — la laisser ici aurait créé une ligne en
+                // double.
                 document.getElementById('modal-create-account').classList.add('hidden');
                 showAccessCodeModal(result.accessCode);
                 toastMessage("Compte créé avec succès.");
@@ -482,10 +475,9 @@
                 // full_name, pool_id sont NOT NULL) : name reçoit le code court,
                 // cohérent avec le pattern déjà observé côté Convex de référence.
                 //
-                // Enveloppé dans capHumaWithRetry() (P19, décision n°15, affiné
-                // le 31/08/2026) : contrairement aux 10 autres insert() du site,
-                // celui-ci est sûr à retenter — pools.pool_id porte une
-                // contrainte UNIQUE (Dossier de passation §4.2) et "code" est lu
+                // Enveloppé dans capHumaWithRetry() : contrairement aux autres
+                // insert() du site, celui-ci est sûr à retenter — pools.pool_id porte
+                // une contrainte UNIQUE (Dossier de passation §4.2) et "code" est lu
                 // une seule fois, avant l'appel, donc un retry retente EXACTEMENT
                 // le même pool_id. En cas de doublon (1re tentative en fait
                 // réussie côté serveur, réponse perdue), la 2e tentative tombe
@@ -590,15 +582,15 @@
 
         // ============ INITIALISATION ============
 
-        // Correctif P24 (B13-Q5, Master Context §7) : un seul écouteur délégué par
-        // tableau, posé UNE FOIS ici plutôt que dans renderAccounts()/renderPools()
-        // (voir plus haut), au lieu de re-sélectionner et ré-attacher N écouteurs
-        // sur tout le conteneur à chaque rendu. Comportement strictement identique
-        // — mêmes fonctions appelées avec le même dataset.id/dataset.active/
-        // dataset.email/dataset.archived/dataset.code, seul le mécanisme
-        // d'attachement change. Les <tbody> ciblés sont des éléments statiques du
-        // HTML (jamais recréés, seul leur contenu est réécrit via innerHTML), donc
-        // un écouteur posé ici une fois reste valide sur tous les rendus suivants.
+        // Un seul écouteur délégué par tableau, posé UNE FOIS ici plutôt que dans
+        // renderAccounts()/renderPools() (voir plus haut), au lieu de
+        // re-sélectionner et ré-attacher N écouteurs sur tout le conteneur à
+        // chaque rendu. Comportement strictement identique — mêmes fonctions
+        // appelées avec le même dataset.id/dataset.active/dataset.email/
+        // dataset.archived/dataset.code, seul le mécanisme d'attachement change.
+        // Les <tbody> ciblés sont des éléments statiques du HTML (jamais recréés,
+        // seul leur contenu est réécrit via innerHTML), donc un écouteur posé ici
+        // une fois reste valide sur tous les rendus suivants.
         document.getElementById('accounts-tbody').addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('.btn-toggle-active');
             if (toggleBtn) { onToggleActive(toggleBtn.dataset.id, toggleBtn.dataset.active === 'true'); return; }
@@ -626,5 +618,5 @@
             window.location.replace('login.html');
         });
 
-        window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); }); // P15 (B18-A3)
+        window.addEventListener('DOMContentLoaded', () => { checkSession(); capHumaInitModalA11y(); });
 })();

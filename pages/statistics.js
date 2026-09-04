@@ -1,17 +1,17 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 1/4 : scission de statistics.js.
-// Voir Guide d'architecture §1.22 pour le patron complet (objet d'état partagé
-// <Nom>Page déclaré HORS IIFE, seule dérogation à l'encapsulation P23). Ce
-// fichier déclare StatisticsPage et DOIT être chargé en premier, avant
-// statistics-charts.js / statistics-pool-ai.js / statistics-ai-report.js.
-// Contient : layout, état partagé, journal d'audit, session, chargement des
-// données brutes, écouteur de déconnexion, démarrage de page (ces deux
-// derniers points physiquement déplacés depuis la fin du fichier d'origine
-// jusqu'ici — même piège que celui documenté pour id-card.js, évité ici).
+// Scission de statistics.js. Voir Guide d'architecture §1.22 pour le patron
+// complet (objet d'état partagé <Nom>Page déclaré HORS IIFE, seule dérogation
+// à l'encapsulation en IIFE des pages). Ce fichier déclare StatisticsPage et
+// DOIT être chargé en premier, avant statistics-charts.js / statistics-pool-ai.js
+// / statistics-ai-report.js. Contient : layout, état partagé, journal d'audit,
+// session, chargement des données brutes, écouteur de déconnexion, démarrage
+// de page (ces deux derniers points physiquement déplacés depuis la fin du
+// fichier d'origine jusqu'ici — même piège que celui documenté pour
+// id-card.js, évité ici).
 const StatisticsPage = {};
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
-        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // HEADER COMMUN — injecté avant toute autre chose, pour que
+        // #user-display-name et #logoutBtn existent dès la suite du script.
         // ============================================================================
         renderPageLayout({
             icon: '📊',
@@ -35,12 +35,12 @@ const StatisticsPage = {};
         StatisticsPage.currentUserName = null;
 
         // Échappement HTML systématique de toute donnée venant de la base avant
-        // injection via innerHTML — prévention XSS (Master Context, règle de méthode
-        // n°12). Absente jusqu'ici sur cette page faute d'innerHTML utilisant des
-        // données de la base ; ajoutée avec les statistiques de contrats (Étape C).
+        // injection via innerHTML — prévention XSS. Absente jusqu'ici sur cette page
+        // faute d'innerHTML utilisant des données de la base ; ajoutée avec les
+        // statistiques de contrats.
 
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // (chargé dans le head) — remplace l'ancien pont localStorage.
         // La clé IA ne vit plus jamais côté client (ni localStorage, ni variable
         // visible en console) — l'appel passe désormais par la Edge Function
         // sécurisée ai-proxy, qui détient seule la clé côté serveur.
@@ -50,7 +50,7 @@ const StatisticsPage = {};
         }
 
         // ============================================================================
-        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
         // Fabriquée avec des getters (pas des valeurs) : relit StatisticsPage.supabaseClient
@@ -95,8 +95,8 @@ const StatisticsPage = {};
         }
 
         // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // ⚠️ Petit changement : fait maintenant remonter la page en haut en plus
-        // d'afficher la bannière (harmonisé avec id-card.html — MC13 Addendum A3).
+        // Petit changement : fait maintenant remonter la page en haut en plus
+        // d'afficher la bannière (harmonisé avec id-card.html).
 
         async function initHub() {
             try {
@@ -107,7 +107,7 @@ const StatisticsPage = {};
                 if (ep) throw ep;
                 StatisticsPage.poolList = pools || [];
 
-                // Remplir le sélecteur avec la clé pool_id du Master Context
+                // Remplir le sélecteur avec la clé pool_id
                 const selector = document.getElementById('pool-selector');
                 StatisticsPage.poolList.forEach(p => {
                     const pCode = p.pool_id || p.poolId; // pool_id selon le schéma réel de la section 5
@@ -152,7 +152,7 @@ const StatisticsPage = {};
         }
 
         async function loadRawData() {
-            // ⚡ Optimisation (grep exhaustif du fichier pour vérifier que chaque colonne
+            // Optimisation (grep exhaustif du fichier pour vérifier que chaque colonne
             // ci-dessous est bien lue quelque part sur cette page avant de la retirer/garder) :
             // - talents : liste inchangée sauf `experience_months_humanitarian`, retirée
             //   car jamais utilisée nulle part dans ce fichier (vérifié par grep).

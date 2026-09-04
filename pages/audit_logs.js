@@ -1,13 +1,11 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement
+// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
+// soit elle-même masquée par une autre page à l'avenir.
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose,
-        // pour que #user-display-name et #logoutBtn existent dès la suite du script.
+        // HEADER COMMUN — injecté avant toute autre chose, pour que
+        // #user-display-name et #logoutBtn existent dès la suite du script.
         // ============================================================================
         renderPageLayout({
             icon: '📋',
@@ -23,7 +21,7 @@
         // 1. INITIALISATION SUPABASE
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
@@ -80,9 +78,6 @@
                 currentUserEmail = s.email;
                 currentUserName = s.name;
 
-                // P6 (idle timeout) validé le 27/08/2026 sur cette page pilote —
-                // délai de test (15s) retiré, valeur de production (5h par
-                // défaut) appliquée.
                 capHumaStartIdleTimeout(supabaseClient);
                 document.getElementById('user-display-name').textContent = currentUserEmail;
 
@@ -221,7 +216,7 @@
                 const from = currentPage * PAGE_SIZE;
                 const to = from + PAGE_SIZE - 1;
 
-                // capHumaWithRetry() (P19) : buildFilteredLogsQuery() reconstruit un
+                // capHumaWithRetry() : buildFilteredLogsQuery() reconstruit un
                 // query builder à chaque appel — la fonction est donc passée telle
                 // quelle, pas son résultat déjà construit. Ses effets de bord DOM
                 // (bascule de exactDateHint / filterPeriod.disabled) sont sans risque
@@ -287,8 +282,8 @@
         // partagée prend 5 paramètres et génère du HTML avec onclick). Aucun bug de
         // comportement (la déclaration de cette page écrasait silencieusement la version
         // partagée, jamais utilisée ici), mais un piège si quelqu'un modifie un jour la
-        // version partagée en pensant qu'elle s'applique aussi ici. Trouvé via ESLint
-        // (no-redeclare) lors de la vérification de code du 25/08/2026.
+        // version partagée en pensant qu'elle s'applique aussi ici (repérable via
+        // ESLint, règle no-redeclare).
         function updateAuditLogsPaginationControls() {
             const controls = document.getElementById('logsPaginationControls');
             const totalPages = Math.max(1, Math.ceil(currentFilteredCount / PAGE_SIZE));

@@ -1,12 +1,12 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 2/4 : statistiques et graphiques
-// "simples" (KPIs, statut/expat, diversité, contrats détaillés par pool) — tout
-// ce qui est calculé et rendu 100% côté client, sans appel réseau IA. Voir
-// statistics.js (chargé AVANT ce fichier) pour l'explication de StatisticsPage.
+// Statistiques et graphiques "simples" (KPIs, statut/expat, diversité, contrats
+// détaillés par pool) — tout ce qui est calculé et rendu 100% côté client, sans
+// appel réseau IA. Voir statistics.js (chargé AVANT ce fichier) pour
+// l'explication de StatisticsPage.
 (() => {
         // calculateMonthsWithoutMission() a été retirée d'ici : elle vient désormais
         // de shared/caphuma-utils.js (chargé ligne 23), qui est l'unique source pour
-        // les 3 pages concernées (bug 55, MC13 Addendum §2 U1). Comportement
-        // strictement identique — cette page utilisait déjà la méthode calendaire.
+        // les 3 pages concernées. Comportement strictement identique — cette page
+        // utilisait déjà la méthode calendaire.
 
         function updateStatistics() {
             const selectorValue = document.getElementById('pool-selector').value;
@@ -55,11 +55,11 @@
             // Rendu graphiques
             renderStatusChart([occupiedPositions, recruitingPositions, vacantPositions]);
 
-            // La colonne candidate_type n'est pas confirmée dans le schéma réel de
-            // `missions` (section 5 du Master Context). On distingue donc "colonne
-            // absente" (aucun poste n'a la clé, quelle que soit sa casse) de
-            // "colonne présente mais vide", pour ne jamais afficher un graphique
-            // silencieusement faux (100% "Non défini" sans avertissement).
+            // La colonne candidate_type n'est pas garantie présente dans le schéma
+            // réel de `missions`. On distingue donc "colonne absente" (aucun poste
+            // n'a la clé, quelle que soit sa casse) de "colonne présente mais vide",
+            // pour ne jamais afficher un graphique silencieusement faux (100% "Non
+            // défini" sans avertissement).
             const hasCandidateTypeColumn = mData.some(m => 'candidate_type' in m || 'candidateType' in m);
 
             if (!hasCandidateTypeColumn) {
@@ -97,11 +97,11 @@
         }
 
         // ============================================================================
-        // STATISTIQUES DÉTAILLÉES DES CONTRATS PAR POOL (Étape C, cf. Hercules
+        // STATISTIQUES DÉTAILLÉES DES CONTRATS PAR POOL (cf. Hercules
         // positions/stats.ts : getDetailedPositionStats). N'apparaît jamais sur la vue
         // globale — seulement quand un pool précis est sélectionné, pour ne pas toucher
-        // au Hub Statistique global (décision explicite de l'utilisateur, Étape E).
-        // Placée ici (P26) plutôt qu'avec le bloc "analyse IA par pool" d'origine :
+        // au Hub Statistique global (décision explicite de l'utilisateur).
+        // Placée ici plutôt qu'avec le bloc "analyse IA par pool" d'origine :
         // fonction purement client-side, sans appel réseau ni lien avec
         // buildPoolAnalysisStats() — seule sa position textuelle dans l'ancien fichier
         // monolithique la faisait voisiner avec l'IA, pas sa responsabilité réelle.

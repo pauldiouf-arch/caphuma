@@ -1,6 +1,5 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 3/4 : modale création/
-// modification de poste, suppression de poste. Voir missions.js (chargé
-// AVANT ce fichier) pour l'explication de MissionsPage.
+// Modale création/modification de poste, suppression de poste. Voir
+// missions.js (chargé AVANT ce fichier) pour l'explication de MissionsPage.
 (() => {
         const createMissionBtn = document.getElementById('createMissionBtn');
 
@@ -119,8 +118,7 @@
                 project_name: document.getElementById('fieldProjectName').value.trim() || null,
                 candidate_type: candidateType,
                 // is_expat maintenue en cohérence automatique avec candidate_type pour éviter
-                // qu'elle devienne une colonne fantôme jamais alimentée (cf. Master Context
-                // section 0 point 14 sur les colonnes redondantes non tenues à jour).
+                // qu'elle devienne une colonne fantôme jamais alimentée.
                 is_expat: candidateType ? candidateType === 'expat' : null,
                 desk: document.getElementById('fieldDesk').value || null,
                 // Garde-fou : un poste qui n'est plus "occupied" ne peut pas conserver d'occupant affiché.
@@ -215,7 +213,7 @@
                     const previousOccupantId = originalMission ? originalMission.occupant_id : null;
 
                     // L'occupant sort si : il y avait un occupant avant ET (il change, OU le poste
-                    // n'est plus "occupied") — cf. Master Context section 9.3.
+                    // n'est plus "occupied").
                     if (originalMission && previousOccupantId && previousOccupantId !== payload.occupant_id) {
                         await MissionsPage.archiveOutgoingOccupant(originalMission);
                     }
@@ -228,9 +226,9 @@
                     );
                     if (error) throw error;
 
-                    // logAuditAction('update', ...) retiré le 18/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_missions, fiable même
-                    // pour une modification faite hors de cette page.
+                    // Pas d'appel à logAuditAction('update', ...) ici : couvert par le
+                    // trigger Postgres trg_audit_missions, fiable même pour une
+                    // modification faite hors de cette page.
 
                     // Nouvel occupant entrant (affectation ou rotation) : compteurs remis à zéro.
                     if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
@@ -240,17 +238,16 @@
                     toastMessage('Poste mis à jour.', 'success');
                 } else {
                     payload.created_by = MissionsPage.currentUserId;
-                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
-                    // missions n'a aucune contrainte UNIQUE (Dossier de passation §4.2)
-                    // — une relance après perte de réponse dupliquerait silencieusement
-                    // le poste créé.
+                    // Volontairement pas enveloppé dans capHumaWithRetry() : missions n'a
+                    // aucune contrainte UNIQUE (Dossier de passation §4.2) — une relance
+                    // après perte de réponse dupliquerait silencieusement le poste créé.
                     const { error } = await MissionsPage.supabaseClient
                         .from('missions')
                         .insert(payload);
                     if (error) throw error;
 
-                    // logAuditAction('create', ...) retiré le 18/08/2026 (A5) : couvert
-                    // désormais par le trigger Postgres trg_audit_missions.
+                    // Pas d'appel à logAuditAction('create', ...) ici : couvert par le
+                    // trigger Postgres trg_audit_missions.
 
                     if (payload.occupant_id) {
                         await MissionsPage.markIncomingOccupant(payload.occupant_id);
@@ -289,12 +286,12 @@
 
             try {
                 // La suppression d'un poste occupé fait sortir l'occupant au même titre qu'un
-                // changement de statut — on archive avant de supprimer (Master Context section 9.3).
+                // changement de statut — on archive avant de supprimer.
                 if (mission && mission.occupant_id) {
                     await MissionsPage.archiveOutgoingOccupant(mission);
                 }
 
-                // Enveloppé dans capHumaWithRetry() (P19) : sûr à retenter — contrairement
+                // Enveloppé dans capHumaWithRetry() : sûr à retenter — contrairement
                 // aux suppressions ailleurs sur le site, cette page ne vérifie pas le
                 // nombre de lignes affectées après coup, donc pas de contrôle RLS à
                 // rendre ambigu par une relance.
@@ -307,8 +304,8 @@
 
                 if (error) throw error;
 
-                // logAuditAction('delete', ...) retiré le 18/08/2026 (A5) : couvert
-                // désormais par le trigger Postgres trg_audit_missions.
+                // Pas d'appel à logAuditAction('delete', ...) ici : couvert par le
+                // trigger Postgres trg_audit_missions.
                 toastMessage('Poste supprimé.', 'success');
                 await MissionsPage.loadMissions();
 

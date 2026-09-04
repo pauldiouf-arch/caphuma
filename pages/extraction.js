@@ -1,14 +1,12 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement
+// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
+// soit elle-même masquée par une autre page à l'avenir.
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose, y
-        // compris avant les document.getElementById('generateBtn'/'generateBtnLabel')
-        // ci-dessous, puisque ces boutons font partie du header injecté.
+        // HEADER COMMUN — injecté avant toute autre chose, y compris avant les
+        // document.getElementById('generateBtn'/'generateBtnLabel') ci-dessous,
+        // puisque ces boutons font partie du header injecté.
         // ============================================================================
         renderPageLayout({
             icon: '📊',
@@ -25,7 +23,7 @@
         // 1. INITIALISATION SUPABASE
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
@@ -51,9 +49,8 @@
         const positionPoolsSelected = new Set();
 
         // ============================================================================
-        // Journal d'audit (Étape 8) — ne bloque jamais l'action si l'écriture échoue.
-        // Ajouté avec le bouton de déconnexion (Étape A bis), sur le même modèle que
-        // les autres pages du site.
+        // Journal d'audit — ne bloque jamais l'action si l'écriture échoue, sur le
+        // même modèle que les autres pages du site.
         // ============================================================================
         // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
         // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
@@ -105,9 +102,7 @@
         // ============================================================================
         // STATUS_LABELS, DESK_LABELS, CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS,
         // EDU_LEVEL_LABELS, MISSION_COUNT_LABELS sont désormais tous fournis par
-        // shared/caphuma-utils.js (valeurs identiques). Correctif P11 (B13-Q4,
-        // 28/08/2026) : les deux derniers étaient encore déclarés localement ici
-        // avant ce jour, retirés au profit de la version partagée.
+        // shared/caphuma-utils.js (valeurs identiques).
         const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
 
         function fmtDate(value) {
@@ -178,8 +173,8 @@
             pools.forEach(pool => {
                 const count = countFn(pool.pool_id);
                 const checked = selectedSet.has(pool.pool_id);
-                // Correctif P16 (B18-A4, 31/08/2026) : <label> plutôt que <div> —
-                // avant, une <div cursor-pointer> sans équivalent clavier (la
+                // <label> plutôt que <div> : une <div cursor-pointer> seule n'a pas
+                // d'équivalent clavier (la
                 // checkbox à l'intérieur n'était que visuelle, jamais atteignable au
                 // Tab). Un <label> enveloppant une checkbox réelle relaie nativement
                 // le clic ET la touche Espace vers la checkbox, qui redevient

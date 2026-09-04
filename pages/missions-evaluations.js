@@ -1,12 +1,11 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 4/4 : évaluations de l'occupant
-// courant (modale, CRUD, brouillon local P20). Voir missions.js (chargé AVANT
-// ce fichier) pour l'explication de MissionsPage. Section déjà largement
-// autonome avant la scission (peu de dépendances externes), inchangée dans sa
-// logique — seuls les accès à l'état partagé passent désormais par
-// MissionsPage.xxx.
+// Évaluations de l'occupant courant (modale, CRUD, brouillon local). Voir
+// missions.js (chargé AVANT ce fichier) pour l'explication de MissionsPage.
+// Section déjà largement autonome avant la scission (peu de dépendances
+// externes), inchangée dans sa logique — seuls les accès à l'état partagé
+// passent désormais par MissionsPage.xxx.
 (() => {
         // ============================================================================
-        // 7. ÉVALUATIONS DE L'OCCUPANT COURANT (Étape 5, point 9.2)
+        // 7. ÉVALUATIONS DE L'OCCUPANT COURANT
         // ============================================================================
         const evaluationsModal = document.getElementById('evaluationsModal');
         const evaluationsList = document.getElementById('evaluationsList');
@@ -19,7 +18,7 @@
         let currentEvaluationMission = null;
 
         // ============================================================================
-        // BROUILLON LOCAL (backlog B15-R1, priorité P20) — evaluationForm
+        // BROUILLON LOCAL — evaluationForm
         // ----------------------------------------------------------------------------
         // Portée décidée avec l'utilisateur : CRÉATION uniquement, jamais en édition
         // d'une évaluation existante (ce même <form> sert aux deux cas via
@@ -39,7 +38,7 @@
         let currentEvaluationDraftBinding = null;
 
         // Correctif (signalé par l'utilisateur, même bug que new-comment-input dans
-        // id-card.js — P20 Lot 5, Master Context §7) : un collect() qui renvoie des
+        // id-card.js) : un collect() qui renvoie des
         // champs tous vides écrivait quand même un brouillon "vide" en
         // sessionStorage — la prochaine ouverture du panneau proposait alors de
         // restaurer... un formulaire sans contenu. Sert à la fois au filtre de
@@ -76,9 +75,9 @@
         }
 
         // Fermeture du panneau (croix/Échap) : on arrête juste l'autosave, sans
-        // effacer le brouillon — même règle que talentForm (P20/Lot 2, correctif du
-        // 01/09/2026) : fermer sert aussi à sortir provisoirement, pas forcément à
-        // abandonner délibérément une saisie en cours.
+        // effacer le brouillon — même règle que talentForm : fermer sert aussi à
+        // sortir provisoirement, pas forcément à abandonner délibérément une saisie
+        // en cours.
         function stopEvaluationDraftTracking() {
             if (currentEvaluationDraftBinding) {
                 currentEvaluationDraftBinding.stop();
@@ -103,7 +102,7 @@
         });
 
         // Garde-fou local (pas dans shared/caphuma-form-draft.js, même logique que
-        // new-comment-input dans id-card.js, P20 Lot 5) : posé UNE SEULE FOIS ici —
+        // new-comment-input dans id-card.js) : posé UNE SEULE FOIS ici —
         // evaluationForm n'est jamais recréé, seul son contenu est réécrit. Dès que
         // le formulaire redevient entièrement vide (saisie effacée sans valider),
         // le brouillon déjà en sessionStorage est effacé tout de suite plutôt que
@@ -278,7 +277,7 @@
 
             if (!currentEvaluationMission) return;
 
-            // Filet de sécurité (P20) : capture immédiate avant validation, sans
+            // Filet de sécurité : capture immédiate avant validation, sans
             // attendre le debounce — ignorée si on est en édition (collectEvaluationDraft
             // renvoie undefined dans ce cas, voir plus haut).
             if (currentEvaluationDraftBinding) currentEvaluationDraftBinding.saveNow();
@@ -318,10 +317,10 @@
                     payload.talent_id = currentEvaluationMission.occupant_id;
                     payload.author_id = MissionsPage.currentUserId;
                     payload.author_email = MissionsPage.currentUserEmail;
-                    // ⚠️ Volontairement PAS enveloppé dans capHumaWithRetry() (P19) :
-                    // evaluations n'a aucune contrainte UNIQUE (Dossier de passation
-                    // §4.2) — une relance après perte de réponse dupliquerait
-                    // silencieusement l'évaluation ajoutée.
+                    // Volontairement pas enveloppé dans capHumaWithRetry() : evaluations
+                    // n'a aucune contrainte UNIQUE (Dossier de passation §4.2) — une
+                    // relance après perte de réponse dupliquerait silencieusement
+                    // l'évaluation ajoutée.
                     const { error } = await MissionsPage.supabaseClient
                         .from('evaluations')
                         .insert(payload);

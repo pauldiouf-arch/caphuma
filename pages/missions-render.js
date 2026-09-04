@@ -1,7 +1,6 @@
-// Correctif P26 (B13-Q2, Master Context §7) — 2/4 : rendu de la liste des
-// postes, barre de KPIs, statistiques détaillées des contrats. Voir
-// missions.js (chargé AVANT ce fichier) pour l'explication de MissionsPage,
-// l'objet d'état partagé entre les 4 fichiers de cette page.
+// Rendu de la liste des postes, barre de KPIs, statistiques détaillées des
+// contrats. Voir missions.js (chargé AVANT ce fichier) pour l'explication de
+// MissionsPage, l'objet d'état partagé entre les 4 fichiers de cette page.
 (() => {
         // DOM propres à ce fichier (re-sélectionnés localement — sans coût, ce
         // sont de simples document.getElementById() ; pas besoin de les faire
@@ -56,7 +55,7 @@
         MissionsPage.updateKpiBar = updateKpiBar;
 
         // ============================================================================
-        // 3 QUATER. STATISTIQUES DÉTAILLÉES DES CONTRATS (Étape C, cf. Hercules
+        // 3 QUATER. STATISTIQUES DÉTAILLÉES DES CONTRATS (cf. Hercules
         // positions/stats.ts : getDetailedPositionStats). Calculées côté client à
         // partir des postes du pool déjà chargés (MissionsPage.currentMissions), cohérent avec le
         // choix déjà fait pour MissionsPage.updateKpiBar() — pas de requête Supabase supplémentaire.
@@ -176,10 +175,10 @@
 
             const canEdit = MissionsPage.currentUserRole === 'admin' || MissionsPage.currentUserRole === 'user';
 
-            // Correctif P25 (B17-L2, Master Context §7) : les cartes sont construites
-            // dans un DocumentFragment (hors DOM, aucun reflow) puis ajoutées à
-            // missionsGrid en un seul appendChild final, au lieu d'un appendChild par
-            // carte comme avant (jusqu'à MissionsPage.MISSIONS_PAGE_SIZE reflows par rendu).
+            // Les cartes sont construites dans un DocumentFragment (hors DOM, aucun
+            // reflow) puis ajoutées à missionsGrid en un seul appendChild final, plutôt
+            // qu'un appendChild par carte (jusqu'à MissionsPage.MISSIONS_PAGE_SIZE
+            // reflows par rendu).
             // Comportement identique : mêmes cartes, même contenu, même ordre.
             const fragment = document.createDocumentFragment();
 
@@ -245,15 +244,15 @@
                 ?.addEventListener('click', () => goToMissionsPage(MissionsPage.currentPage - 1));
             paginationEl.querySelector('[data-page-nav="next"]')
                 ?.addEventListener('click', () => goToMissionsPage(MissionsPage.currentPage + 1));
-            // Correctif P24 (B13-Q5) : les 4 boucles de ré-attachement qui étaient
-            // ici (.editMissionBtn/.deleteMissionBtn/.evaluationsBtn/
-            // .resyncOccupantBtn) sont remplacées par l'écouteur délégué unique
-            // posé une seule fois sur missionsGrid, voir sa déclaration plus haut.
+            // Les 4 boucles de ré-attachement (.editMissionBtn/.deleteMissionBtn/
+            // .evaluationsBtn/.resyncOccupantBtn) sont remplacées par l'écouteur
+            // délégué unique posé une seule fois sur missionsGrid, voir sa
+            // déclaration plus haut.
         }
 
-        // Correction ponctuelle pour les postes déjà occupés avant l'introduction de la
-        // synchronisation automatique (Étape 5, point 9.3 étendu) — remet à zéro le compteur
-        // de l'occupant actuel sans avoir besoin de changer d'occupant pour déclencher la sync.
+        // Pour les postes déjà occupés avant l'introduction de la synchronisation
+        // automatique — remet à zéro le compteur de l'occupant actuel sans avoir
+        // besoin de changer d'occupant pour déclencher la sync.
         async function resyncOccupant(missionId) {
             const mission = MissionsPage.currentMissions.find(m => m.id === missionId);
             if (!mission || !mission.occupant_id) return;

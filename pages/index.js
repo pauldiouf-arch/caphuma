@@ -1,14 +1,12 @@
-// Correctif P23 (B13-Q1, Master Context §7) : script enveloppé dans une IIFE
-// anonyme pour isoler sa portée — élimine tout risque qu'une déclaration
-// top-level de cette page masque silencieusement une fonction/variable
-// partagée (shared/caphuma-*.js) chargée avant elle, ou soit elle-même
-// masquée par une autre page à l'avenir. Aucun changement de comportement :
-// refactoring pur (règle de méthode citée en Master Context §0).
+// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
+// risque qu'une déclaration top-level de cette page masque silencieusement
+// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
+// soit elle-même masquée par une autre page à l'avenir.
 (() => {
         // ============================================================================
         // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
         // (chargé dans le <head>), qui est la source unique pour les 15 pages.
-        // Voir MC13 Addendum §1.5 (U3) : ceci remplace l'ancien pont localStorage.
+        // Remplace l'ancien pont localStorage.
 
         const bootError = document.getElementById('bootError');
 

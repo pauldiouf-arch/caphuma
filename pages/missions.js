@@ -1,18 +1,19 @@
-// Correctif P26 (B13-Q2, Master Context §7) : missions.js scindé en 4 fichiers
-// par responsabilité — données/session (ce fichier), rendu (missions-render.js),
-// CRUD postes (missions-crud.js), évaluations (missions-evaluations.js).
+// missions.js scindé en 4 fichiers par responsabilité — données/session (ce
+// fichier), rendu (missions-render.js), CRUD postes (missions-crud.js),
+// évaluations (missions-evaluations.js).
 //
-// Ce fichier N'EST PAS enveloppé dans une IIFE contrairement aux 15 pages du
-// site (P23) : les 4 fichiers de cette page doivent partager un état commun
+// Ce fichier N'EST PAS enveloppé dans une IIFE contrairement aux autres pages
+// du site : les 4 fichiers de cette page doivent partager un état commun
 // (session, postes chargés, pool courant...), impossible entre plusieurs
 // balises <script> classiques sans un point de partage explicite — une IIFE
 // isolerait totalement chaque fichier des 3 autres. MissionsPage est ce point
 // unique : UN SEUL global, propre à cette page (jamais de window.xxx
 // explicite ailleurs, jamais réutilisé par une autre page du site — vérifié).
 // Décision utilisateur (option 1 proposée face à ce compromis) : préserve
-// l'esprit de P23 (aucune fonction ni variable métier flottant dans le scope
-// global un peu partout) tout en résolvant le partage inter-fichiers par un
-// seul point nommé et documenté plutôt que plusieurs fuites implicites.
+// l'esprit de l'encapsulation en IIFE des autres pages (aucune fonction ni
+// variable métier flottant dans le scope global un peu partout) tout en
+// résolvant le partage inter-fichiers par un seul point nommé et documenté
+// plutôt que plusieurs fuites implicites.
 //
 // Chaque fichier garde SA PROPRE IIFE pour ses déclarations locales (modales,
 // helpers de formulaire...), et lit/écrit l'état partagé exclusivement via
@@ -20,7 +21,7 @@
 // exposées en fin de fichier via MissionsPage.nomDeFonction = nomDeFonction.
 //
 // Chargement requis dans missions.html, DANS CET ORDRE (scripts classiques,
-// sans module — règle 29) :
+// sans module) :
 //   1. pages/missions.js               (ce fichier — déclare MissionsPage)
 //   2. pages/missions-render.js
 //   3. pages/missions-crud.js
@@ -29,9 +30,9 @@ const MissionsPage = {};
 
 (() => {
         // ============================================================================
-        // HEADER COMMUN (B4, Master Context §7) — injecté avant toute autre chose, y
-        // compris avant les document.getElementById('pageTitle'/'userSubtitle'/
-        // 'navTalents') ci-dessous, puisqu'ils font partie du header injecté.
+        // HEADER COMMUN — injecté avant toute autre chose, y compris avant les
+        // document.getElementById('pageTitle'/'userSubtitle'/'navTalents')
+        // ci-dessous, puisqu'ils font partie du header injecté.
         // pageTitle et userSubtitle gardent un id pour rester réécrivables en JS une
         // fois le pool chargé (ligne ~154 plus bas, comportement inchangé).
         // ============================================================================
@@ -55,7 +56,7 @@ const MissionsPage = {};
         // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
         // ============================================================================
         // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage (MC13 Addendum U3).
+        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
@@ -72,12 +73,11 @@ const MissionsPage = {};
         const navTalents = document.getElementById('navTalents');
         const missionsGrid = document.getElementById('missionsGrid');
 
-        // Correctif P24 (B13-Q5, Master Context §7) : un seul écouteur délégué,
-        // posé UNE FOIS ici plutôt que dans MissionsPage.renderMissions() (voir plus bas), au
-        // lieu de re-sélectionner et ré-attacher N écouteurs sur tout le
-        // conteneur à chaque rendu (4 boucles avant ce correctif). Comportement
-        // strictement identique — mêmes fonctions appelées avec le même
-        // dataset.id, seul le mécanisme d'attachement change.
+        // Un seul écouteur délégué, posé UNE FOIS ici plutôt que dans
+        // MissionsPage.renderMissions() (voir plus bas), au lieu de re-sélectionner
+        // et ré-attacher N écouteurs sur tout le conteneur à chaque rendu.
+        // Comportement strictement identique — mêmes fonctions appelées avec le
+        // même dataset.id, seul le mécanisme d'attachement change.
         missionsGrid.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.editMissionBtn');
             if (editBtn) { MissionsPage.openEditModal(editBtn.dataset.id); return; }
@@ -96,13 +96,13 @@ const MissionsPage = {};
         const createMissionBtn = document.getElementById('createMissionBtn');
 
         // Échappement HTML systématique de toute donnée venant de la base
-        // avant injection via innerHTML — prévention XSS (audit sécurité, cf. Master Context section 7).
+        // avant injection via innerHTML — prévention XSS.
 
         // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // ⚠️ Changement de mécanisme : cette page réutilisait un <div id="toast">
+        // Changement de mécanisme : cette page réutilisait un <div id="toast">
         // statique (toujours présent dans le HTML, désormais inutilisé mais
         // inoffensif) ; la version partagée crée son propre élément à chaque
-        // appel, comme les 5 autres pages (voir MC13 Addendum, point A3).
+        // appel, comme les autres pages.
 
         // Récupération du pool depuis l'URL (ex. missions.html?pool=COLOG)
         const urlParams = new URLSearchParams(window.location.search);
@@ -115,7 +115,7 @@ const MissionsPage = {};
         }
 
         navTalents.href = 'talents.html?pool=' + encodeURIComponent(MissionsPage.currentPoolId);
-        // L'analyse IA de ce pool a été déplacée sur statistics.html (Étape E) — lien
+        // L'analyse IA de ce pool a été déplacée sur statistics.html — lien
         // de redirection pour les habitués de l'ancien bouton "Analyser ce pool".
         document.getElementById('navPoolStats').href = 'statistics.html?pool=' + encodeURIComponent(MissionsPage.currentPoolId);
 
@@ -127,7 +127,7 @@ const MissionsPage = {};
         MissionsPage.currentMissions = [];
         MissionsPage.currentPage = 1;
         MissionsPage.MISSIONS_PAGE_SIZE = 12;
-        // ⚡ Optimisation : liste explicite des colonnes de "missions" réellement utilisées
+        // Liste explicite des colonnes de "missions" réellement utilisées
         // dans ce fichier (vérifiée par grep exhaustif sur tout le fichier), utilisée à la
         // place de select('*') aux 2 endroits qui chargent la liste complète du pool
         // (loadMissions() + rafraîchissement après rotation automatique dans
@@ -139,7 +139,7 @@ const MissionsPage = {};
         MissionsPage.talentNameById = {};
 
         // ============================================================================
-        // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
+        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue. Volontairement
         // pas d'instrumentation sur les évaluations individuelles (create/update/delete) :
         // trop bruyant pour peu de valeur RGPD, seules les actions sur les postes
@@ -204,7 +204,7 @@ const MissionsPage = {};
         }
 
         checkSession();
-        capHumaInitModalA11y(); // P15 (B18-A3) — voir shared/caphuma-utils.js
+        capHumaInitModalA11y(); // voir shared/caphuma-utils.js
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
             await logAuditAction('logout', 'user', MissionsPage.currentUserId, MissionsPage.currentUserEmail, null);
@@ -241,7 +241,7 @@ const MissionsPage = {};
 
         async function loadPoolTalents() {
             try {
-                // Colonnes strictement nécessaires (règle perf Master Context section 2 bis.2)
+                // Colonnes strictement nécessaires (pas de select('*'))
                 const { data: talents, error } = await capHumaWithRetry(() =>
                     MissionsPage.supabaseClient
                         .from('talents')
@@ -283,7 +283,7 @@ const MissionsPage = {};
             try {
                 missionsError.classList.add('hidden');
 
-                // ⚡ Optimisation : liste explicite de colonnes (MissionsPage.MISSIONS_COLUMNS ci-dessus)
+                // Liste explicite de colonnes (MissionsPage.MISSIONS_COLUMNS ci-dessus)
                 // au lieu de select('*') — la modale d'édition continue de se remplir
                 // directement depuis cette liste (même logique qu'avant), juste avec
                 // uniquement les colonnes qu'elle utilise réellement.
@@ -330,9 +330,8 @@ const MissionsPage = {};
         //     (archivage), PUIS :
         //       • si un futur occupant est déjà identifié (future_talent_id) → rotation
         //         automatique : il devient l'occupant, avec son propre contrat (dates
-        //         future_contract_start_date/end_date déjà saisies à l'avance) — point
-        //         ouvert historique du Master Context ("rotation automatique du futur
-        //         occupant"), jamais construit jusqu'ici, cf. Hercules
+        //         future_contract_start_date/end_date déjà saisies à l'avance) —
+        //         jamais construit jusqu'ici ailleurs, cf. Hercules
         //         positions/mutations.ts : processExpiredContracts.
         //       • sinon → poste vacant (comportement inchangé).
         //   - tout autre cas (ongoing/renewable/non précisé) → aucune écriture
@@ -419,7 +418,7 @@ const MissionsPage = {};
         MissionsPage.loadMissions = loadMissions;
 
         // ============================================================================
-        // 6 BIS. SORTIE / ENTRÉE D'UN OCCUPANT (Étape 5, point 9.3 + suivi des compteurs)
+        // 6 BIS. SORTIE / ENTRÉE D'UN OCCUPANT (suivi des compteurs)
         // ============================================================================
         // À la SORTIE d'un occupant (changement d'occupant, passage à vacant/recruiting,
         // ou suppression du poste) :
@@ -490,7 +489,7 @@ const MissionsPage = {};
                     throw new Error("La mise à jour de l'historique du talent n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // Enveloppé dans capHumaWithRetry() (P19) : suppression par mission_id,
+                // Enveloppé dans capHumaWithRetry() : suppression par mission_id,
                 // aucun contrôle de lignes affectées ici — sûr à retenter (idempotent :
                 // une 2e tentative ne trouve simplement plus rien à supprimer).
                 const { error: deleteErr } = await capHumaWithRetry(() =>
