@@ -65,16 +65,14 @@ const TalentsPage = {};
         // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée. Ne bloque
         // jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
-            // le fait que user_name n'était jamais transmis sur certaines pages.
-            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
-            await capHumaLogAudit(
-                TalentsPage.supabaseClient,
-                { userId: TalentsPage.currentUserId, userEmail: TalentsPage.currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => TalentsPage.supabaseClient,
+            () => ({
+                userId: TalentsPage.currentUserId,
+                userEmail: TalentsPage.currentUserEmail,
+                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
+            })
+        );
 
         async function checkSession() {
             try {

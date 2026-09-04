@@ -50,16 +50,18 @@ const IdCardPage = {};
         // l'écriture du log échoue (le log est secondaire à l'action réelle) :
         // erreur avalée en console uniquement, jamais remontée à l'utilisateur.
         // ============================================================================
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
-            // le fait que user_name n'était jamais transmis sur certaines pages.
-            const userName = typeof currentUserName !== 'undefined' ? currentUserName : null;
-            await capHumaLogAudit(
-                IdCardPage.supabaseClient,
-                { userId: IdCardPage.currentUserId, userEmail: currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        // Fabriquée avec des getters (pas des valeurs) : IdCardPage.supabaseClient
+        // vaut encore null ici (assigné plus bas dans checkSession(), après
+        // DOMContentLoaded) — capHumaMakeAuditLogger() relit getSupabaseClient() à
+        // chaque appel de logAuditAction(), jamais figé à la création.
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => IdCardPage.supabaseClient,
+            () => ({
+                userId: IdCardPage.currentUserId,
+                userEmail: currentUserEmail,
+                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
+            })
+        );
 
         // ============================================================================
         // NORMALISATION DES PASSAGES ARCHIVÉS (compatibilité double format)

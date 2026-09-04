@@ -31,13 +31,10 @@
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            await capHumaLogAudit(
-                supabaseClient,
-                { userId: currentUserId, userEmail: currentUserEmail, userName: currentUserName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        const logAuditAction = capHumaMakeAuditLogger(
+            () => supabaseClient,
+            () => ({ userId: currentUserId, userEmail: currentUserEmail, userName: currentUserName })
+        );
 
         async function checkSession() {
             if (!supabaseClient) {

@@ -5,7 +5,7 @@
  * Factorise la partie COMMUNE de la session/authentification et du journal
  * d'audit, utilisée par les 12 pages protégées du site.
  *
- * ⚠️ Choix de conception important : ce fichier NE déclare AUCUNE variable
+ * Choix de conception important : ce fichier NE déclare AUCUNE variable
  * globale de type "currentUserId" / "currentUserRole" etc. Chaque page garde
  * ses propres variables (déjà déclarées en haut de son <script>) et les
  * remplit à partir de la valeur retournée par capHumaInitSession(). Cela
@@ -26,7 +26,7 @@
  * Ne fait AUCUNE redirection et ne lève PAS d'exception pour un rôle refusé :
  * la décision "qui a le droit de voir cette page" reste entièrement dans la
  * page elle-même (elle varie trop d'une page à l'autre pour être généralisée
- * sans risque — cf. Master Context §22).
+ * sans risque).
  *
  * @param {Object} supabaseClient
  * @returns {Promise<{session: Object, userId: string, email: string, role: string, name: string, isActive: boolean}>}
@@ -48,12 +48,11 @@ async function capHumaInitSession(supabaseClient) {
         .select('role, name, is_active')
         .eq('id', userId);
 
-    // Correctif B1 (19/08/2026, décision utilisateur) : refus EXPLICITE plutôt
-    // que de laisser entrer avec role=null. Avant ce correctif, une erreur de
+    // Refus EXPLICITE plutôt que de laisser entrer avec role=null : une erreur de
     // lecture du profil OU un profil absent de `users` (compte auth existant
     // mais jamais rattaché à une ligne `users`, ou supprimé de `users` sans
-    // supprimer le compte auth) faisait silencieusement passer role=null —
-    // chaque page devait alors se débrouiller seule face à ce rôle inconnu.
+    // supprimer le compte auth) ferait sinon silencieusement passer role=null —
+    // chaque page devrait alors se débrouiller seule face à ce rôle inconnu.
     if (profileError) {
         throw new Error('Impossible de vérifier le profil utilisateur.');
     }
@@ -78,10 +77,10 @@ async function capHumaInitSession(supabaseClient) {
  * d'écriture du log ne doit jamais bloquer l'action métier réelle (cohérent
  * avec le comportement déjà en place sur toutes les pages avant la refonte).
  *
- * ⚠️ Règle de méthode n°23 : si cet appel est suivi d'une redirection/
- * changement de page, la page appelante DOIT faire `await capHumaLogAudit(...)`
- * avant de rediriger — ne jamais lancer l'écriture "en tâche de fond" juste
- * avant un window.location.href.
+ * Si cet appel est suivi d'une redirection/changement de page, la page
+ * appelante DOIT faire `await capHumaLogAudit(...)` avant de rediriger —
+ * ne jamais lancer l'écriture "en tâche de fond" juste avant un
+ * window.location.href.
  *
  * @param {Object} supabaseClient
  * @param {{userId: string, userEmail: string, userName?: string}} ctx  Identité de l'auteur de l'action
@@ -109,18 +108,35 @@ async function capHumaLogAudit(supabaseClient, ctx, action, entityType, entityId
 }
 
 /**
- * ============================================================================
- * DÉCONNEXION APRÈS INACTIVITÉ (backlog B14-I2, priorité P6)
- * ----------------------------------------------------------------------------
- * À l'origine dans un fichier séparé shared/caphuma-idle-timeout.js —
- * regroupé ici le 27/08/2026 (décision utilisateur, même motif que
- * captureError() dans caphuma-utils.js : éviter un fichier de plus à
- * charger sur chaque page pour un coût réseau évitable). Aucun changement
- * de comportement, uniquement un déplacement — sa place est de toute façon
- * cohérente ici, ce fichier gérant déjà tout ce qui touche à la session.
+ * Fabrique une fonction logAuditAction(action, entityType, entityId,
+ * entityName, details) déjà liée au client Supabase et à l'identité de
+ * l'appelant, pour éviter à chaque page de réécrire le même wrapper autour
+ * de capHumaLogAudit() ci-dessus.
  *
- * Durée retenue (décision utilisateur, 27/08/2026 — règle 16) : 5 HEURES,
- * pas les 30 minutes du sketch initial du Master Context. Motif : les
+ * Les deux paramètres sont des fonctions, pas des valeurs, réévaluées à
+ * CHAQUE appel de logAuditAction() plutôt qu'une seule fois à la création.
+ * Nécessaire pour getCtx (l'identité n'est connue qu'après capHumaInitSession,
+ * potentiellement après que logAuditAction ait déjà été fabriquée) et tout
+ * autant pour getSupabaseClient : certaines pages n'assignent leur client
+ * réel que plus tard, dans un checkSession() asynchrone, après que le reste
+ * du script (donc la fabrication du logger) s'est déjà exécuté — un
+ * paramètre pris par valeur figerait alors un client absent pour toujours.
+ *
+ * @param {() => Object} getSupabaseClient
+ * @param {() => {userId: string, userEmail: string, userName?: string}} getCtx
+ * @returns {(action: string, entityType: string, entityId: string|null, entityName: string|null, details: Object|null) => Promise<void>}
+ */
+function capHumaMakeAuditLogger(getSupabaseClient, getCtx) {
+    return async function logAuditAction(action, entityType, entityId, entityName, details) {
+        await capHumaLogAudit(getSupabaseClient(), getCtx(), action, entityType, entityId, entityName, details);
+    };
+}
+
+/**
+ * ============================================================================
+ * DÉCONNEXION APRÈS INACTIVITÉ
+ * ----------------------------------------------------------------------------
+ * Durée retenue : 5 HEURES, pas les 30 minutes du sketch initial. Motif : les
  * recruteurs gardent le site ouvert toute la journée sans y être en continu ;
  * une déconnexion toutes les 30-60 min serait pénible en usage réel. La nuit
  * (poste laissé sans surveillance) reste couverte par la consigne de
