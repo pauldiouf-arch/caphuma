@@ -37,10 +37,17 @@
         const pageError = document.getElementById('pageError');
         const emptyState = document.getElementById('emptyState');
 
-        let currentUserId = null;
-        let currentUserName = null;
-        let currentUserRole = null;
-        let currentUserEmail = null;
+        // État de page regroupé dans un objet unique plutôt que dispersé en une
+        // dizaine de variables locales (B13-Q7) — déclaré à l'intérieur de l'IIFE,
+        // pas exposé globalement : contrairement à TalentsPage/MissionsPage/etc.,
+        // cette page n'a jamais été scindée en plusieurs fichiers, donc aucun besoin
+        // de partage inter-fichiers qui justifierait de sortir cet objet de l'IIFE.
+        const pageState = {};
+
+        pageState.currentUserId = null;
+        pageState.currentUserName = null;
+        pageState.currentUserRole = null;
+        pageState.currentUserEmail = null;
 
         // Échappement HTML systématique de toute donnée provenant de la base
         // avant injection via innerHTML — prévention XSS.
@@ -49,17 +56,16 @@
         // JOURNAL D'AUDIT (Étape 8) — voir id-card.html pour la logique détaillée.
         // Ne bloque jamais l'action métier si l'écriture du log échoue.
         // ============================================================================
-        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
-        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
-        // la création.
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => supabaseClient,
-            () => ({
-                userId: currentUserId,
-                userEmail: currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
-            })
-        );
+        async function logAuditAction(action, entityType, entityId, entityName, details) {
+            // Délègue à shared/caphuma-auth.js (fonction commune) — corrige au passage
+            // le fait que user_name n'était jamais transmis sur certaines pages.
+            const userName = typeof pageState.currentUserName !== 'undefined' ? pageState.currentUserName : null;
+            await capHumaLogAudit(
+                supabaseClient,
+                { userId: pageState.currentUserId, userEmail: pageState.currentUserEmail, userName: userName },
+                action, entityType, entityId, entityName, details
+            );
+        }
 
         // ============================================================================
         // 2. GARDE DE SESSION (identique au pattern de dashboard.html)
@@ -68,14 +74,14 @@
             try {
                 const s = await capHumaInitSession(supabaseClient);
 
-                currentUserId = s.userId;
-                currentUserEmail = s.email;
-                document.getElementById('user-display-name').textContent = currentUserEmail;
-                currentUserRole = s.role;
-                currentUserName = s.name;
+                pageState.currentUserId = s.userId;
+                pageState.currentUserEmail = s.email;
+                document.getElementById('user-display-name').textContent = pageState.currentUserEmail;
+                pageState.currentUserRole = s.role;
+                pageState.currentUserName = s.name;
 
                 // Page réservée admin + user (recruteur), bloquée pour visitor
-                if (currentUserRole === 'visitor') {
+                if (pageState.currentUserRole === 'visitor') {
                     throw new Error("Accès non autorisé pour ce rôle.");
                 }
 
@@ -92,7 +98,7 @@
         capHumaInitModalA11y(); // P15 (B18-A3) — voir shared/caphuma-utils.js
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await logAuditAction('logout', 'user', pageState.currentUserId, pageState.currentUserEmail, null);
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });
@@ -108,22 +114,22 @@
         //    des talents dévalidés, regroupés par pool comme avant la refonte (le
         //    filtrage par date n'est pas traduisible simplement en requête paginée
         //    combinée à un regroupement visuel par pool).
-        let allPools = [];
-        let allDevalidatedTalents = []; // uniquement rempli en mode "filtre actif"
-        let devalidatedPage = 1;
+        pageState.allPools = [];
+        pageState.allDevalidatedTalents = []; // uniquement rempli en mode "filtre actif"
+        pageState.devalidatedPage = 1;
         const DEVALIDATED_PAGE_SIZE = 20;
 
         // Correctif P7 (B17-L1, 27/08/2026, décision utilisateur) : affichage
         // progressif en mode FILTRÉ uniquement (pool/date) — le mode par défaut
         // ci-dessus est déjà paginé côté requête (20/page), pas concerné.
-        // devalidatedPoolSections garde une référence à chaque section de pool
+        // pageState.devalidatedPoolSections garde une référence à chaque section de pool
         // déjà construite, pour que "Afficher plus" y AJOUTE des lignes au lieu
         // de dupliquer le pool dans une nouvelle section plus bas (voir
         // renderGroupedByPool()).
         const RENDER_BATCH_SIZE = 25;
-        let devalidatedFilteredTalents = [];
-        let devalidatedRenderedCount = 0;
-        let devalidatedPoolSections = {};
+        pageState.devalidatedFilteredTalents = [];
+        pageState.devalidatedRenderedCount = 0;
+        pageState.devalidatedPoolSections = {};
 
         const filterPoolSelect = document.getElementById('filterPool');
         const filterDateFrom = document.getElementById('filterDateFrom');
@@ -139,19 +145,19 @@
         }
 
         function poolLabel(poolId) {
-            const found = allPools.find(p => p.pool_id === poolId);
+            const found = pageState.allPools.find(p => p.pool_id === poolId);
             return found ? (found.full_name || found.name) : (poolId || '—');
         }
 
         async function loadDevalidatedTalents(page) {
             try {
                 // Liste des pools chargée une seule fois (sert au filtre + aux libellés).
-                if (allPools.length === 0) {
+                if (pageState.allPools.length === 0) {
                     const poolsRes = await capHumaWithRetry(() =>
                         supabaseClient.from('pools').select('pool_id, name, full_name').order('name', { ascending: true })
                     );
                     if (poolsRes.error) throw poolsRes.error;
-                    allPools = poolsRes.data || [];
+                    pageState.allPools = poolsRes.data || [];
                     populatePoolFilterOptions();
                 }
 
@@ -159,7 +165,7 @@
                     paginationContainer.innerHTML = '';
                     await loadAndRenderFiltered();
                 } else {
-                    await loadAndRenderPaged(page || devalidatedPage);
+                    await loadAndRenderPaged(page || pageState.devalidatedPage);
                 }
             } catch (error) {
                 console.error("Erreur de chargement des dévalidés :", error);
@@ -171,14 +177,14 @@
 
         // Mode par défaut (aucun filtre) : pagination réelle, liste plate.
         async function loadAndRenderPaged(page) {
-            devalidatedPage = page;
+            pageState.devalidatedPage = page;
 
             // Correctif P7 : ce mode a sa propre pagination (Précédent/Suivant),
             // pas de "Afficher plus" ici — on efface l'état du mode filtré pour
             // ne pas laisser un bouton/compteur d'une session de filtre précédente
             // affiché par erreur.
-            devalidatedFilteredTalents = [];
-            devalidatedRenderedCount = 0;
+            pageState.devalidatedFilteredTalents = [];
+            pageState.devalidatedRenderedCount = 0;
             updateDevalidatedShowMoreControls();
 
             // Note (P19) : paginateQuery() retente déjà automatiquement en interne
@@ -189,7 +195,7 @@
                     .eq('is_valid', false)
                     .order('devalidation_date', { ascending: false }),
                 supabaseClient,
-                devalidatedPage,
+                pageState.devalidatedPage,
                 DEVALIDATED_PAGE_SIZE
             );
 
@@ -209,9 +215,9 @@
 
             paginationContainer.innerHTML = renderPaginationControls(result.page, result.totalPages, result.count);
             paginationContainer.querySelector('[data-page-nav="prev"]')
-                ?.addEventListener('click', () => loadDevalidatedTalents(devalidatedPage - 1));
+                ?.addEventListener('click', () => loadDevalidatedTalents(pageState.devalidatedPage - 1));
             paginationContainer.querySelector('[data-page-nav="next"]')
-                ?.addEventListener('click', () => loadDevalidatedTalents(devalidatedPage + 1));
+                ?.addEventListener('click', () => loadDevalidatedTalents(pageState.devalidatedPage + 1));
         }
 
         // Mode filtré : comportement identique à avant la refonte (chargement complet,
@@ -226,7 +232,7 @@
             );
 
             if (error) throw error;
-            allDevalidatedTalents = data || [];
+            pageState.allDevalidatedTalents = data || [];
             applyFiltersAndRender();
         }
 
@@ -236,7 +242,7 @@
         function populatePoolFilterOptions() {
             if (filterPoolSelect.dataset.populated === 'true') return;
 
-            allPools.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(p => {
+            pageState.allPools.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.pool_id;
                 opt.textContent = p.full_name || p.name;
@@ -254,7 +260,7 @@
             const fromVal = filterDateFrom.value ? new Date(filterDateFrom.value + 'T00:00:00') : null;
             const toVal = filterDateTo.value ? new Date(filterDateTo.value + 'T23:59:59') : null;
 
-            const filtered = allDevalidatedTalents.filter(t => {
+            const filtered = pageState.allDevalidatedTalents.filter(t => {
                 if (poolFilterVal && t.pool !== poolFilterVal) return false;
 
                 if (fromVal || toVal) {
@@ -270,7 +276,7 @@
             if (filtered.length === 0) {
                 poolsContainer.innerHTML = '';
                 emptyState.classList.remove('hidden');
-                emptyState.textContent = allDevalidatedTalents.length === 0
+                emptyState.textContent = pageState.allDevalidatedTalents.length === 0
                     ? '✅ Aucun talent dévalidé actuellement.'
                     : '🔎 Aucun talent dévalidé ne correspond à ces filtres.';
                 updateDevalidatedShowMoreControls();
@@ -281,21 +287,21 @@
 
             // Correctif P7 : repart de zéro (nouveau filtre = nouveau résultat),
             // puis affiche le premier lot seulement.
-            devalidatedFilteredTalents = filtered;
-            devalidatedRenderedCount = 0;
-            devalidatedPoolSections = {};
+            pageState.devalidatedFilteredTalents = filtered;
+            pageState.devalidatedRenderedCount = 0;
+            pageState.devalidatedPoolSections = {};
             poolsContainer.innerHTML = '';
             renderMoreDevalidated();
         }
 
-        // Correctif P7 : affiche le prochain lot de devalidatedFilteredTalents,
+        // Correctif P7 : affiche le prochain lot de pageState.devalidatedFilteredTalents,
         // en l'ajoutant aux sections de pool déjà à l'écran (append = true dès
         // le 2ᵉ lot) plutôt qu'en reconstruisant toute la page.
         function renderMoreDevalidated() {
-            const isFirstBatch = devalidatedRenderedCount === 0;
-            const batch = devalidatedFilteredTalents.slice(devalidatedRenderedCount, devalidatedRenderedCount + RENDER_BATCH_SIZE);
-            renderGroupedByPool(allPools, batch, !isFirstBatch);
-            devalidatedRenderedCount += batch.length;
+            const isFirstBatch = pageState.devalidatedRenderedCount === 0;
+            const batch = pageState.devalidatedFilteredTalents.slice(pageState.devalidatedRenderedCount, pageState.devalidatedRenderedCount + RENDER_BATCH_SIZE);
+            renderGroupedByPool(pageState.allPools, batch, !isFirstBatch);
+            pageState.devalidatedRenderedCount += batch.length;
             updateDevalidatedShowMoreControls();
         }
 
@@ -306,17 +312,17 @@
             const countLabel = document.getElementById('devalidatedRenderedCountLabel');
             if (!showMoreBtn || !countLabel) return;
 
-            if (!devalidatedFilteredTalents.length) {
+            if (!pageState.devalidatedFilteredTalents.length) {
                 showMoreBtn.classList.add('hidden');
                 countLabel.classList.add('hidden');
                 return;
             }
 
             countLabel.classList.remove('hidden');
-            const shown = Math.min(devalidatedRenderedCount, devalidatedFilteredTalents.length);
-            countLabel.textContent = `${shown} sur ${devalidatedFilteredTalents.length} affiché${devalidatedFilteredTalents.length > 1 ? 's' : ''}`;
+            const shown = Math.min(pageState.devalidatedRenderedCount, pageState.devalidatedFilteredTalents.length);
+            countLabel.textContent = `${shown} sur ${pageState.devalidatedFilteredTalents.length} affiché${pageState.devalidatedFilteredTalents.length > 1 ? 's' : ''}`;
 
-            showMoreBtn.classList.toggle('hidden', devalidatedRenderedCount >= devalidatedFilteredTalents.length);
+            showMoreBtn.classList.toggle('hidden', pageState.devalidatedRenderedCount >= pageState.devalidatedFilteredTalents.length);
         }
 
         document.getElementById('devalidatedShowMoreBtn')?.addEventListener('click', renderMoreDevalidated);
@@ -329,14 +335,14 @@
             filterPoolSelect.value = '';
             filterDateFrom.value = '';
             filterDateTo.value = '';
-            devalidatedPage = 1;
+            pageState.devalidatedPage = 1;
             loadDevalidatedTalents(1);
         });
 
         function renderGroupedByPool(pools, talents, append = false) {
             if (!append) {
                 poolsContainer.innerHTML = '';
-                devalidatedPoolSections = {};
+                pageState.devalidatedPoolSections = {};
             }
 
             // Regroupement par pool_id, en conservant l'ordre des pools connus
@@ -351,7 +357,7 @@
                 // Correctif P7 : si ce pool a déjà sa section (lot précédent), on
                 // récupère sa liste existante pour y AJOUTER les nouvelles lignes,
                 // au lieu de créer une 2ᵉ section dupliquée pour le même pool.
-                let existing = devalidatedPoolSections[poolId];
+                let existing = pageState.devalidatedPoolSections[poolId];
                 let list;
                 let countBadge;
 
@@ -376,8 +382,8 @@
 
                     countBadge = header.querySelector('[data-pool-count]');
                     poolsContainer.appendChild(section);
-                    devalidatedPoolSections[poolId] = { list, countBadge, count: 0 };
-                    existing = devalidatedPoolSections[poolId];
+                    pageState.devalidatedPoolSections[poolId] = { list, countBadge, count: 0 };
+                    existing = pageState.devalidatedPoolSections[poolId];
                 }
 
                 // Correctif P25 (B17-L2, Master Context §7) : les lignes du lot sont
@@ -434,7 +440,7 @@
                     <button class="btn-redlist bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-3 py-2 rounded-lg text-xs font-bold transition-all">
                         ⚠️ Liste Rouge
                     </button>` : ''}
-                    ${currentUserRole === 'admin' ? `
+                    ${pageState.currentUserRole === 'admin' ? `
                     <button class="btn-delete bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">
                         🗑️ Supprimer définitivement
                     </button>` : ''}
@@ -497,7 +503,7 @@
         // ============================================================================
         // 5. ACTION : METTRE EN LISTE ROUGE (même dialogue que red_list.html / id-card.html)
         // ============================================================================
-        let redListTargetTalent = null;
+        pageState.redListTargetTalent = null;
         const redListModal = document.getElementById('redListModal');
         const redListReasonInput = document.getElementById('redListReasonInput');
         const redListModalError = document.getElementById('redListModalError');
@@ -510,33 +516,33 @@
         // evaluationForm : ouverture → offre de restauration + autosave ; Annuler/× →
         // arrêt seul (le brouillon reste, voir correctif du 01/09/2026 sur talentForm) ;
         // succès → effacement définitif.
-        let currentRedListDraftKey = null;
-        let currentRedListDraftBinding = null;
+        pageState.currentRedListDraftKey = null;
+        pageState.currentRedListDraftBinding = null;
 
         function startRedListDraftTracking(talentId) {
             stopRedListDraftTracking();
-            currentRedListDraftKey = `draft:redlist_devalidated:${talentId}`;
-            capHumaOfferDraftRestore(currentRedListDraftKey, (data) => capHumaDefaultDraftRestore(redListModal, data));
-            currentRedListDraftBinding = capHumaAttachDraftAutosave(redListModal, currentRedListDraftKey);
+            pageState.currentRedListDraftKey = `draft:redlist_devalidated:${talentId}`;
+            capHumaOfferDraftRestore(pageState.currentRedListDraftKey, (data) => capHumaDefaultDraftRestore(redListModal, data));
+            pageState.currentRedListDraftBinding = capHumaAttachDraftAutosave(redListModal, pageState.currentRedListDraftKey);
         }
 
         function stopRedListDraftTracking() {
-            if (currentRedListDraftBinding) {
-                currentRedListDraftBinding.stop();
-                currentRedListDraftBinding = null;
+            if (pageState.currentRedListDraftBinding) {
+                pageState.currentRedListDraftBinding.stop();
+                pageState.currentRedListDraftBinding = null;
             }
         }
 
         function discardRedListDraft() {
             stopRedListDraftTracking();
-            if (currentRedListDraftKey) {
-                capHumaDraftClear(currentRedListDraftKey);
-                currentRedListDraftKey = null;
+            if (pageState.currentRedListDraftKey) {
+                capHumaDraftClear(pageState.currentRedListDraftKey);
+                pageState.currentRedListDraftKey = null;
             }
         }
 
         function openRedListModal(t) {
-            redListTargetTalent = t;
+            pageState.redListTargetTalent = t;
             redListReasonInput.value = '';
             redListModalError.classList.add('hidden');
             redListModalTalentName.textContent = `${t.first_name} ${t.last_name}`;
@@ -548,7 +554,7 @@
         function closeRedListModal() {
             redListModal.classList.add('hidden');
             redListModal.classList.remove('flex');
-            redListTargetTalent = null;
+            pageState.redListTargetTalent = null;
         }
 
         document.getElementById('redListModalCancel').addEventListener('click', () => {
@@ -572,10 +578,10 @@
                             is_red_listed: true,
                             red_list_date: new Date().toISOString(),
                             red_list_reason: reason,
-                            red_list_added_by: currentUserId,
-                            red_list_added_by_name: currentUserName
+                            red_list_added_by: pageState.currentUserId,
+                            red_list_added_by_name: pageState.currentUserName
                         })
-                        .eq('id', redListTargetTalent.id)
+                        .eq('id', pageState.redListTargetTalent.id)
                 );
 
                 if (error) throw error;
