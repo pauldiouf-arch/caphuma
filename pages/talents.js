@@ -192,6 +192,15 @@ const TalentsPage = {};
                 // un query builder tout neuf (avec les mêmes filtres) plutôt que de
                 // réutiliser un objet déjà attendu une 1re fois.
                 const { data, error } = await capHumaWithRetry(() => {
+                    // P36 (B20-5) : volontairement laissé en select('*'), pas resserré
+                    // comme statistics.js/missions.js. Ces lignes alimentent
+                    // TalentsPage.openEditModal() (talents-modal.js) via
+                    // populateBasicFields(), qui peuple le formulaire par
+                    // Object.keys(talent) — une colonne absente du select resterait
+                    // silencieusement vide à l'édition (26 champs nommés dans
+                    // talentForm, sans compter tags/formations). Le gain de payload ne
+                    // justifie pas ce risque de régression silencieuse. Voir Master
+                    // Context §7 Bloc B20, P36 pour la discussion complète.
                     let query = TalentsPage.supabaseClient.from('talents').select('*').order('last_name', { ascending: true });
                     if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                     return query;
@@ -230,6 +239,9 @@ const TalentsPage = {};
                 // (avec tous ses filtres conditionnels) est reconstruite à chaque
                 // tentative de capHumaWithRetry().
                 const { data, error, count } = await capHumaWithRetry(() => {
+                    // P36 (B20-5) : même raison que fetchAllTalents() ci-dessus — ces
+                    // lignes alimentent aussi TalentsPage.openEditModal() en mode
+                    // paginé par défaut. Volontairement laissé en select('*').
                     let query = TalentsPage.supabaseClient
                         .from('talents')
                         .select('*', { count: 'exact' })
@@ -887,7 +899,15 @@ const TalentsPage = {};
                     const sortColumn = sortColumnMap[TalentsPage.searchFilters.sortBy] || 'pool_integration_date';
                     const ascending = TalentsPage.searchFilters.sortOrder === 'asc';
                     const { data, error } = await capHumaWithRetry(() => {
-                        let query = TalentsPage.supabaseClient.from('talents').select('*').order(sortColumn, { ascending });
+                        // P36 (B20-5) : resserré à la liste exacte des colonnes lues par
+                        // le mapping d'export juste en dessous (rows.map) et par
+                        // formatAvailabilityLabel(). Sûr à faire ici, contrairement aux
+                        // deux autres select('*') de ce fichier (fetchAllTalents/
+                        // fetchPagedTalents) : ces lignes-ci ne servent QUE au mapping
+                        // Excel de cette fonction, jamais à TalentsPage.openEditModal()
+                        // (talents-modal.js), qui peuple le formulaire via
+                        // Object.keys(talent) et a donc besoin de la ligne complète.
+                        let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa').order(sortColumn, { ascending });
                         if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                         if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
                         return query;
