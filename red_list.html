@@ -65,7 +65,7 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         <!-- Bannière d'alerte -->
-        <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
+        <div id="error-banner" role="alert" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
             <div class="flex items-start gap-3">
                 <span class="text-red-500 font-bold text-xl">⚠️</span>
                 <div>
@@ -76,7 +76,7 @@
         </div>
 
         <!-- Bannière d'accès refusé (masquée par défaut, affichée si visitor ou rôle inconnu) -->
-        <div id="access-denied-banner" class="hidden bg-white border border-slate-200 rounded-3xl p-10 shadow-sm text-center space-y-3">
+        <div id="access-denied-banner" role="alert" class="hidden bg-white border border-slate-200 rounded-3xl p-10 shadow-sm text-center space-y-3">
             <span class="text-4xl">🛡️</span>
             <h2 class="text-xl font-bold text-slate-900">Accès réservé aux admins et recruteurs</h2>
             <p class="text-sm text-slate-500">Vous allez être redirigé vers le tableau de bord.</p>

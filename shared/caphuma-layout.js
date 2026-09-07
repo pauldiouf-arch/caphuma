@@ -180,13 +180,13 @@ function renderPageLayout(options) {
                         </div>
                         <div>
                             <span class="font-bold text-lg text-slate-800"${titleAttr}>${escapeHtml(title)}</span>
-                            <span class="text-xs block text-slate-400"${subtitleAttr}>${escapeHtml(subtitle)}</span>
+                            <span class="text-xs block text-slate-500"${subtitleAttr}>${escapeHtml(subtitle)}</span>
                         </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap justify-end">
                     ${actionsHtml}
-                    <button id="reportIssueBtn" type="button" title="Copier un rapport technique à transmettre à l'administrateur" class="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors">
+                    <button id="reportIssueBtn" type="button" title="Copier un rapport technique à transmettre à l'administrateur" class="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-600 transition-colors">
                         🚨 Signaler un problème
                     </button>
                     <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
@@ -259,7 +259,7 @@ function renderDashboardLayout() {
                 </div>
                 <div>
                     <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Cap Huma</h1>
-                    <p class="text-xs text-slate-400 font-semibold mt-1" id="userSubtitle">Tableau de bord</p>
+                    <p class="text-xs text-slate-500 font-semibold mt-1" id="userSubtitle">Tableau de bord</p>
                 </div>
             </div>
 
@@ -301,7 +301,7 @@ function renderDashboardLayout() {
                 <span class="relative">
                     <button id="notifBellBtn" type="button" class="hidden relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Notifications" aria-label="Notifications" aria-expanded="false">
                         <span class="text-lg">🔔</span>
-                        <span id="notifBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center"></span>
+                        <span id="notifBadge" aria-live="polite" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center"></span>
                     </button>
 
                     <div id="notifPanel" class="hidden absolute right-0 top-12 w-96 max-h-[32rem] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50">
@@ -332,12 +332,12 @@ function renderDashboardLayout() {
                         </div>
 
                         <div id="notifAlertsList" class="p-4 space-y-4 text-sm text-slate-600">
-                            <p class="text-xs text-slate-400 text-center py-4">Chargement...</p>
+                            <p class="text-xs text-slate-500 text-center py-4">Chargement...</p>
                         </div>
                     </div>
                 </span>
 
-                <button id="reportIssueBtn" type="button" title="Copier un rapport technique à transmettre à l'administrateur" class="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600 transition-colors">
+                <button id="reportIssueBtn" type="button" title="Copier un rapport technique à transmettre à l'administrateur" class="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-600 transition-colors">
                     🚨 Signaler un problème
                 </button>
 

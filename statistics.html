@@ -70,7 +70,7 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         <!-- Bannière d'alerte ou de configuration manquante -->
-        <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
+        <div id="error-banner" role="alert" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
             <div class="flex items-start gap-3">
                 <span class="text-red-500 font-bold text-xl">⚠️</span>
                 <div>
@@ -279,7 +279,7 @@
                     class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none focus:border-primary" />
                 <p class="text-xs text-slate-500">Sans question, l'analyse générale du pool est produite.</p>
             </div>
-            <p id="pool-ai-analysis-error" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+            <p id="pool-ai-analysis-error" role="alert" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
             <div id="pool-ai-analysis-content" class="hidden rounded-2xl bg-white border border-slate-200 p-6 text-sm leading-relaxed text-slate-700"></div>
         </div>
 
