@@ -230,7 +230,7 @@ const IdCardPage = {};
                 renderPoolHistory(data || []);
             } catch (err) {
                 console.error("Erreur de chargement de l'historique des pools :", err);
-                container.innerHTML = '<p class="text-sm text-slate-400 italic">Historique indisponible pour le moment.</p>';
+                container.innerHTML = '<p class="text-sm text-slate-500 italic">Historique indisponible pour le moment.</p>';
             }
         }
 
@@ -248,10 +248,10 @@ const IdCardPage = {};
                     <div class="flex-1">
                         <p class="text-sm text-slate-700">
                             <span class="font-semibold">${escapeHtml(e.from_pool || '—')}</span>
-                            <span class="text-slate-400 mx-1">→</span>
+                            <span class="text-slate-500 mx-1">→</span>
                             <span class="font-semibold text-primary">${escapeHtml(e.to_pool)}</span>
                         </p>
-                        <p class="text-xs text-slate-400 mt-0.5">
+                        <p class="text-xs text-slate-500 mt-0.5">
                             Le ${dateStr}${e.changed_by_name ? ` · par ${escapeHtml(e.changed_by_name)}` : ''}
                         </p>
                     </div>
@@ -440,7 +440,7 @@ const IdCardPage = {};
                             const c = normalizePassageComment(rawComment);
                             evalHtml += `
                                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1 mt-2">
-                                    <div class="flex justify-between items-center text-[10px] text-slate-400">
+                                    <div class="flex justify-between items-center text-[10px] text-slate-500">
                                         <span>${c.authorLabel ? 'Évalué par ' + escapeHtml(c.authorLabel) : 'Auteur inconnu'}</span>
                                         ${c.rating !== null ? `<span class="font-bold text-primary">★ ${escapeHtml(c.rating)}/10</span>` : ""}
                                     </div>
@@ -458,7 +458,7 @@ const IdCardPage = {};
                         <div class="relative pl-6 border-l-2 border-slate-200">
                             <div class="absolute -left-[6px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white shadow"></div>
                             <div class="space-y-1">
-                                <span class="text-xs font-semibold text-slate-400">${startStr} – ${endStr}${durationMonths !== null ? ` (${durationMonths} m)` : ''}</span>
+                                <span class="text-xs font-semibold text-slate-500">${startStr} – ${endStr}${durationMonths !== null ? ` (${durationMonths} m)` : ''}</span>
                                 <h4 class="font-bold text-slate-800">${escapeHtml(p.positionTitle)}</h4>
                                 <p class="text-xs text-slate-500">${escapeHtml(p.country || "Mission ALIMA")}</p>
                                 ${evalHtml}
@@ -473,7 +473,7 @@ const IdCardPage = {};
                 timeline.innerHTML = '';
                 timeline.appendChild(timelineFragment);
             } else {
-                timeline.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun parcours de mission ALIMA archivé.</p>`;
+                timeline.innerHTML = `<p class="text-sm text-slate-500 italic">Aucun parcours de mission ALIMA archivé.</p>`;
             }
 
             setupAdminActions(isInvalid);
@@ -493,7 +493,7 @@ const IdCardPage = {};
             }
 
             if (items.length === 0) {
-                container.innerHTML = `<span class="text-xs text-slate-400 italic">Non spécifié</span>`;
+                container.innerHTML = `<span class="text-xs text-slate-500 italic">Non spécifié</span>`;
                 return;
             }
             items.forEach(item => {

@@ -170,8 +170,8 @@
             }
             list.innerHTML = selectedRedlistFiles.map((file, idx) => `
                 <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs">
-                    <span class="truncate max-w-[220px]">📄 ${escapeHtml(file.name)} <span class="text-slate-400">(${(file.size / 1024).toFixed(1)} Ko)</span></span>
-                    <button type="button" class="btn-remove-selected-file text-slate-400 hover:text-red-600 font-bold px-1.5" data-idx="${idx}">✕</button>
+                    <span class="truncate max-w-[220px]">📄 ${escapeHtml(file.name)} <span class="text-slate-500">(${(file.size / 1024).toFixed(1)} Ko)</span></span>
+                    <button type="button" class="btn-remove-selected-file text-slate-500 hover:text-red-600 font-bold px-1.5" data-idx="${idx}">✕</button>
                 </div>
             `).join('');
             document.querySelectorAll('.btn-remove-selected-file').forEach(btn => {
@@ -509,11 +509,11 @@
                     <td class="py-3 pr-4 font-medium">${escapeHtml(fullName)}</td>
                     <td class="py-3 pr-4 text-slate-500">${escapeHtml(t.pool || '—')}</td>
                     <td class="py-3 pr-4 text-xs text-slate-500">${escapeHtml(t.status || '—')}</td>
-                    <td class="py-3 pr-4 text-xs text-slate-400">${dateAdded}</td>
+                    <td class="py-3 pr-4 text-xs text-slate-500">${dateAdded}</td>
                     <td class="py-3 pr-4">
                         ${t.red_list_reason
-                            ? `<button class="btn-view-reason text-xs text-primary hover:underline text-left" data-id="${escapeHtml(t.id)}">${escapeHtml(reasonPreview)}${docCount > 0 ? ` <span class="text-slate-400">📎${docCount}</span>` : ''}</button>`
-                            : '<span class="text-xs text-slate-400">—</span>'}
+                            ? `<button class="btn-view-reason text-xs text-primary hover:underline text-left" data-id="${escapeHtml(t.id)}">${escapeHtml(reasonPreview)}${docCount > 0 ? ` <span class="text-slate-500">📎${docCount}</span>` : ''}</button>`
+                            : '<span class="text-xs text-slate-500">—</span>'}
                     </td>
                     <td class="py-3 pr-4 text-xs text-slate-500">${escapeHtml(t.red_list_added_by_name || '—')}</td>
                     <td class="py-3 pr-4">
@@ -538,9 +538,9 @@
             const paths = (talent && Array.isArray(talent.red_list_documents)) ? talent.red_list_documents : [];
 
             if (paths.length === 0) {
-                docsList.innerHTML = '<p class="text-xs text-slate-400">Aucun document.</p>';
+                docsList.innerHTML = '<p class="text-xs text-slate-500">Aucun document.</p>';
             } else {
-                docsList.innerHTML = '<p class="text-xs text-slate-400">Génération des liens...</p>';
+                docsList.innerHTML = '<p class="text-xs text-slate-500">Génération des liens...</p>';
             }
             document.getElementById('modal-reason').classList.remove('hidden');
 

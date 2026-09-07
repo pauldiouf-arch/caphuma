@@ -190,7 +190,7 @@
                         <span class="text-xs font-bold text-slate-600">${escapeHtml(evaluation.author_email || 'Auteur inconnu')}</span>
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-extrabold text-primary bg-primary-light px-2 py-0.5 rounded-full">${escapeHtml(evaluation.rating != null ? evaluation.rating + '/10' : '—')}</span>
-                            <span class="text-[10px] text-slate-400">${escapeHtml(MissionsPage.formatDate(evaluation.created_at))}</span>
+                            <span class="text-[10px] text-slate-500">${escapeHtml(MissionsPage.formatDate(evaluation.created_at))}</span>
                         </div>
                     </div>
                     <p class="text-sm text-slate-700 mb-2">${escapeHtml(evaluation.context)}</p>

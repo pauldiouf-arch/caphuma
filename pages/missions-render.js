@@ -115,7 +115,7 @@
             document.getElementById('statByCountry').innerHTML = Object.entries(byCountry)
                 .sort((a, b) => b[1] - a[1])
                 .map(([country, count]) => `
-                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('');
 
             // Répartition par desk (ajouté par rapport à Hercules : Cap Huma trace
@@ -129,9 +129,9 @@
             const deskEntries = Object.entries(byDesk);
             document.getElementById('statByDesk').innerHTML = deskEntries.length > 0
                 ? deskEntries.sort((a, b) => b[1] - a[1]).map(([label, count]) => `
-                    <div class="flex justify-between"><span class="text-slate-400">${escapeHtml(label)}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${escapeHtml(label)}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('')
-                : '<p class="text-xs text-slate-400 italic">Aucun desk renseigné</p>';
+                : '<p class="text-xs text-slate-500 italic">Aucun desk renseigné</p>';
 
             // Distribution des durées de contrat (tranches identiques à Hercules)
             const distribution = {
@@ -143,7 +143,7 @@
             };
             document.getElementById('statDurationDistribution').innerHTML = Object.entries(distribution)
                 .map(([range, count]) => `
-                    <div class="flex justify-between"><span class="text-slate-400">${range}</span><span class="font-semibold text-slate-800">${count}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">${range}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('');
         }
 
@@ -206,8 +206,8 @@
                             <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-slate-100 text-slate-600 shrink-0">${escapeHtml(statusLabel)}</span>
                         </div>
                         ${isExpiredUnconfirmed ? `<p class="text-[11px] font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2 py-1 mb-2">🔴 Contrat expiré le ${escapeHtml(formatDate(mission.contract_end_date))} — statut à mettre à jour d'urgence</p>` : ''}
-                        <p class="text-xs text-slate-400 font-semibold">${escapeHtml(mission.location)}, ${escapeHtml(mission.country)}</p>
-                        ${mission.project_name ? `<p class="text-xs text-slate-400 mt-0.5">${escapeHtml(mission.project_name)}</p>` : ''}
+                        <p class="text-xs text-slate-500 font-semibold">${escapeHtml(mission.location)}, ${escapeHtml(mission.country)}</p>
+                        ${mission.project_name ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHtml(mission.project_name)}</p>` : ''}
                         <div class="flex flex-wrap gap-1.5 mt-3">
                             ${mission.pool_level ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-primary">${escapeHtml(MissionsPage.POOL_LEVEL_LABELS[mission.pool_level] || mission.pool_level)}</span>` : ''}
                             ${mission.desk ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">${escapeHtml(DESK_LABELS[mission.desk] || mission.desk)}</span>` : ''}

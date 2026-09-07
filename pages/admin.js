@@ -215,7 +215,7 @@
                     <td class="py-3 pr-4 text-slate-500">${escapeHtml(u.email || '—')}</td>
                     <td class="py-3 pr-4">${roleBadge}</td>
                     <td class="py-3 pr-4">${statusBadge}</td>
-                    <td class="py-3 pr-4 text-slate-400 text-xs">${createdDate}</td>
+                    <td class="py-3 pr-4 text-slate-500 text-xs">${createdDate}</td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5 flex-wrap">
                             <button class="btn-toggle-active text-xs font-semibold ${u.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-active="${u.is_active}">

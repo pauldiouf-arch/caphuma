@@ -48,7 +48,7 @@
             }
 
             if (IdCardPage.comments.length === 0) {
-                container.innerHTML = `<p class="text-sm text-slate-400 italic">Aucun commentaire pour le moment.</p>`;
+                container.innerHTML = `<p class="text-sm text-slate-500 italic">Aucun commentaire pour le moment.</p>`;
                 return;
             }
 
@@ -70,7 +70,7 @@
                     <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm space-y-1" data-comment-id="${escapeHtml(c.id)}">
                         <div class="flex justify-between items-start gap-2">
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 text-[10px] text-slate-400 mb-1">
+                                <div class="flex items-center gap-2 text-[10px] text-slate-500 mb-1">
                                     <span>${escapeHtml(authorLabel)}</span>
                                     <span>•</span>
                                     <span>${escapeHtml(dateStr)}</span>

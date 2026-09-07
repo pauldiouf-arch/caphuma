@@ -368,7 +368,7 @@
                     header.className = "px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between";
                     header.innerHTML = `
                         <h3 class="text-sm font-extrabold text-slate-700">${escapeHtml(poolLabel(poolId))}</h3>
-                        <span class="text-xs font-bold text-slate-400" data-pool-count>0 talent(s)</span>
+                        <span class="text-xs font-bold text-slate-500" data-pool-count>0 talent(s)</span>
                     `;
                     section.appendChild(header);
 
@@ -422,7 +422,7 @@
                     </a>
                     ${poolBadge}
                     ${redListBadge}
-                    <p class="text-xs text-slate-400 mt-0.5">
+                    <p class="text-xs text-slate-500 mt-0.5">
                         Dévalidé le ${dateStr}
                         ${t.months_without_mission !== null && t.months_without_mission !== undefined ? ` · ${escapeHtml(t.months_without_mission)} mois sans mission` : ''}
                     </p>

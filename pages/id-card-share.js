@@ -91,7 +91,7 @@
             row.innerHTML = `
                 <div class="min-w-0">
                     <p class="text-xs font-mono text-slate-600 truncate">${escapeHtml(maskToken(link.token))}</p>
-                    <p class="text-[11px] text-slate-400">Créé le ${createdStr} · Expire le ${expiresStr} · Vu ${viewsStr} fois</p>
+                    <p class="text-[11px] text-slate-500">Créé le ${createdStr} · Expire le ${expiresStr} · Vu ${viewsStr} fois</p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                     <button class="btn-copy-share-link text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Copier</button>
