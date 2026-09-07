@@ -80,7 +80,7 @@
          ──────────────────────────────────────────────────────────────────────── -->
     <main class="max-w-6xl w-full mx-auto px-6 py-6 flex-1 overflow-auto space-y-6">
 
-        <p id="pageError" role="alert" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
+        <p id="pageError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
 
         <!-- Statistiques -->
         <div class="grid gap-4 md:grid-cols-4">
@@ -115,7 +115,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                     <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterAction">Type d'action</label>
-                    <select id="filterAction" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                    <select id="filterAction" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="">Toutes les actions</option>
                         <option value="create">Création</option>
                         <option value="update">Modification</option>
@@ -130,7 +130,7 @@
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterEntityType">Type d'entité</label>
-                    <select id="filterEntityType" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                    <select id="filterEntityType" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="">Tous les types</option>
                         <option value="talent">Talent</option>
                         <option value="mission">Poste</option>
@@ -141,7 +141,7 @@
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterPeriod">Période</label>
-                    <select id="filterPeriod" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary">
+                    <select id="filterPeriod" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="">Toutes les périodes</option>
                         <option value="today">Aujourd'hui</option>
                         <option value="week">7 derniers jours</option>
@@ -150,7 +150,7 @@
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-slate-500 uppercase" for="filterExactDate">Jour précis</label>
-                    <input id="filterExactDate" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-primary" />
+                    <input id="filterExactDate" type="date" class="w-full mt-1 rounded-lg border border-slate-200 p-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
             </div>
             <p id="exactDateHint" class="hidden text-[11px] text-primary font-semibold">📅 Filtre "Jour précis" actif — le filtre "Période" est ignoré tant qu'une date précise est choisie.</p>

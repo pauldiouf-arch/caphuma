@@ -49,14 +49,7 @@
 </head>
 <body class="h-full bg-slate-50 font-sans flex items-center justify-center p-4" id="appBody" style="display: none;">
 
-    <!-- P33 (B20-2, Master Context §7 Bloc B20) : lien d'évitement statique —
-         cette page n'utilise pas shared/caphuma-layout.js (pas de header
-         authentifié avant connexion), donc pas de point d'ajout partagé. -->
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-100 focus:bg-white focus:text-primary focus:font-bold focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:outline focus:outline-2 focus:outline-primary">
-        Aller au contenu principal
-    </a>
-
-    <div class="w-full max-w-sm" id="main-content" tabindex="-1">
+    <div class="w-full max-w-sm">
         <div class="flex flex-col items-center mb-8">
             <div class="w-16 h-16 shadow-md mb-4 cap-logo-badge">
                 <style>
@@ -98,14 +91,14 @@
             <form id="loginForm" class="space-y-4">
                 <div class="space-y-1.5">
                     <label for="loginEmail" class="text-xs font-bold text-slate-500 uppercase">Email</label>
-                    <input id="loginEmail" type="email" required autocomplete="username" placeholder="prenom.nom@alima.ngo" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none focus:border-primary" />
+                    <input id="loginEmail" type="email" required autocomplete="username" placeholder="prenom.nom@alima.ngo" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <div class="space-y-1.5">
                     <label for="loginPassword" class="text-xs font-bold text-slate-500 uppercase">Mot de passe</label>
-                    <input id="loginPassword" type="password" required autocomplete="current-password" placeholder="••••••••" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 outline-none focus:border-primary" />
+                    <input id="loginPassword" type="password" required autocomplete="current-password" placeholder="••••••••" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
 
-                <p id="loginError" role="alert" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+                <p id="loginError" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
 
                 <button type="submit" id="submitLoginBtn" class="w-full bg-primary hover:bg-primary-dark text-white px-5 py-3 rounded-lg text-sm font-bold shadow-md transition-all">
                     Se connecter
