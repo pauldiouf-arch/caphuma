@@ -74,6 +74,45 @@
 // le balisage, cohérent avec le reste du site.
 // ============================================================================
 
+// ============================================================================
+// capHumaEnsureSkipLink() — P33 (B20-2, Master Context §7 Bloc B20).
+// Lien d'évitement ("Aller au contenu principal"), posé comme tout premier
+// enfant de <body>, permettant de sauter le header/nav injecté par ce fichier
+// sans le parcourir au clavier. Appelé une fois par renderPageLayout() et
+// renderDashboardLayout() — un seul point d'ajout pour les 14 pages qui
+// passent par l'une des deux. index.html/login.html (hors périmètre, pas de
+// layout commun) ont leur propre lien statique posé directement dans leur
+// HTML.
+//
+// Cible : le <main> de la page, vérifié présent immédiatement après
+// #layoutHeaderMount sur dashboard.html, guide.html et talents.html avant
+// généralisation (règle 19) — pas supposé sans avoir vu le code réel
+// (règle 4/23). tabindex="-1" posé sur <main> pour qu'il devienne une cible
+// de focus programmatique valide sans entrer dans l'ordre de tabulation
+// normal (patron standard pour un lien d'évitement).
+// ============================================================================
+function capHumaEnsureSkipLink() {
+    if (document.getElementById('skipToMainLink')) return;
+
+    const main = document.querySelector('main');
+    if (!main) {
+        console.error('[caphuma-layout] <main> introuvable — lien d\'évitement non posé sur cette page.');
+        return;
+    }
+    if (!main.id) {
+        main.id = 'main-content';
+    }
+    main.setAttribute('tabindex', '-1');
+
+    const skipLink = document.createElement('a');
+    skipLink.id = 'skipToMainLink';
+    skipLink.href = `#${main.id}`;
+    skipLink.className = 'sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-100 focus:bg-white focus:text-primary focus:font-bold focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:outline focus:outline-2 focus:outline-primary';
+    skipLink.textContent = 'Aller au contenu principal';
+
+    document.body.insertBefore(skipLink, document.body.firstChild);
+}
+
 function renderPageLayout(options) {
     const {
         icon,
@@ -97,6 +136,8 @@ function renderPageLayout(options) {
         console.error('[caphuma-layout] #layoutHeaderMount introuvable — le header ne peut pas être injecté sur cette page.');
         return;
     }
+
+    capHumaEnsureSkipLink();
 
     const isScrollPage = variant === 'scroll-page';
     const headerClass = (isScrollPage
@@ -177,6 +218,8 @@ function renderDashboardLayout() {
         console.error('[caphuma-layout] #layoutHeaderMount introuvable — le header ne peut pas être injecté sur cette page.');
         return;
     }
+
+    capHumaEnsureSkipLink();
 
     const header = document.createElement('header');
     header.className = 'border-b bg-white shadow-sm shrink-0 z-10';

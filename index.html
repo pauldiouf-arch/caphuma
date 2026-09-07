@@ -49,7 +49,14 @@
 </head>
 <body class="h-full bg-slate-50 font-sans flex items-center justify-center p-4" id="appBody">
 
-    <div class="w-full max-w-sm flex flex-col items-center gap-4">
+    <!-- P33 (B20-2, Master Context §7 Bloc B20) : lien d'évitement statique —
+         cette page n'utilise pas shared/caphuma-layout.js (page de boot, pas
+         de header authentifié), donc pas de point d'ajout partagé. -->
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-100 focus:bg-white focus:text-primary focus:font-bold focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:outline focus:outline-2 focus:outline-primary">
+        Aller au contenu principal
+    </a>
+
+    <div class="w-full max-w-sm flex flex-col items-center gap-4" id="main-content" tabindex="-1">
         <div class="w-16 h-16 shadow-md cap-logo-badge">
             <style>
                 .cap-logo-badge .cap-logo-needle { transform-box: fill-box; transform-origin: center; animation: cap-logo-idle 4s ease-in-out infinite; }
