@@ -175,10 +175,61 @@
             }
         }
 
-        // Construit la requête Supabase filtrée (action, type d'entité, période/jour
-        // précis) — réutilisée pour la page courante ET pour l'export Excel, afin de ne
+        // ============================================================================
+        // LECTURE RATE-LIMITÉE (P31, Master Context §7 / Dossier §7.21)
+        // ----------------------------------------------------------------------------
+        // La consultation paginée ET l'export Excel du journal d'audit passent
+        // désormais par l'Edge Function "sensitive-reads" plutôt que par un appel
+        // direct à Supabase — RLS et le mécanisme db_pre_request de PostgREST ne
+        // peuvent pas tenir de compteur de débit sur une lecture (GET) : toute
+        // requête GET de l'API Data s'exécute dans une transaction Postgres en
+        // lecture seule, qui refuse toute écriture, y compris celle d'un compteur
+        // (vérifié dans la doc Supabase, 07/09/2026). Seul un point serveur
+        // classique, comme manage-users/ai-proxy, peut tenir ce compteur.
+        //
+        // ⚠️ Cette page est réservée ADMIN UNIQUEMENT (contrairement à
+        // red_list.html/extraction.html, admin+user) — la fonction Edge applique
+        // ce même contrôle strict côté serveur (voir son en-tête pour le détail :
+        // service_role contourne RLS, un simple "visitor exclu" n'aurait pas
+        // suffi ici).
+        //
+        // Même implémentation que sur pages/red_list.js/extraction.js, dupliquée
+        // ici volontairement (pas encore centralisée dans shared/caphuma-utils.js
+        // — à envisager maintenant que les 3 pages de P31 sont faites).
+        async function fetchSensitiveRead(resource, extra = {}) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
+
+            // capHumaWithRetry() enveloppe ICI uniquement l'appel réseau BRUT
+            // (fetch()) — règle d'usage impérative de caphuma-utils.js section 11 :
+            // ne retente que sur un échec réseau réel, jamais sur une réponse HTTP
+            // d'erreur métier (403/429/500), qui doit s'afficher tout de suite.
+            const response = await capHumaWithRetry(() =>
+                fetch(`${SUPABASE_URL}/functions/v1/sensitive-reads`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ resource, ...extra })
+                })
+            );
+
+            const json = await response.json();
+            if (!response.ok) throw new Error(json.error || "Erreur lors du chargement des données.");
+            return json;
+        }
+
+        // Construit l'objet de filtres (action, type d'entité, période/jour précis)
+        // — réutilisé pour la page courante ET pour l'export Excel, afin de ne
         // jamais avoir deux logiques de filtre différentes à maintenir en parallèle.
-        function buildFilteredLogsQuery(forExport) {
+        // Renommée depuis buildFilteredLogsQuery() : ne retourne plus un query
+        // builder Supabase (la requête elle-même vit désormais côté serveur, dans
+        // l'Edge Function), seulement les paramètres qui la pilotent — mêmes
+        // valeurs, mêmes effets de bord DOM (exactDateHint / filterPeriod.disabled)
+        // qu'avant.
+        function buildLogsFilterParams() {
             const actionFilter = document.getElementById('filterAction').value;
             const entityTypeFilter = document.getElementById('filterEntityType').value;
             const periodFilter = document.getElementById('filterPeriod').value;
@@ -190,21 +241,16 @@
             document.getElementById('exactDateHint').classList.toggle('hidden', !exactBounds);
             document.getElementById('filterPeriod').disabled = !!exactBounds;
 
-            let query = supabaseClient
-                .from('audit_logs')
-                .select('*', forExport ? undefined : { count: 'exact' })
-                .order('created_at', { ascending: false });
-
-            if (actionFilter) query = query.eq('action', actionFilter);
-            if (entityTypeFilter) query = query.eq('entity_type', entityTypeFilter);
+            const params = {};
+            if (actionFilter) params.action = actionFilter;
+            if (entityTypeFilter) params.entityType = entityTypeFilter;
             if (exactBounds) {
-                query = query.gte('created_at', new Date(exactBounds.start).toISOString())
-                              .lte('created_at', new Date(exactBounds.end).toISOString());
+                params.gte = new Date(exactBounds.start).toISOString();
+                params.lte = new Date(exactBounds.end).toISOString();
             } else if (periodStart !== null) {
-                query = query.gte('created_at', new Date(periodStart).toISOString());
+                params.gte = new Date(periodStart).toISOString();
             }
-
-            return query;
+            return params;
         }
 
         async function fetchPage() {
@@ -213,21 +259,14 @@
             document.getElementById('logsTableBody').innerHTML = '';
 
             try {
-                const from = currentPage * PAGE_SIZE;
-                const to = from + PAGE_SIZE - 1;
+                const filters = buildLogsFilterParams();
 
-                // capHumaWithRetry() : buildFilteredLogsQuery() reconstruit un
-                // query builder à chaque appel — la fonction est donc passée telle
-                // quelle, pas son résultat déjà construit. Ses effets de bord DOM
-                // (bascule de exactDateHint / filterPeriod.disabled) sont sans risque
-                // à rejouer plusieurs fois : mêmes filtres, même résultat.
-                const { data, error, count } = await capHumaWithRetry(() =>
-                    buildFilteredLogsQuery(false).range(from, to)
-                );
-                if (error) throw error;
+                // page courante 0-indexée (currentPage) → convertie en 1-indexée pour
+                // l'Edge Function, même convention que red_list/extraction.
+                const result = await fetchSensitiveRead('audit_logs', { mode: 'page', page: currentPage + 1, filters });
 
-                currentPageLogs = data || [];
-                currentFilteredCount = count || 0;
+                currentPageLogs = result.data;
+                currentFilteredCount = result.count;
 
                 renderTable();
                 updateAuditLogsPaginationControls();
@@ -381,9 +420,9 @@
             }
 
             try {
-                const { data, error } = await capHumaWithRetry(() => buildFilteredLogsQuery(true));
-                if (error) throw error;
-                const filtered = data || [];
+                const filters = buildLogsFilterParams();
+                const result = await fetchSensitiveRead('audit_logs', { mode: 'export', filters });
+                const filtered = result.data || [];
 
                 if (filtered.length === 0) {
                     alert("Aucune action à exporter avec les filtres actuels.");
