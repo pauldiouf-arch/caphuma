@@ -115,49 +115,14 @@
             return String(name || 'Feuille').replace(/[:\\/?*\[\]]/g, '-').substring(0, 31);
         }
 
-        // ============================================================================
-        // LECTURE RATE-LIMITÉE (P31, Master Context §7 / Dossier §7.21)
-        // ----------------------------------------------------------------------------
-        // Le dump complet talents+missions passe désormais par l'Edge Function
-        // "sensitive-reads" plutôt que par un appel direct à Supabase — RLS et le
-        // mécanisme db_pre_request de PostgREST ne peuvent pas tenir de compteur de
-        // débit sur une lecture (GET) : toute requête GET de l'API Data s'exécute
-        // dans une transaction Postgres en lecture seule, qui refuse toute écriture,
-        // y compris celle d'un compteur (vérifié dans la doc Supabase, 07/09/2026).
-        // Seul un point serveur classique, comme manage-users/ai-proxy, peut tenir
-        // ce compteur — d'où cette fonction (même implémentation que sur
-        // pages/red_list.js, dupliquée ici volontairement plutôt que centralisée
-        // dans shared/caphuma-utils.js tant que les 3 pages de P31 ne sont pas
-        // toutes généralisées — à revoir une fois audit_logs.js fait).
-        //
-        // Portée volontairement restreinte (décision utilisateur, P31) : seul ce
-        // dump (talents+missions) passe par ce mécanisme — la requête `pools` reste
-        // en accès direct, hors périmètre (faible sensibilité, cohérent avec le
-        // traitement de loadPoolsForSelect() sur red_list.js).
-        async function fetchSensitiveRead(resource, page) {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
-
-            // capHumaWithRetry() enveloppe ICI uniquement l'appel réseau BRUT
-            // (fetch()) — règle d'usage impérative de caphuma-utils.js section 11 :
-            // ne retente que sur un échec réseau réel, jamais sur une réponse HTTP
-            // d'erreur métier (403/429/500), qui doit s'afficher tout de suite.
-            const response = await capHumaWithRetry(() =>
-                fetch(`${SUPABASE_URL}/functions/v1/sensitive-reads`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'apikey': SUPABASE_ANON_KEY
-                    },
-                    body: JSON.stringify({ resource, page })
-                })
-            );
-
-            const json = await response.json();
-            if (!response.ok) throw new Error(json.error || "Erreur lors du chargement des données.");
-            return json;
-        }
+        // fetchSensitiveRead() est désormais centralisée dans
+        // shared/caphuma-utils.js (section 13) — elle existait ici en copie
+        // quasi identique à celles de red_list.js et audit_logs.js. Le dump
+        // complet talents+missions passe par cette Edge Function plutôt que
+        // par un appel direct à Supabase (voir sa définition centralisée pour
+        // le détail) ; la requête `pools` ci-dessous reste en accès direct,
+        // hors périmètre (faible sensibilité, cohérent avec le traitement de
+        // loadPoolsForSelect() sur red_list.js).
 
         // ============================================================================
         // 4. CHARGEMENT DES DONNÉES (une seule fois, filtrage/regroupement en mémoire)
@@ -168,7 +133,7 @@
                     capHumaWithRetry(() =>
                         supabaseClient.from('pools').select('pool_id, name, full_name, is_archived').order('name', { ascending: true })
                     ),
-                    fetchSensitiveRead('extraction')
+                    fetchSensitiveRead(supabaseClient, 'extraction')
                 ]);
 
                 if (poolsRes.error) throw poolsRes.error;

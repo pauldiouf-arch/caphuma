@@ -600,3 +600,60 @@ document.addEventListener('click', async (e) => {
         );
     }
 });
+
+// ----------------------------------------------------------------------------
+// 13. LECTURE RATE-LIMITÉE VIA L'EDGE FUNCTION "sensitive-reads"
+// ----------------------------------------------------------------------------
+// Centralise une fonction qui existait en 3 copies quasi identiques
+// (red_list.js, extraction.js, audit_logs.js) — vérifié avant centralisation
+// (règle 34) que les trois faisaient bien le même appel réseau, avec une
+// seule vraie différence de signature entre elles : deux passaient un simple
+// numéro de page, la troisième un objet de champs additionnels plus général
+// (mode, page, filters). C'est cette forme plus générale qui est retenue
+// ici, les deux autres pages passent désormais { page } au lieu d'un nombre
+// nu.
+//
+// Passe par cette Edge Function plutôt que par un appel direct à Supabase :
+// RLS et le mécanisme db_pre_request de PostgREST ne peuvent pas tenir de
+// compteur de débit sur une lecture (GET), qui s'exécute dans une
+// transaction Postgres en lecture seule refusant toute écriture. Seul un
+// point serveur classique (comme cette Edge Function) peut tenir ce
+// compteur.
+//
+// supabaseClient est pris en paramètre plutôt que lu comme variable globale
+// de la page — même choix que paginateQuery() plus haut dans ce fichier.
+// SUPABASE_URL et SUPABASE_ANON_KEY restent en revanche des constantes
+// globales : elles sont définies une seule fois par shared/caphuma-config.js
+// et identiques sur les 15 pages, contrairement à l'objet client.
+//
+// @param {Object} supabaseClient
+// @param {string} resource  "red_list" | "extraction" | "audit_logs"
+// @param {Object} [extra]   Champs additionnels envoyés tels quels au corps
+//        de la requête (ex. { page } pour red_list/extraction, ou
+//        { mode, page, filters } pour audit_logs).
+// @returns {Promise<Object>} La réponse JSON de la fonction — sa forme
+//        dépend de la ressource demandée, voir le code de l'Edge Function.
+async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
+
+    // capHumaWithRetry() (section 11 ci-dessus) enveloppe ICI uniquement
+    // l'appel réseau BRUT (fetch()) — ne retente que sur un échec réseau
+    // réel, jamais sur une réponse HTTP d'erreur métier (403/429/500), qui
+    // doit s'afficher tout de suite.
+    const response = await capHumaWithRetry(() =>
+        fetch(`${SUPABASE_URL}/functions/v1/sensitive-reads`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+                'apikey': SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({ resource, ...extra })
+        })
+    );
+
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || "Erreur lors du chargement des données.");
+    return json;
+}

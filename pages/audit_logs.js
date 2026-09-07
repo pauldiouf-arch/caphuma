@@ -175,51 +175,16 @@
             }
         }
 
-        // ============================================================================
-        // LECTURE RATE-LIMITÉE (P31, Master Context §7 / Dossier §7.21)
-        // ----------------------------------------------------------------------------
-        // La consultation paginée ET l'export Excel du journal d'audit passent
-        // désormais par l'Edge Function "sensitive-reads" plutôt que par un appel
-        // direct à Supabase — RLS et le mécanisme db_pre_request de PostgREST ne
-        // peuvent pas tenir de compteur de débit sur une lecture (GET) : toute
-        // requête GET de l'API Data s'exécute dans une transaction Postgres en
-        // lecture seule, qui refuse toute écriture, y compris celle d'un compteur
-        // (vérifié dans la doc Supabase, 07/09/2026). Seul un point serveur
-        // classique, comme manage-users/ai-proxy, peut tenir ce compteur.
+        // fetchSensitiveRead() est désormais centralisée dans
+        // shared/caphuma-utils.js (section 13) — elle existait ici en copie
+        // quasi identique à celles de red_list.js et extraction.js.
         //
         // ⚠️ Cette page est réservée ADMIN UNIQUEMENT (contrairement à
         // red_list.html/extraction.html, admin+user) — la fonction Edge applique
         // ce même contrôle strict côté serveur (voir son en-tête pour le détail :
         // service_role contourne RLS, un simple "visitor exclu" n'aurait pas
-        // suffi ici).
-        //
-        // Même implémentation que sur pages/red_list.js/extraction.js, dupliquée
-        // ici volontairement (pas encore centralisée dans shared/caphuma-utils.js
-        // — à envisager maintenant que les 3 pages de P31 sont faites).
-        async function fetchSensitiveRead(resource, extra = {}) {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
-
-            // capHumaWithRetry() enveloppe ICI uniquement l'appel réseau BRUT
-            // (fetch()) — règle d'usage impérative de caphuma-utils.js section 11 :
-            // ne retente que sur un échec réseau réel, jamais sur une réponse HTTP
-            // d'erreur métier (403/429/500), qui doit s'afficher tout de suite.
-            const response = await capHumaWithRetry(() =>
-                fetch(`${SUPABASE_URL}/functions/v1/sensitive-reads`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'apikey': SUPABASE_ANON_KEY
-                    },
-                    body: JSON.stringify({ resource, ...extra })
-                })
-            );
-
-            const json = await response.json();
-            if (!response.ok) throw new Error(json.error || "Erreur lors du chargement des données.");
-            return json;
-        }
+        // suffi ici). Ce contrôle vit côté serveur, pas dans le code centralisé
+        // ci-dessous : rien à changer ici suite à la centralisation.
 
         // Construit l'objet de filtres (action, type d'entité, période/jour précis)
         // — réutilisé pour la page courante ET pour l'export Excel, afin de ne
@@ -263,7 +228,7 @@
 
                 // page courante 0-indexée (currentPage) → convertie en 1-indexée pour
                 // l'Edge Function, même convention que red_list/extraction.
-                const result = await fetchSensitiveRead('audit_logs', { mode: 'page', page: currentPage + 1, filters });
+                const result = await fetchSensitiveRead(supabaseClient, 'audit_logs', { mode: 'page', page: currentPage + 1, filters });
 
                 currentPageLogs = result.data;
                 currentFilteredCount = result.count;
@@ -421,7 +386,7 @@
 
             try {
                 const filters = buildLogsFilterParams();
-                const result = await fetchSensitiveRead('audit_logs', { mode: 'export', filters });
+                const result = await fetchSensitiveRead(supabaseClient, 'audit_logs', { mode: 'export', filters });
                 const filtered = result.data || [];
 
                 if (filtered.length === 0) {

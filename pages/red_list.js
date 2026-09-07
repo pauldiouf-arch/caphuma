@@ -383,53 +383,9 @@
         document.getElementById('btn-header-add-redlist').addEventListener('click', openRedlistAddModal);
         document.getElementById('btn-empty-add-redlist').addEventListener('click', openRedlistAddModal);
 
-        // ============ LECTURE RATE-LIMITÉE (P31, Master Context §7 / Dossier §7.21) ============
-        // La Liste Rouge complète passe désormais par l'Edge Function
-        // "sensitive-reads" plutôt que par un appel direct à Supabase : RLS et le
-        // mécanisme db_pre_request de PostgREST ne peuvent pas tenir de compteur de
-        // débit sur une lecture (GET) — toute requête GET de l'API Data s'exécute
-        // dans une transaction Postgres en lecture seule, qui refuse toute écriture,
-        // y compris celle d'un compteur (vérifié dans la doc Supabase avant de rien
-        // construire, 07/09/2026). Seul un point serveur classique, comme
-        // manage-users/ai-proxy, peut tenir ce compteur — d'où cette fonction.
-        //
-        // Portée volontairement restreinte (décision utilisateur, P31) : seule la
-        // Liste Rouge COMPLÈTE (cette lecture) passe par ce mécanisme — les autres
-        // lectures de cette page (pools pour la modale, talents d'un seul pool)
-        // restent en accès direct, hors périmètre de P31. Le reste du site est
-        // couvert par une détection/alerte via les Logs Supabase (choix
-        // utilisateur : détection plutôt que blocage pour ces lectures-là).
-        //
-        // Retourne exactement la même forme que l'ancien paginateQuery() ({data,
-        // count, page, totalPages}), pour ne rien changer au reste de
-        // loadRedList()/renderRedList() ci-dessous.
-        async function fetchSensitiveRead(resource, page) {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
-
-            // capHumaWithRetry() enveloppe ICI uniquement l'appel réseau BRUT
-            // (fetch()) — règle d'usage impérative de caphuma-utils.js section 11 :
-            // ne retente que sur un échec réseau réel (fetch() qui rejette avant
-            // même d'atteindre le serveur), jamais sur une réponse HTTP d'erreur
-            // métier (403/429/500), qui doit s'afficher tout de suite. C'est
-            // pourquoi la vérification de response.ok se fait APRÈS, en dehors du
-            // retry — même séparation que paginateQuery() dans caphuma-utils.js.
-            const response = await capHumaWithRetry(() =>
-                fetch(`${SUPABASE_URL}/functions/v1/sensitive-reads`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'apikey': SUPABASE_ANON_KEY
-                    },
-                    body: JSON.stringify({ resource, page })
-                })
-            );
-
-            const json = await response.json();
-            if (!response.ok) throw new Error(json.error || "Erreur lors du chargement des données.");
-            return json;
-        }
+        // fetchSensitiveRead() est désormais centralisée dans
+        // shared/caphuma-utils.js (section 13) — elle existait ici en copie
+        // quasi identique à celles d'extraction.js et audit_logs.js.
 
         // ============ CHARGEMENT DE LA LISTE ROUGE ============
 
@@ -448,8 +404,8 @@
             try {
                 // Pagination réelle côté serveur, désormais via l'Edge Function
                 // sensitive-reads plutôt que paginateQuery() en direct — voir
-                // fetchSensitiveRead() ci-dessus pour le détail du changement (P31).
-                const result = await fetchSensitiveRead('red_list', redListPage);
+                // fetchSensitiveRead() dans shared/caphuma-utils.js (section 13).
+                const result = await fetchSensitiveRead(supabaseClient, 'red_list', { page: redListPage });
 
                 redListTalents = result.data;
                 document.getElementById('redlist-count').textContent = result.count;
