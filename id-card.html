@@ -290,6 +290,7 @@
 
             <!-- Formulaire d'ajout — masqué pour le rôle visitor (lecture seule) -->
             <div id="comment-form-container" class="space-y-2">
+                <label for="new-comment-input" class="sr-only">Ajouter un commentaire</label>
                 <textarea id="new-comment-input" placeholder="Ajouter un commentaire..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" rows="3"></textarea>
                 <div class="flex justify-end">
                     <button id="btn-add-comment" class="bg-primary hover:bg-primary-dark text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all">
@@ -375,6 +376,7 @@
                     <option value="30" selected>30 jours</option>
                     <option value="custom">Date précise…</option>
                 </select>
+                <label for="share-links-custom-date" class="sr-only">Date d'expiration précise du lien</label>
                 <input id="share-links-custom-date" type="date" class="hidden w-full mt-1.5 rounded-lg border border-slate-200 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
 
