@@ -86,6 +86,17 @@ const StatisticsPage = {};
 
                 capHumaStartIdleTimeout(StatisticsPage.supabaseClient);
                 StatisticsPage.currentUserRole = s.role;
+
+                // ai-proxy refuse déjà ce rôle côté serveur (403) — masquer les deux
+                // blocs IA évite qu'un visitor ne découvre l'erreur seulement après
+                // avoir cliqué. updatePoolAiAnalysisVisibility() (statistics-pool-ai.js)
+                // porte le même garde-fou pour la carte par pool, qui se ré-affiche
+                // sinon à chaque changement de pool.
+                if (StatisticsPage.currentUserRole === 'visitor') {
+                    document.getElementById('aiStrategicHub').classList.add('hidden');
+                    document.getElementById('aiVisitorNotice').classList.remove('hidden');
+                }
+
                 appBody.style.display = '';
                 await initHub();
             } catch (e) {

@@ -13,6 +13,14 @@
         function updatePoolAiAnalysisVisibility(selectorValue, talentsForPool, mData) {
             const card = document.getElementById('pool-ai-analysis-card');
 
+            // Masquage définitif pour visitor (voir statistics.js/checkSession) — sans
+            // ce garde-fou, sélectionner un pool précis ré-affiche la carte plus bas
+            // dans cette même fonction, quel que soit le rôle.
+            if (StatisticsPage.currentUserRole === 'visitor') {
+                card.classList.add('hidden');
+                return;
+            }
+
             if (selectorValue === 'global') {
                 card.classList.add('hidden');
                 return;
