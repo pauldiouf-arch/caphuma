@@ -959,6 +959,13 @@ const TalentsPage = {};
                 const today = new Date().toISOString().slice(0, 10);
                 const fileSlug = (TalentsPage.currentPoolId || 'pool').toLowerCase();
                 XLSX.writeFile(wb, `talents-${fileSlug}-${today}.xlsx`);
+
+                // Traçabilité des exports (règle RGPD d'accountability) — 4e point
+                // d'export du site, manqué lors du premier passage (id-card.js,
+                // extraction.js, audit_logs.js). rowsToExport.length reflète le
+                // nombre réel de lignes exportées, filtres compris.
+                await logAuditAction('export', 'talent', null, `Pool ${TalentsPage.currentPoolId || '—'}`,
+                    `${rowsToExport.length} talent(s) exporté(s)`);
             } catch (err) {
                 console.error(err);
                 alert("Erreur lors de l'export : " + (err && err.message ? err.message : 'erreur inconnue.'));
