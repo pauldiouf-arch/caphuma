@@ -62,7 +62,7 @@
     <!-- ────────────────────────────────────────────────────────────────────────
          ZONE PRINCIPALE
          ──────────────────────────────────────────────────────────────────────── -->
-    <main class="max-w-4xl w-full mx-auto px-6 py-8 flex-1 overflow-auto space-y-8">
+    <main class="max-w-5xl w-full mx-auto px-6 py-8 flex-1 overflow-auto space-y-8">
 
         <!-- Introduction -->
         <section class="bg-white border border-slate-200 rounded-2xl p-6">
@@ -76,151 +76,265 @@
             </p>
         </section>
 
-        <!-- Rôles & permissions -->
-        <section class="space-y-3">
-            <h2 class="text-lg font-extrabold text-slate-800">👥 Rôles &amp; permissions</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-white border border-blue-200 rounded-2xl p-5 space-y-2">
-                    <span class="text-2xl">🛡️</span>
-                    <h3 class="font-bold text-blue-700">Administrateur</h3>
-                    <p class="text-xs text-slate-500">Accès complet à la plateforme.</p>
-                    <ul class="text-xs text-slate-600 space-y-1 list-disc list-inside pt-1">
-                        <li>Créer / modifier / supprimer des talents</li>
-                        <li>Gérer les comptes utilisateurs</li>
-                        <li>Dévalider, réintégrer, prolonger un talent</li>
-                        <li>Gérer la Liste Rouge et les Dévalidés</li>
-                        <li>Supprimer définitivement une fiche (RGPD)</li>
-                        <li>Consulter le journal d'audit</li>
-                        <li>Gérer tous les postes et toutes les évaluations</li>
-                        <li>Gérer tous les commentaires (y compris ceux des autres)</li>
-                    </ul>
-                </div>
-                <div class="bg-white border border-emerald-200 rounded-2xl p-5 space-y-2">
-                    <span class="text-2xl">🖊️</span>
-                    <h3 class="font-bold text-emerald-700">Utilisateur (Recruteur)</h3>
-                    <p class="text-xs text-slate-500">Accès standard pour l'équipe RH.</p>
-                    <ul class="text-xs text-slate-600 space-y-1 list-disc list-inside pt-1">
-                        <li>Consulter tous les pools</li>
-                        <li>Créer et modifier des fiches talents</li>
-                        <li>Dévalider un talent directement</li>
-                        <li>Gérer la Liste Rouge et les Dévalidés</li>
-                        <li>Créer / modifier / supprimer des postes</li>
-                        <li>Gérer ses propres évaluations et commentaires</li>
-                        <li>Utiliser l'export Excel et le Hub Statistique &amp; IA</li>
-                    </ul>
-                    <p class="text-[11px] text-slate-500 italic pt-1">Pas d'accès à Admin ni au journal d'audit ; ne peut pas supprimer définitivement une fiche.</p>
-                </div>
-                <div class="bg-white border border-orange-200 rounded-2xl p-5 space-y-2">
-                    <span class="text-2xl">👁️</span>
-                    <h3 class="font-bold text-orange-700">Visiteur</h3>
-                    <p class="text-xs text-slate-500">Lecture seule — idéal pour un stagiaire ou un auditeur externe.</p>
-                    <ul class="text-xs text-slate-600 space-y-1 list-disc list-inside pt-1">
-                        <li>Consulter les pools et les fiches talents</li>
-                        <li>Lire les commentaires et l'historique</li>
-                        <li>Consulter les postes ouverts (lecture seule)</li>
-                        <li>Consulter le Hub Statistique (hors analyse IA)</li>
-                    </ul>
-                    <p class="text-[11px] text-slate-500 italic pt-1">Pas d'accès à la Liste Rouge, aux Dévalidés, à l'Extraction, à l'analyse IA, ni évidemment à Admin ou au journal d'audit.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Prise en main -->
-        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-            <h2 class="text-lg font-extrabold text-slate-800">🚀 Prise en main</h2>
-            <div class="space-y-0">
-                <div class="step-row flex gap-4">
-                    <div class="flex flex-col items-center shrink-0">
-                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">1</div>
-                        <div class="step-line w-px flex-1 bg-slate-200 min-h-[20px] mt-1"></div>
-                    </div>
-                    <div class="pb-5">
-                        <p class="font-semibold text-sm text-slate-800">Se connecter</p>
-                        <p class="text-xs text-slate-500 mt-0.5">Avec l'email et le mot de passe fournis par un administrateur — les comptes sont créés uniquement depuis la page Admin, pas d'auto-inscription.</p>
-                    </div>
-                </div>
-                <div class="step-row flex gap-4">
-                    <div class="flex flex-col items-center shrink-0">
-                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">2</div>
-                        <div class="step-line w-px flex-1 bg-slate-200 min-h-[20px] mt-1"></div>
-                    </div>
-                    <div class="pb-5">
-                        <p class="font-semibold text-sm text-slate-800">Choisir un pool depuis le tableau de bord</p>
-                        <p class="text-xs text-slate-500 mt-0.5">Chaque pool (COLOG, COMED, RAP...) affiche ses indicateurs clés : talents actifs, disponibles, à risque, postes ouverts.</p>
-                    </div>
-                </div>
-                <div class="step-row flex gap-4">
-                    <div class="flex flex-col items-center shrink-0">
-                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">3</div>
-                    </div>
-                    <div class="pb-1">
-                        <p class="font-semibold text-sm text-slate-800">Naviguer entre Talents, Postes, Statistiques...</p>
-                        <p class="text-xs text-slate-500 mt-0.5">Depuis chaque pool, accède à sa liste de talents ou à la gestion de ses postes ; les autres pages (Liste Rouge, Dévalidés, Extraction, Admin) sont accessibles depuis le tableau de bord selon ton rôle.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Gestion des talents -->
-        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
-            <h2 class="text-lg font-extrabold text-slate-800">👤 Gestion des talents</h2>
-            <ul class="text-sm text-slate-600 space-y-2">
-                <li><strong>Ajouter un talent</strong> — depuis la liste d'un pool, bouton "Nouveau talent" : identité, statut, disponibilité, formation, compétences, langues, zones d'intervention.</li>
-                <li><strong>Consulter une fiche</strong> — clique sur un talent pour voir sa fiche complète : informations, jauge de validité dans le pool, parcours de missions ALIMA, commentaires.</li>
-                <li><strong>Commenter une fiche</strong> — tout utilisateur connecté (sauf visiteur) peut ajouter un commentaire libre ; chacun ne peut modifier/supprimer que ses propres commentaires (un admin peut gérer tous les commentaires).</li>
-                <li><strong>Exporter en PDF ou partager</strong> — depuis la fiche, génère un PDF de la fiche ou un lien de partage sécurisé et temporaire (30 jours), utile pour un partenaire externe sans lui donner accès à toute la plateforme.</li>
-            </ul>
-        </section>
-
-        <!-- Validité pool -->
-        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
-            <h2 class="text-lg font-extrabold text-slate-800">⏳ Suivi de la validité dans le pool</h2>
-            <p class="text-sm text-slate-600 leading-relaxed">
-                Chaque talent dispose d'un compteur de validité (24 mois sans mission ALIMA),
-                visible sous forme de barre de progression sur sa fiche. Le compteur est **gelé**
-                tant que le talent est en poste ALIMA, et recalculé chaque mois automatiquement
-                (tâche de fond).
-            </p>
-            <p class="text-sm text-slate-600 leading-relaxed">
-                Contrairement à un système entièrement automatique, <strong>la dévalidation
-                elle-même reste une décision humaine</strong> : à 24 mois, un badge d'alerte
-                apparaît sur la fiche, mais c'est à un admin ou un recruteur de choisir de dévalider
-                le talent (ou de lui accorder une prolongation) après vérification. Une fois
-                dévalidé, le talent apparaît dans la page "Dévalidés" et peut être réintégré à tout
-                moment par un admin ou un recruteur.
+        <!-- Rôle courant — orientation immédiate, puisque le contenu ci-dessous
+             change selon qui est connecté. -->
+        <section id="roleBadge" class="hidden bg-primary-light border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
+            <span class="text-xl" id="roleBadgeIcon">👋</span>
+            <p class="text-sm text-slate-700">
+                Vous consultez ce guide en tant que <strong id="roleBadgeLabel" class="text-primary">—</strong>.
+                Seules les sections qui vous concernent sont affichées ci-dessous.
             </p>
         </section>
 
-        <!-- Gestion des postes -->
-        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
-            <h2 class="text-lg font-extrabold text-slate-800">🧭 Gestion des postes</h2>
-            <ul class="text-sm text-slate-600 space-y-2">
-                <li><strong>Créer / modifier un poste</strong> — depuis "Gérer les postes du pool" : titre, pays, lieu, type de candidat, desk, statut, occupant actuel, dates de contrat, futur occupant prévu.</li>
-                <li><strong>Rotation d'occupant</strong> — quand un occupant sort (changement, fin de contrat, suppression du poste), ses évaluations sont automatiquement archivées dans l'historique du talent, et ses compteurs de disponibilité mis à jour.</li>
-                <li><strong>Évaluations</strong> — chaque occupant en poste peut recevoir des évaluations (contexte, points forts/à améliorer, note sur 10) ; un recruteur ne gère que ses propres évaluations, un admin gère tout.</li>
-                <li><strong>Analyse IA du pool</strong> — synthèse et recommandations générées à la demande à partir des statistiques du pool (jamais de données nominatives envoyées à l'IA), réservée aux comptes admin et recruteur.</li>
-            </ul>
+        <!-- Étape commune, identique quel que soit le rôle -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6">
+            <h2 class="text-lg font-extrabold text-slate-800 mb-2">🔑 Se connecter</h2>
+            <p class="text-sm text-slate-600 leading-relaxed">
+                Avec l'email et le mot de passe fournis par un administrateur — les comptes sont créés
+                uniquement depuis la page Comptes, il n'existe pas d'auto-inscription. Après 5 heures
+                d'inactivité, la session se ferme automatiquement ; en cas de doute sur un poste partagé,
+                pense à te déconnecter manuellement (bouton en haut à droite).
+            </p>
         </section>
 
-        <!-- Extraction & Statistiques -->
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-white border border-slate-200 rounded-2xl p-6 space-y-2">
-                <h2 class="text-base font-extrabold text-slate-800">📤 Extraction Excel</h2>
-                <p class="text-sm text-slate-600">
-                    Sélectionne les pools à inclure (listes de talents combinées dans une seule
-                    feuille, postes dans une feuille par pool) et génère un fichier Excel unique en
-                    un clic — réservé admin et recruteur.
-                </p>
-            </div>
-            <div class="bg-white border border-slate-200 rounded-2xl p-6 space-y-2">
-                <h2 class="text-base font-extrabold text-slate-800">📊 Hub Statistique &amp; IA</h2>
-                <p class="text-sm text-slate-600">
-                    Graphiques et indicateurs par pool, plus une question libre à l'IA sur les
-                    statistiques (analyse en langage naturel). Visible par tous les rôles connectés,
-                    la partie IA est réservée admin et recruteur.
-                </p>
-            </div>
+        <!-- ════════════════════════════════════════════════════════════════════
+             BLOC VISITEUR — autonome, montré uniquement au rôle 'visitor'
+             ════════════════════════════════════════════════════════════════════ -->
+        <section id="guideVisitor" class="hidden space-y-3">
+            <h2 class="text-lg font-extrabold text-orange-700 flex items-center gap-2">👁️ Votre guide — Visiteur</h2>
+            <p class="text-sm text-slate-600">
+                Votre accès est en <strong>lecture seule</strong> : vous pouvez consulter les pools, les
+                fiches talents et les postes, mais ni créer, ni modifier, ni commenter. C'est un accès
+                pensé pour un stagiaire, un auditeur externe, ou toute personne qui a besoin de voir
+                l'information sans intervenir dessus.
+            </p>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🏠 Tableau de bord</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Page d'accueil après connexion. Chaque carte représente un pool métier (COLOG, COMED, RAP...) avec ses indicateurs : talents actifs, disponibles, à risque, postes ouverts. Cliquez sur un pool pour accéder à sa liste de talents.</p>
+                    <p>Le menu ne fait apparaître, pour votre rôle, que les liens vers les pages que vous pouvez consulter — Liste Rouge, Dévalidés, Extraction et Admin n'apparaissent pas, ce n'est pas une erreur.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>👤 Talents d'un pool</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Liste des talents du pool sélectionné, avec recherche (nom, prénom, fonction, email) et filtres avancés (statut, disponibilité, nationalité, langue, visa Schengen, contextes/zones d'intervention). Le bouton "Nouveau talent" ne vous est pas proposé.</p>
+                    <p>Cliquez sur un talent pour ouvrir sa fiche complète.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🪪 Fiche talent</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Vue complète du profil : identité, formation, compétences, langues, expérience, disponibilité, jauge de validité dans le pool, et parcours des missions ALIMA (avec leurs évaluations passées, en lecture seule).</p>
+                    <p><strong>Vous pouvez</strong> : générer un PDF de la fiche ou l'imprimer.</p>
+                    <p><strong>Vous ne pouvez pas</strong> : ajouter un commentaire, dévalider/réintégrer, mettre en Liste Rouge, changer le talent de pool, ni générer un lien de partage — ces boutons ne s'affichent pas pour votre rôle.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🧭 Postes d'un pool</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Liste des postes du pool (vacant, en recrutement, occupé), avec pour chacun le pays, le desk, le type de candidat (expatrié/national), l'occupant actuel et le futur occupant prévu s'il y en a un. Une bannière "lecture seule" rappelle que vous ne pouvez pas créer ni modifier de poste.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>📊 Statistiques</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Graphiques et indicateurs agrégés par pool (répartition par statut, expatriés/nationaux, genre, nationalités) et statistiques détaillées de contrats. Consultable en vue globale ou pool par pool.</p>
+                    <p>L'analyse par intelligence artificielle (rapport stratégique généré à la demande) n'est pas disponible pour votre rôle — vous ne verrez pas cette section sur la page.</p>
+                </div>
+            </details>
         </section>
+
+        <!-- ════════════════════════════════════════════════════════════════════
+             BLOC RECRUTEUR — autonome, montré uniquement au rôle 'user'
+             ════════════════════════════════════════════════════════════════════ -->
+        <section id="guideRecruteur" class="hidden space-y-3">
+            <h2 class="text-lg font-extrabold text-emerald-700 flex items-center gap-2">🖊️ Votre guide — Recruteur</h2>
+            <p class="text-sm text-slate-600">
+                Vous avez accès à l'ensemble des outils opérationnels du quotidien RH : création et
+                suivi des talents, gestion des postes, Liste Rouge, dévalidation, extraction et
+                analyse IA. Seules la gestion des comptes utilisateurs, l'import en masse et le
+                journal d'audit restent réservés aux administrateurs.
+            </p>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🏠 Tableau de bord</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Chaque carte de pool affiche ses indicateurs clés. La cloche de notifications (en haut) vous signale les échéances de contrat proches, les talents devenus disponibles, les risques de dévalidation (≥ 20 mois sans mission) et les postes vacants ou en recrutement — configurable dans "Préférences".</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>👤 Gestion des talents</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p><strong>Créer un talent</strong> — bouton "Nouveau talent" depuis la liste d'un pool. Le formulaire couvre l'identité, le statut et la disponibilité, la formation, les compétences/langues/zones d'intervention, et l'historique de missions ALIMA antérieures le cas échéant. Une saisie non enregistrée est sauvegardée automatiquement en brouillon local (récupérable si vous fermez la fenêtre par erreur).</p>
+                    <p><strong>Modifier / rechercher</strong> — mêmes filtres avancés que pour un visiteur (statut, disponibilité, nationalité, langue, visa, contextes, zones), plus la possibilité d'éditer chaque fiche.</p>
+                    <p><strong>Exporter le pool</strong> — bouton "📥 Exporter Excel" en haut de la liste : génère un fichier avec les talents actuellement filtrés (pas seulement la page affichée). Cette action est tracée dans le journal d'audit.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🪪 Fiche talent — actions</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p><strong>Commenter</strong> — champ toujours visible en bas de fiche. Vous pouvez modifier ou supprimer uniquement vos propres commentaires.</p>
+                    <p><strong>Dévalider / Réintégrer</strong> — voir la section "Suivi de validité" ci-dessous pour la logique complète.</p>
+                    <p><strong>Liste Rouge</strong> — signaler un talent depuis sa fiche (motif obligatoire, sans document justificatif) ou depuis la page Liste Rouge elle-même (motif + au moins un document justificatif requis).</p>
+                    <p><strong>Changer de pool</strong> — déplace le talent vers un autre pool métier ; l'historique de missions est conservé.</p>
+                    <p><strong>Partager</strong> — génère un lien public temporaire (30 jours par défaut, ou date précise) vers une version simplifiée de la fiche (sans commentaires ni évaluations internes), utile pour un partenaire externe. Les liens actifs sont listés et révocables individuellement à tout moment.</p>
+                    <p><strong>Export PDF / impression</strong> — comme pour un visiteur, tracé dans le journal d'audit.</p>
+                    <p class="text-xs text-slate-500 italic">La suppression définitive d'une fiche reste réservée aux administrateurs.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>⏳ Suivi de la validité dans le pool</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Chaque talent a un compteur de 24 mois sans mission ALIMA, affiché en barre de progression sur sa fiche. Le compteur est <strong>gelé</strong> tant que le talent est en poste ALIMA, et recalculé automatiquement chaque mois.</p>
+                    <p>La dévalidation n'est <strong>jamais automatique</strong> : à 24 mois, un badge d'alerte apparaît, mais c'est à vous de décider de dévalider (le talent passe alors dans "Dévalidés") ou d'accorder une prolongation, après vérification de sa situation réelle.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🧭 Gestion des postes</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p><strong>Créer / modifier un poste</strong> — titre, pays, lieu, type de candidat (expatrié/national), desk, statut, occupant actuel, dates de contrat, et futur occupant prévu si une rotation est planifiée.</p>
+                    <p><strong>Rotation d'occupant</strong> — quand un occupant sort (changement, fin de contrat, suppression du poste), ses évaluations sont automatiquement archivées dans l'historique de sa fiche talent, et son compteur de disponibilité mis à jour.</p>
+                    <p><strong>Évaluations</strong> — depuis un poste occupé, ajoutez une évaluation (contexte, points forts, axes d'amélioration, note sur 10). Vous ne pouvez modifier/supprimer que vos propres évaluations.</p>
+                    <p><strong>Analyse IA du pool</strong> — bouton dédié sur cette page : synthèse et recommandations générées à la demande à partir des statistiques agrégées du pool (jamais de données nominatives envoyées à l'IA).</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🚫 Dévalidés</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Liste de tous les talents dévalidés, regroupés par pool, filtrable par pool et par date de dévalidation. Toutes les informations du profil (missions, évaluations, commentaires) restent conservées.</p>
+                    <p><strong>Réintégrer</strong> rend son statut normal au talent, sans aucune perte de données. <strong>Mettre en Liste Rouge</strong> est aussi possible directement depuis cette liste.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>⚠️ Liste Rouge</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Talents signalés comme ne devant pas être recrutés, toutes pools confondues. Pour ajouter un signalement : choisissez le pool puis le talent, rédigez un motif factuel et précis, joignez au moins un document justificatif (PDF, Word ou image, 10 Mo max par fichier) — les documents sont stockés dans un espace privé, jamais accessibles publiquement.</p>
+                    <p>Le motif complet et les documents restent consultables à tout moment via "Voir le motif". Le retrait de la Liste Rouge se fait depuis cette même page.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>📤 Extraction Excel</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Sélectionnez les pools à inclure côté "Listes professionnelles" (combinées dans une seule feuille) et/ou côté "Postes" (une feuille par pool sélectionné). Générez le fichier Excel en un clic — l'export est tracé dans le journal d'audit.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>📊 Statistiques &amp; IA</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Mêmes graphiques que pour un visiteur, plus deux outils d'analyse IA : une analyse dédiée à un pool précis (bouton sur la fiche du pool), et un assistant stratégique global avec des questions rapides pré-remplies ou une question libre. Les données envoyées à l'IA sont toujours des comptages agrégés et anonymisés, jamais de noms ni d'e-mails.</p>
+                </div>
+            </details>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════════
+             BLOC ADMIN — autonome, montré uniquement au rôle 'admin'
+             ════════════════════════════════════════════════════════════════════ -->
+        <section id="guideAdmin" class="hidden space-y-3">
+            <h2 class="text-lg font-extrabold text-blue-700 flex items-center gap-2">🛡️ Votre guide — Administrateur</h2>
+            <p class="text-sm text-slate-600">
+                Vous avez accès à tout ce que peut faire un recruteur (créer/gérer talents et postes,
+                Liste Rouge, dévalidation, extraction, analyse IA), plus les fonctions réservées à
+                l'administration de la plateforme elle-même : comptes, import en masse, journal
+                d'audit, et suppression définitive d'une fiche.
+            </p>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>🏠 Tableau de bord</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Comme pour un recruteur (indicateurs par pool, notifications), avec en plus un menu "Admin" donnant accès à Comptes, Import en masse et Journal d'audit.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>👤 Talents, 🪪 Fiches, ⏳ Validité, 🧭 Postes, 🚫 Dévalidés, ⚠️ Liste Rouge, 📤 Extraction, 📊 Statistiques &amp; IA</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Fonctionnement identique à ce que peut faire un recruteur sur ces pages (voir le guide Recruteur pour le détail complet) — avec deux différences propres à votre rôle :</p>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li><strong>Suppression définitive</strong> d'une fiche talent active, depuis sa page (irréversible, efface aussi évaluations/commentaires/liens de partage) — un talent dévalidé se supprime lui depuis "Dévalidés".</li>
+                        <li><strong>Commentaires et évaluations</strong> : vous pouvez modifier/supprimer ceux de n'importe quel utilisateur, pas seulement les vôtres.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>👥 Comptes</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p><strong>Créer un compte</strong> — email, rôle (admin/recruteur/visiteur), nom complet. Un code d'accès temporaire est généré automatiquement et affiché une seule fois : transmettez-le à la personne par un canal sûr, elle devra le changer à sa première connexion.</p>
+                    <p><strong>Réinitialiser le mot de passe</strong> — génère un nouveau code d'accès et révoque immédiatement toutes les sessions déjà ouvertes avec l'ancien, utile en cas de compte compromis.</p>
+                    <p><strong>Suspendre / réactiver</strong> — bloque l'accès sans supprimer le compte (réversible), à privilégier pour un départ temporaire.</p>
+                    <p><strong>Supprimer</strong> — définitif, y compris pour votre propre compte c'est bloqué par sécurité (vous ne pouvez pas supprimer le compte avec lequel vous êtes connecté).</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>📥 Import en masse</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Deux onglets, Talents et Postes, même principe pour les deux : téléchargez le modèle Excel (instructions dans son premier onglet), remplissez-le, déposez-le. Un aperçu affiche les lignes valides et celles en erreur avant tout import — seules les lignes valides sont importées, rien n'est deviné à la place d'une ligne en erreur.</p>
+                    <p>Un poste importé est toujours créé "Vacant" ou "En recrutement" (jamais "Occupé" directement) ; l'affectation d'un talent se fait ensuite manuellement depuis la page Postes du pool.</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span>📋 Journal d'audit</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p>Historique de toutes les actions sensibles (création, modification, suppression, dévalidation, Liste Rouge, connexion/déconnexion, export) avec date, auteur, type d'entité concernée et détails. Filtrable par type d'action, type d'entité, et période (ou un jour précis).</p>
+                    <p>Un export Excel du journal filtré est disponible — lui-même tracé comme un export. Les logs standards sont conservés 12 mois, les logs critiques (suppression, dévalidation, Liste Rouge) 24 mois, purgés automatiquement.</p>
+                </div>
+            </details>
+        </section>
+
 
         <!-- RGPD -->
         <section class="space-y-3">
@@ -248,10 +362,10 @@
                     <p class="font-bold text-sm text-slate-800 flex items-center gap-2">📋 Journal d'audit</p>
                     <p class="text-xs text-slate-600 leading-relaxed">
                         Chaque action sensible (création, modification, suppression, dévalidation,
-                        Liste Rouge, connexion...) est horodatée et tracée dans un journal
-                        consultable par les administrateurs uniquement. Une purge automatique des
-                        anciens logs (conservation limitée dans le temps) est prévue pour respecter
-                        le principe de limitation de la conservation.
+                        Liste Rouge, connexion, <strong>export de données</strong>...) est horodatée et
+                        tracée dans un journal consultable par les administrateurs uniquement. Une purge
+                        automatique des anciens logs (conservation limitée dans le temps) est prévue
+                        pour respecter le principe de limitation de la conservation.
                     </p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-1.5">
