@@ -21,13 +21,13 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
     <!-- Tailwind CSS CDN -->
-    <script src="shared/vendor/tailwind-browser-4.js"></script>
+    <script defer src="shared/vendor/tailwind-browser-4.js"></script>
 
     <!-- Supabase CDN (Standard Non-Module) -->
-    <script src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
 
     <!-- Configuration Supabase partagée (source unique — remplace le pont localStorage) -->
-    <script src="shared/caphuma-config.js"></script>
+    <script defer src="shared/caphuma-config.js"></script>
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -99,6 +99,6 @@
         <p id="bootError" role="alert" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 text-center"></p>
     </div>
 
-    <script src="pages/index.js"></script>
+    <script defer src="pages/index.js"></script>
 </body>
 </html>

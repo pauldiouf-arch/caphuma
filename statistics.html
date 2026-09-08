@@ -21,21 +21,21 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     
     <!-- Tailwind CSS, hébergé localement -->
-    <script src="shared/vendor/tailwind-browser-4.js"></script>
+    <script defer src="shared/vendor/tailwind-browser-4.js"></script>
     
     <!-- Chart.js, hébergé localement pour le rendu des graphiques -->
     <!-- Version figée à 4.4.4 (version stable connue de Chart.js v4, API identique
          à celle utilisée dans ce fichier : type 'pie'/'bar'/'doughnut', options
          responsive/legend/scales). À re-vérifier une fois par an (cf. Guide de
          Maintenance, §2.2) plutôt que de laisser filer automatiquement. -->
-    <script src="shared/vendor/chart-4.4.4.js"></script>
+    <script defer src="shared/vendor/chart-4.4.4.js"></script>
     
     <!-- Supabase JS Client, hébergé localement -->
-    <script src="shared/vendor/supabase-js-2.110.6.js"></script>
-    <script src="shared/caphuma-config.js"></script>
-    <script src="shared/caphuma-utils.js"></script>
-    <script src="shared/caphuma-auth.js"></script>
-    <script src="shared/caphuma-layout.js"></script>
+    <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script defer src="shared/caphuma-config.js"></script>
+    <script defer src="shared/caphuma-utils.js"></script>
+    <script defer src="shared/caphuma-auth.js"></script>
+    <script defer src="shared/caphuma-layout.js"></script>
     
     <!-- Polices -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -340,9 +340,9 @@
     <!-- Script de logique et liaison Supabase -->
     <!-- Ordre de chargement strict : statistics.js déclare StatisticsPage et doit
          rester en premier. -->
-    <script src="pages/statistics.js"></script>
-    <script src="pages/statistics-charts.js"></script>
-    <script src="pages/statistics-pool-ai.js"></script>
-    <script src="pages/statistics-ai-report.js"></script>
+    <script defer src="pages/statistics.js"></script>
+    <script defer src="pages/statistics-charts.js"></script>
+    <script defer src="pages/statistics-pool-ai.js"></script>
+    <script defer src="pages/statistics-ai-report.js"></script>
 </body>
 </html>
