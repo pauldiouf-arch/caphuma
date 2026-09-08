@@ -568,10 +568,14 @@ const IdCardPage = {};
         }
 
         function bindPdfButton() {
-            document.getElementById('pdf-btn').onclick = () => {
+            document.getElementById('pdf-btn').onclick = async () => {
                 try {
                     IdCardPage.exportTalentCardPDF(talent, activeMission);
                     toastMessage("Document PDF généré et téléchargé.", "success");
+                    // Traçabilité des exports (règle RGPD d'accountability), ajoutée
+                    // pour les 3 exports du site (ici, extraction.js, audit_logs.js).
+                    const fullName = `${talent.first_name || ''} ${talent.last_name || ''}`.trim() || null;
+                    await logAuditAction('export', 'talent', IdCardPage.talentId, fullName, 'Export PDF de la fiche');
                 } catch (err) {
                     console.error("Erreur génération PDF :", err);
                     toastMessage("Échec de la génération du PDF.", "error");

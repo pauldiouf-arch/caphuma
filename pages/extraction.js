@@ -347,7 +347,7 @@
             exportStatus.classList.add(isError ? 'text-red-600' : 'text-primary', isError ? 'bg-red-50' : 'bg-primary-light');
         }
 
-        function generateExport() {
+        async function generateExport() {
             if (talentPoolsSelected.size === 0 && positionPoolsSelected.size === 0) {
                 setStatus("Sélectionnez au moins un pool (listes pros ou postes).", true);
                 return;
@@ -405,6 +405,18 @@
                 XLSX.writeFile(wb, `extraction-cap-huma-${today}.xlsx`);
 
                 setStatus("✅ Fichier Excel généré et téléchargé avec succès.", false);
+
+                // Traçabilité des exports (règle RGPD d'accountability) — décrit
+                // précisément quelles feuilles ont été générées, cohérent avec la
+                // construction du classeur juste au-dessus.
+                const exportedParts = [];
+                if (talentPoolsSelected.size > 0) {
+                    exportedParts.push(`Listes pros (${Array.from(talentPoolsSelected).join('+')})`);
+                }
+                if (positionPoolsSelected.size > 0) {
+                    exportedParts.push(`Postes (${Array.from(positionPoolsSelected).join('+')})`);
+                }
+                await logAuditAction('export', 'system', null, exportedParts.join(' ; '), null);
             } catch (err) {
                 console.error("Erreur d'export :", err);
                 setStatus("❌ Échec de la génération : " + (err && err.message ? err.message : 'erreur inconnue.'), true);

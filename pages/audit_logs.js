@@ -107,7 +107,7 @@
             create: 'Création', update: 'Modification', delete: 'Suppression',
             devalidate: 'Dévalidation', reintegrate: 'Réintégration',
             add_to_red_list: 'Ajout liste rouge', remove_from_red_list: 'Retrait liste rouge',
-            login: 'Connexion', logout: 'Déconnexion'
+            login: 'Connexion', logout: 'Déconnexion', export: 'Export'
         };
         const ACTION_BADGE_CLASS = {
             create: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -118,7 +118,8 @@
             add_to_red_list: 'bg-red-50 text-red-700 border-red-200',
             remove_from_red_list: 'bg-slate-100 text-slate-600 border-slate-200',
             login: 'bg-slate-100 text-slate-600 border-slate-200',
-            logout: 'bg-slate-100 text-slate-600 border-slate-200'
+            logout: 'bg-slate-100 text-slate-600 border-slate-200',
+            export: 'bg-indigo-50 text-indigo-700 border-indigo-200'
         };
         const ENTITY_TYPE_LABELS = {
             talent: 'Talent', mission: 'Poste', comment: 'Commentaire',
@@ -411,6 +412,12 @@
                 const now = new Date();
                 const stamp = now.toISOString().slice(0, 16).replace('T', '_').replace(':', 'h');
                 XLSX.writeFile(wb, `logs_audit_${stamp}.xlsx`);
+
+                // Traçabilité des exports (règle RGPD d'accountability : savoir qui a
+                // extrait des données, pas seulement qui les a créées/modifiées) —
+                // ajoutée pour les 3 exports du site (id-card.js, extraction.js, ici).
+                await logAuditAction('export', 'system', null, `Journal d'audit (${filtered.length} ligne(s))`,
+                    Object.keys(filters).length > 0 ? 'Filtres actifs : ' + JSON.stringify(filters) : 'Aucun filtre');
             } catch (err) {
                 console.error(err);
                 alert("Erreur lors de l'export : " + (err && err.message ? err.message : 'erreur inconnue.'));
