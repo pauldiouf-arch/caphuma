@@ -32,8 +32,10 @@
     <script defer src="shared/caphuma-form-draft.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
-    <!-- SheetJS (export Excel du pool filtré, UMD, cohérent avec extraction.html) -->
-    <script defer src="shared/vendor/xlsx-0.18.5.js"></script>
+    <!-- SheetJS n'est plus chargé ici statiquement : chargé à la demande au
+         clic sur "Exporter Excel" (capHumaLoadScriptOnce(), voir
+         pages/talents.js) — ne sert qu'à cette action, inutile de le payer
+         à chaque visite de page. -->
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

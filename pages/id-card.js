@@ -570,6 +570,14 @@ const IdCardPage = {};
         function bindPdfButton() {
             document.getElementById('pdf-btn').onclick = async () => {
                 try {
+                    // Chargement à la demande de jsPDF puis jspdf-autotable (plus
+                    // dans les <script> statiques d'id-card.html depuis cette
+                    // étape). Ordre séquentiel obligatoire : jspdf-autotable
+                    // étend le prototype de jsPDF, donc doit se charger APRÈS
+                    // que jsPDF soit déjà présent (window.jspdf). Voir
+                    // shared/caphuma-utils.js, section 14.
+                    await capHumaLoadScriptOnce('shared/vendor/jspdf-2.5.1.js');
+                    await capHumaLoadScriptOnce('shared/vendor/jspdf-autotable-3.5.29.js');
                     IdCardPage.exportTalentCardPDF(talent, activeMission);
                     toastMessage("Document PDF généré et téléchargé.", "success");
                     // Traçabilité des exports (règle RGPD d'accountability), ajoutée

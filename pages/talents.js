@@ -880,6 +880,18 @@ const TalentsPage = {};
         }
 
         document.getElementById('exportPoolExcelBtn').addEventListener('click', async () => {
+            // Chargement à la demande de SheetJS (plus dans les <script>
+            // statiques de talents.html depuis cette étape) : la bibliothèque
+            // ne sert qu'à ce bouton, inutile de la charger à chaque visite
+            // de page. capHumaLoadScriptOnce() dédoublonne les clics
+            // rapprochés (voir shared/caphuma-utils.js, section 14).
+            try {
+                await capHumaLoadScriptOnce('shared/vendor/xlsx-0.18.5.js');
+            } catch (err) {
+                alert("Impossible de charger le module d'export Excel (vérifiez la connexion réseau) et réessayez.");
+                return;
+            }
+
             // En mode paginé, TalentsPage.currentFilteredTalents ne contient que la page affichée
             // (PAGE_SIZE lignes) — on récupère toujours l'intégralité du pool filtré
             // avant d'exporter, pour ne jamais produire un fichier tronqué

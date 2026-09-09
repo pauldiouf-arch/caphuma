@@ -34,9 +34,9 @@
     <script defer src="shared/caphuma-form-draft.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
-    <!-- jsPDF & jsPDF-AutoTable, hébergés localement (shared/vendor/) -->
-    <script defer src="shared/vendor/jspdf-2.5.1.js"></script>
-    <script defer src="shared/vendor/jspdf-autotable-3.5.29.js"></script>
+    <!-- jsPDF & jsPDF-AutoTable ne sont plus chargés ici statiquement : chargés
+         à la demande au clic sur "Fiche PDF" (capHumaLoadScriptOnce(), voir
+         pages/id-card.js, bindPdfButton()) — ne servent qu'à cette action. -->
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
