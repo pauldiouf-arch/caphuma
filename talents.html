@@ -20,6 +20,11 @@
     <title>Professionnels - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
+    <!-- Démarre la négociation TLS avec Supabase avant même le premier appel
+         API (déclenché plus tard par checkSession()) — gain de quelques
+         dizaines de ms sur le premier appel réseau, sans dépendance ajoutée. -->
+    <link rel="preconnect" href="https://bhjycotcmkqiumukkkih.supabase.co">
+
     <script defer src="shared/vendor/tailwind-browser-4.js"></script>
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>

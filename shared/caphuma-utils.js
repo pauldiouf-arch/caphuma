@@ -657,3 +657,52 @@ async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
     if (!response.ok) throw new Error(json.error || "Erreur lors du chargement des données.");
     return json;
 }
+
+// ----------------------------------------------------------------------------
+// 14. CHARGEMENT DIFFÉRÉ D'UN SCRIPT VENDOR (perf, sans build)
+// ----------------------------------------------------------------------------
+// Certaines pages chargent une bibliothèque vendor lourde (xlsx, jsPDF...)
+// dès l'ouverture de la page alors qu'elle ne sert qu'à une action ponctuelle
+// (export Excel/PDF) — inutile de la payer à chaque visite si elle n'est pas
+// utilisée. Cette fonction injecte un <script src="..."> à la demande, une
+// seule fois même si elle est appelée plusieurs fois de suite (clics
+// rapprochés compris), et attend son chargement complet avant de continuer.
+//
+// Ne PAS utiliser pour un script dont dépend le rendu initial de la page
+// (Tailwind, supabase-js, caphuma-*.js) — uniquement pour une bibliothèque
+// dont l'usage est déclenché par une action explicite de la personne.
+//
+// Mémorise une PROMESSE par URL (pas un simple booléen "chargé") : deux
+// clics avant la fin du premier chargement partagent la même promesse au
+// lieu d'injecter deux fois la même balise <script>. Sur un échec réseau, la
+// promesse en cache est supprimée plutôt que conservée comme rejet définitif
+// — un clic suivant (ex. après retour de connexion) retente un chargement
+// complet au lieu d'échouer indéfiniment.
+//
+// @param {string} src  Chemin RELATIF du script (ex. "shared/vendor/xlsx-0.18.5.js")
+//        — toujours une ressource same-origin, cohérente avec script-src
+//        'self' de la CSP : ce n'est pas un contournement, seulement un
+//        chargement différé de la même ressource locale qu'un <script>
+//        statique aurait chargée au démarrage.
+// @returns {Promise<void>} Résolue une fois le script chargé et exécuté (ou
+//        immédiatement si déjà chargé) ; rejetée si le chargement échoue
+//        (coupure réseau, 404...) — à la charge de l'appelant d'afficher une
+//        erreur (toastMessage()/showError()), cette fonction reste générique
+//        et ne le fait pas elle-même.
+const CAP_HUMA_SCRIPT_PROMISES = {};
+function capHumaLoadScriptOnce(src) {
+    if (CAP_HUMA_SCRIPT_PROMISES[src]) return CAP_HUMA_SCRIPT_PROMISES[src];
+
+    CAP_HUMA_SCRIPT_PROMISES[src] = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => {
+            delete CAP_HUMA_SCRIPT_PROMISES[src];
+            reject(new Error(`Échec du chargement de ${src}`));
+        };
+        document.head.appendChild(script);
+    });
+
+    return CAP_HUMA_SCRIPT_PROMISES[src];
+}

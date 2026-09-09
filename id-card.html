@@ -20,18 +20,23 @@
     <title>Fiche d'Identité Talent - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     
+    <!-- Démarre la négociation TLS avec Supabase avant même le premier appel
+         API (déclenché plus tard par checkSession()) — gain de quelques
+         dizaines de ms sur le premier appel réseau, sans dépendance ajoutée. -->
+    <link rel="preconnect" href="https://bhjycotcmkqiumukkkih.supabase.co">
+
     <!-- Tailwind CSS, hébergé localement -->
-    <script src="shared/vendor/tailwind-browser-4.js"></script>
+    <script defer src="shared/vendor/tailwind-browser-4.js"></script>
     <!-- Supabase JS Client, hébergé localement -->
-    <script src="shared/vendor/supabase-js-2.110.6.js"></script>
-    <script src="shared/caphuma-config.js"></script>
-    <script src="shared/caphuma-utils.js"></script>
-    <script src="shared/caphuma-form-draft.js"></script>
-    <script src="shared/caphuma-auth.js"></script>
-    <script src="shared/caphuma-layout.js"></script>
+    <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script defer src="shared/caphuma-config.js"></script>
+    <script defer src="shared/caphuma-utils.js"></script>
+    <script defer src="shared/caphuma-form-draft.js"></script>
+    <script defer src="shared/caphuma-auth.js"></script>
+    <script defer src="shared/caphuma-layout.js"></script>
     <!-- jsPDF & jsPDF-AutoTable, hébergés localement (shared/vendor/) -->
-    <script src="shared/vendor/jspdf-2.5.1.js"></script>
-    <script src="shared/vendor/jspdf-autotable-3.5.29.js"></script>
+    <script defer src="shared/vendor/jspdf-2.5.1.js"></script>
+    <script defer src="shared/vendor/jspdf-autotable-3.5.29.js"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -393,9 +398,9 @@
     <!-- JS de logique et SDK Supabase -->
     <!-- id-card.js est scindé en 4 fichiers. Ordre obligatoire — voir l'en-tête
          de pages/id-card.js. -->
-    <script src="pages/id-card.js"></script>
-    <script src="pages/id-card-comments.js"></script>
-    <script src="pages/id-card-pdf.js"></script>
-    <script src="pages/id-card-share.js"></script>
+    <script defer src="pages/id-card.js"></script>
+    <script defer src="pages/id-card-comments.js"></script>
+    <script defer src="pages/id-card-pdf.js"></script>
+    <script defer src="pages/id-card-share.js"></script>
 </body>
 </html>
