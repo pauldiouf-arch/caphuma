@@ -1,14 +1,7 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement une
-// fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou soit
-// elle-même masquée par une autre page à l'avenir. Note : showError(title,
-// message) reste ici local et masque volontairement le showError(msg) de
-// caphuma-utils.js — signature différente, pages ciblées différentes.
+// showError(title, message) reste ici local et masque volontairement le
+// showError(msg) de caphuma-utils.js — signature différente, page ciblée différente.
 (() => {
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent de shared/caphuma-config.js
-        // (chargé dans le <head>), source unique pour toutes les pages.
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 
         function renderBadges(containerId, list) {
             const container = document.getElementById(containerId);
@@ -42,8 +35,8 @@
             talent_not_found: ["Profil introuvable", "Le profil associé à ce lien n'est plus disponible."]
         };
 
-        // Timeline (parcours de missions) — informations professionnelles uniquement,
-        // jamais les commentaires/évaluations internes.
+        // Informations professionnelles uniquement, jamais les commentaires/
+        // évaluations internes (page publique, sans authentification).
         function renderTimeline(mission, passages) {
             const timeline = document.getElementById('timeline-container');
             timeline.innerHTML = "";
@@ -123,7 +116,6 @@
             const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");
             document.getElementById('info-languages').textContent = langs;
 
-            // EDU_LEVEL_LABELS / MISSION_COUNT_LABELS viennent de shared/caphuma-utils.js.
             document.getElementById('info-edu-level').textContent = EDU_LEVEL_LABELS[talent.education_level] || "N/A";
             document.getElementById('info-edu-specialty').textContent = talent.education_specialty || "N/A";
             document.getElementById('info-integration-date').textContent = talent.pool_integration_date
@@ -166,10 +158,9 @@
             }
 
             try {
-                // Enveloppé dans capHumaWithRetry() : page publique, sans session — les
-                // visiteurs externes sur connexion instable bénéficient d'autant plus du
-                // retry qu'ils n'ont pas le réflexe "recharger" d'un utilisateur habitué
-                // au site.
+                // Page publique sans session : les visiteurs externes sur connexion
+                // instable bénéficient d'autant plus du retry, sans le réflexe
+                // "recharger" d'un utilisateur habitué au site.
                 const { data, error } = await capHumaWithRetry(() =>
                     supabaseClient.rpc('get_shared_talent', { p_token: token })
                 );

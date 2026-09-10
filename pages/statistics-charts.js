@@ -3,18 +3,13 @@
 // appel réseau IA. Voir statistics.js (chargé AVANT ce fichier) pour
 // l'explication de StatisticsPage.
 (() => {
-        // calculateMonthsWithoutMission() a été retirée d'ici : elle vient désormais
-        // de shared/caphuma-utils.js (chargé ligne 23), qui est l'unique source pour
-        // les 3 pages concernées. Comportement strictement identique — cette page
-        // utilisait déjà la méthode calendaire.
-
         function updateStatistics() {
             const selectorValue = document.getElementById('pool-selector').value;
-            
+
             let talents = [...StatisticsPage.rawTalents];
             let mData = [...StatisticsPage.rawMissions];
 
-            // Application des colonnes réelles (pool pour talents, pool_id pour missions)
+            // pool pour talents, pool_id pour missions — noms de colonnes différents.
             if (selectorValue !== 'global') {
                 talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
                 mData = mData.filter(m => {
@@ -23,7 +18,6 @@
                 });
             }
 
-            // Calculs KPIs
             const totalPositions = mData.length;
             const occupiedPositions = mData.filter(m => m.status === 'occupied').length;
             const vacantPositions = mData.filter(m => m.status === 'vacant').length;
@@ -31,7 +25,7 @@
 
             const occupancyRate = totalPositions > 0 ? Math.round((occupiedPositions / totalPositions) * 100) : 0;
             const activeTalents = talents.filter(t => t.isValid !== false && t.is_valid !== false).length;
-            
+
             const availableTalents = talents.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
                 const isRed = t.isRedListed || t.is_red_listed;
@@ -43,7 +37,6 @@
                 return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
             }).length;
 
-            // Remplissage DOM
             document.getElementById('kpi-occupancy-rate').textContent = `${occupancyRate}%`;
             document.getElementById('kpi-occupancy-sub').textContent = `${occupiedPositions} de ${totalPositions} postes occupés`;
             document.getElementById('kpi-vacancies').textContent = vacantPositions;
@@ -52,14 +45,11 @@
             document.getElementById('kpi-talents-sub').textContent = `Disponibles : ${availableTalents}`;
             document.getElementById('kpi-talents-risk').textContent = talentsAtRisk;
 
-            // Rendu graphiques
             renderStatusChart([occupiedPositions, recruitingPositions, vacantPositions]);
 
-            // La colonne candidate_type n'est pas garantie présente dans le schéma
-            // réel de `missions`. On distingue donc "colonne absente" (aucun poste
-            // n'a la clé, quelle que soit sa casse) de "colonne présente mais vide",
-            // pour ne jamais afficher un graphique silencieusement faux (100% "Non
-            // défini" sans avertissement).
+            // Distingue "colonne absente" (aucun poste n'a la clé) de "colonne présente
+            // mais vide", pour ne jamais afficher un graphique silencieusement faux
+            // (100% "Non défini" sans avertissement).
             const hasCandidateTypeColumn = mData.some(m => 'candidate_type' in m || 'candidateType' in m);
 
             if (!hasCandidateTypeColumn) {
@@ -78,11 +68,9 @@
                 renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
             }
 
-            // Graphiques de diversité (genre / nationalité) — cf. section 3.4 de la
-            // présentation générale. Calculés sur les "talents actifs" (valides, non
-            // Liste Rouge) uniquement, comme buildPoolAnalysisStats() plus bas, pour que
-            // le graphique et le texte de l'analyse IA du même pool racontent toujours la
-            // même chose. `talents` est déjà filtré par pool/global en tête de fonction.
+            // Mêmes "talents actifs" (valides, non Liste Rouge) que buildPoolAnalysisStats()
+            // plus bas, pour que le graphique et le texte de l'analyse IA du même pool
+            // racontent toujours la même chose.
             const activeTalentsForDiversity = talents.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
                 const isRed = t.isRedListed || t.is_red_listed;
@@ -91,22 +79,13 @@
             updateDiversityCharts(activeTalentsForDiversity);
 
             updateDetailedContractStats(selectorValue, mData);
-            // updatePoolAiAnalysisVisibility() vit dans statistics-pool-ai.js — appel
-            // via StatisticsPage, chargé après ce fichier (voir ordre dans le HTML).
+            // updatePoolAiAnalysisVisibility() vit dans statistics-pool-ai.js, chargé
+            // après ce fichier.
             StatisticsPage.updatePoolAiAnalysisVisibility(selectorValue, talents, mData);
         }
 
-        // ============================================================================
-        // STATISTIQUES DÉTAILLÉES DES CONTRATS PAR POOL (cf. Hercules
-        // positions/stats.ts : getDetailedPositionStats). N'apparaît jamais sur la vue
-        // globale — seulement quand un pool précis est sélectionné, pour ne pas toucher
-        // au Hub Statistique global (décision explicite de l'utilisateur).
-        // Placée ici plutôt qu'avec le bloc "analyse IA par pool" d'origine :
-        // fonction purement client-side, sans appel réseau ni lien avec
-        // buildPoolAnalysisStats() — seule sa position textuelle dans l'ancien fichier
-        // monolithique la faisait voisiner avec l'IA, pas sa responsabilité réelle.
-        // Voir statistics-pool-ai.js pour la vraie chaîne d'analyse par IA.
-        // ============================================================================
+        // N'apparaît jamais sur la vue globale, seulement quand un pool précis est
+        // sélectionné — le Hub Statistique global n'est pas concerné.
         function updateDetailedContractStats(selectorValue, mData) {
             const card = document.getElementById('detailed-stats-card');
 
@@ -140,8 +119,7 @@
                 ? Math.round((renewable / withContracts.length) * 100)
                 : 0;
 
-            // Échéances cumulatives (identique à la logique de missions.html/Hercules :
-            // "fin dans 3 mois" inclut ce qui finit dans le mois qui vient).
+            // Cumulatif : "fin dans 3 mois" inclut ce qui finit dans le mois qui vient.
             const endsWithin = (maxDate) => mData.filter(m => {
                 if (!m.contract_end_date) return false;
                 const t = new Date(m.contract_end_date).getTime();
@@ -157,7 +135,6 @@
             document.getElementById('stat-ending-3m').textContent = endsWithin(threeMonthsLater);
             document.getElementById('stat-ending-6m').textContent = endsWithin(sixMonthsLater);
 
-            // Répartition par pays
             const byCountry = {};
             mData.forEach(m => {
                 const c = m.country || 'Non précisé';
@@ -169,8 +146,6 @@
                     <div class="flex justify-between"><span class="text-slate-500">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('');
 
-            // Répartition par desk (ajouté par rapport à Hercules — donnée déjà tracée
-            // dans Cap Huma, jugée utile en complément du pays)
             const DESK_LABELS_LOCAL = { desk1: 'Desk 1', desk2: 'Desk 2', desk3: 'Desk 3', suo: 'SUO' };
             const byDesk = {};
             mData.forEach(m => {
@@ -185,7 +160,6 @@
                 `).join('')
                 : '<p class="text-xs text-slate-500 italic">Aucun desk renseigné</p>';
 
-            // Distribution des durées de contrat (tranches identiques à Hercules)
             const distribution = {
                 '0-6 mois': durations.filter(d => d <= 6).length,
                 '7-12 mois': durations.filter(d => d > 6 && d <= 12).length,
@@ -244,13 +218,7 @@
             });
         }
 
-        // ============================================================================
-        // GRAPHIQUES DE DIVERSITÉ (genre / nationalité) — comptages agrégés uniquement,
-        // jamais une ligne "talent par talent" affichée : cohérent avec le choix déjà
-        // fait pour l'analyse IA (buildPoolAnalysisStats, genderDistribution /
-        // nationalityDistribution) et avec la décision utilisateur de ne jamais exposer
-        // de donnée nominative sur cette page.
-        // ============================================================================
+        // Comptages agrégés uniquement, jamais une ligne "talent par talent" affichée.
         const NATIONALITY_CHART_TOP_N = 8;
 
         function updateDiversityCharts(activeTalents) {
@@ -270,9 +238,8 @@
             document.getElementById('nationalityChart').classList.remove('hidden');
             document.getElementById('nationalityChartEmptyState').classList.add('hidden');
 
-            // Genre — mêmes 3 catégories que buildPoolAnalysisStats (H / F / non renseigné),
-            // 'gender' ne portant que ces valeurs dans le schéma réel (§4.2 du dossier de
-            // passation technique).
+            // Mêmes 3 catégories que buildPoolAnalysisStats (H / F / non renseigné),
+            // 'gender' ne portant que ces valeurs dans le schéma réel.
             const genderDist = { hommes: 0, femmes: 0, nonRenseigne: 0 };
             activeTalents.forEach(t => {
                 if (t.gender === 'H') genderDist.hommes++;
@@ -281,11 +248,9 @@
             });
             renderGenderChart(genderDist);
 
-            // Nationalité — pas de nombre de valeurs distinctes borné (texte libre en base),
-            // donc jamais un camembert/une barre par nationalité sans limite : on garde les
-            // NATIONALITY_CHART_TOP_N plus représentées et on regroupe le reste sous "Autres",
-            // plus un bucket "Non renseigné" séparé et explicite (jamais fondu silencieusement
-            // dans une autre catégorie).
+            // Nationalité en texte libre, pas de nombre de valeurs distinctes borné :
+            // on garde les NATIONALITY_CHART_TOP_N plus représentées, le reste regroupé
+            // sous "Autres", et un bucket "Non renseigné" séparé et explicite.
             const counts = {};
             let nonRenseigne = 0;
             activeTalents.forEach(t => {
@@ -337,9 +302,9 @@
             StatisticsPage.nationalityChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    // Pas d'escapeHtml() ici : Chart.js dessine le texte directement sur un
-                    // <canvas> (pas d'innerHTML), donc aucun risque XSS — et escapeHtml()
-                    // afficherait à tort des entités littérales (ex. "Côte d&#039;Ivoire").
+                    // Pas d'escapeHtml() ici : Chart.js dessine sur un <canvas> (pas
+                    // d'innerHTML), aucun risque XSS — escapeHtml() afficherait à tort des
+                    // entités littérales (ex. "Côte d&#039;Ivoire").
                     labels: labels,
                     datasets: [{
                         label: 'Talents',
@@ -357,7 +322,6 @@
                 }
             });
         }
-
 
         // Exposé sur StatisticsPage pour appel depuis statistics.js
         StatisticsPage.updateStatistics = updateStatistics;

@@ -5,17 +5,13 @@
 // dernier fichier). Voir statistics.js (chargé AVANT ce fichier) pour
 // l'explication de StatisticsPage.
 (() => {
-        // ============================================================================
-        // ANALYSE IA PAR POOL — statistiques agrégées calculées en mémoire
-        // (StatisticsPage.rawTalents/StatisticsPage.rawMissions déjà chargés pour
-        // tous les pools, filtrage synchrone, pas de requête réseau supplémentaire).
-        // ============================================================================
+        // Statistiques calculées en mémoire (StatisticsPage.rawTalents/rawMissions
+        // déjà chargés pour tous les pools) — pas de requête réseau supplémentaire.
         function updatePoolAiAnalysisVisibility(selectorValue, talentsForPool, mData) {
             const card = document.getElementById('pool-ai-analysis-card');
 
-            // Masquage définitif pour visitor (voir statistics.js/checkSession) — sans
-            // ce garde-fou, sélectionner un pool précis ré-affiche la carte plus bas
-            // dans cette même fonction, quel que soit le rôle.
+            // Sans ce garde-fou, sélectionner un pool précis ré-affiche la carte plus
+            // bas dans cette même fonction, quel que soit le rôle.
             if (StatisticsPage.currentUserRole === 'visitor') {
                 card.classList.add('hidden');
                 return;
@@ -37,29 +33,16 @@
             document.getElementById('pool-ai-analysis-pool-name').textContent = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
         }
 
-        // Instantané agrégé et anonymisé (comptages uniquement, aucune donnée
-        // nominative) — disponibilité, genre, nationalité, langues, tranches
-        // d'expérience, type de candidat, pays/desk des postes, taux d'anticipation
-        // (postes avec un futur occupant identifié). Toujours uniquement des
-        // comptages agrégés — jamais un nom, un email ou une évaluation
-        // individuelle. Seuil d'anonymat pour les données envoyées à l'IA — voir le
-        // bloc explicatif en fin de buildPoolAnalysisStats(). En dessous de ce
-        // nombre de talents actifs dans le pool, les répartitions genre /
-        // nationalités / langues ne sont pas transmises au modèle.
+        // Seuil d'anonymat pour les données envoyées à l'IA — voir le bloc explicatif
+        // en fin de buildPoolAnalysisStats(). En dessous de ce nombre de talents
+        // actifs, les répartitions genre/nationalités/langues ne sont pas transmises.
         const AI_DIVERSITY_MIN_ACTIVE_TALENTS = 5;
 
         // buildPoolAnalysisStats() est décomposée en une fonction par famille de
-        // stats, assemblées dans l'objet `stats` final par l'orchestrateur
-        // (buildPoolAnalysisStats elle-même) — même pattern que
-        // exportTalentCardPDF()/bindButtonListeners(). `now` et les 3 horizons
-        // temporels sont calculés une seule fois par l'orchestrateur et transmis en
-        // paramètre (au lieu d'un Date.now() par bloc) pour garantir un instantané
-        // cohérent entre tous les blocs. `activeTalents` est calculé une seule fois
-        // (computeActiveTalents) et partagé entre les 2 blocs qui en ont besoin,
-        // pour la même raison.
+        // stats. `now` et les 3 horizons temporels sont calculés une seule fois par
+        // l'orchestrateur et transmis en paramètre, pour garantir un instantané
+        // cohérent entre tous les blocs — `activeTalents` de même.
 
-        // KPIs de postes du pool (occupation, échéances de contrat, répartition par
-        // type de candidat/pays/desk, taux d'anticipation).
         function computePositionStats(mData, now, oneMonthLater, threeMonthsLater, sixMonthsLater) {
             const total = mData.length;
             const occupied = mData.filter(m => m.status === 'occupied').length;
@@ -78,7 +61,6 @@
                 return t > now && t <= sixMonthsLater;
             }).length;
 
-            // Répartition par type de candidat, pays et desk (postes).
             const expatPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length;
             const nationalPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length;
 
@@ -96,8 +78,7 @@
                 positionsByDesk[label] = (positionsByDesk[label] || 0) + 1;
             });
 
-            // Taux d'anticipation : proportion de postes pour lesquels un futur occupant
-            // est déjà identifié.
+            // Proportion de postes pour lesquels un futur occupant est déjà identifié.
             const positionsWithFutureTalent = mData.filter(m => !!m.future_talent_id).length;
             const preparationRate = total > 0 ? Math.round((positionsWithFutureTalent / total) * 100) : 0;
 
@@ -117,8 +98,7 @@
             };
         }
 
-        // Talents actifs du pool (valides, non Liste Rouge) — base commune aux blocs
-        // disponibilité et diversité ci-dessous, calculée une seule fois.
+        // Base commune aux blocs disponibilité et diversité ci-dessous.
         function computeActiveTalents(talentsForPool) {
             return talentsForPool.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
@@ -127,7 +107,6 @@
             });
         }
 
-        // Disponibilité des talents actifs.
         function computeAvailabilityStats(activeTalents, now, sixMonthsLater) {
             let availableNow = 0, availableSoon = 0, experiencedAvailable = 0, juniorAvailable = 0;
 
@@ -150,8 +129,8 @@
             return { availableNow, availableSoon, experiencedAvailable, juniorAvailable };
         }
 
-        // Liste Rouge et risque de dévalidation — sur l'ensemble du pool (pas
-        // seulement activeTalents, contrairement aux blocs disponibilité/diversité).
+        // Sur l'ensemble du pool, pas seulement activeTalents (contrairement aux
+        // blocs disponibilité/diversité ci-dessus).
         function computeRedListAndRiskStats(talentsForPool) {
             const redListedCount = talentsForPool.filter(t => t.is_red_listed || t.isRedListed).length;
             const atRiskCount = talentsForPool.filter(t => {
@@ -161,9 +140,7 @@
             return { redListedCount, atRiskCount };
         }
 
-        // Répartitions genre / nationalité / langue / expérience — comptages agrégés
-        // uniquement (décision utilisateur : acceptable à l'échelle moyenne d'un pool
-        // ~30 personnes, jamais par individu).
+        // Comptages agrégés uniquement, jamais par individu.
         function computeDiversityStats(activeTalents) {
             const genderDistribution = { hommes: 0, femmes: 0, nonRenseigne: 0 };
             activeTalents.forEach(t => {
@@ -187,7 +164,6 @@
                 });
             });
 
-            // Tranches d'expérience ALIMA (junior/intermédiaire/senior/expert).
             const experienceDistribution = { junior: 0, intermediaire: 0, senior: 0, expert: 0 };
             activeTalents.forEach(t => {
                 const exp = t.experience_months_alima || 0;
@@ -212,17 +188,13 @@
             const { redListedCount, atRiskCount } = computeRedListAndRiskStats(talentsForPool);
             const { genderDistribution, nationalityDistribution, languageDistribution, experienceDistribution } = computeDiversityStats(activeTalents);
 
-            // Taux d'adéquation talents/postes (talents disponibles sous 6 mois
-            // rapportés au nombre de postes).
+            // Talents disponibles sous 6 mois, rapportés au nombre de postes.
             const talentMatchRate = positionStats.totalPositions > 0
                 ? Math.round((availabilityStats.availableSoon / positionStats.totalPositions) * 100)
                 : 0;
 
             const stats = {
-                // Postes
                 ...positionStats,
-
-                // Talents
                 availableTalentsNow: availabilityStats.availableNow,
                 availableTalentsWithin6Months: availabilityStats.availableSoon,
                 experiencedAvailableTalents: availabilityStats.experiencedAvailable,
@@ -236,20 +208,15 @@
                 talentMatchRatePercent: talentMatchRate
             };
 
-            // ------------------------------------------------------------------
-            // SEUIL D'ANONYMAT
-            // ------------------------------------------------------------------
             // Sur un pool à très faible effectif, une "répartition" cesse d'être un
             // agrégat : "1 femme, nationalité X" dans un pool de 3 personnes est
             // reconstituable par quiconque connaît l'équipe. En dessous du seuil, ces
-            // trois répartitions ne sont donc PAS transmises au modèle d'IA.
+            // trois répartitions ne sont donc pas transmises au modèle d'IA.
             //
-            // Ne concerne QUE ce qui part vers l'IA. Les graphiques de diversité
+            // Ne concerne que ce qui part vers l'IA : les graphiques de diversité
             // (updateDiversityCharts) restent affichés normalement quel que soit
-            // l'effectif : ils sont dessinés dans le navigateur de l'utilisateur, aucune
-            // donnée ne sort du site. Ne pas "harmoniser" les deux par réflexe.
-            //
-            // Seuil fixé à 5 par l'utilisateur (règle 16).
+            // l'effectif, puisqu'ils sont dessinés dans le navigateur sans qu'aucune
+            // donnée ne sorte du site. Ne pas "harmoniser" les deux par réflexe.
             if (activeTalents.length < AI_DIVERSITY_MIN_ACTIVE_TALENTS) {
                 delete stats.genderDistribution;
                 delete stats.nationalityDistribution;
@@ -260,11 +227,9 @@
             return stats;
         }
 
-        // La question de l'utilisateur passe EN TÊTE du prompt, formulée comme
-        // objectif principal — sans quoi le prompt imposait 3 sections fixes et était
-        // identique d'un clic à l'autre, d'où des réponses très proches quelle que
-        // soit la question posée. Sans question saisie, l'analyse générale à 3
-        // sections ci-dessous est utilisée.
+        // La question de l'utilisateur passe en tête du prompt, comme objectif
+        // principal — sans quoi les réponses restaient très proches d'un clic à
+        // l'autre. Sans question saisie, l'analyse générale à 3 sections est utilisée.
         function buildPoolAnalysisPrompt(poolLabel, stats, userQuestion) {
             const question = (userQuestion || '').trim();
 
@@ -275,7 +240,7 @@
             const format = `Réponds en français, en Markdown simple (titres avec ##, ` +
                 `listes avec -), sans préambule ni formule de politesse.`;
 
-            // Cas 1 — l'utilisateur a posé une question : elle prime sur tout le reste.
+            // L'utilisateur a posé une question : elle prime sur tout le reste.
             if (question) {
                 return `Question à traiter en priorité : ${question}\n\n` +
                     `Réponds à cette question en t'appuyant sur les données ci-dessous. ` +
@@ -286,7 +251,7 @@
                     `${format}`;
             }
 
-            // Cas 2 — aucune question : analyse générale, format inchangé depuis l'origine.
+            // Aucune question : analyse générale.
             return `Tu es un(e) analyste RH pour une organisation humanitaire (ALIMA). ` +
                 `${donnees}\n\n` +
                 `Structure ta réponse en exactement 3 sections avec des titres Markdown ## : ` +
@@ -301,9 +266,8 @@
                 `concrètes et actionnables, classées par priorité. ${format}`;
         }
 
-        // Appel dédié à l'analyse par pool — implémentation séparée de generateAIReport()
-        // (Hub global, non modifié) plutôt que factorisée, pour ne prendre aucun risque
-        // sur une fonctionnalité déjà jugée satisfaisante par l'utilisateur.
+        // Implémentation séparée de generateAIReport() (Hub global) plutôt que
+        // factorisée, pour ne prendre aucun risque sur les deux fonctionnalités.
         async function callPoolAiProxy(prompt) {
             const { data: { session } } = await StatisticsPage.supabaseClient.auth.getSession();
             if (!session) {
@@ -312,10 +276,9 @@
                 throw new Error("Session expirée — reconnectez-vous.");
             }
 
-            // Volontairement pas enveloppé dans capHumaWithRetry() : ai-proxy est hors
-            // périmètre — palier gratuit limité chez le fournisseur d'IA, un retry sur
-            // faux négatif réseau doublerait la consommation d'un quota rare pour une
-            // fonctionnalité analytique non critique.
+            // Pas de capHumaWithRetry() : palier gratuit limité chez le fournisseur
+            // d'IA, un retry sur faux négatif doublerait la consommation d'un quota
+            // rare pour une fonctionnalité analytique non critique.
             const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                 method: 'POST',
                 headers: {
@@ -326,15 +289,13 @@
                 body: JSON.stringify({ prompt })
             });
 
-            // Voir callManageUsers() (admin.js) pour la justification complète — un
-            // 401/403 ne doit jamais rester un simple message d'erreur affiché dans le
-            // panneau d'analyse, l'utilisateur doit être renvoyé se reconnecter.
+            // Un 401/403 ne doit jamais rester un simple message d'erreur affiché dans
+            // le panneau d'analyse : l'utilisateur doit être renvoyé se reconnecter.
             if (response.status === 401 || response.status === 403) {
                 await StatisticsPage.supabaseClient.auth.signOut();
                 window.location.href = 'login.html';
                 throw new Error('Session expirée ou accès refusé — redirection vers la connexion.');
             }
-
 
             const result = await response.json();
             if (!response.ok || result.error) {
@@ -373,9 +334,8 @@
                 const prompt = buildPoolAnalysisPrompt(poolLabel, stats, question);
                 const analysis = await callPoolAiProxy(prompt);
 
-                // renderMarkdownToHtml() vit dans statistics-ai-report.js (utilitaire
-                // partagé entre les deux fonctionnalités IA de cette page) — appel via
-                // StatisticsPage, chargé après ce fichier (voir ordre dans le HTML).
+                // renderMarkdownToHtml() vit dans statistics-ai-report.js, chargé après
+                // ce fichier.
                 contentEl.innerHTML = StatisticsPage.renderMarkdownToHtml(analysis);
                 contentEl.classList.remove('hidden');
             } catch (error) {

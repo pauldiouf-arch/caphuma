@@ -1,9 +1,8 @@
 // Rapport IA global du Hub (payload anonymisé consolidé, rendu Markdown, appel
-// à l'Edge Function ai-proxy). renderMarkdownToHtml() est un utilitaire de
-// rendu générique, réutilisé tel quel par statistics-pool-ai.js (analyse d'un
-// pool précis) — d'où son exposition sur StatisticsPage ci-dessous, bien
-// qu'interne à ce fichier par ailleurs. Voir statistics.js (chargé AVANT ce
-// fichier) pour l'explication de StatisticsPage.
+// à l'Edge Function ai-proxy). renderMarkdownToHtml() est réutilisée telle
+// quelle par statistics-pool-ai.js, d'où son exposition sur StatisticsPage en
+// bas de fichier. Voir statistics.js (chargé avant ce fichier) pour
+// l'explication de StatisticsPage.
 (() => {
         // Agrégat anonymisé (comptages uniquement) pour le pool ou l'ensemble
         // désigné par selectorValue — talents/mData sont déjà filtrés par l'appelant
@@ -31,21 +30,13 @@
             };
         }
 
-        // VENTILATION PAR POOL — vue globale uniquement. Motif : en vue globale,
-        // computeGlobalPayload() ci-dessus ne renvoie que des totaux fusionnés
-        // (pool: "global") — l'IA n'a alors aucune donnée par pool et ne peut ni les
-        // nommer, ni les comparer, ni désigner le plus à risque.
-        //
-        // Ce qui est ajouté : uniquement des comptages par pool, plus le nom du pool.
-        // Un pool est une catégorie de poste (Coordinateur Logistique, Chef de
-        // mission...), pas une personne — aucune donnée à caractère personnel.
-        //
-        // Ce qui n'est PAS ajouté, volontairement : genre, nationalités et langues
-        // par pool. Ces répartitions restent réservées à l'analyse d'un pool précis,
-        // où elles sont soumises au seuil AI_DIVERSITY_MIN_ACTIVE_TALENTS. Les
-        // ajouter ici reviendrait à contourner ce seuil pour les 7 pools d'un seul
-        // appel. Ne pas "compléter" ce bloc par symétrie sans repasser par la
-        // décision de l'utilisateur (règle 16).
+        // Vue globale uniquement : computeGlobalPayload() ci-dessus ne renvoie que
+        // des totaux fusionnés, l'IA n'a alors aucune donnée par pool à nommer ou
+        // comparer. Uniquement des comptages et le nom du pool sont ajoutés ici —
+        // jamais genre/nationalités/langues par pool : ces répartitions restent
+        // réservées à l'analyse d'un pool précis, soumise au seuil
+        // AI_DIVERSITY_MIN_ACTIVE_TALENTS. Les ajouter ici reviendrait à contourner ce
+        // seuil pour les 7 pools d'un seul appel — ne pas compléter par symétrie.
         function computePoolBreakdown() {
             return StatisticsPage.poolList.map(p => {
                 const code = (p.pool_id || p.poolId || '').toUpperCase();
@@ -109,24 +100,24 @@
         function renderMarkdownToHtml(text) {
             if (!text) return "";
             let html = text;
-            
+
             // Échappement basique contre les injections
             html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            
+
             // Formatage des titres (###)
             html = html.replace(/^### (.*$)/gim, '<h4 class="text-sm font-bold text-slate-900 mt-4 mb-2 flex items-center gap-1.5">🔸 $1</h4>');
             html = html.replace(/^## (.*$)/gim, '<h3 class="text-base font-bold text-primary mt-6 mb-3 border-b border-slate-200 pb-1">$1</h3>');
             html = html.replace(/^# (.*$)/gim, '<h2 class="text-lg font-bold text-slate-900 mt-8 mb-4">$1</h2>');
-            
+
             // Formatage du gras (**)
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
-            
+
             // Liste à puces (* ou -)
             html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li class="list-disc ml-5 mt-1.5 text-slate-700">$1</li>');
-            
+
             // Retours chariots
             html = html.replace(/\n/g, '<br>');
-            
+
             return html;
         }
 
@@ -197,18 +188,16 @@ Données consolidées du pool (${statsSummary.pool}) :
             const fullPrompt = buildGlobalReportPrompt(statsSummary, finalQuery);
 
             try {
-                // Appel à la Edge Function générique ai-proxy (partagée avec missions.html) —
-                // vérifie le rôle côté serveur (visitor exclu) et détient seule la clé IA.
+                // ai-proxy vérifie le rôle côté serveur (visitor exclu) et détient seule
+                // la clé IA.
                 const { data: { session } } = await StatisticsPage.supabaseClient.auth.getSession();
                 if (!session) {
-                    // Voir callManageUsers() (admin.js) pour la justification complète.
                     window.location.href = 'login.html';
                     return;
                 }
 
-                // Volontairement pas enveloppé dans capHumaWithRetry() : même raison que
-                // callPoolAiProxy() plus haut dans ce fichier — palier gratuit limité chez
-                // le fournisseur d'IA.
+                // Pas de capHumaWithRetry() : palier gratuit limité chez le fournisseur
+                // d'IA, même raison qu'ailleurs sur cette page (statistics-pool-ai.js).
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                     method: 'POST',
                     headers: {
@@ -220,9 +209,7 @@ Données consolidées du pool (${statsSummary.pool}) :
                 });
 
                 // Un 401/403 ne doit jamais rester un simple message d'erreur affiché
-                // dans le panneau de résultat — l'utilisateur doit être renvoyé se
-                // reconnecter. Ce bloc reste volontairement séparé de callPoolAiProxy()
-                // (implémentation dédiée, voir commentaire plus haut sur ce choix).
+                // dans le panneau de résultat — l'utilisateur doit être renvoyé se reconnecter.
                 if (response.status === 401 || response.status === 403) {
                     await StatisticsPage.supabaseClient.auth.signOut();
                     window.location.href = 'login.html';
@@ -245,9 +232,6 @@ Données consolidées du pool (${statsSummary.pool}) :
                 spinner.classList.add('hidden');
             }
         }
-
-        // toastMessage() vient de shared/caphuma-utils.js (z-index 70, durée 3500ms,
-        // harmonisé avec la majorité des pages).
 
         document.getElementById('ai-generate-btn').addEventListener('click', () => generateAIReport());
         document.getElementById('ai-clear-btn').addEventListener('click', () => {

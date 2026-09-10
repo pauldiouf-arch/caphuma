@@ -1,12 +1,4 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // HEADER COMMUN — injecté avant toute autre chose, pour que
-        // #user-display-name et #logoutBtn existent dès la suite du script.
-        // ============================================================================
         renderPageLayout({
             icon: '⚠️',
             title: 'Liste Rouge',
@@ -35,12 +27,9 @@
         let selectedTalentForRedlist = null;
         let selectedRedlistFiles = [];
 
-        // Whitelist MIME correspondant exactement à l'attribut
-        // accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" du champ de sélection dans
-        // red_list.html (cet attribut n'est qu'indicatif côté navigateur,
-        // contournable en glisser-déposer — d'où ce contrôle en plus, côté JS).
-        // Taille max par fichier : 10 Mo, choix raisonnable pour un scan/photo de
-        // document justificatif — à ajuster ici si besoin, une seule constante.
+        // Correspond à l'attribut accept="..." du champ de sélection dans
+        // red_list.html — cet attribut n'est qu'indicatif côté navigateur,
+        // contournable en glisser-déposer, d'où ce contrôle en plus côté JS.
         const REDLIST_ALLOWED_MIME_TYPES = [
             'application/pdf',
             'application/msword',
@@ -51,20 +40,10 @@
         const REDLIST_MAX_FILE_SIZE_MB = 10;
         const REDLIST_MAX_FILE_SIZE_BYTES = REDLIST_MAX_FILE_SIZE_MB * 1024 * 1024;
 
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage.
-
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
-        // ============================================================================
-        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
-        // Ne bloque jamais l'action métier si l'écriture du log échoue.
-        // ============================================================================
-        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
-        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
-        // la création.
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
             () => ({
@@ -73,8 +52,6 @@
                 userName: typeof currentUserName !== 'undefined' ? currentUserName : null
             })
         );
-
-        // ============ SESSION & RÔLE ============
 
         async function checkSession() {
             if (!supabaseClient) {
@@ -99,7 +76,6 @@
                 currentUserRole = s.role;
                 appBody.style.display = '';
 
-                // Page réservée admin + user ("recruteur"), visitor exclu.
                 const allowed = (s.role === 'admin' || s.role === 'user');
                 if (!allowed) {
                     document.getElementById('access-denied-banner').classList.remove('hidden');
@@ -114,18 +90,6 @@
                 showError("Erreur d'authentification ou problème réseau.");
             }
         }
-
-        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // Petit changement : fait maintenant remonter la page en haut en plus
-        // d'afficher la bannière (harmonisé avec id-card.html).
-
-        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js
-        // (comportement identique — cette page avait déjà cette version).
-
-
-        // ============ SIGNALEMENT D'UN NOUVEAU TALENT (tout se passe désormais dans
-        // le dialogue "redlist-add-modal", ouvert depuis le header ou depuis l'état
-        // vide — plus de sélecteur pool/talent affiché en permanence sur la page) ============
 
         async function loadPoolsForSelect() {
             const selectPool = document.getElementById('modal-select-pool');
@@ -155,8 +119,8 @@
             btn.disabled = !(selectedTalentForRedlist && reasonVal && selectedRedlistFiles.length > 0);
         }
 
-        // Nom de fichier assaini pour le chemin de stockage (pas d'espaces ni de
-        // caractères spéciaux, qui peuvent poser problème dans une URL signée).
+        // Ni espaces ni caractères spéciaux, qui peuvent poser problème dans une
+        // URL signée.
         function sanitizeFileName(name) {
             return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                 .replace(/[^a-zA-Z0-9.\-]/g, '_');
@@ -185,11 +149,8 @@
 
         document.getElementById('modal-redlist-add-files').addEventListener('change', (e) => {
             if (e.target.files && e.target.files.length > 0) {
-                // Filtre chaque fichier avant de l'ajouter à la sélection, plutôt que
-                // de découvrir un refus seulement au moment de l'envoi — économise un
-                // aller-retour réseau inutile en cas d'erreur de manipulation, en
-                // complément des policies du bucket de stockage (jamais en
-                // remplacement).
+                // Filtré avant l'envoi plutôt qu'au moment de l'upload — en complément
+                // des policies du bucket, jamais en remplacement.
                 const incoming = Array.from(e.target.files);
                 const accepted = [];
                 const rejected = [];
@@ -216,17 +177,15 @@
             }
         });
 
-        // Upload séquentiel vers le bucket privé "red-list-documents". Séquentiel
-        // plutôt qu'en parallèle : en cas d'échec, on s'arrête net et on informe
-        // l'utilisateur, plutôt que de laisser une partie des documents orphelins
-        // sans qu'on sache lesquels ont réussi.
+        // Upload séquentiel, pas en parallèle : en cas d'échec, on s'arrête net
+        // plutôt que de laisser une partie des documents orphelins sans savoir
+        // lesquels ont réussi.
         async function uploadRedlistDocuments(talentId, files) {
             const paths = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                // Défense en profondeur : revérifié ici même si déjà filtré à la
-                // sélection plus haut, pour ne jamais dépendre d'un seul point de
-                // contrôle si ce code est un jour appelé autrement.
+                // Défense en profondeur, revérifié ici même si déjà filtré à la
+                // sélection plus haut.
                 if (!REDLIST_ALLOWED_MIME_TYPES.includes(file.type)) {
                     throw new Error(`Type de fichier non autorisé : "${file.name}".`);
                 }
@@ -234,11 +193,9 @@
                     throw new Error(`"${file.name}" dépasse la taille maximale autorisée (${REDLIST_MAX_FILE_SIZE_MB} Mo).`);
                 }
                 const path = `${talentId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`;
-                // Enveloppé dans capHumaWithRetry() : sûr à retenter — path est
-                // calculé une seule fois juste au-dessus (pas régénéré à chaque
-                // tentative) et aucun { upsert: true } n'est passé, donc une relance
-                // après perte de réponse tomberait proprement sur une erreur "déjà
-                // existant" plutôt que d'écraser silencieusement le fichier.
+                // path calculé une seule fois (pas régénéré à chaque tentative) et
+                // aucun { upsert: true } passé : une relance tombe proprement sur une
+                // erreur "déjà existant" plutôt que d'écraser silencieusement.
                 const { error } = await capHumaWithRetry(() =>
                     supabaseClient
                         .storage
@@ -269,8 +226,8 @@
             selectTalent.disabled = true;
 
             try {
-                // is_red_listed est nullable : .is('is_red_listed', false) exclurait les
-                // NULL, donc on filtre côté client pour couvrir null ET false.
+                // is_red_listed est nullable : .is('is_red_listed', false) exclurait
+                // les NULL, filtré côté client pour couvrir null et false.
                 const { data, error } = await capHumaWithRetry(() =>
                     supabaseClient
                         .from('talents')
@@ -304,8 +261,7 @@
             updateModalConfirmState();
         }
 
-        // Ouverture du dialogue : réinitialise l'état (pool/talent/motif/fichiers) à
-        // chaque fois, qu'il soit déclenché depuis le header ou depuis l'état "liste vide".
+        // Réinitialise l'état (pool/talent/motif/fichiers) à chaque ouverture.
         function openRedlistAddModal() {
             selectedTalentForRedlist = null;
             selectedRedlistFiles = [];
@@ -342,8 +298,8 @@
                 const documentPaths = await uploadRedlistDocuments(selectedTalentForRedlist.id, selectedRedlistFiles);
 
                 label.textContent = 'Inscription...';
-                // Format ISO (pas toLocaleDateString) : la colonne est un
-                // timestamptz, un format DD/MM/YYYY serait ambigu à la relecture.
+                // Format ISO (pas toLocaleDateString) : la colonne est un timestamptz,
+                // un format DD/MM/YYYY serait ambigu à la relecture.
                 const { error } = await capHumaWithRetry(() =>
                     supabaseClient
                         .from('talents')
@@ -383,12 +339,6 @@
         document.getElementById('btn-header-add-redlist').addEventListener('click', openRedlistAddModal);
         document.getElementById('btn-empty-add-redlist').addEventListener('click', openRedlistAddModal);
 
-        // fetchSensitiveRead() est désormais centralisée dans
-        // shared/caphuma-utils.js (section 13) — elle existait ici en copie
-        // quasi identique à celles d'extraction.js et audit_logs.js.
-
-        // ============ CHARGEMENT DE LA LISTE ROUGE ============
-
         async function loadRedList(page) {
             if (typeof page === 'number') redListPage = page;
 
@@ -402,9 +352,6 @@
             pagination.classList.add('hidden');
 
             try {
-                // Pagination réelle côté serveur, désormais via l'Edge Function
-                // sensitive-reads plutôt que paginateQuery() en direct — voir
-                // fetchSensitiveRead() dans shared/caphuma-utils.js (section 13).
                 const result = await fetchSensitiveRead(supabaseClient, 'red_list', { page: redListPage });
 
                 redListTalents = result.data;
@@ -454,11 +401,8 @@
                     : '—';
                 const docCount = Array.isArray(t.red_list_documents) ? t.red_list_documents.length : 0;
 
-                // Le lien "Voir la fiche" juste en dessous utilisait escapeHtml(t.id) pour
-                // construire une URL — protège du HTML, pas d'une URL. Remplacé par
-                // encodeURIComponent(t.id), la bonne fonction pour ce contexte (t.id est
-                // aujourd'hui un UUID propre, donc sans conséquence visible aujourd'hui,
-                // mais habitude à corriger).
+                // encodeURIComponent(t.id) ci-dessous, pas escapeHtml() : ce lien
+                // construit une URL, escapeHtml() protège du HTML, pas d'une URL.
 
                 return `
                 <tr class="text-slate-700">
@@ -482,9 +426,8 @@
                     </td>
                 </tr>`;
             }).join('');
-            // Les 2 boucles de ré-attachement (.btn-view-reason/.btn-remove-redlist)
-            // sont remplacées par l'écouteur délégué unique posé une seule fois en
-            // INITIALISATION.
+            // .btn-view-reason/.btn-remove-redlist ne sont pas rebranchés ici : un
+            // seul écouteur délégué s'en charge (voir plus bas).
         }
 
         async function showReasonModal(talentId) {
@@ -502,8 +445,8 @@
 
             if (paths.length === 0) return;
 
-            // Bucket privé : les URLs sont générées à la demande (signées, expiration
-            // courte), jamais stockées en clair ni rendues publiques.
+            // Bucket privé : URLs générées à la demande (signées, expiration courte),
+            // jamais stockées en clair ni rendues publiques.
             try {
                 const links = await Promise.all(paths.map(async (path, idx) => {
                     const { data, error } = await capHumaWithRetry(() =>
@@ -513,12 +456,8 @@
                             .createSignedUrl(path, 300) // 5 minutes, largement suffisant pour un clic
                     );
                     if (error || !data) {
-                        // Ne plus jeter l'erreur en silence : sans ce log, "Impossible de
-                        // générer les liens" ne dit jamais POURQUOI (fichier supprimé du
-                        // bucket sans nettoyer la référence en base, policy Storage,
-                        // panne transitoire...). Un console.error() par chemin en échec,
-                        // pas un throw : les autres documents du même talent doivent
-                        // continuer à s'afficher normalement.
+                        // console.error() par chemin en échec, pas un throw : les autres
+                        // documents du même talent doivent continuer à s'afficher normalement.
                         console.error(`[Liste Rouge] createSignedUrl a échoué pour "${path}" :`, error || 'réponse vide, sans erreur explicite');
                         return null;
                     }
@@ -538,23 +477,12 @@
             document.getElementById('modal-reason').classList.add('hidden');
         });
 
-        // Retrait de la liste rouge : remet les 4 champs liés à null/false (client direct,
-        // pas besoin d'Edge Function — action réservée par les policies RLS aux
-        // admins/recruteurs déjà authentifiés, cohérent avec le reste du site).
-        //
-        // Corrigé le 10/09/2026 (signalé par l'utilisateur) : cette fonction ne
-        // touchait jamais red_list_documents ni les fichiers réels du bucket
-        // Storage — un talent retiré de la liste rouge gardait donc en base la
-        // référence de ses anciens documents. Si ce même talent était réinscrit
-        // plus tard depuis id-card.html (motif seul, pas d'upload), l'ancienne
-        // référence réapparaissait comme si elle appartenait au nouveau
-        // signalement, alors que le fichier avait entre-temps disparu du bucket
-        // (supprimé manuellement, ou par un futur nettoyage) — "Impossible de
-        // générer les liens des documents." dans showReasonModal() pour une
-        // référence désormais orpheline. Nettoyage Storage fait en best-effort,
-        // AVANT le retrait effectif : un échec ici (réseau, fichier déjà absent)
-        // ne doit jamais bloquer l'action métier prioritaire (le retrait), donc
-        // jamais de throw depuis ce bloc — seulement un log.
+        // Client direct, pas besoin d'Edge Function : action réservée par les
+        // policies RLS aux admins/recruteurs déjà authentifiés. Nettoyage Storage
+        // fait en best-effort, avant le retrait effectif — sinon un talent réinscrit
+        // plus tard depuis id-card.html hériterait d'une référence de documents
+        // orpheline. Un échec ici ne doit jamais bloquer le retrait lui-même, donc
+        // jamais de throw depuis ce bloc, seulement un log.
         async function onRemoveFromRedList(talentId, talentName) {
             openConfirmModal({
                 title: "Retirer de la liste rouge",
@@ -600,8 +528,6 @@
             });
         }
 
-        // ============ MODALE DE CONFIRMATION GÉNÉRIQUE ============
-
         function openConfirmModal({ title, message, actionLabel, icon, onConfirm }) {
             document.getElementById('confirm-title').textContent = title;
             document.getElementById('confirm-message').textContent = message;
@@ -635,15 +561,9 @@
             }
         });
 
-        // ============ INITIALISATION ============
-
-        // Un seul écouteur délégué, posé UNE FOIS ici plutôt que dans
-        // renderRedList() (voir plus haut), au lieu de re-sélectionner et
-        // ré-attacher N écouteurs sur tout le conteneur à chaque rendu. Comportement
-        // strictement identique — mêmes fonctions appelées avec le même
-        // dataset.id/dataset.name, seul le mécanisme d'attachement change.
-        // #redlist-tbody est un élément statique du HTML (jamais recréé, seul son
-        // contenu est réécrit via innerHTML).
+        // Écouteur délégué posé une fois ici plutôt que ré-attaché à chaque rendu
+        // de renderRedList() : #redlist-tbody est un élément statique du HTML,
+        // jamais recréé.
         document.getElementById('redlist-tbody').addEventListener('click', (e) => {
             const reasonBtn = e.target.closest('.btn-view-reason');
             if (reasonBtn) { showReasonModal(reasonBtn.dataset.id); return; }

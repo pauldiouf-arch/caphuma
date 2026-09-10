@@ -1,18 +1,8 @@
-// Scission de statistics.js. Voir Guide d'architecture §1.22 pour le patron
-// complet (objet d'état partagé <Nom>Page déclaré HORS IIFE, seule dérogation
-// à l'encapsulation en IIFE des pages). Ce fichier déclare StatisticsPage et
-// DOIT être chargé en premier, avant statistics-charts.js / statistics-pool-ai.js
-// / statistics-ai-report.js. Contient : layout, état partagé, journal d'audit,
-// session, chargement des données brutes, écouteur de déconnexion, démarrage
-// de page (ces deux derniers points physiquement déplacés depuis la fin du
-// fichier d'origine jusqu'ici — même piège que celui documenté pour
-// id-card.js, évité ici).
+// Ce fichier déclare StatisticsPage (objet d'état partagé, seule dérogation à
+// l'encapsulation en IIFE des pages) et doit être chargé en premier, avant
+// statistics-charts.js / statistics-pool-ai.js / statistics-ai-report.js.
 const StatisticsPage = {};
 (() => {
-        // ============================================================================
-        // HEADER COMMUN — injecté avant toute autre chose, pour que
-        // #user-display-name et #logoutBtn existent dès la suite du script.
-        // ============================================================================
         renderPageLayout({
             icon: '📊',
             title: 'Hub Statistique & IA',
@@ -34,28 +24,14 @@ const StatisticsPage = {};
         StatisticsPage.currentUserRole = null;
         StatisticsPage.currentUserName = null;
 
-        // Échappement HTML systématique de toute donnée venant de la base avant
-        // injection via innerHTML — prévention XSS. Absente jusqu'ici sur cette page
-        // faute d'innerHTML utilisant des données de la base ; ajoutée avec les
-        // statistiques de contrats.
-
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage.
-        // La clé IA ne vit plus jamais côté client (ni localStorage, ni variable
-        // visible en console) — l'appel passe désormais par la Edge Function
-        // sécurisée ai-proxy, qui détient seule la clé côté serveur.
+        // La clé IA ne vit jamais côté client (ni localStorage, ni variable visible
+        // en console) : l'appel passe par l'Edge Function sécurisée ai-proxy, qui
+        // détient seule la clé côté serveur.
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             StatisticsPage.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
-        // ============================================================================
-        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
-        // Ne bloque jamais l'action métier si l'écriture du log échoue.
-        // ============================================================================
-        // Fabriquée avec des getters (pas des valeurs) : relit StatisticsPage.supabaseClient
-        // et les StatisticsPage.currentUser* à chaque appel de logAuditAction(), jamais
-        // figée à la création.
         const logAuditAction = capHumaMakeAuditLogger(
             () => StatisticsPage.supabaseClient,
             () => ({
@@ -87,11 +63,10 @@ const StatisticsPage = {};
                 capHumaStartIdleTimeout(StatisticsPage.supabaseClient);
                 StatisticsPage.currentUserRole = s.role;
 
-                // ai-proxy refuse déjà ce rôle côté serveur (403) — masquer les deux
-                // blocs IA évite qu'un visitor ne découvre l'erreur seulement après
-                // avoir cliqué. updatePoolAiAnalysisVisibility() (statistics-pool-ai.js)
-                // porte le même garde-fou pour la carte par pool, qui se ré-affiche
-                // sinon à chaque changement de pool.
+                // ai-proxy refuse déjà ce rôle côté serveur (403) — masquer ces blocs
+                // évite qu'un visitor découvre l'erreur seulement après avoir cliqué.
+                // updatePoolAiAnalysisVisibility() (statistics-pool-ai.js) porte le même
+                // garde-fou pour la carte par pool.
                 if (StatisticsPage.currentUserRole === 'visitor') {
                     document.getElementById('aiStrategicHub').classList.add('hidden');
                     document.getElementById('aiVisitorNotice').classList.remove('hidden');
@@ -105,36 +80,29 @@ const StatisticsPage = {};
             }
         }
 
-        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // Petit changement : fait maintenant remonter la page en haut en plus
-        // d'afficher la bannière (harmonisé avec id-card.html).
-
         async function initHub() {
             try {
-                // 1. Récupération des pools de la base (pools.pool_id)
                 const { data: pools, error: ep } = await capHumaWithRetry(() =>
                     StatisticsPage.supabaseClient.from('pools').select('pool_id, name, full_name')
                 );
                 if (ep) throw ep;
                 StatisticsPage.poolList = pools || [];
 
-                // Remplir le sélecteur avec la clé pool_id
                 const selector = document.getElementById('pool-selector');
                 StatisticsPage.poolList.forEach(p => {
-                    const pCode = p.pool_id || p.poolId; // pool_id selon le schéma réel de la section 5
+                    const pCode = p.pool_id || p.poolId;
                     const opt = document.createElement('option');
                     opt.value = pCode;
                     opt.textContent = `${pCode} - ${p.full_name || p.fullName || p.name}`;
                     selector.appendChild(opt);
                 });
 
-                // 2. Charger les collections de base
                 await loadRawData();
 
-                // 3. Détecter le paramètre d'URL (dashboard.html envoie ?pool=ID)
+                // Détecter le paramètre d'URL (dashboard.html envoie ?pool=ID)
                 const urlParams = new URLSearchParams(window.location.search);
                 const queryPool = urlParams.get('pool') || urlParams.get('pool_id');
-                
+
                 if (queryPool) {
                     const normalizedQuery = queryPool.trim().toUpperCase();
                     const matchedPool = StatisticsPage.poolList.find(p => {
@@ -146,12 +114,9 @@ const StatisticsPage = {};
                     }
                 }
 
-                // 4. Calculer et afficher
-                // updateStatistics() vit désormais dans statistics-charts.js (scission
-                // P26) — appel via StatisticsPage, chargé avant ce fichier.
+                // updateStatistics() vit dans statistics-charts.js, chargé avant ce fichier.
                 StatisticsPage.updateStatistics();
 
-                // Listener de changement du sélecteur
                 selector.addEventListener('change', () => {
                     StatisticsPage.updateStatistics();
                 });
@@ -163,16 +128,11 @@ const StatisticsPage = {};
         }
 
         async function loadRawData() {
-            // Optimisation (grep exhaustif du fichier pour vérifier que chaque colonne
-            // ci-dessous est bien lue quelque part sur cette page avant de la retirer/garder) :
-            // - talents : liste inchangée sauf `experience_months_humanitarian`, retirée
-            //   car jamais utilisée nulle part dans ce fichier (vérifié par grep).
-            // - missions : passage de select('*') à une liste explicite des colonnes
-            //   réellement utilisées (KPIs, 4 graphiques, stats détaillées de contrats,
-            //   analyse IA globale et par pool). `candidate_type` confirmé présent en
-            //   base (vérifié en direct avant ce changement, cf. information_schema) —
-            //   la détection "colonne absente vs vide" plus bas (hasCandidateTypeColumn)
-            //   continue donc de fonctionner à l'identique.
+            // Colonnes explicites plutôt que select('*') : uniquement celles utilisées
+            // par les KPIs, les 4 graphiques, les stats de contrats et l'analyse IA.
+            // `candidate_type` confirmé présent en base (colonne existante, jamais
+            // absente) : la détection "colonne absente vs vide" plus bas
+            // (hasCandidateTypeColumn) continue de fonctionner à l'identique.
             const { data: talents, error: et } = await capHumaWithRetry(() =>
                 StatisticsPage.supabaseClient
                     .from('talents')
@@ -189,10 +149,6 @@ const StatisticsPage = {};
             if (em) throw em;
             StatisticsPage.rawMissions = mData || [];
         }
-
-        // Exposé sur StatisticsPage pour appel depuis les autres fichiers de la page
-        // (aucune fonction de ce fichier n'a besoin d'être exposée : logAuditAction,
-        // checkSession, initHub, loadRawData ne sont appelées que depuis ce fichier).
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', StatisticsPage.currentUserId, StatisticsPage.currentUserEmail, null);
