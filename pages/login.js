@@ -1,20 +1,8 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
-        // (chargé dans le <head>), qui est la source unique pour les 15 pages.
-        // Remplace l'ancien pont localStorage.
-
         const appBody = document.getElementById('appBody');
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ============================================================================
-        // GARDE DE SESSION : si déjà connecté, on saute directement au dashboard
-        // ============================================================================
         async function checkExistingSession() {
             try {
                 const { data } = await supabaseClient.auth.getSession();
@@ -30,9 +18,6 @@
 
         checkExistingSession();
 
-        // ============================================================================
-        // SOUMISSION DU FORMULAIRE DE CONNEXION
-        // ============================================================================
         const loginForm = document.getElementById('loginForm');
         const loginError = document.getElementById('loginError');
         const submitLoginBtn = document.getElementById('submitLoginBtn');
@@ -51,9 +36,7 @@
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
 
-                // Journal d'audit — ne bloque jamais la connexion si l'écriture échoue,
-                // simple avalage d'erreur en console (voir id-card.html pour la logique
-                // détaillée du helper, non dupliquée ici car usage unique).
+                // N'échoue jamais bruyamment : un problème de log ne doit pas bloquer la connexion.
                 try {
                     await supabaseClient.from('audit_logs').insert({
                         user_id: data && data.user ? data.user.id : null,

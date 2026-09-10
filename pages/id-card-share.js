@@ -1,17 +1,11 @@
 // Liens de partage public de la fiche talent : génération, liste, révocation.
-// Voir id-card.js (chargé AVANT ce fichier) pour l'explication de IdCardPage.
+// Voir id-card.js (chargé avant ce fichier) pour l'explication de IdCardPage.
 (() => {
-        // ============================================================================
-        // GESTION DES LIENS DE PARTAGE — génération, liste des liens actifs par
-        // talent, révocation manuelle.
-        // ============================================================================
         function buildShareUrl(token) {
             // Reconstruction à partir du dossier de la page actuelle (jamais
             // window.location.origin seul), pour rester valide en hébergement GitHub
             // Pages "project site".
             const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-            // token est 'st_' + crypto.randomUUID(), donc déjà propre — encodé par
-            // précaution.
             return `${window.location.origin}${basePath}shared-talent.html?token=${encodeURIComponent(token)}`;
         }
 
@@ -36,9 +30,6 @@
 
         document.getElementById('share-links-close').addEventListener('click', closeShareLinksModal);
 
-        // Ne montre que les liens réellement encore utilisables (ni révoqués, ni
-        // expirés) — un lien expiré tout seul disparaît de la liste sans action
-        // nécessaire, un lien révoqué aussi (plus besoin de le voir une fois révoqué).
         async function loadShareLinks() {
             const loadingEl = document.getElementById('share-links-loading');
             const emptyEl = document.getElementById('share-links-empty');
@@ -114,9 +105,7 @@
             if (!confirmed) return;
 
             try {
-                // Enveloppé dans capHumaWithRetry() : UPDATE par id, sûr à retenter —
-                // la ligne existe toujours après une 1re tentative réussie, une 2e
-                // tentative la retrouve et réapplique le même changement (idempotent).
+                // UPDATE par id, idempotent : sûr à envelopper dans capHumaWithRetry().
                 const { data, error } = await capHumaWithRetry(() =>
                     IdCardPage.supabaseClient
                         .from('share_tokens')
@@ -126,13 +115,12 @@
                 );
 
                 if (error) throw error;
-                // Un .update() peut "réussir" sans rien affecter si une policy RLS
-                // bloque silencieusement la ligne — d'où le contrôle ci-dessous.
                 if (!data || data.length === 0) {
                     throw new Error("La révocation n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // Journalisé automatiquement par le trigger Postgres trg_audit_share_tokens.
+                // Journalisé automatiquement par le trigger Postgres trg_audit_share_tokens,
+                // pas d'appel explicite à logAuditAction ici.
                 toastMessage("Lien révoqué.", "success");
                 await loadShareLinks();
             } catch (err) {
@@ -145,9 +133,6 @@
             document.getElementById('share-links-custom-date').classList.toggle('hidden', e.target.value !== 'custom');
         });
 
-        // Calcule la date d'expiration ISO selon le choix du sélecteur de durée —
-        // renvoie null si la sélection est invalide (date précise manquante ou déjà
-        // passée), pour ne jamais créer un lien déjà expiré silencieusement.
         function computeShareExpiresAt() {
             const duration = document.getElementById('share-links-duration').value;
 
@@ -177,20 +162,16 @@
 
             btn.disabled = true;
             try {
-                // crypto.randomUUID() (Web Crypto API, natif, sans dépendance) plutôt
-                // que Math.random() : nécessaire pour protéger l'accès à des fiches
-                // talent confidentielles partagées sans compte, Math.random() étant
-                // prévisible en théorie. La colonne `token` est un simple texte UNIQUE,
-                // donc sans impact sur le schéma.
+                // crypto.randomUUID(), pas Math.random() : ce jeton donne accès à une
+                // fiche talent confidentielle sans compte, Math.random() est prévisible.
                 const token = 'st_' + crypto.randomUUID();
-                // created_at retiré du payload (DEFAULT now() côté base) ; expires_at
-                // envoyé en ISO string, jamais en timestamp JS numérique (la colonne est
-                // "timestamp with time zone").
-                // Enveloppé dans capHumaWithRetry() : sûr à retenter — token est calculé
-                // une seule fois juste au-dessus (pas régénéré à chaque tentative) et
-                // share_tokens.token porte une contrainte UNIQUE, donc une relance après
-                // perte de réponse retomberait proprement sur une violation de contrainte
-                // plutôt que de créer un second lien.
+                // created_at absent du payload (DEFAULT now() côté base). expires_at en
+                // ISO string (colonne "timestamp with time zone"), jamais en timestamp
+                // JS numérique.
+                // token déjà calculé (pas régénéré à chaque tentative) et `token` porte une
+                // contrainte UNIQUE : une relance après perte de réponse retombe proprement
+                // sur une violation de contrainte plutôt que de créer un second lien — sûr
+                // à envelopper dans capHumaWithRetry().
                 const { error } = await capHumaWithRetry(() =>
                     IdCardPage.supabaseClient.from('share_tokens').insert({
                         token,
@@ -216,10 +197,6 @@
                 btn.disabled = false;
             }
         });
-
-        // toastMessage() vient de shared/caphuma-utils.js (z-index 70, durée 3500ms,
-        // harmonisé avec la majorité des pages).
-
 
         // Exposé sur IdCardPage pour appel depuis un autre fichier de la page
         IdCardPage.openShareLinksModal = openShareLinksModal;

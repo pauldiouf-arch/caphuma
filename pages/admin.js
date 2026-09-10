@@ -1,12 +1,4 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // HEADER COMMUN — injecté avant toute autre chose, pour que
-        // #user-display-name et #logoutBtn existent dès la suite du script.
-        // ============================================================================
         renderPageLayout({
             icon: '🛡️',
             title: 'Administration',
@@ -23,20 +15,10 @@
         let currentUserEmail = null;
         let currentUserName = null;
 
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage.
-
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
-        // ============================================================================
-        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
-        // Ne bloque jamais l'action métier si l'écriture du log échoue.
-        // ============================================================================
-        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
-        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
-        // la création.
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
             () => ({
@@ -45,8 +27,6 @@
                 userName: typeof currentUserName !== 'undefined' ? currentUserName : null
             })
         );
-
-        // ============ SESSION & RÔLE ============
 
         async function checkSession() {
             if (!supabaseClient) {
@@ -84,24 +64,11 @@
             }
         }
 
-        // showError() retirée d'ici : vient désormais de shared/caphuma-utils.js.
-        // Petit changement : fait maintenant remonter la page en haut en plus
-        // d'afficher la bannière (harmonisé avec id-card.html).
-
-        // toastMessage() retirée d'ici : vient désormais de shared/caphuma-utils.js
-        // (comportement identique — cette page avait déjà cette version).
-
-        // ============ APPEL SÉCURISÉ À manage-users ============
         // Le header 'apikey' est OBLIGATOIRE en plus de 'Authorization', sinon 401
         // systématique côté gateway avant même d'atteindre le code de la fonction.
         async function callManageUsers(action, payload = {}) {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (!session) {
-                // Même traitement que le 401/403 plus bas — si le navigateur n'a plus
-                // AUCUNE session locale (déconnexion depuis un autre onglet, stockage
-                // local vidé...), rester sur place avec un simple message d'erreur
-                // n'aide personne : chaque nouvelle action échouerait de la même façon
-                // jusqu'à un rechargement manuel.
                 window.location.href = 'login.html';
                 throw new Error("Session expirée, veuillez vous reconnecter.");
             }
@@ -116,24 +83,14 @@
                 body: JSON.stringify({ action, ...payload })
             });
 
-            // Retry UNIQUEMENT sur "create" et "delete", jamais sur "reset_password" —
-            // tranché après un test en conditions réelles : create/delete échouent
-            // proprement à un 2e appel (email déjà utilisé, compte déjà supprimé),
-            // alors que reset_password réussit deux fois de suite sans protection —
-            // un double appel génère un second code d'accès ET une seconde ligne
-            // dans audit_logs pour une seule action voulue par l'admin (confirmé par
-            // le test).
+            // Retry uniquement sur "create" et "delete" : ils échouent proprement à un
+            // 2e appel (email déjà utilisé, compte déjà supprimé), alors que
+            // reset_password réussit deux fois de suite sans protection — un double
+            // appel génère un second code d'accès et une seconde ligne d'audit.
             const response = (action === 'create' || action === 'delete')
                 ? await capHumaWithRetry(doFetch)
                 : await doFetch();
 
-            // Un token expiré/refusé (401/403) remontait jusqu'ici comme une erreur
-            // générique ("Échec de l'action : ..."), sans jamais déconnecter ni
-            // rediriger vers login.html — l'utilisateur restait sur une page qui
-            // semblait fonctionner mais dont chaque nouvelle action échouerait de la
-            // même façon jusqu'à un rechargement manuel. Déconnexion + redirection
-            // explicites dès la détection, avant même de tenter de lire le corps de
-            // la réponse.
             if (response.status === 401 || response.status === 403) {
                 await supabaseClient.auth.signOut();
                 window.location.href = 'login.html';
@@ -146,8 +103,6 @@
             }
             return json;
         }
-
-        // ============ GESTION DES COMPTES ============
 
         async function loadAccounts() {
             const loading = document.getElementById('accounts-loading');
@@ -190,11 +145,8 @@
             table.classList.remove('hidden');
             empty.classList.add('hidden');
 
-            // Rôles réels autorisés par la contrainte CHECK "users_role_check"
-            // vérifiée en base : admin / user / visitor. "user" est libellé
-            // "Recruteur" côté métier — la valeur stockée reste "user", pas
-            // "recruteur" (vérifié directement en base, ne pas se fier à la
-            // documentation sur ce point précis).
+            // "user" est libellé "Recruteur" côté métier, mais la valeur stockée en
+            // base reste "user", jamais "recruteur".
             const roleLabels = { admin: '🛡️ Admin', user: '👤 Recruteur', visitor: '👁️ Visiteur' };
             const roleColors = {
                 admin: 'bg-primary-light text-primary',
@@ -233,7 +185,8 @@
             }).join('');
         }
 
-        // Suspension / réactivation : client direct sur is_active (pas besoin d'Edge Function, section 8)
+        // Client direct sur is_active, pas besoin d'Edge Function (contrairement à
+        // create/delete/reset_password).
         async function onToggleActive(userId, currentlyActive) {
             const nextState = !currentlyActive;
             openConfirmModal({
@@ -267,15 +220,11 @@
                 icon: "🔑",
                 onConfirm: async () => {
                     const result = await callManageUsers('reset_password', { userId });
-                    // Journalisation retirée d'ici : manage-users l'écrit désormais
-                    // lui-même côté serveur (garanti, quel que soit le chemin d'appel)
-                    // — la laisser ici aurait créé une ligne en double.
+                    // Pas de logAuditAction ici : manage-users l'écrit lui-même côté
+                    // serveur, garanti quel que soit le chemin d'appel.
                     showAccessCodeModal(result.accessCode);
                     // manage-users peut renvoyer un avertissement même en cas de succès
-                    // (ex. révocation des sessions actives échouée) — jusqu'ici
-                    // silencieusement ignoré ici, alors que ce champ existait déjà pour
-                    // l'action delete ci-dessous (même angle mort, corrigé pour les
-                    // deux actions en même temps).
+                    // (ex. révocation des sessions actives échouée).
                     if (result.warning) {
                         toastMessage(result.warning, "error");
                     } else {
@@ -293,11 +242,8 @@
                 icon: "🗑️",
                 onConfirm: async () => {
                     const result = await callManageUsers('delete', { userId });
-                    // Journalisation retirée d'ici : manage-users l'écrit désormais
-                    // lui-même côté serveur, avant même la suppression de la ligne
-                    // 'users' — la laisser ici aurait créé une ligne en double.
-                    // Même angle mort que onResetPassword() ci-dessus (champ "warning"
-                    // ignoré), corrigé pour les deux actions en même temps.
+                    // Pas de logAuditAction ici : manage-users l'écrit lui-même côté
+                    // serveur, avant même la suppression de la ligne 'users'.
                     if (result.warning) {
                         toastMessage(result.warning, "error");
                     } else {
@@ -333,12 +279,9 @@
             btn.disabled = true;
             spinner.classList.remove('hidden');
             try {
-                // Paramètre envoyé à l'Edge Function : fullName, mappé sur la
-                // colonne 'name' en base.
+                // fullName est mappé sur la colonne 'name' en base.
                 const result = await callManageUsers('create', { email, role, fullName });
-                // Journalisation retirée d'ici : manage-users l'écrit désormais
-                // lui-même côté serveur — la laisser ici aurait créé une ligne en
-                // double.
+                // Pas de logAuditAction ici : manage-users l'écrit lui-même côté serveur.
                 document.getElementById('modal-create-account').classList.add('hidden');
                 showAccessCodeModal(result.accessCode);
                 toastMessage("Compte créé avec succès.");
@@ -351,8 +294,6 @@
                 spinner.classList.add('hidden');
             }
         });
-
-        // ============ GESTION DES POOLS ============
 
         async function loadPools() {
             const loading = document.getElementById('pools-loading');
@@ -445,7 +386,7 @@
             });
         }
 
-        // Création de pool (insert direct, pas besoin d'Edge Function — section 8)
+        // Insert direct, pas besoin d'Edge Function ici.
         document.getElementById('btn-open-create-pool').addEventListener('click', () => {
             document.getElementById('input-pool-code').value = '';
             document.getElementById('input-pool-fullname').value = '';
@@ -471,18 +412,10 @@
             btn.disabled = true;
             spinner.classList.remove('hidden');
             try {
-                // Schéma réel vérifié via information_schema.columns (name, level,
-                // full_name, pool_id sont NOT NULL) : name reçoit le code court,
-                // cohérent avec le pattern déjà observé côté Convex de référence.
-                //
-                // Enveloppé dans capHumaWithRetry() : contrairement aux autres
-                // insert() du site, celui-ci est sûr à retenter — pools.pool_id porte
-                // une contrainte UNIQUE (Dossier de passation §4.2) et "code" est lu
-                // une seule fois, avant l'appel, donc un retry retente EXACTEMENT
-                // le même pool_id. En cas de doublon (1re tentative en fait
-                // réussie côté serveur, réponse perdue), la 2e tentative tombe
-                // proprement sur une violation de contrainte plutôt que de
-                // créer un second pool silencieux.
+                // name reçoit le code court (colonne NOT NULL en base).
+                // pools.pool_id porte une contrainte UNIQUE et "code" est lu une seule
+                // fois avant l'appel : un retry retente exactement le même pool_id, sûr
+                // à envelopper dans capHumaWithRetry() contrairement aux autres insert().
                 const { error } = await capHumaWithRetry(() =>
                     supabaseClient.from('pools').insert({
                         pool_id: code,
@@ -506,8 +439,6 @@
                 spinner.classList.add('hidden');
             }
         });
-
-        // ============ MODALES GÉNÉRIQUES ============
 
         function openConfirmModal({ title, message, actionLabel, icon, onConfirm }) {
             document.getElementById('confirm-title').textContent = title;
@@ -560,8 +491,6 @@
             }
         });
 
-        // ============ ONGLETS ============
-
         document.querySelectorAll('.admin-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.admin-tab-btn').forEach(b => {
@@ -577,20 +506,11 @@
             });
         });
 
-        // ============ UTILITAIRES ============
-
-
-        // ============ INITIALISATION ============
-
-        // Un seul écouteur délégué par tableau, posé UNE FOIS ici plutôt que dans
-        // renderAccounts()/renderPools() (voir plus haut), au lieu de
-        // re-sélectionner et ré-attacher N écouteurs sur tout le conteneur à
-        // chaque rendu. Comportement strictement identique — mêmes fonctions
-        // appelées avec le même dataset.id/dataset.active/dataset.email/
-        // dataset.archived/dataset.code, seul le mécanisme d'attachement change.
-        // Les <tbody> ciblés sont des éléments statiques du HTML (jamais recréés,
-        // seul leur contenu est réécrit via innerHTML), donc un écouteur posé ici
-        // une fois reste valide sur tous les rendus suivants.
+        // Un seul écouteur délégué par tableau ici, plutôt que dans
+        // renderAccounts()/renderPools() : les <tbody> ciblés sont des éléments
+        // statiques du HTML (jamais recréés, seul leur contenu est réécrit via
+        // innerHTML), donc un écouteur posé ici une fois reste valide sur tous les
+        // rendus suivants.
         document.getElementById('accounts-tbody').addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('.btn-toggle-active');
             if (toggleBtn) { onToggleActive(toggleBtn.dataset.id, toggleBtn.dataset.active === 'true'); return; }
@@ -602,9 +522,6 @@
             if (deleteBtn) { onDeleteAccount(deleteBtn.dataset.id, deleteBtn.dataset.email); return; }
         });
 
-        // Trouvé en route (même défaut que ci-dessus, non nommé dans Q5 mais
-        // identique : renderPools() ré-attachait un écouteur .btn-toggle-pool-archive
-        // à chaque rendu) — corrigé dans la même passe.
         document.getElementById('pools-tbody').addEventListener('click', (e) => {
             const archiveBtn = e.target.closest('.btn-toggle-pool-archive');
             if (archiveBtn) {

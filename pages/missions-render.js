@@ -2,16 +2,12 @@
 // contrats. Voir missions.js (chargé AVANT ce fichier) pour l'explication de
 // MissionsPage, l'objet d'état partagé entre les 4 fichiers de cette page.
 (() => {
-        // DOM propres à ce fichier (re-sélectionnés localement — sans coût, ce
-        // sont de simples document.getElementById() ; pas besoin de les faire
-        // transiter par MissionsPage, contrairement à l'état métier mutable).
+        // DOM propres à ce fichier : pas besoin de les faire transiter par
+        // MissionsPage, contrairement à l'état métier mutable.
         const missionsGrid = document.getElementById('missionsGrid');
         const missionsEmpty = document.getElementById('missionsEmpty');
         const kpiBar = document.getElementById('kpiBar');
 
-        // ============================================================================
-        // 3 TER. BARRE DE KPIS DU POOL (cf. Hercules positions/stats.ts)
-        // ============================================================================
         function updateKpiBar() {
             if (MissionsPage.currentMissions.length === 0) {
                 kpiBar.classList.add('hidden');
@@ -54,12 +50,8 @@
         // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.updateKpiBar = updateKpiBar;
 
-        // ============================================================================
-        // 3 QUATER. STATISTIQUES DÉTAILLÉES DES CONTRATS (cf. Hercules
-        // positions/stats.ts : getDetailedPositionStats). Calculées côté client à
-        // partir des postes du pool déjà chargés (MissionsPage.currentMissions), cohérent avec le
-        // choix déjà fait pour MissionsPage.updateKpiBar() — pas de requête Supabase supplémentaire.
-        // ============================================================================
+        // Calculées côté client à partir des postes déjà chargés
+        // (MissionsPage.currentMissions) — pas de requête Supabase supplémentaire.
         function updateDetailedContractStats() {
             const card = document.getElementById('detailedStatsCard');
             if (MissionsPage.currentMissions.length === 0) {
@@ -89,8 +81,8 @@
                 ? Math.round((renewable / withContracts.length) * 100)
                 : 0;
 
-            // Échéances cumulatives (comme Hercules : "fin dans 3 mois" inclut ce qui
-            // finit dans le mois qui vient, pas une tranche exclusive 1-3 mois).
+            // Cumulatif : "fin dans 3 mois" inclut ce qui finit dans le mois qui
+            // vient, ce n'est pas une tranche exclusive 1-3 mois.
             const endsWithin = (maxDate) => MissionsPage.currentMissions.filter(m => {
                 if (!m.contract_end_date) return false;
                 const t = new Date(m.contract_end_date).getTime();
@@ -118,8 +110,6 @@
                     <div class="flex justify-between"><span class="text-slate-500">${escapeHtml(country)}</span><span class="font-semibold text-slate-800">${count}</span></div>
                 `).join('');
 
-            // Répartition par desk (ajouté par rapport à Hercules : Cap Huma trace
-            // déjà le desk sur missions, donnée jugée utile en complément du pays).
             const byDesk = {};
             MissionsPage.currentMissions.forEach(m => {
                 if (!m.desk) return;
@@ -133,7 +123,6 @@
                 `).join('')
                 : '<p class="text-xs text-slate-500 italic">Aucun desk renseigné</p>';
 
-            // Distribution des durées de contrat (tranches identiques à Hercules)
             const distribution = {
                 '0-6 mois': durations.filter(d => d <= 6).length,
                 '7-12 mois': durations.filter(d => d > 6 && d <= 12).length,
@@ -150,9 +139,6 @@
         // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.updateDetailedContractStats = updateDetailedContractStats;
 
-        // ============================================================================
-        // 4. RENDU DE LA LISTE DES POSTES
-        // ============================================================================
         function renderMissions() {
             missionsGrid.innerHTML = '';
             const paginationEl = document.getElementById('missionsPagination');
@@ -164,10 +150,9 @@
             }
             missionsEmpty.classList.add('hidden');
 
-            // Pagination côté AFFICHAGE uniquement (le pool entier reste chargé en
-            // mémoire pour les statistiques et la rotation automatique des contrats,
-            // qui ont besoin de l'ensemble des postes du pool) — évite simplement de
-            // construire des centaines de cartes DOM d'un coup sur un gros pool.
+            // Pagination côté affichage uniquement : le pool entier reste chargé en
+            // mémoire (statistiques et rotation automatique des contrats en ont besoin),
+            // ceci évite seulement de construire des centaines de cartes DOM d'un coup.
             const totalPages = Math.max(1, Math.ceil(MissionsPage.currentMissions.length / MissionsPage.MISSIONS_PAGE_SIZE));
             if (MissionsPage.currentPage > totalPages) MissionsPage.currentPage = totalPages;
             const start = (MissionsPage.currentPage - 1) * MissionsPage.MISSIONS_PAGE_SIZE;
@@ -175,11 +160,8 @@
 
             const canEdit = MissionsPage.currentUserRole === 'admin' || MissionsPage.currentUserRole === 'user';
 
-            // Les cartes sont construites dans un DocumentFragment (hors DOM, aucun
-            // reflow) puis ajoutées à missionsGrid en un seul appendChild final, plutôt
-            // qu'un appendChild par carte (jusqu'à MissionsPage.MISSIONS_PAGE_SIZE
-            // reflows par rendu).
-            // Comportement identique : mêmes cartes, même contenu, même ordre.
+            // DocumentFragment (hors DOM) puis un seul appendChild final, plutôt
+            // qu'un appendChild par carte.
             const fragment = document.createDocumentFragment();
 
             pageMissions.forEach(mission => {
@@ -187,9 +169,8 @@
                 const occupantName = mission.occupant_id ? (MissionsPage.talentNameById[mission.occupant_id] || 'Talent introuvable') : null;
                 const futureName = mission.future_talent_id ? (MissionsPage.talentNameById[mission.future_talent_id] || 'Talent introuvable') : null;
 
-                // Contrat expiré mais statut non confirmé "Se termine" — traité par
-                // processExpiredMissions() uniquement si contract_status === 'ending'.
-                // Dans tous les autres cas, simple signalement visuel, aucune écriture.
+                // Signalement visuel uniquement : processExpiredMissions() n'écrit
+                // réellement que si contract_status === 'ending'.
                 const isExpiredUnconfirmed = mission.status === 'occupied'
                     && mission.contract_end_date
                     && new Date(mission.contract_end_date).getTime() < Date.now()
@@ -244,15 +225,12 @@
                 ?.addEventListener('click', () => goToMissionsPage(MissionsPage.currentPage - 1));
             paginationEl.querySelector('[data-page-nav="next"]')
                 ?.addEventListener('click', () => goToMissionsPage(MissionsPage.currentPage + 1));
-            // Les 4 boucles de ré-attachement (.editMissionBtn/.deleteMissionBtn/
-            // .evaluationsBtn/.resyncOccupantBtn) sont remplacées par l'écouteur
-            // délégué unique posé une seule fois sur missionsGrid, voir sa
-            // déclaration plus haut.
+            // .editMissionBtn/.deleteMissionBtn/.evaluationsBtn/.resyncOccupantBtn ne
+            // sont pas rebranchés ici : un seul écouteur délégué sur missionsGrid s'en charge.
         }
 
-        // Pour les postes déjà occupés avant l'introduction de la synchronisation
-        // automatique — remet à zéro le compteur de l'occupant actuel sans avoir
-        // besoin de changer d'occupant pour déclencher la sync.
+        // Remet à zéro le compteur de l'occupant actuel sans avoir besoin de
+        // changer d'occupant pour déclencher la synchronisation automatique.
         async function resyncOccupant(missionId) {
             const mission = MissionsPage.currentMissions.find(m => m.id === missionId);
             if (!mission || !mission.occupant_id) return;

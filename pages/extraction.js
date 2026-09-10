@@ -1,13 +1,4 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // HEADER COMMUN — injecté avant toute autre chose, y compris avant les
-        // document.getElementById('generateBtn'/'generateBtnLabel') ci-dessous,
-        // puisque ces boutons font partie du header injecté.
-        // ============================================================================
         renderPageLayout({
             icon: '📊',
             title: 'Extraction',
@@ -18,12 +9,6 @@
                 </button>
             `
         });
-
-        // ============================================================================
-        // 1. INITIALISATION SUPABASE
-        // ============================================================================
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
@@ -48,13 +33,6 @@
         const talentPoolsSelected = new Set();
         const positionPoolsSelected = new Set();
 
-        // ============================================================================
-        // Journal d'audit — ne bloque jamais l'action si l'écriture échoue, sur le
-        // même modèle que les autres pages du site.
-        // ============================================================================
-        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
-        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
-        // la création.
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
             () => ({
@@ -64,9 +42,6 @@
             })
         );
 
-        // ============================================================================
-        // 2. GARDE DE SESSION — réservée admin + user (recruteur), bloquée pour visitor
-        // ============================================================================
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(supabaseClient);
@@ -97,12 +72,6 @@
             window.location.href = 'login.html';
         });
 
-        // ============================================================================
-        // 3. LIBELLÉS (identiques à missions.html / id-card.html)
-        // ============================================================================
-        // STATUS_LABELS, DESK_LABELS, CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS,
-        // EDU_LEVEL_LABELS, MISSION_COUNT_LABELS sont désormais tous fournis par
-        // shared/caphuma-utils.js (valeurs identiques).
         const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
 
         function fmtDate(value) {
@@ -115,18 +84,8 @@
             return String(name || 'Feuille').replace(/[:\\/?*\[\]]/g, '-').substring(0, 31);
         }
 
-        // fetchSensitiveRead() est désormais centralisée dans
-        // shared/caphuma-utils.js (section 13) — elle existait ici en copie
-        // quasi identique à celles de red_list.js et audit_logs.js. Le dump
-        // complet talents+missions passe par cette Edge Function plutôt que
-        // par un appel direct à Supabase (voir sa définition centralisée pour
-        // le détail) ; la requête `pools` ci-dessous reste en accès direct,
-        // hors périmètre (faible sensibilité, cohérent avec le traitement de
-        // loadPoolsForSelect() sur red_list.js).
-
-        // ============================================================================
-        // 4. CHARGEMENT DES DONNÉES (une seule fois, filtrage/regroupement en mémoire)
-        // ============================================================================
+        // `pools` reste en accès direct (faible sensibilité) ; talents/missions
+        // passent par fetchSensitiveRead (dump complet, plus sensible).
         async function loadData() {
             try {
                 const [poolsRes, extractionData] = await Promise.all([
@@ -138,7 +97,7 @@
 
                 if (poolsRes.error) throw poolsRes.error;
 
-                // Pools archivés exclus, cohérent avec ce qui est déjà masqué sur dashboard.html
+                // Pools archivés exclus, comme sur dashboard.html
                 pools = (poolsRes.data || []).filter(p => !p.is_archived);
                 allTalents = extractionData.talents || [];
                 allMissions = extractionData.missions || [];
@@ -151,9 +110,6 @@
             }
         }
 
-        // ============================================================================
-        // 5. RENDU DES DEUX LISTES DE POOLS (avec compteurs en direct)
-        // ============================================================================
         function talentCountForPool(poolId) {
             return allTalents.filter(t => t.pool === poolId).length;
         }
@@ -179,14 +135,8 @@
             pools.forEach(pool => {
                 const count = countFn(pool.pool_id);
                 const checked = selectedSet.has(pool.pool_id);
-                // <label> plutôt que <div> : une <div cursor-pointer> seule n'a pas
-                // d'équivalent clavier (la
-                // checkbox à l'intérieur n'était que visuelle, jamais atteignable au
-                // Tab). Un <label> enveloppant une checkbox réelle relaie nativement
-                // le clic ET la touche Espace vers la checkbox, qui redevient
-                // focusable — aucune autre logique à dupliquer, le clic sur le label
-                // (déclenché par la souris OU par la checkbox elle-même) continue de
-                // basculer selectedSet exactement comme avant.
+                // <label> plutôt que <div> : relaie nativement le clic ET la touche
+                // Espace vers la checkbox, qui redevient focusable au clavier.
                 const row = document.createElement('label');
                 row.className = `pool-row flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'selected border-primary bg-primary-light' : 'border-slate-200 hover:bg-slate-50'}`;
                 row.innerHTML = `
@@ -227,9 +177,6 @@
             renderPoolLists();
         });
 
-        // ============================================================================
-        // 6. RÉCAPITULATIF EN DIRECT (cartes + légende + bouton générer)
-        // ============================================================================
         function updateSummary() {
             const talentCount = allTalents.filter(t => talentPoolsSelected.has(t.pool)).length;
             const positionCount = allMissions.filter(m => positionPoolsSelected.has(m.pool)).length;
@@ -273,9 +220,6 @@
             generateBtn.disabled = (talentPoolsSelected.size === 0 && positionPoolsSelected.size === 0);
         }
 
-        // ============================================================================
-        // 7. CONSTRUCTION DES LIGNES DE CHAQUE FEUILLE
-        // ============================================================================
         function buildListesProsRows(talents) {
             return talents.map(t => ({
                 'Pool': t.pool || '',
@@ -338,9 +282,6 @@
             return rows;
         }
 
-        // ============================================================================
-        // 8. GÉNÉRATION DU FICHIER (uniquement les pools cochés)
-        // ============================================================================
         function setStatus(msg, isError) {
             exportStatus.textContent = msg;
             exportStatus.classList.remove('hidden', 'text-primary', 'bg-primary-light', 'text-red-600', 'bg-red-50');
@@ -359,7 +300,6 @@
             try {
                 const wb = XLSX.utils.book_new();
 
-                // --- Feuille 1 : Listes pros combinée ---
                 if (talentPoolsSelected.size > 0) {
                     const filteredTalents = allTalents.filter(t => talentPoolsSelected.has(t.pool));
                     const rows = filteredTalents.length > 0
@@ -370,9 +310,8 @@
                     XLSX.utils.book_append_sheet(wb, ws, safeSheetName(`Listes pros (${poolNames})`));
                 }
 
-                // --- Une feuille par pool sélectionné pour les postes ---
-                // Talents référencés (occupant/futur occupant) des postes concernés,
-                // requête ciblée pour construire les noms/emails.
+                // Une feuille par pool sélectionné ; talents référencés (occupant/futur
+                // occupant) rassemblés à part pour construire les noms/emails.
                 const poolMissionsMap = {};
                 Array.from(positionPoolsSelected).forEach(poolId => {
                     poolMissionsMap[poolId] = allMissions.filter(m => m.pool === poolId);
@@ -406,9 +345,7 @@
 
                 setStatus("✅ Fichier Excel généré et téléchargé avec succès.", false);
 
-                // Traçabilité des exports (règle RGPD d'accountability) — décrit
-                // précisément quelles feuilles ont été générées, cohérent avec la
-                // construction du classeur juste au-dessus.
+                // Traçabilité RGPD : décrit précisément quelles feuilles ont été générées.
                 const exportedParts = [];
                 if (talentPoolsSelected.size > 0) {
                     exportedParts.push(`Listes pros (${Array.from(talentPoolsSelected).join('+')})`);

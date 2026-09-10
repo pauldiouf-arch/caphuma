@@ -1,14 +1,6 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // HEADER COMMUN — injecté avant toute autre chose, pour que
-        // #user-display-name et #logoutBtn existent dès la suite du script.
         // pageHeaderTitle garde son id pour rester réécrivable en JS selon l'onglet
-        // actif (Talents/Postes, voir setImportMode() plus bas).
-        // ============================================================================
+        // actif (voir setImportMode() plus bas).
         renderPageLayout({
             icon: '📥',
             title: 'Import en masse',
@@ -19,9 +11,6 @@
         });
 
         const appBody = document.getElementById('appBody');
-
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent de shared/caphuma-config.js
-        // (chargé dans le head).
         let supabaseClient = null;
         let currentUserId = null;
         let currentUserEmail = null;
@@ -71,9 +60,6 @@
             window.location.replace('login.html');
         });
 
-        // ============================================================================
-        // BASCULE ENTRE LES DEUX MODES D'IMPORT (Talents / Postes)
-        // ============================================================================
         const tabBtnTalents = document.getElementById('tabBtnTalents');
         const tabBtnMissions = document.getElementById('tabBtnMissions');
         const talentImportSection = document.getElementById('talentImportSection');
@@ -93,11 +79,9 @@
         tabBtnTalents.addEventListener('click', () => setImportMode('talents'));
         tabBtnMissions.addEventListener('click', () => setImportMode('missions'));
 
-        // ============================================================================
-        // LECTURE DU FICHIER — validation ligne par ligne, aperçu. Aucune écriture en
-        // base à ce stade : l'insertion réelle est une étape distincte, déclenchée
-        // par un clic sur le bouton d'import (voir plus bas).
-        // ============================================================================
+        // Cette section ne fait que lire et valider le fichier — aucune écriture en
+        // base : l'insertion réelle est une étape distincte, déclenchée par un clic
+        // sur le bouton d'import (voir runImport() plus bas).
         let cachedPools = [];
         let cachedExistingEmails = new Set();
         let lastParsedRows = [];
@@ -155,13 +139,9 @@
             return d.toISOString().slice(0, 10);
         }
 
-        // Aide partagée pour les champs "optionnel, valeur parmi une liste connue" :
-        // absent → null, sans erreur ; présent et reconnu → valeur normalisée (le
-        // libellé Excel tel quel pour un Set, la valeur mappée pour une table de
-        // correspondance) ; présent et non reconnu → erreur, valeur = le libellé Excel
-        // tel quel pour un Set (cohérent avec le comportement existant sur
-        // gender/education_level, qui laissaient passer la valeur brute invalide),
-        // valeur = null pour une table de correspondance (rien à quoi la mapper).
+        // absent → null sans erreur ; présent et reconnu → valeur normalisée ; présent
+        // et non reconnu → erreur, avec la valeur brute conservée pour un Set (cohérent
+        // avec gender/education_level) ou null pour une table de correspondance.
         function validateOptionalEnumField(rawValue, allowedValues, fieldLabel) {
             if (!rawValue) return { value: null, error: null };
             const isSet = allowedValues instanceof Set;
@@ -210,9 +190,8 @@
             const gender = get('gender');
             if (gender && gender !== 'H' && gender !== 'F') errors.push(`Genre "${gender}" invalide`);
 
-            // Les 4 valeurs valides sont celles du filtre "Statut" de talents.html (aucune
-            // liste centralisée dans caphuma-utils.js pour ce champ précis, donc reprise
-            // ici à l'identique).
+            // Reprend les valeurs du filtre "Statut" de talents.html — aucune liste
+            // centralisée dans caphuma-utils.js pour ce champ précis.
             const TALENT_STATUS_VALID = new Set([
                 'En poste ALIMA', 'En attente de poste', 'En poste autre ONG', 'En poste hors humanitaire'
             ]);
@@ -406,10 +385,8 @@
             }
         }
 
-        // ============================================================================
-        // INSERTION EN BASE — par lots de 25 lignes, avec rapport détaillé. Les
-        // lignes en erreur (déjà filtrées avant l'appel) ne sont jamais envoyées.
-        // ============================================================================
+        // Par lots de 25 lignes. Les lignes en erreur (déjà filtrées avant l'appel)
+        // ne sont jamais envoyées.
         const IMPORT_BATCH_SIZE = 25;
 
         async function runImport(validRows) {
@@ -432,12 +409,9 @@
                 const batch = validRows.slice(i, i + IMPORT_BATCH_SIZE);
                 statusEl.textContent = `Import en cours... ${Math.min(i + IMPORT_BATCH_SIZE, validRows.length)} / ${validRows.length}`;
 
-                // talents.status est NOT NULL avec un défaut ('En attente de poste')
-                // côté base — un défaut Postgres ne s'applique que si la colonne est
-                // absente de l'INSERT, jamais si elle est envoyée explicitement à null.
-                // Comme ce champ est volontairement laissé vide la plupart du temps
-                // (voir modèle Excel), on retire la clé plutôt que d'envoyer null, pour
-                // laisser Postgres appliquer son défaut.
+                // Un défaut Postgres ne s'applique que si la colonne est absente de
+                // l'INSERT, jamais si elle est envoyée explicitement à null — on retire
+                // donc la clé status plutôt que d'envoyer null quand elle est vide.
                 const payload = batch.map(r => {
                     const row = { ...r.normalized, created_by: currentUserId };
                     if (!row.status) delete row.status;
@@ -445,21 +419,17 @@
                 });
 
                 try {
-                    // Volontairement pas enveloppé dans capHumaWithRetry() : c'est l'insert
-                    // le plus risqué du site à retenter — un lot de jusqu'à
-                    // IMPORT_BATCH_SIZE (25) talents à la fois, sans aucune contrainte
-                    // UNIQUE sur talents. Si ce lot a en fait réussi côté serveur mais que
-                    // sa réponse s'est perdue, une relance dupliquerait silencieusement
-                    // jusqu'à 25 fiches talent d'un coup.
+                    // Pas de capHumaWithRetry() : lot de jusqu'à 25 talents sans aucune
+                    // contrainte UNIQUE, une relance après perte de réponse dupliquerait
+                    // silencieusement jusqu'à 25 fiches d'un coup.
                     const { data, error } = await supabaseClient.from('talents').insert(payload).select('id');
                     if (error) throw error;
                     successCount += (data || []).length;
                 } catch (err) {
                     console.error('[Import] Échec sur un lot :', err);
-                    // Le lot entier a échoué (ex. contrainte violée) — on le journalise en
-                    // bloc plutôt que de deviner quelle ligne précise a posé problème, un
-                    // échec de lot ne permettant pas de le savoir sans le rejouer ligne par
-                    // ligne (non fait ici pour rester simple — voir note ci-dessous).
+                    // Le lot entier a échoué (ex. contrainte violée) : journalisé en bloc,
+                    // un échec de lot ne permet pas de savoir quelle ligne précise a posé
+                    // problème sans le rejouer ligne par ligne.
                     batch.forEach(r => failures.push({
                         rowNumber: r.rowNumber,
                         name: `${r.normalized.first_name || ''} ${r.normalized.last_name || ''}`.trim(),
@@ -494,18 +464,12 @@
             `;
         }
 
-        // ============================================================================
-        // ═══════════════ MODULE IMPORT DE POSTES (masse) ═══════════════
-        // Miroir du module talents ci-dessus (mêmes étapes : modèle → dépôt → aperçu →
-        // insertion par lots), mais pour la table `missions`. Décision produit (voir
-        // échange avec l'utilisateur) : un poste importé n'a JAMAIS d'occupant à ce
-        // stade (occupant_id toujours null, statut limité à vacant/recruiting) — le
-        // rattachement d'un talent à un poste reste une action manuelle volontaire
-        // depuis missions.html, y compris pour un talent "En poste ALIMA" lui-même
-        // importé au même moment. Colonnes canoniques confirmées dans pages/missions.js
-        // (MISSIONS_COLUMNS) : `pool` (pas `pool_id`), `occupant_id`/`future_talent_id`
-        // (pas les colonnes `current_occupant_id`/`future_occupant_id`).
-        // ============================================================================
+        // Miroir du module talents ci-dessus, pour la table `missions`. Un poste
+        // importé n'a jamais d'occupant à ce stade (occupant_id toujours null, statut
+        // limité à vacant/recruiting) — le rattachement d'un talent à un poste reste
+        // une action manuelle depuis missions.html. Colonnes vérifiées contre
+        // pages/missions.js (MISSIONS_COLUMNS) : `pool` (pas `pool_id`),
+        // `occupant_id`/`future_talent_id`.
 
         const MISSION_IMPORT_COLUMNS = [
             'title', 'pool', 'pool_level', 'status', 'country', 'location',
@@ -514,10 +478,6 @@
         ];
         const EXAMPLE_ROW_TITLE = 'Exemple - Coordinateur Terrain';
 
-        // Réutilise les libellés déjà centralisés dans shared/caphuma-utils.js (DESK_LABELS,
-        // CANDIDATE_TYPE_LABELS, CONTRACT_STATUS_LABELS) plutôt que de les redéfinir en
-        // dur ici — une seule source pour ces 3 énumérations, cohérent avec le reste du
-        // site.
         function invertLabelMap(labelMap) {
             const inv = {};
             Object.keys(labelMap).forEach(k => { inv[labelMap[k]] = k; });
@@ -527,8 +487,8 @@
         const CANDIDATE_TYPE_LABEL_TO_ENUM = invertLabelMap(CANDIDATE_TYPE_LABELS);
         const CONTRACT_STATUS_LABEL_TO_ENUM = invertLabelMap(CONTRACT_STATUS_LABELS);
 
-        // pool_level n'est pas centralisé dans caphuma-utils.js (déjà dupliqué localement
-        // dans extraction.html/missions.html avant cette page — même logique reprise ici).
+        // pool_level n'est pas centralisé dans caphuma-utils.js, contrairement aux
+        // énumérations ci-dessus.
         const POOL_LEVEL_LABEL_TO_ENUM = { 'Mission': 'mission', 'Projet': 'project' };
 
         // Volontairement SANS "Occupé" — un poste importé ne peut être créé qu'en Vacant
@@ -607,11 +567,10 @@
                 location: location || null,
                 project_name: get('project_name') || null,
                 candidate_type: enumResults.candidate_type,
-                // is_expat maintenue en cohérence avec candidate_type, comme le fait le
-                // formulaire manuel de missions.html (évite une colonne fantôme jamais à jour).
+                // is_expat maintenue en cohérence avec candidate_type, comme le formulaire
+                // manuel de missions.html.
                 is_expat: enumResults.candidate_type ? enumResults.candidate_type === 'expat' : null,
                 desk: enumResults.desk,
-                // Toujours null à l'import — voir note en tête de module.
                 occupant_id: null,
                 contract_start_date: contractStart ? toISODate(contractStart) : null,
                 contract_end_date: contractEnd ? toISODate(contractEnd) : null,
@@ -754,11 +713,9 @@
                 const payload = batch.map(r => ({ ...r.normalized }));
 
                 try {
-                    // Volontairement pas enveloppé dans capHumaWithRetry() : même raison
-                    // que l'import de talents ci-dessus — lot de jusqu'à IMPORT_BATCH_SIZE
-                    // (25) postes à la fois, sans contrainte UNIQUE sur missions. Un retry
-                    // après perte de réponse dupliquerait silencieusement jusqu'à 25 postes
-                    // d'un coup.
+                    // Pas de capHumaWithRetry(), même raison que l'import de talents :
+                    // lot sans contrainte UNIQUE sur missions, un retry après perte de
+                    // réponse dupliquerait silencieusement jusqu'à 25 postes d'un coup.
                     const { data, error } = await supabaseClient.from('missions').insert(payload).select('id');
                     if (error) throw error;
                     successCount += (data || []).length;
@@ -776,10 +733,9 @@
             statusEl.textContent = '';
             btn.textContent = 'Import terminé';
 
-            // Trigger Postgres trg_audit_missions (§5.4 bis du Dossier) : journalise
-            // automatiquement chaque insertion avec l'auteur réel — pas d'appel client
-            // supplémentaire nécessaire ici pour les lignes elles-mêmes. On garde un
-            // log de synthèse de l'opération globale, cohérent avec l'import talents.
+            // Le trigger Postgres trg_audit_missions journalise déjà chaque insertion
+            // individuellement — ce log-ci ne fait qu'ajouter une synthèse de
+            // l'opération globale, cohérent avec l'import talents.
             await logAuditAction(
                 'create', 'mission', null, 'Import en masse',
                 `${successCount} poste(s) importé(s), ${failures.length} échec(s) sur ${validRows.length} ligne(s) tentée(s)`

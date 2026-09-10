@@ -1,20 +1,5 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // HEADER COMMUN — injecté avant toute autre chose, pour que #userSubtitle,
-        // #adminNavGroup, #navExtraction, #notifBellBtn, #logoutBtn, etc. existent
-        // dès la suite du script.
-        // ============================================================================
         renderDashboardLayout();
-
-        // ============================================================================
-        // 1. INITIALISATION SUPABASE (lecture dynamique localStorage, jamais en dur)
-        // ============================================================================
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
@@ -36,16 +21,9 @@
             renderPools();
         });
 
-        // Échappement HTML systématique de toute donnée venant de la base
-        // avant injection via innerHTML — prévention XSS (audit sécurité).
-
-        // Pools de secours si la table Supabase est vide ou inaccessible. ADMIN
-        // n'existe pas réellement (voir Dossier technique §4.6) : les 7 pools
-        // ci-dessous sont les vrais pools actuels, extraits en direct de la table
-        // `pools` (la doc de juillet n'en listait que 4, incomplète/périmée depuis).
-        // Ce tableau ne sert désormais plus que de tout dernier recours : voir
-        // getFallbackPools() ci-dessous, qui privilégie un cache local mis à jour
-        // automatiquement.
+        // Ne sert plus que de tout dernier recours (aucun chargement Supabase
+        // n'a jamais réussi sur ce navigateur) — voir getFallbackPools() ci-dessous,
+        // qui privilégie un cache local mis à jour automatiquement.
         const FALLBACK_POOLS = [
             { pool_id: 'CDM', name: 'CDM', full_name: 'Chef de mission', is_archived: false },
             { pool_id: 'COFIN', name: 'COFIN', full_name: 'Coordinateur Financier', is_archived: false },
@@ -56,18 +34,10 @@
             { pool_id: 'RRB', name: 'RRB', full_name: 'Responsable Relation Bailleurs', is_archived: false }
         ];
 
-        // ============================================================================
-        // CACHE LOCAL DES POOLS (pérennise le fallback)
-        // ----------------------------------------------------------------------------
-        // Problème résolu : FALLBACK_POOLS ci-dessus est un tableau codé en dur —
-        // il devient périmé dès qu'un pool est créé/modifié depuis admin.html
-        // (c'est exactement ce qui s'est produit avec ADMIN/COFIN/CDM). Plutôt que
-        // de compter sur une mise à jour manuelle de ce fichier à chaque nouveau
-        // pool, on mémorise dans le navigateur (localStorage) la dernière liste
-        // RÉELLEMENT reçue de Supabase avec succès, et on l'utilise en priorité si
-        // un chargement échoue. FALLBACK_POOLS ne sert plus alors que de tout
-        // dernier recours (aucun chargement jamais réussi sur ce navigateur).
-        // ============================================================================
+        // FALLBACK_POOLS ci-dessus est un tableau codé en dur, périmé dès qu'un pool
+        // est créé/modifié depuis admin.html — ce cache mémorise dans le navigateur
+        // la dernière liste réellement reçue de Supabase avec succès, et est utilisé
+        // en priorité sur FALLBACK_POOLS si un chargement échoue.
         const FALLBACK_POOLS_CACHE_KEY = 'caphuma_pools_fallback_cache';
 
         /**
@@ -88,15 +58,10 @@
             return FALLBACK_POOLS;
         }
 
-        // Seuil "à risque" (24 mois) : vient désormais de shared/caphuma-utils.js
-        // (DEVALIDATION_MAX_MONTHS), au lieu d'une constante locale à cette page.
-        // Reste néanmoins DUPLIQUÉ côté base : la fonction SQL
-        // get_pool_talent_stats() a sa propre copie figée (le SQL ne peut pas lire
-        // une constante JS) — si ce seuil change un jour, il faut le changer aux
-        // DEUX endroits, ici (DEVALIDATION_MAX_MONTHS dans caphuma-utils.js) ET dans
-        // la fonction SQL (voir sql/schema_snapshot_2026-08-18.sql §8).
+        // Seuil "à risque" dupliqué côté base : la fonction SQL get_pool_talent_stats()
+        // a sa propre copie figée (DEVALIDATION_MAX_MONTHS dans caphuma-utils.js côté JS) —
+        // à changer aux deux endroits si ce seuil évolue.
 
-        // État en mémoire : liste brute des pools, KPIs calculés par pool, affichage des archivés
         let currentPools = [];
         let poolStats = {};
         let showArchivedPools = false;
@@ -104,34 +69,13 @@
         let currentUserEmail = null;
         let currentUserName = null;
 
-        // ============================================================================
-        // NOTIFICATIONS (dans l'app uniquement, aucun email) — préférences stockées
-        // dans notification_preferences, alertes calculées à chaque ouverture du
-        // tableau de bord. Jamais affiché pour un visitor (pas concerné par le
-        // suivi RH). pool_scope null = tous les pools de l'utilisateur.
-        // ============================================================================
+        // Notifications dans l'app uniquement (aucun email). Jamais affiché pour un
+        // visitor. pool_scope null = tous les pools de l'utilisateur.
         let notifPrefs = { enabled: true, pool_scope: null };
-        // Seuil de risque de dévalidation (20 mois) : vient désormais de
-        // shared/caphuma-utils.js (DEVALIDATION_AT_RISK_MONTHS), au lieu d'une
-        // constante locale sous un autre nom (NOTIF_DEVALIDATION_RISK_MONTHS).
-        // Reste DUPLIQUÉ côté base : get_notification_alerts() a sa propre copie
-        // figée — si ce seuil change, changer aux DEUX endroits (voir
-        // sql/schema_snapshot_2026-08-18.sql §8).
-        //
-        // NOTIF_CONTRACT_WINDOWS (fenêtres de contrat, en JOURS) n'est PAS concernée
-        // par cette centralisation : famille de valeur différente (jours, pas mois),
-        // non dupliquée ailleurs en JS — seule sa copie dans get_notification_alerts()
-        // (SQL) reste une duplication résiduelle, mineure, non traitée ici.
+        // Seuil dupliqué côté base (get_notification_alerts() a sa propre copie figée) —
+        // voir DEVALIDATION_AT_RISK_MONTHS dans caphuma-utils.js.
         const NOTIF_CONTRACT_WINDOWS = [30, 60, 90]; // jours
 
-
-        // ============================================================================
-        // JOURNAL D'AUDIT — voir id-card.html pour la logique détaillée.
-        // Ne bloque jamais l'action métier si l'écriture du log échoue.
-        // ============================================================================
-        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
-        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
-        // la création.
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
             () => ({
@@ -141,9 +85,6 @@
             })
         );
 
-        // ============================================================================
-        // 2. GARDE DE SESSION (identique au pattern de missions.html)
-        // ============================================================================
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(supabaseClient);
@@ -157,19 +98,15 @@
                     currentUserRole = s.role;
                     userSubtitle.textContent = `Connecté en tant que ${s.role || 'utilisateur'}`;
 
-                    // Affichage conditionnel des boutons réservés aux admins
                     if (s.role === 'admin') {
                         document.getElementById('adminNavGroup').classList.remove('hidden');
                         document.getElementById('adminNavGroup').classList.add('flex');
                     }
-                    // Le bouton Extraction est réservé aux recruteurs et admins (pas aux visiteurs)
                     if (s.role === 'visitor') {
                         document.getElementById('navExtraction').classList.add('hidden');
                         document.getElementById('navRedList').classList.add('hidden');
                         document.getElementById('navDevalidated').classList.add('hidden');
                     } else {
-                        // Notifications réservées à admin/user — jamais visitor, non concerné
-                        // par le suivi RH (échéances, dévalidation, etc.)
                         document.getElementById('notifBellBtn').classList.remove('hidden');
                     }
                 } else {
@@ -199,9 +136,6 @@
             window.location.href = 'login.html';
         });
 
-        // ============================================================================
-        // 3. CHARGEMENT DES POOLS ET RENDU DES CARTES
-        // ============================================================================
         async function loadPools() {
             try {
                 const { data: pools, error } = await capHumaWithRetry(() =>
@@ -237,19 +171,11 @@
             renderPools();
         }
 
-        // ============================================================================
-        // 3 BIS. CALCUL DES MINI-KPIS PAR POOL (effectifs / dispo / à risque)
-        // ============================================================================
         async function loadPoolStats() {
             poolStats = {};
 
-            // 1. KPIs talents (effectif / dispo / à risque)
-            // Optimisation : calcul fait côté serveur par la fonction SQL
-            // get_pool_talent_stats() (au lieu de rapatrier tous les talents dans le
-            // navigateur pour les compter ici). Le seuil "à risque" (24 mois) et le
-            // statut "En attente de poste" sont désormais définis dans la fonction SQL —
-            // voir DEVALIDATION_MAX_MONTHS (shared/caphuma-utils.js) si ce seuil doit un
-            // jour être changé (il faudra le changer aux deux endroits, SQL et JS).
+            // Calculé côté serveur par get_pool_talent_stats() plutôt que de rapatrier
+            // tous les talents pour les compter ici.
             try {
                 const { data: rows, error } = await capHumaWithRetry(() =>
                     supabaseClient.rpc('get_pool_talent_stats')
@@ -268,14 +194,12 @@
                 });
 
             } catch (error) {
-                // Ne bloque jamais l'affichage des cartes de pool : les KPIs restent à 0 en cas d'échec
+                // Ne bloque jamais l'affichage des cartes de pool.
                 console.error("Erreur de récupération des KPIs talents :", error);
             }
 
-            // 2. KPI postes (nombre total de missions du pool, tous statuts confondus)
-            // Optimisation : calcul fait côté serveur par la fonction SQL
-            // get_pool_mission_counts(), qui gère déjà elle-même l'incohérence
-            // "pool" vs "pool_id" (coalesce), documentée précédemment ici même.
+            // Calculé côté serveur par get_pool_mission_counts(), qui gère elle-même
+            // l'incohérence "pool" vs "pool_id" (coalesce).
             try {
                 const { data: rows, error } = await capHumaWithRetry(() =>
                     supabaseClient.rpc('get_pool_mission_counts')
@@ -296,9 +220,6 @@
             }
         }
 
-        // ============================================================================
-        // 3 TER. NOTIFICATIONS — préférences + calcul des alertes (dans l'app uniquement)
-        // ============================================================================
         function notifToast(msg, type) {
             const toast = document.createElement('div');
             toast.className = `fixed bottom-5 right-5 px-5 py-3 rounded-2xl shadow-xl text-white font-semibold text-xs z-[100] transition-all transform translate-y-10 opacity-0 duration-300 ${
@@ -336,10 +257,9 @@
 
         async function saveNotificationPrefs() {
             try {
-                // Enveloppé dans capHumaWithRetry() : sûr à retenter, cet upsert
-                // cible explicitement { onConflict: 'user_id' } — colonne UNIQUE (une
-                // ligne par utilisateur, Dossier de passation §5.4) — donc une relance
-                // après perte de réponse réécrit la même ligne, jamais un doublon.
+                // onConflict: 'user_id' (colonne UNIQUE, une ligne par utilisateur) :
+                // une relance après perte de réponse réécrit la même ligne, jamais un
+                // doublon — sûr à envelopper dans capHumaWithRetry().
                 const { error } = await capHumaWithRetry(() =>
                     supabaseClient
                         .from('notification_preferences')
@@ -358,17 +278,8 @@
             }
         }
 
-        // Optimisation : calcul fait côté serveur par la fonction SQL
-        // get_notification_alerts(), qui reprend exactement la même logique que
-        // l'ancien computeNotificationAlerts() (mêmes seuils, mêmes fenêtres de
-        // contrat, même gestion pool/pool_id) — voir DEVALIDATION_AT_RISK_MONTHS
-        // (shared/caphuma-utils.js) et NOTIF_CONTRACT_WINDOWS ci-dessus si ces
-        // valeurs doivent changer un jour.
-        // Le filtre par pool (poolScope) est désormais fait par la base elle-même,
-        // au lieu d'être fait après coup ici — la base ne renvoie que les alertes
-        // qui concernent les pools suivis par l'utilisateur.
-        //
-        // pool_scope null = tous les pools ; sinon tableau de pool_id à garder.
+        // Calculé et filtré par pool (poolScope) côté serveur par get_notification_alerts() —
+        // pool_scope null = tous les pools, sinon tableau de pool_id à garder.
         async function loadNotificationAlerts(poolScope) {
             const alerts = { contracts: [], available: [], atRisk: [], vacancies: [] };
             try {
@@ -391,7 +302,7 @@
                     }
                 });
             } catch (err) {
-                // Ne bloque jamais l'affichage du dashboard : la cloche reste vide en cas d'échec
+                // Ne bloque jamais l'affichage du dashboard : la cloche reste vide.
                 console.error('[Notifications] Erreur de récupération des alertes :', err);
             }
             return alerts;
@@ -479,11 +390,8 @@
         const notifPanel = document.getElementById('notifPanel');
         const notifSettingsBlock = document.getElementById('notifSettingsBlock');
 
-        // notifBellBtn n'exposait jusqu'ici aucun état (aria-expanded) — un
-        // lecteur d'écran ne pouvait pas savoir si le panneau qu'il contrôle est
-        // ouvert ou fermé. Mis à jour aux deux endroits où le panneau change
-        // d'état : l'ouverture/fermeture par clic sur la cloche, ET la fermeture
-        // par clic en dehors du panneau.
+        // aria-expanded mis à jour aux deux endroits où le panneau change d'état :
+        // ouverture/fermeture par clic sur la cloche, et fermeture en cliquant ailleurs.
         notifBellBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             notifPanel.classList.toggle('hidden');
@@ -497,11 +405,9 @@
             }
         });
 
-        // notifPanel n'est pas un vrai modal (il ne bloque pas le reste de la
-        // page), donc pas de role="dialog" ni de piège complet du focus comme sur
-        // les modaux du site (voir capHumaInitModalA11y dans caphuma-utils.js) —
-        // seule la fermeture au clavier est ajoutée, avec restitution du focus sur
-        // la cloche qui a ouvert le panneau.
+        // notifPanel n'est pas un vrai modal (ne bloque pas le reste de la page) :
+        // pas de piège complet du focus comme capHumaInitModalA11y() sur les vrais
+        // modaux, seule la fermeture au clavier est ajoutée ici.
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !notifPanel.classList.contains('hidden')) {
                 notifPanel.classList.add('hidden');
@@ -549,7 +455,6 @@
             const activePools = currentPools.filter(pool => pool.is_archived !== true);
             const archivedPools = currentPools.filter(pool => pool.is_archived === true);
 
-            // Bouton de bascule visible uniquement s'il existe au moins un pool archivé
             if (archivedPools.length > 0) {
                 archivedToggleContainer.classList.remove('hidden');
                 archivedToggleBtn.textContent = showArchivedPools

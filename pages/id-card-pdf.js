@@ -3,12 +3,8 @@
 // seuls passageDateMs()/normalizePassageComment() passent par IdCardPage
 // (définis dans id-card.js, voir ce fichier pour l'explication de IdCardPage).
 (() => {
-        // ============================================================================
-        // GÉNÉRATION PDF — FICHE D'IDENTITÉ TALENT
-        // jsPDF + jspdf-autotable, colonnes Supabase réelles (snake_case). Aucune
-        // donnée "availability" / "project_status" : ces champs ne sont pas dans
-        // le schéma/formulaire validés.
-        // ============================================================================
+        // Aucune donnée "availability"/"project_status" : ces champs ne sont pas
+        // dans le schéma/formulaire validés.
         const PDF_ALIMA_BLUE = [29, 78, 216]; // #1d4ed8 — primary Cap Huma
 
         function pdfFormatExpAlima(months) {
@@ -121,17 +117,8 @@
             return y + bHeight + 4;
         }
 
-        /**
-         * Génère et télécharge le PDF de la carte d'identité talent.
-         * @param {object} talent - Ligne Supabase brute de la table `talents`.
-         * @param {object|null} currentPosition - Mission active (table `missions`), si présente.
-         */
-        // Une fonction par section de contenu, sur le modèle des helpers pdfDraw*
-        // (pdfDrawHeader, pdfDrawField, pdfDrawSectionTitle, pdfDrawBadgeRow) :
-        // chaque section reçoit `y` en paramètre et renvoie le `y` mis à jour,
-        // composées séquentiellement dans exportTalentCardPDF() ci-dessous.
-
-        // ── Section 1 : Informations Générales ───────────────────────────────
+        // Chaque section reçoit `y` en paramètre et renvoie le `y` mis à jour,
+        // composées séquentiellement dans exportTalentCardPDF() plus bas.
         function pdfDrawGeneralInfoSection(doc, y, talent, COL_LEFT, COL_MID) {
             y = pdfDrawSectionTitle(doc, "Informations Générales", y);
             const l1 = pdfDrawField(doc, "Email", talent.email || "N/A", COL_LEFT, y, 85);
@@ -146,7 +133,6 @@
             return y;
         }
 
-        // ── Section 2 : Expérience ────────────────────────────────────────────
         function pdfDrawExperienceSection(doc, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate) {
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, "Expérience", y);
@@ -161,7 +147,6 @@
             return y;
         }
 
-        // ── Section 3 : Formation & Compétences ──────────────────────────────
         function pdfDrawEducationSection(doc, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills) {
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, "Formation & Compétences", y);
@@ -178,7 +163,6 @@
             return y;
         }
 
-        // ── Section 4 : Géographie & Langues ─────────────────────────────────
         function pdfDrawGeoLanguagesSection(doc, y, pageW, COL_LEFT, COL_MID, talent, cRes) {
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, "Géographie & Langues", y);
@@ -192,7 +176,6 @@
             return y;
         }
 
-        // ── Section 5 : Contextes & Zones d'intervention ─────────────────────
         function pdfDrawInterventionSection(doc, y, pageW, contexts, zones) {
             if (contexts.length > 0 || zones.length > 0) {
                 y = pdfEnsureSpace(doc, y, 30);
@@ -223,7 +206,6 @@
             return y;
         }
 
-        // ── Section 6 : Parcours de missions ALIMA ───────────────────────────
         function pdfDrawMissionHistorySection(doc, y, pageW, talent, currentPosition) {
             let passages = [];
             try {
@@ -376,7 +358,6 @@
             return y;
         }
 
-        // ── Tableau récapitulatif ─────────────────────────────────────────────
         function pdfDrawRecapTable(doc, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones) {
             y = pdfEnsureSpace(doc, y, 40);
             y = pdfDrawSectionTitle(doc, "Récapitulatif Expérience", y);
@@ -407,7 +388,6 @@
             return y;
         }
 
-        // ── Pied de page ───────────────────────────────────────────────────
         function pdfDrawFooter(doc, y, pageW) {
             y = pdfEnsureSpace(doc, y, 20);
             doc.setDrawColor(200, 200, 200);
@@ -440,7 +420,7 @@
             const COL_LEFT = 14;
             const COL_MID = pageW / 2 + 4;
 
-            // Lecture robuste snake_case / camelCase, cohérente avec IdCardPage.renderTalentCard()
+            // Lecture robuste snake_case/camelCase, cohérente avec IdCardPage.renderTalentCard().
             const fName = talent.first_name || talent.firstName || "";
             const lName = talent.last_name || talent.lastName || "";
             const fFunction = talent.current_function || talent.currentFunction || "N/A";
@@ -471,7 +451,6 @@
             const fileName = `talent-${safeFirst}${safeLast ? '-' + safeLast : ''}.pdf`;
             doc.save(fileName);
         }
-
 
         // Exposé sur IdCardPage pour appel depuis un autre fichier de la page
         IdCardPage.exportTalentCardPDF = exportTalentCardPDF;

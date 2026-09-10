@@ -1,12 +1,6 @@
 // Évaluations de l'occupant courant (modale, CRUD, brouillon local). Voir
-// missions.js (chargé AVANT ce fichier) pour l'explication de MissionsPage.
-// Section déjà largement autonome avant la scission (peu de dépendances
-// externes), inchangée dans sa logique — seuls les accès à l'état partagé
-// passent désormais par MissionsPage.xxx.
+// missions.js (chargé avant ce fichier) pour l'explication de MissionsPage.
 (() => {
-        // ============================================================================
-        // 7. ÉVALUATIONS DE L'OCCUPANT COURANT
-        // ============================================================================
         const evaluationsModal = document.getElementById('evaluationsModal');
         const evaluationsList = document.getElementById('evaluationsList');
         const evaluationsEmpty = document.getElementById('evaluationsEmpty');
@@ -17,32 +11,15 @@
 
         let currentEvaluationMission = null;
 
-        // ============================================================================
-        // BROUILLON LOCAL — evaluationForm
-        // ----------------------------------------------------------------------------
-        // Portée décidée avec l'utilisateur : CRÉATION uniquement, jamais en édition
-        // d'une évaluation existante (ce même <form> sert aux deux cas via
-        // startEditEvaluation()/resetEvaluationForm() — voir plus bas). Une clé par
-        // mission (`draft:evaluation:<missionId>`), le formulaire ne concernant
-        // qu'une mission/occupant à la fois (currentEvaluationMission).
-        //
-        // Garde-fou mode édition : collectEvaluationDraft() retourne `undefined` tant
-        // que #evaluationId n'est pas vide — capHumaAttachDraftAutosave() (voir
-        // shared/caphuma-form-draft.js) n'écrit alors RIEN, pour ne jamais écraser un
-        // éventuel brouillon de création avec du contenu d'édition. Solution retenue
-        // après discussion avec l'utilisateur (moins de points de branchement qu'un
-        // détachement/rattachement à chaque bascule création↔édition, donc moins de
-        // risque d'oubli, et aucune confirmation intempestive pour le recruteur en
-        // dehors de l'ouverture du panneau).
+        // Brouillon local (evaluationForm) : création uniquement, jamais en édition
+        // d'une évaluation existante — ce même <form> sert aux deux cas, voir
+        // collectEvaluationDraft() plus bas. Une clé par mission.
         let currentEvaluationDraftKey = null;
         let currentEvaluationDraftBinding = null;
 
-        // Correctif (signalé par l'utilisateur, même bug que new-comment-input dans
-        // id-card.js) : un collect() qui renvoie des
-        // champs tous vides écrivait quand même un brouillon "vide" en
-        // sessionStorage — la prochaine ouverture du panneau proposait alors de
-        // restaurer... un formulaire sans contenu. Sert à la fois au filtre de
-        // collectEvaluationDraft() ci-dessous et au garde-fou local posé plus bas.
+        // Évite d'écrire un brouillon entièrement vide en sessionStorage (qui
+        // proposerait ensuite de "restaurer" un formulaire sans contenu). Sert au
+        // filtre de collectEvaluationDraft() et au garde-fou local plus bas.
         function isEvaluationDraftNonEmpty(data) {
             return Object.entries(data).some(([key, value]) => {
                 if (key === 'evaluationId') return false; // champ technique (hidden), jamais un contenu saisi
@@ -51,11 +28,8 @@
         }
 
         function collectEvaluationDraft() {
-            if (document.getElementById('evaluationId').value) return undefined; // en édition : rien à sauvegarder
+            if (document.getElementById('evaluationId').value) return undefined; // en édition
             const data = capHumaDefaultDraftCollect(evaluationForm);
-            // Rien à sauvegarder si le formulaire est entièrement vide — évite que
-            // l'autosave différé (500 ms) ne réécrive un brouillon vide juste après
-            // le garde-fou local ci-dessous.
             if (!isEvaluationDraftNonEmpty(data)) return undefined;
             return data;
         }
@@ -64,9 +38,8 @@
             capHumaDefaultDraftRestore(evaluationForm, data);
         }
 
-        // Démarre le suivi pour la mission dont le panneau vient de s'ouvrir — appelé
-        // en fin de openEvaluationsModal(), juste après resetEvaluationForm() (donc
-        // #evaluationId est garanti vide à ce moment, contexte création).
+        // Appelé en fin de openEvaluationsModal(), juste après resetEvaluationForm()
+        // (donc #evaluationId est garanti vide ici).
         function startEvaluationDraftTracking(missionId) {
             stopEvaluationDraftTracking();
             currentEvaluationDraftKey = `draft:evaluation:${missionId}`;
@@ -74,10 +47,6 @@
             currentEvaluationDraftBinding = capHumaAttachDraftAutosave(evaluationForm, currentEvaluationDraftKey, { collect: collectEvaluationDraft });
         }
 
-        // Fermeture du panneau (croix/Échap) : on arrête juste l'autosave, sans
-        // effacer le brouillon — même règle que talentForm : fermer sert aussi à
-        // sortir provisoirement, pas forcément à abandonner délibérément une saisie
-        // en cours.
         function stopEvaluationDraftTracking() {
             if (currentEvaluationDraftBinding) {
                 currentEvaluationDraftBinding.stop();
@@ -85,9 +54,8 @@
             }
         }
 
-        // Effacement DÉFINITIF — appelé UNIQUEMENT après une CRÉATION réussie (jamais
-        // après une modification d'évaluation existante, qui n'a rien à voir avec un
-        // éventuel brouillon de création en attente pour cette mission).
+        // Appelé uniquement après une création réussie, jamais après une
+        // modification (qui n'a rien à voir avec un brouillon de création en attente).
         function discardEvaluationDraft() {
             stopEvaluationDraftTracking();
             if (currentEvaluationDraftKey) {
@@ -101,15 +69,10 @@
             stopEvaluationDraftTracking();
         });
 
-        // Garde-fou local (pas dans shared/caphuma-form-draft.js, même logique que
-        // new-comment-input dans id-card.js) : posé UNE SEULE FOIS ici —
-        // evaluationForm n'est jamais recréé, seul son contenu est réécrit. Dès que
-        // le formulaire redevient entièrement vide (saisie effacée sans valider),
-        // le brouillon déjà en sessionStorage est effacé tout de suite plutôt que
-        // d'attendre l'autosave différé : sinon la prochaine ouverture du panneau
-        // proposerait de restaurer un formulaire vide.
+        // Formulaire redevenu entièrement vide (saisie effacée sans valider) : on
+        // efface le brouillon tout de suite plutôt que d'attendre l'autosave différé.
         evaluationForm.addEventListener('input', () => {
-            if (document.getElementById('evaluationId').value) return; // en édition, aucun rapport avec le brouillon de création
+            if (document.getElementById('evaluationId').value) return; // en édition
             if (currentEvaluationDraftKey && !isEvaluationDraftNonEmpty(capHumaDefaultDraftCollect(evaluationForm))) {
                 capHumaDraftClear(currentEvaluationDraftKey);
             }
@@ -128,7 +91,6 @@
             evaluationsError.classList.add('hidden');
             resetEvaluationForm();
 
-            // Ajout réservé admin + user, lecture ouverte à tous (même pattern que le reste de la page)
             const canEdit = MissionsPage.currentUserRole === 'admin' || MissionsPage.currentUserRole === 'user';
             evaluationForm.classList.toggle('hidden', !canEdit);
             if (canEdit) {
@@ -143,9 +105,9 @@
 
         async function loadEvaluations(missionId) {
             try {
-                // Colonnes restreintes à celles réellement utilisées (règle perf section 2 bis.2).
-                // is_moderated / is_red_list_trigger / legacy_content / comment_text volontairement
-                // ignorées — usage non documenté, à traiter plus tard si besoin (cf. échange avec l'utilisateur).
+                // Colonnes restreintes à celles réellement utilisées. is_moderated /
+                // is_red_list_trigger / legacy_content / comment_text volontairement
+                // ignorées : usage non documenté à ce jour.
                 const { data: evaluations, error } = await capHumaWithRetry(() =>
                     MissionsPage.supabaseClient
                         .from('evaluations')
@@ -176,9 +138,6 @@
             evaluationsEmpty.classList.add('hidden');
 
             evaluations.forEach(evaluation => {
-                // Admin : peut modifier/supprimer n'importe quelle évaluation.
-                // User : uniquement les siennes (comparaison author_id).
-                // Visitor : aucune action (cf. évaluationForm masqué pour ce rôle).
                 const canManage = MissionsPage.currentUserRole === 'admin'
                     || (MissionsPage.currentUserRole === 'user' && evaluation.author_id === MissionsPage.currentUserId);
 
@@ -214,8 +173,8 @@
             });
         }
 
-        // Cache locale des évaluations actuellement affichées (pour retrouver les valeurs à éditer
-        // sans refaire une requête réseau) — remplie à chaque loadEvaluations().
+        // Remplie à chaque loadEvaluations(), pour retrouver les valeurs à éditer
+        // sans refaire une requête réseau.
         let currentEvaluationsCache = [];
 
         function startEditEvaluation(evaluationId) {
@@ -277,9 +236,7 @@
 
             if (!currentEvaluationMission) return;
 
-            // Filet de sécurité : capture immédiate avant validation, sans
-            // attendre le debounce — ignorée si on est en édition (collectEvaluationDraft
-            // renvoie undefined dans ce cas, voir plus haut).
+            // Capture immédiate avant validation, sans attendre le debounce.
             if (currentEvaluationDraftBinding) currentEvaluationDraftBinding.saveNow();
 
             const evaluationId = document.getElementById('evaluationId').value;
@@ -303,7 +260,7 @@
 
             try {
                 if (evaluationId) {
-                    // Modification : mission_id/talent_id/author_id/author_email ne changent jamais
+                    // mission_id/talent_id/author_id/author_email ne changent jamais en modification.
                     const { error } = await capHumaWithRetry(() =>
                         MissionsPage.supabaseClient
                             .from('evaluations')
@@ -317,10 +274,8 @@
                     payload.talent_id = currentEvaluationMission.occupant_id;
                     payload.author_id = MissionsPage.currentUserId;
                     payload.author_email = MissionsPage.currentUserEmail;
-                    // Volontairement pas enveloppé dans capHumaWithRetry() : evaluations
-                    // n'a aucune contrainte UNIQUE (Dossier de passation §4.2) — une
-                    // relance après perte de réponse dupliquerait silencieusement
-                    // l'évaluation ajoutée.
+                    // Pas de capHumaWithRetry() : evaluations n'a aucune contrainte UNIQUE,
+                    // une relance après perte de réponse dupliquerait l'évaluation ajoutée.
                     const { error } = await MissionsPage.supabaseClient
                         .from('evaluations')
                         .insert(payload);

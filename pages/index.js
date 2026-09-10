@@ -1,13 +1,4 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // CONFIGURATION SUPABASE — vient désormais de shared/caphuma-config.js
-        // (chargé dans le <head>), qui est la source unique pour les 15 pages.
-        // Remplace l'ancien pont localStorage.
-
         const bootError = document.getElementById('bootError');
 
         async function boot() {

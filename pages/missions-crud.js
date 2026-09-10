@@ -3,9 +3,6 @@
 (() => {
         const createMissionBtn = document.getElementById('createMissionBtn');
 
-        // ============================================================================
-        // 5. MODALE CRÉATION / MODIFICATION
-        // ============================================================================
         const missionModal = document.getElementById('missionModal');
         const missionForm = document.getElementById('missionForm');
         const modalTitle = document.getElementById('modalTitle');
@@ -15,8 +12,6 @@
         document.getElementById('closeModalBtn').addEventListener('click', closeModal);
         document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
 
-        // Le champ "Nom du projet" n'a de sens que pour un poste de niveau "Projet" —
-        // masqué et vidé automatiquement pour un poste de niveau "Mission".
         const fieldPoolLevel = document.getElementById('fieldPoolLevel');
         const projectNameField = document.getElementById('projectNameField');
         const fieldProjectName = document.getElementById('fieldProjectName');
@@ -32,8 +27,8 @@
 
         fieldPoolLevel.addEventListener('change', toggleProjectNameField);
 
-        // Le champ "Occupant" n'a de sens que si le statut est "Occupé" — masqué sinon,
-        // en cohérence avec le garde-fou appliqué à l'enregistrement (occupant_id forcé à null).
+        // Masqué si le statut n'est pas "Occupé" — en cohérence avec le garde-fou
+        // plus bas qui force occupant_id à null dans ce cas.
         const fieldStatus = document.getElementById('fieldStatus');
         const occupantField = document.getElementById('occupantField');
         const currentContractFields = document.getElementById('currentContractFields');
@@ -137,11 +132,7 @@
                 return;
             }
 
-            // ────────────────────────────────────────────────────────────────
-            // GARDE-FOU 1 : l'occupant choisi est-il déjà occupant d'un AUTRE poste ?
-            // (recherché dans les postes déjà chargés pour ce pool — un talent
-            // n'appartenant qu'à un seul pool, un conflit ne peut exister qu'ici)
-            // ────────────────────────────────────────────────────────────────
+            // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste ?
             let conflictMissionToVacate = null;
             if (payload.status === 'occupied' && payload.occupant_id) {
                 const conflict = MissionsPage.currentMissions.find(m =>
@@ -161,11 +152,9 @@
                 }
             }
 
-            // ────────────────────────────────────────────────────────────────
-            // GARDE-FOU 2 : le futur occupant choisi est-il occupant ailleurs, avec un
-            // chevauchement de dates (début prévu ici < date de sortie de son poste actuel) ?
-            // Purement informatif — pas d'action automatique, contrairement au garde-fou 1.
-            // ────────────────────────────────────────────────────────────────
+            // Garde-fou 2, purement informatif (pas d'action automatique contrairement
+            // au 1) : chevauchement entre la date de début prévue ici et la date de
+            // sortie du futur occupant sur son poste actuel ?
             if (payload.future_talent_id) {
                 const futureConflict = MissionsPage.currentMissions.find(m =>
                     m.id !== missionId &&
@@ -190,8 +179,7 @@
             saveBtn.textContent = 'Enregistrement…';
 
             try {
-                // Libération de l'ancien poste si un conflit a été confirmé (garde-fou 1) :
-                // même traitement qu'une sortie normale (archivage des évaluations + poste vacant).
+                // Conflit confirmé (garde-fou 1) : même traitement qu'une sortie normale.
                 if (conflictMissionToVacate) {
                     await MissionsPage.archiveOutgoingOccupant(conflictMissionToVacate);
 
@@ -212,8 +200,6 @@
                     const originalMission = MissionsPage.currentMissions.find(m => m.id === missionId);
                     const previousOccupantId = originalMission ? originalMission.occupant_id : null;
 
-                    // L'occupant sort si : il y avait un occupant avant ET (il change, OU le poste
-                    // n'est plus "occupied").
                     if (originalMission && previousOccupantId && previousOccupantId !== payload.occupant_id) {
                         await MissionsPage.archiveOutgoingOccupant(originalMission);
                     }
@@ -226,11 +212,9 @@
                     );
                     if (error) throw error;
 
-                    // Pas d'appel à logAuditAction('update', ...) ici : couvert par le
-                    // trigger Postgres trg_audit_missions, fiable même pour une
-                    // modification faite hors de cette page.
+                    // Pas d'appel à logAuditAction('update', ...) : couvert par le trigger
+                    // Postgres trg_audit_missions, fiable même hors de cette page.
 
-                    // Nouvel occupant entrant (affectation ou rotation) : compteurs remis à zéro.
                     if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
                         await MissionsPage.markIncomingOccupant(payload.occupant_id);
                     }
@@ -238,16 +222,15 @@
                     toastMessage('Poste mis à jour.', 'success');
                 } else {
                     payload.created_by = MissionsPage.currentUserId;
-                    // Volontairement pas enveloppé dans capHumaWithRetry() : missions n'a
-                    // aucune contrainte UNIQUE (Dossier de passation §4.2) — une relance
-                    // après perte de réponse dupliquerait silencieusement le poste créé.
+                    // Pas de capHumaWithRetry() : missions n'a aucune contrainte UNIQUE,
+                    // une relance après perte de réponse dupliquerait silencieusement le poste.
                     const { error } = await MissionsPage.supabaseClient
                         .from('missions')
                         .insert(payload);
                     if (error) throw error;
 
-                    // Pas d'appel à logAuditAction('create', ...) ici : couvert par le
-                    // trigger Postgres trg_audit_missions.
+                    // Pas d'appel à logAuditAction('create', ...) : couvert par le trigger
+                    // Postgres trg_audit_missions.
 
                     if (payload.occupant_id) {
                         await MissionsPage.markIncomingOccupant(payload.occupant_id);
@@ -261,7 +244,7 @@
 
             } catch (error) {
                 console.error("Erreur d'enregistrement du poste :", error);
-                // PostgrestError n'est pas une instance native d'Error — on teste .message directement
+                // PostgrestError n'est pas une instance native d'Error : on teste .message directement.
                 formError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
                 formError.classList.remove('hidden');
             } finally {
@@ -273,9 +256,6 @@
         // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.openEditModal = openEditModal;
 
-        // ============================================================================
-        // 6. SUPPRESSION D'UN POSTE
-        // ============================================================================
         async function deleteMission(missionId) {
             const mission = MissionsPage.currentMissions.find(m => m.id === missionId);
             const label = mission ? mission.title : 'ce poste';
@@ -285,16 +265,14 @@
             }
 
             try {
-                // La suppression d'un poste occupé fait sortir l'occupant au même titre qu'un
-                // changement de statut — on archive avant de supprimer.
+                // Fait sortir l'occupant, comme un changement de statut, avant de supprimer.
                 if (mission && mission.occupant_id) {
                     await MissionsPage.archiveOutgoingOccupant(mission);
                 }
 
-                // Enveloppé dans capHumaWithRetry() : sûr à retenter — contrairement
-                // aux suppressions ailleurs sur le site, cette page ne vérifie pas le
-                // nombre de lignes affectées après coup, donc pas de contrôle RLS à
-                // rendre ambigu par une relance.
+                // Contrairement aux suppressions ailleurs sur le site, cette page ne
+                // vérifie pas le nombre de lignes affectées après coup — pas de contrôle
+                // RLS à rendre ambigu par une relance, donc sûr à envelopper.
                 const { error } = await capHumaWithRetry(() =>
                     MissionsPage.supabaseClient
                         .from('missions')
@@ -304,8 +282,8 @@
 
                 if (error) throw error;
 
-                // Pas d'appel à logAuditAction('delete', ...) ici : couvert par le
-                // trigger Postgres trg_audit_missions.
+                // Pas d'appel à logAuditAction('delete', ...) : couvert par le trigger
+                // Postgres trg_audit_missions.
                 toastMessage('Poste supprimé.', 'success');
                 await MissionsPage.loadMissions();
 

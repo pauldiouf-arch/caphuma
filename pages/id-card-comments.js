@@ -1,16 +1,9 @@
 // Commentaires libres sur la fiche talent : lecture, ajout, modification,
-// suppression, brouillon local. Voir id-card.js (chargé AVANT ce fichier)
+// suppression, brouillon local. Voir id-card.js (chargé avant ce fichier)
 // pour l'explication de IdCardPage.
 (() => {
-        // ============================================================================
-        // COMMENTAIRES LIBRES
-        // - Lecture : tout rôle connecté (admin/user/visitor).
-        // - Ajout : admin et user uniquement.
-        // - Modification/Suppression : admin sur tout commentaire, user uniquement
-        //   sur ses propres commentaires (comparaison user_id === IdCardPage.currentUserId).
-        // - author_email enregistré directement à la création (pas de jointure vers
-        //   users, pour éviter le même risque RLS déjà documenté pour evaluations).
-        // ============================================================================
+        // author_email enregistré directement à la création, pas de jointure vers
+        // users (même risque RLS que sur evaluations).
         async function loadComments() {
             const container = document.getElementById('comments-list-container');
             try {
@@ -39,10 +32,8 @@
             const formContainer = document.getElementById('comment-form-container');
             if (!container) return;
 
-            // Formulaire d'ajout masqué pour visitor (lecture seule). Confort
-            // d'affichage, pas un contrôle de sécurité : la policy RLS sur comments
-            // (insert) est la vraie barrière si un visitor appelait ce endpoint
-            // directement.
+            // Masquage confort d'affichage, pas un contrôle de sécurité : la policy
+            // RLS sur comments (insert) est la vraie barrière.
             if (formContainer) {
                 formContainer.classList.toggle('hidden', IdCardPage.currentUserRole === 'visitor');
             }
@@ -94,15 +85,10 @@
                     if (!confirm("Supprimer définitivement ce commentaire ?")) return;
 
                     try {
-                        // Volontairement pas enveloppé dans capHumaWithRetry() :
-                        // contrairement à un update par id (la ligne existe toujours après
-                        // une 1re tentative réussie, donc une 2e tentative la retrouve sans
-                        // problème), un DELETE par id fait disparaître la ligne — si la 1re
-                        // tentative a en fait réussi mais que sa réponse s'est perdue, la
-                        // 2e tentative ne trouve plus rien à supprimer et déclencherait à
-                        // tort le contrôle "0 ligne affectée" juste en dessous, conçu pour
-                        // détecter un blocage RLS silencieux, pas une suppression déjà
-                        // effective.
+                        // Pas de capHumaWithRetry() ici : un DELETE par id fait disparaître
+                        // la ligne, donc une 2e tentative après une 1re réussie (réponse
+                        // perdue) ne trouverait plus rien et déclencherait à tort le contrôle
+                        // "0 ligne affectée" ci-dessous.
                         const { data, error } = await IdCardPage.supabaseClient
                             .from('comments')
                             .delete()
@@ -155,11 +141,9 @@
                         }
 
                         try {
-                            // Enveloppé dans capHumaWithRetry() : contrairement à un DELETE,
-                            // la ligne existe toujours après une 1re tentative réussie — une
-                            // 2e tentative la retrouve et réapplique le même contenu
-                            // (idempotent), le contrôle "0 ligne affectée" juste en dessous
-                            // reste donc fiable.
+                            // Contrairement au DELETE ci-dessus, un UPDATE par id est
+                            // idempotent (une 2e tentative réapplique le même contenu) : sûr à
+                            // envelopper dans capHumaWithRetry().
                             const { data, error } = await capHumaWithRetry(() =>
                                 IdCardPage.supabaseClient
                                     .from('comments')
@@ -183,7 +167,6 @@
                 };
             });
         }
-
 
         // Exposé sur IdCardPage pour appel depuis un autre fichier de la page
         IdCardPage.loadComments = loadComments;

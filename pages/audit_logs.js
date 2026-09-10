@@ -1,12 +1,4 @@
-// Script enveloppé dans une IIFE anonyme pour isoler sa portée — élimine tout
-// risque qu'une déclaration top-level de cette page masque silencieusement
-// une fonction/variable partagée (shared/caphuma-*.js) chargée avant elle, ou
-// soit elle-même masquée par une autre page à l'avenir.
 (() => {
-        // ============================================================================
-        // HEADER COMMUN — injecté avant toute autre chose, pour que
-        // #user-display-name et #logoutBtn existent dès la suite du script.
-        // ============================================================================
         renderPageLayout({
             icon: '📋',
             title: "Journal d'audit",
@@ -16,12 +8,6 @@
                 </button>
             `
         });
-
-        // ============================================================================
-        // 1. INITIALISATION SUPABASE
-        // ============================================================================
-        // SUPABASE_URL / SUPABASE_ANON_KEY viennent désormais de shared/caphuma-config.js
-        // (chargé dans le head) — remplace l'ancien pont localStorage.
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             window.location.replace('index.html');
@@ -37,27 +23,11 @@
         let currentUserEmail = null;
         let currentUserName = null;
 
-        // ============================================================================
-        // PAGINATION RÉELLE (correctif demandé explicitement) — remplace l'ancien
-        // .limit(1000) qui aurait fini par masquer silencieusement les logs les plus
-        // anciens. Chaque page ne charge que PAGE_SIZE lignes depuis Supabase.
-        // ============================================================================
         const PAGE_SIZE = 50;
         let currentPage = 0;
         let currentPageLogs = [];       // lignes de la page actuellement affichée
         let currentFilteredCount = 0;   // nombre total de lignes correspondant aux filtres actifs (toutes pages confondues)
 
-        // Échappement HTML systématique de toute donnée provenant de la base
-        // avant injection via innerHTML — prévention XSS.
-
-        // ============================================================================
-        // JOURNAL D'AUDIT — la déconnexion depuis CETTE page est aussi tracée, par
-        // cohérence avec toutes les autres pages (voir id-card.html pour la logique
-        // détaillée du helper).
-        // ============================================================================
-        // Fabriquée avec des getters (pas des valeurs) : relit supabaseClient et les
-        // variables currentUser* à chaque appel de logAuditAction(), jamais figée à
-        // la création.
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
             () => ({
@@ -67,10 +37,6 @@
             })
         );
 
-        // ============================================================================
-        // 2. GARDE DE SESSION — réservée ADMIN UNIQUEMENT (cohérent avec la policy RLS
-        //    SELECT sur audit_logs, qui bloque toute lecture pour user/visitor).
-        // ============================================================================
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(supabaseClient);
@@ -100,9 +66,6 @@
             window.location.href = 'login.html';
         });
 
-        // ============================================================================
-        // 3. LIBELLÉS D'AFFICHAGE
-        // ============================================================================
         const ACTION_LABELS = {
             create: 'Création', update: 'Modification', delete: 'Suppression',
             devalidate: 'Dévalidation', reintegrate: 'Réintégration',
@@ -132,21 +95,13 @@
             return isNaN(d.getTime()) ? '—' : d.toLocaleString('fr-FR');
         }
 
-        // ============================================================================
-        // 4. CHARGEMENT — statistiques bornées (jamais tout l'historique) + page courante
-        // ============================================================================
         async function loadLogs() {
             await Promise.all([loadHeaderStats(), fetchPage()]);
         }
 
-        // "Total actions" : comptage exact sur toute la table sans charger aucune ligne
-        // (head: true) — reste bon marché quel que soit le volume accumulé au fil des
-        // années. "Utilisateurs actifs" / "Types d'actions" : calculés sur une fenêtre
-        // bornée des 7 derniers jours seulement, jamais sur tout l'historique — ce sont
-        // désormais des KPI stables, indépendants des filtres du tableau ci-dessous
-        // (changement de comportement assumé et signalé : avant cette étape, ils
-        // suivaient le filtre actif, ce qui obligeait à charger tout l'historique
-        // correspondant pour les calculer).
+        // "Utilisateurs actifs"/"Types d'actions" sont calculés sur une fenêtre bornée
+        // des 7 derniers jours, indépendamment des filtres du tableau ci-dessous — des
+        // KPI stables, pas un résumé de la vue filtrée actuelle.
         async function loadHeaderStats() {
             try {
                 const { count: totalCount, error: totalErr } = await capHumaWithRetry(() =>
@@ -176,25 +131,13 @@
             }
         }
 
-        // fetchSensitiveRead() est désormais centralisée dans
-        // shared/caphuma-utils.js (section 13) — elle existait ici en copie
-        // quasi identique à celles de red_list.js et extraction.js.
-        //
-        // ⚠️ Cette page est réservée ADMIN UNIQUEMENT (contrairement à
-        // red_list.html/extraction.html, admin+user) — la fonction Edge applique
-        // ce même contrôle strict côté serveur (voir son en-tête pour le détail :
-        // service_role contourne RLS, un simple "visitor exclu" n'aurait pas
-        // suffi ici). Ce contrôle vit côté serveur, pas dans le code centralisé
-        // ci-dessous : rien à changer ici suite à la centralisation.
+        // Cette page est réservée admin uniquement (contrairement à red_list/extraction,
+        // admin+user) : service_role contourne RLS, un simple "visitor exclu" comme sur
+        // les 2 autres ressources sensibles n'aurait pas suffi ici — contrôle appliqué
+        // côté serveur, dans l'Edge Function.
 
-        // Construit l'objet de filtres (action, type d'entité, période/jour précis)
-        // — réutilisé pour la page courante ET pour l'export Excel, afin de ne
-        // jamais avoir deux logiques de filtre différentes à maintenir en parallèle.
-        // Renommée depuis buildFilteredLogsQuery() : ne retourne plus un query
-        // builder Supabase (la requête elle-même vit désormais côté serveur, dans
-        // l'Edge Function), seulement les paramètres qui la pilotent — mêmes
-        // valeurs, mêmes effets de bord DOM (exactDateHint / filterPeriod.disabled)
-        // qu'avant.
+        // Objet de filtres réutilisé pour la page courante ET l'export Excel, pour ne
+        // jamais avoir deux logiques de filtre à maintenir en parallèle.
         function buildLogsFilterParams() {
             const actionFilter = document.getElementById('filterAction').value;
             const entityTypeFilter = document.getElementById('filterEntityType').value;
@@ -253,9 +196,6 @@
             }
         }
 
-        // ============================================================================
-        // 5. FILTRES + STATISTIQUES + RENDU
-        // ============================================================================
         function periodStartDate(period) {
             const now = new Date();
             if (period === 'today') {
@@ -280,15 +220,8 @@
             return { start, end };
         }
 
-        // Renommée depuis renderPaginationControls() — ce nom collidait silencieusement
-        // avec la fonction partagée du même nom dans shared/caphuma-utils.js (signature
-        // différente : celle-ci lit currentFilteredCount/PAGE_SIZE/currentPage en globals
-        // de page et pilote des boutons statiques prevPageBtn/nextPageBtn, la version
-        // partagée prend 5 paramètres et génère du HTML avec onclick). Aucun bug de
-        // comportement (la déclaration de cette page écrasait silencieusement la version
-        // partagée, jamais utilisée ici), mais un piège si quelqu'un modifie un jour la
-        // version partagée en pensant qu'elle s'applique aussi ici (repérable via
-        // ESLint, règle no-redeclare).
+        // Nom volontairement différent de renderPaginationControls() (shared/caphuma-utils.js) :
+        // signature et logique différentes, un même nom écraserait silencieusement l'une des deux.
         function updateAuditLogsPaginationControls() {
             const controls = document.getElementById('logsPaginationControls');
             const totalPages = Math.max(1, Math.ceil(currentFilteredCount / PAGE_SIZE));
@@ -335,8 +268,6 @@
             }
             emptyState.classList.add('hidden');
 
-            // Chaque page ne contient déjà que PAGE_SIZE lignes (requête .range() côté
-            // serveur) — plus besoin de tronquer côté client comme avant cette étape.
             currentPageLogs.forEach(log => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors';
@@ -369,12 +300,6 @@
             fetchPage();
         });
 
-        // ============================================================================
-        // 6. EXPORT EXCEL — récupère TOUJOURS l'intégralité du résultat filtré depuis
-        // Supabase (pas seulement la page affichée), avec les mêmes filtres que le
-        // tableau (buildFilteredLogsQuery, sans .range()). Confirmation demandée si le
-        // volume est important, pour éviter un export non désiré sur tout l'historique.
-        // ============================================================================
         document.getElementById('exportBtn').addEventListener('click', async () => {
             if (currentFilteredCount === 0) {
                 alert("Aucune action à exporter avec les filtres actuels.");
@@ -413,9 +338,8 @@
                 const stamp = now.toISOString().slice(0, 16).replace('T', '_').replace(':', 'h');
                 XLSX.writeFile(wb, `logs_audit_${stamp}.xlsx`);
 
-                // Traçabilité des exports (règle RGPD d'accountability : savoir qui a
-                // extrait des données, pas seulement qui les a créées/modifiées) —
-                // ajoutée pour les 3 exports du site (id-card.js, extraction.js, ici).
+                // Traçabilité RGPD des exports : savoir qui a extrait des données, pas
+                // seulement qui les a créées/modifiées.
                 await logAuditAction('export', 'system', null, `Journal d'audit (${filtered.length} ligne(s))`,
                     Object.keys(filters).length > 0 ? 'Filtres actifs : ' + JSON.stringify(filters) : 'Aucun filtre');
             } catch (err) {
