@@ -224,18 +224,11 @@ const IdCardPage = {};
             }).join('');
         }
 
-        function renderTalentCard() {
+        function populateTalentIdentity() {
             const fName = talent.first_name || talent.firstName || "";
             const lName = talent.last_name || talent.lastName || "";
             const fFunction = talent.current_function || talent.currentFunction || "N/A";
             const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
-            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
-            const eduLvl = talent.education_level || talent.educationLevel || "none";
-            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
-            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
-            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
-            const visaValid = talent.has_visa || talent.hasVisa;
-            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
 
             document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
             document.getElementById('back-btn').onclick = () => {
@@ -264,7 +257,9 @@ const IdCardPage = {};
             } else {
                 document.getElementById('redlist-banner').classList.add('hidden');
             }
+        }
 
+        function renderTalentValidityBar() {
             const isInvalid = talent.isValid === false || talent.is_valid === false;
             const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
             const isPaused = !isInvalid && (isCurrentlyOnMission || talent.status === 'En poste ALIMA');
@@ -310,6 +305,18 @@ const IdCardPage = {};
                 vSub.textContent = `Date de référence du calcul : ${refDate ? new Date(refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
             }
 
+            return isInvalid;
+        }
+
+        function populateTalentInfoFields() {
+            const eduLvl = talent.education_level || talent.educationLevel || "none";
+            const eduSpec = talent.education_specialty || talent.educationSpecialty || "N/A";
+            const intDate = talent.pool_integration_date || talent.poolIntegrationDate;
+            const nbMissions = talent.number_of_alima_missions || talent.numberOfAlimaMissions || "none";
+            const visaValid = talent.has_visa || talent.hasVisa;
+            const cRes = talent.country_of_residence || talent.countryOfResidence || "N/A";
+            const expHum = talent.experience_months_humanitarian || talent.experienceMonthsHumanitarian || 0;
+
             document.getElementById('info-email').textContent = talent.email || "N/A";
             document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
             document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
@@ -330,7 +337,9 @@ const IdCardPage = {};
             renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
             renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
             renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
+        }
 
+        function renderTalentTimeline() {
             const timeline = document.getElementById('timeline-container');
             let hasTimelineElements = false;
 
@@ -423,6 +432,15 @@ const IdCardPage = {};
             } else {
                 timeline.innerHTML = `<p class="text-sm text-slate-500 italic">Aucun parcours de mission ALIMA archivé.</p>`;
             }
+        }
+
+        // Orchestrateur : chaque étape peuple/rend une zone distincte de la fiche,
+        // sur le modèle de openEditModal() (talents-modal.js).
+        function renderTalentCard() {
+            populateTalentIdentity();
+            const isInvalid = renderTalentValidityBar();
+            populateTalentInfoFields();
+            renderTalentTimeline();
 
             setupAdminActions(isInvalid);
             bindButtonListeners(); // après le rendu du profil : les éléments DOM doivent exister
