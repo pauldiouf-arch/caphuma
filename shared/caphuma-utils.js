@@ -1,35 +1,13 @@
 /**
- * ============================================================================
- * caphuma-utils.js
- * ----------------------------------------------------------------------------
- * Fonctions utilitaires PARTAGÉES par toutes les pages de Cap Huma.
- * Aucune dépendance à Supabase ni à l'état d'une page précise : ce fichier
- * peut être inclus tel quel sur n'importe quelle page avec une simple balise
- * <script src="shared/caphuma-utils.js"></script> placée AVANT le <script>
- * de la page qui l'utilise.
- *
- * Contenu :
- *   1. escapeHtml()          — échappement HTML sûr (texte + attributs)
- *   2. Libellés communs      — STATUS_LABELS, DESK_LABELS, POOL ... etc.
- *   3. Pagination réelle     — helper générique paginateQuery()
- *   4. Seuils de validité pool — DEVALIDATION_AT_RISK_MONTHS/CRITICAL/MAX
- *   5. calculateMonthsWithoutMission()
- *
- * ⚠️ Règle de méthode n°12 (Master Context) : tout innerHTML qui injecte une
- * donnée venant de la base ou d'un formulaire DOIT être échappé, y compris en
- * contexte attribut. escapeHtml() ci-dessous couvre les deux cas.
- * ============================================================================
+ * Fonctions utilitaires partagées par toutes les pages de Cap Huma. Aucune
+ * dépendance à Supabase ni à l'état d'une page précise : ce fichier peut
+ * être inclus tel quel sur n'importe quelle page, avant le <script> de la
+ * page qui l'utilise.
  */
 
-// ----------------------------------------------------------------------------
-// 1. ÉCHAPPEMENT HTML
-// ----------------------------------------------------------------------------
-// Version retenue comme référence unique (c'était déjà la version utilisée par
-// 9 pages sur 11 avant la refonte). Elle échappe aussi les guillemets simples
-// et doubles, contrairement à la variante "div.textContent / div.innerHTML"
-// qui traînait encore dans admin.html et red_list.html : cette dernière ne
-// protégeait pas correctement un contexte attribut (ex. value="...", title="...")
-// et a donc été corrigée au passage à cette version unique lors de la refonte.
+// Échappe aussi le contexte attribut (data-id="${...}"), pas seulement le
+// texte — à utiliser systématiquement avant toute injection via innerHTML
+// d'une donnée venant de la base ou d'un formulaire.
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -40,12 +18,6 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-// ----------------------------------------------------------------------------
-// 2. LIBELLÉS COMMUNS
-// ----------------------------------------------------------------------------
-// Regroupés ici pour n'exister qu'à UN seul endroit dans tout le dépôt.
-// Si un jour un nouveau statut/desk est ajouté en base, une seule modification
-// ici suffit à le refléter partout (au lieu de devoir grep + éditer 3-4 fichiers).
 const STATUS_LABELS = {
     occupied: '🟢 Occupé',
     recruiting: '🟡 En recrutement',
@@ -70,11 +42,6 @@ const CONTRACT_STATUS_LABELS = {
     ending: 'Se termine'
 };
 
-// Ajoutés le 28/08/2026 (backlog B13-Q4, priorité P11) : ces deux objets
-// existaient identiques (mêmes clés, mêmes valeurs) en 4 copies locales —
-// id-card.js (×2 : rendu de la carte et export PDF), shared-talent.js,
-// extraction.js — vérifié avant centralisation (règle 34). Même logique que
-// STATUS_LABELS/DESK_LABELS ci-dessus.
 const EDU_LEVEL_LABELS = {
     none: "Néant", bac: "Bac", "bac+1": "Bac+1", "bac+2": "Bac+2",
     "bac+3": "Bac+3 (Licence)", "bac+4": "Bac+4", "bac+5": "Bac+5 (Master)",
@@ -85,13 +52,10 @@ const MISSION_COUNT_LABELS = {
     none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +"
 };
 
-// ----------------------------------------------------------------------------
-// 3. PAGINATION RÉELLE (générique)
-// ----------------------------------------------------------------------------
 /**
  * Charge une page de résultats depuis Supabase avec comptage exact.
  *
- * Ne fait AUCUNE hypothèse sur la table ou les filtres : la page appelante
+ * Ne fait aucune hypothèse sur la table ou les filtres : la page appelante
  * construit sa requête (avec ses propres .eq()/.ilike()/.order()...) et la
  * passe ici sous forme de fonction "queryBuilderFn". Ce helper se contente
  * d'ajouter la fenêtre .range() et de retourner (données, total, hasMore).
@@ -108,11 +72,11 @@ async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    // Correctif P19 (B15-R2, 31/08/2026) : queryBuilderFn(...) est appelé À
-    // L'INTÉRIEUR de la fonction passée à capHumaWithRetry(), pas une seule
-    // fois avant — un query builder Supabase déjà "await"é une fois ne
-    // refait pas la requête réseau si on l'attend une 2e fois ; il faut donc
-    // reconstruire un query builder tout neuf à chaque tentative.
+    // queryBuilderFn(...) est appelé À L'INTÉRIEUR de la fonction passée à
+    // capHumaWithRetry(), pas une seule fois avant : un query builder
+    // Supabase déjà "await"é une fois ne refait pas la requête réseau si on
+    // l'attend une 2e fois, il faut reconstruire un query builder neuf à
+    // chaque tentative.
     const { data, error, count } = await capHumaWithRetry(() =>
         queryBuilderFn(supabaseClient).range(from, to)
     );
@@ -131,18 +95,11 @@ async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
 }
 
 /**
- * Génère le HTML des contrôles de pagination (◀ Page X / Y ▶).
- * Purement visuel — ne prend plus de callbacks onPrev/onNext en paramètres.
- *
- * ⚠️ Changement B3 (25/08/2026, prérequis CSP) : les deux boutons portaient
- * auparavant un attribut onclick="..." construit à partir de chaînes fournies
- * par l'appelant (ex. onclick="goToPage(currentPage - 1)") — incompatible
- * avec une Content-Security-Policy sans 'unsafe-inline' sur script-src.
- * Remplacé par des attributs data-page-nav="prev"/"next" : c'est désormais à
- * la page appelante de retrouver ces boutons dans le conteneur qu'elle vient
- * de remplir et d'y attacher ses propres addEventListener juste après
- * l'assignation de innerHTML (voir devalidated.js, missions.js, red_list.js
- * pour le patron à suivre — sans modules ES, règle 29).
+ * Génère le HTML des contrôles de pagination (◀ Page X / Y ▶). Purement
+ * visuel : les boutons portent data-page-nav="prev"/"next" mais ne sont pas
+ * câblés ici — à la page appelante de retrouver ces boutons dans le
+ * conteneur qu'elle vient de remplir et d'y attacher ses propres
+ * addEventListener juste après l'assignation de innerHTML.
  *
  * @param {number} page
  * @param {number} totalPages
@@ -165,47 +122,13 @@ function renderPaginationControls(page, totalPages, count) {
         </div>`;
 }
 
-// ----------------------------------------------------------------------------
-// 4. SEUILS DE VALIDITÉ POOL (centralisés le 18/08/2026)
-// ----------------------------------------------------------------------------
-// Ces 3 valeurs existaient auparavant copiées en dur à une quinzaine
-// d'endroits (talents.html, id-card.html — ×2 chacune — et statistics.html
-// ×4 pour la seule valeur 20), avec un vrai risque de divergence si l'une
-// changeait un jour sans que les autres suivent. Un seul endroit désormais
-// pour tout le JS du site.
-//
-// ⚠️ Exception assumée, PAS couverte par cette centralisation : les fonctions
-// SQL get_pool_talent_stats() (seuil 24) et get_notification_alerts()
-// (seuil 20) ont chacune leur propre copie figée côté base — le SQL ne peut
-// pas lire une constante JS. Ce sont les 2 SEULES copies qui subsistent
-// après cette centralisation (contre ~15 avant) ; à mettre à jour à la main
-// si ces valeurs changent un jour (voir sql/schema_snapshot_2026-08-18.sql
-// §8, qui documente ce point).
-const DEVALIDATION_AT_RISK_MONTHS = 20;   // palier visuel "à risque" (orange)
-const DEVALIDATION_CRITICAL_MONTHS = 22;  // palier visuel "critique" (rouge clair)
-const DEVALIDATION_MAX_MONTHS = 24;       // seuil dur : éligible à l'arbitrage
-                                           // dévalider/prolonger (talents.html,
-                                           // isDevalidationEligible()) ; aussi le
-                                           // dénominateur des barres de progression
-                                           // ("X / 24 mois") sur talents.html et
-                                           // id-card.html.
+// Si ces seuils changent, mettre aussi à jour get_pool_talent_stats() et
+// get_notification_alerts() côté SQL : ces 2 fonctions gardent leur propre
+// copie figée, le SQL ne peut pas lire une constante JS.
+const DEVALIDATION_AT_RISK_MONTHS = 20;   // seuil visuel "à risque" (orange)
+const DEVALIDATION_CRITICAL_MONTHS = 22;  // seuil visuel "critique" (rouge clair)
+const DEVALIDATION_MAX_MONTHS = 24;       // seuil dur : éligible à l'arbitrage dévalider/prolonger
 
-// ----------------------------------------------------------------------------
-// 5. CALCUL MÉTIER : ANCIENNETÉ SANS MISSION
-// ----------------------------------------------------------------------------
-// Corrige le bug n°55 (MC13 §4) : cette fonction existait en 3 copies légèrement
-// différentes (id-card.html, statistics.html, talents.html). Deux versions
-// calculaient en MOIS CALENDAIRES (année×12 + mois, la méthode correcte),
-// une troisième (talents.html) calculait en tranches de 30 jours, ce qui
-// surestime légèrement le nombre de mois (une année de 30 jours = 12,17 mois).
-//
-// Version retenue ici : la méthode calendaire, avec la lecture la plus robuste
-// des deux nommages de champs (snake_case ET camelCase) trouvée entre les
-// 3 copies d'origine.
-//
-// ⚠️ Après cette correction, talents.html verra ses chiffres LÉGÈREMENT BAISSER
-// par rapport à avant (c'était elle qui surestimait) — ce n'est pas une
-// régression, voir MC13 Addendum §2 (U1).
 /**
  * Calcule le nombre de mois calendaires écoulés depuis la fin de la dernière
  * mission (ou l'entrée en pool si aucune mission), pour un talent qui n'est
@@ -225,30 +148,14 @@ function calculateMonthsWithoutMission(talent) {
     const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
     if (!refDateStr) return 0;
 
-    // Correctif B1 (19/08/2026) : getFullYear()/getMonth() utilisent le fuseau
-    // horaire LOCAL du navigateur de la personne qui consulte la page — un
-    // talent proche d'un changement de mois pouvait donc afficher un chiffre
-    // différent selon le fuseau de qui regarde. getUTCFullYear()/getUTCMonth()
-    // fixent le calcul sur un référentiel unique, indépendant du visiteur.
+    // UTC plutôt que local : le résultat ne doit pas dépendre du fuseau
+    // horaire du navigateur de qui consulte la page.
     const refDate = new Date(refDateStr);
     const now = new Date();
     const diffMonths = (now.getUTCFullYear() - refDate.getUTCFullYear()) * 12 + (now.getUTCMonth() - refDate.getUTCMonth());
     return Math.max(0, diffMonths);
 }
 
-// ----------------------------------------------------------------------------
-// 6. NOTIFICATION VISUELLE (toast)
-// ----------------------------------------------------------------------------
-// Existait en 3 versions divergentes sur 6 pages avant cette factorisation
-// (z-index 50 vs 70, durée 3000 vs 3500 ms, et missions.html réutilisait un
-// <div id="toast"> statique au lieu d'en créer un dynamiquement). Version
-// retenue : création dynamique (comme 5 pages sur 6), z-index 70 (le plus sûr
-// — un toast masqué par une modale serait pire qu'un défaut esthétique) et
-// 3500 ms (déjà majoritaire). Choix validé avec l'utilisateur.
-//
-// missions.html gardait un <div id="toast"> devenu inutile dans son HTML :
-// laissé en place (masqué, inoffensif) plutôt que retiré, pour limiter le
-// risque de cette modification.
 /**
  * Affiche une notification temporaire en bas à droite de l'écran.
  * @param {string} msg   Le texte à afficher
@@ -259,12 +166,8 @@ function toastMessage(msg, type = "success") {
     toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
         type === 'success' ? 'bg-green-600' : 'bg-red-600'
     }`;
-    // Correctif P3 (B18-A2, 27/08/2026) : sans ces deux attributs, un lecteur
-    // d'écran ne remarque jamais l'apparition de ce toast (il n'a pas le focus
-    // et n'est signalé par aucun rôle ARIA) — la confirmation ou l'erreur
-    // d'une action reste invisible pour un utilisateur non-voyant.
-    // aria-live="polite" : annoncé dès que possible, sans couper la parole
-    // sur ce que le lecteur d'écran est déjà en train de lire.
+    // role="status" + aria-live="polite" : sans ça, un lecteur d'écran ne
+    // remarque jamais l'apparition de ce toast.
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
     toast.textContent = msg;
@@ -276,29 +179,19 @@ function toastMessage(msg, type = "success") {
     }, 3500);
 }
 
-// ----------------------------------------------------------------------------
-// 7. BANNIÈRE D'ERREUR
-// ----------------------------------------------------------------------------
-// Existait en 4 versions sur les pages internes (admin, id-card, red_list,
-// statistics) — 3 identiques, 1 (id-card) avec en plus un scroll vers le haut
-// de la page pour garantir que l'erreur est vue. Version retenue : AVEC le
-// scroll (choix validé avec l'utilisateur, meilleur pour l'expérience client).
-//
-// ⚠️ shared-talent.html a AUSSI une fonction showError(), mais ce n'est pas la
-// même : signature différente (title + message), cible des éléments HTML
-// différents (page d'erreur plein écran, pas une bannière). Volontairement
-// NON factorisée ici — laissée locale à cette page.
 /**
  * Affiche la bannière d'erreur générique (#error-banner / #error-message)
  * et fait remonter la page en haut pour garantir sa visibilité.
+ *
+ * shared-talent.html a sa propre fonction showError() (signature et
+ * éléments ciblés différents) qui écrase silencieusement celle-ci en JS
+ * classique — cette version-ci n'y est donc jamais réellement appelée.
+ *
  * @param {string} msg  Le message d'erreur à afficher
  */
 function showError(msg) {
     const banner = document.getElementById('error-banner');
     const txt = document.getElementById('error-message');
-    // Correctif B1 (19/08/2026) : garde ajoutée — si une page appelante n'a pas
-    // ces éléments (ou pas encore, selon le moment de l'appel), on ne plante
-    // plus silencieusement ; l'erreur reste au moins tracée en console.
     if (!banner || !txt) {
         console.error("[showError] #error-banner/#error-message introuvable(s) sur cette page — message :", msg);
         return;
@@ -308,28 +201,6 @@ function showError(msg) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ----------------------------------------------------------------------------
-// 8. INTERCEPTEUR GLOBAL D'ERREURS
-// ----------------------------------------------------------------------------
-// Backlog B16-O1 (priorité P2). À l'origine dans un fichier séparé
-// shared/caphuma-error-monitor.js — regroupé ici le 27/08/2026 (décision
-// utilisateur) : un fichier de plus à charger sur chaque page a un coût réseau
-// fixe même pour un tout petit fichier (surtout perceptible sur une connexion
-// terrain lente), et ce code ne dépend de rien d'autre que toastMessage()
-// ci-dessus, déjà dans ce même fichier. Aucun changement de comportement,
-// uniquement un déplacement.
-//
-// Avant ce code, une erreur JS inattendue (exception non interceptée, promesse
-// rejetée sans .catch()) mourait silencieusement dans la console — aucun moyen
-// de savoir qu'un collègue a rencontré un bug sans qu'il le décrive verbalement.
-// Ne remplace ni audit_logs (actions métier volontaires) ni UptimeRobot/B6
-// (disponibilité du site) : couvre un troisième cas, les erreurs JS
-// inattendues côté navigateur d'un utilisateur déjà sur une page qui répond.
-//
-// CAP_HUMA_ERROR_BUFFER : les 20 dernières erreurs, en mémoire locale à
-// l'onglet uniquement — rien n'est envoyé nulle part par ce code. Sert de
-// socle à B16-O2 (bouton "Signaler un problème"), un chantier séparé, pas
-// encore fait.
 const CAP_HUMA_ERROR_BUFFER = [];
 
 function captureError(kind, detail) {
@@ -351,69 +222,26 @@ function captureError(kind, detail) {
 window.addEventListener('error', (e) => captureError('Erreur JS', e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => captureError('Promesse rejetée', e.reason));
 
-// ----------------------------------------------------------------------------
-// 9. DÉTECTION DE PERTE DE CONNEXION (backlog B15-R3, priorité P8)
-// ----------------------------------------------------------------------------
-// Avant ce code, rien ne distinguait "l'action est en train de traiter" de
-// "elle ne répondra jamais" pendant une coupure réseau (VPN terrain, Wi-Fi
-// instable) — confirmé par recherche exhaustive sur les 15 pages : aucun
-// usage de navigator.onLine, aucun écouteur 'online'/'offline' nulle part
-// dans le code avant ce correctif (Master Context §7 B15-R3).
-//
-// Aucune décision métier requise pour ce point (contrairement à R1/R2 du
-// même chantier B15) : le texte des deux messages ne fait qu'exposer le
-// signal déjà standard du navigateur, sans paramètre à trancher.
-//
-// Portée et limite assumées : couvre uniquement le signal navigator.onLine
-// du navigateur (fiable pour une coupure Wi-Fi/Ethernet complète), pas une
-// vérification active par appel réseau — une coupure VPN partielle qui
-// laisse l'interface réseau locale "up" ne déclenchera pas cet événement.
-// Ne remplace pas B15-R2 (retry automatique, pas encore fait) : ce correctif
-// informe l'utilisateur, il ne fait rien retenter automatiquement.
+// Limite connue : ne couvre que le signal navigator.onLine (coupure Wi-Fi/
+// Ethernet complète) — une coupure VPN partielle qui laisse l'interface
+// réseau locale "up" ne déclenche pas ces événements.
 window.addEventListener('offline', () => toastMessage("Connexion perdue — vos actions seront bloquées jusqu'au retour du réseau.", "error"));
 window.addEventListener('online', () => toastMessage("Connexion rétablie.", "success"));
 
-// ----------------------------------------------------------------------------
-// 10. ACCESSIBILITÉ DES MODAUX (backlog B18-A3, priorité P15)
-// ----------------------------------------------------------------------------
-// Avant ce correctif, aucun des 15 modaux du site (admin, devalidated,
-// id-card, missions, red_list, talents) n'avait de role="dialog"/aria-modal,
-// de piège du focus, de fermeture au clavier (Échap), ni de restitution du
-// focus à la fermeture — vérifié par recherche exhaustive dans les 15 pages
-// et leur JS avant correctif (aucun role="dialog", aucun listener 'Escape',
-// aucun .focus() programmatique nulle part).
-//
-// Choix d'implémentation : plutôt que de modifier chacun des ~40 points
-// d'ouverture/fermeture (.classList.add/remove('hidden')) déjà répartis dans
-// 6 fichiers JS différents — risque de régression bien plus élevé pour un
-// gain nul — cette fonction observe automatiquement la classe "hidden" de
-// chaque <div role="dialog"> de la page via MutationObserver. Le code métier
-// d'ouverture/fermeture existant n'est PAS touché : il continue de faire
-// exactement ce qu'il faisait avant (classList.add/remove('hidden')), cette
-// fonction réagit simplement au changement d'état.
-//
-// À l'ouverture (transition "hidden" retiré) :
-//   - mémorise l'élément qui avait le focus, pour le restituer à la fermeture
-//   - donne le focus au premier élément focusable du modal
-//   - piège Tab/Maj+Tab à l'intérieur du modal
-// Sur Échap : déclenche un clic sur le bouton portant l'attribut
-// [data-modal-dismiss] (le bouton "Annuler"/"Fermer" déjà présent dans
-// chaque modal, marqué au cas par cas en HTML) plutôt que de masquer
-// directement le modal — pour repasser par exactement la même logique de
-// fermeture qu'un clic (reset d'un message d'erreur, etc.), sans dupliquer
-// ce que chaque page a déjà codé au fil de l'eau.
-// À la fermeture (transition "hidden" ajouté) : restitue le focus mémorisé.
-//
-// Cas notifPanel (panneau de notifications, caphuma-layout.js) : traitement
-// volontairement plus léger (décision utilisateur, 31/08/2026) — ce n'est
-// pas un vrai modal (il ne bloque pas le reste de la page), donc pas de
-// role="dialog"/piège du focus ici ; seuls Échap + restitution du focus sont
-// câblés, directement dans caphuma-layout.js (voir capHumaBindLightDismiss).
-//
-// À appeler UNE SEULE FOIS par page, après le rendu du layout (les modaux
-// doivent déjà exister dans le DOM — c'est toujours le cas ici : tous les
-// modaux du site sont des <div> statiques du HTML, jamais créés
-// dynamiquement).
+/**
+ * Rend les modaux (<div role="dialog">) accessibles au clavier : piège
+ * Tab/Maj+Tab, ferme sur Échap (en cliquant le bouton [data-modal-dismiss]
+ * pour repasser par la même logique de fermeture qu'un clic), mémorise puis
+ * restitue le focus. Observe la classe "hidden" de chaque modal via
+ * MutationObserver plutôt que de modifier chaque point d'ouverture/fermeture
+ * existant — le code métier d'ouverture/fermeture n'est pas touché.
+ *
+ * Le panneau de notifications (notifPanel, caphuma-layout.js) n'est pas un
+ * vrai modal et n'est pas concerné : traité séparément, plus légèrement,
+ * dans caphuma-layout.js.
+ *
+ * À appeler une seule fois par page, après le rendu du layout.
+ */
 function capHumaInitModalA11y() {
     const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -467,7 +295,7 @@ function capHumaInitModalA11y() {
             lastFocused = null;
         }
 
-        if (isOpen) onOpen(); // cas (rare) où un modal serait déjà visible au chargement de la page
+        if (isOpen) onOpen();
 
         new MutationObserver(() => {
             const nowHidden = modal.classList.contains('hidden');
@@ -482,64 +310,27 @@ function capHumaInitModalA11y() {
     });
 }
 
-// ----------------------------------------------------------------------------
-// 11. RETRY AUTOMATIQUE SUR ÉCHEC RÉSEAU (backlog B15-R2, priorité P19)
-// ----------------------------------------------------------------------------
-// Avant ce correctif, un appel de données qui échouait sur une coupure
-// réseau (VPN terrain, Wi-Fi instable — même contexte que B15-R3 ci-dessus)
-// échouait immédiatement, sans nouvelle tentative : l'utilisateur devait
-// relancer l'action lui-même, souvent sans savoir si elle avait ou non
-// abouti côté serveur.
-//
-// Paramètres (décision utilisateur n°9, 27/08/2026) : 2 tentatives, 1500 ms
-// entre les deux.
-//
-// Portée (décision utilisateur n°15, 31/08/2026 — tranchée après un TEST EN
-// CONDITIONS RÉELLES sur manage-users, pas sur simple lecture de code, voir
-// Master Context §7 B15-R2 et §2 session du 31/08/2026) :
-//   OUI, retenté : toutes les lectures (.select()), tous les
-//     update()/delete()/upsert(), les 4 rpc() de lecture, le seul
-//     storage.upload() du site (red_list.js — chemin calculé une seule fois
-//     avant l'appel, donc une relance retente exactement le même chemin ;
-//     aucun { upsert: true } n'est passé, donc un doublon retomberait sur
-//     une erreur "déjà existant" plutôt que d'écraser silencieusement), et
-//     les actions "create"/"delete" de l'Edge Function manage-users
-//     (protégées nativement par l'unicité d'email / l'absence de compte à
-//     supprimer deux fois — confirmé par test réel : les 2es tentatives
-//     reviennent en erreur propre, sans aucun doublon créé).
-//   NON, jamais retenté : les 11 insert() bruts des pages (talents/missions/
-//     pools n'ont AUCUNE contrainte UNIQUE en base qui empêcherait un
-//     doublon silencieux — vérifié dans le schéma réel, Dossier de
-//     passation §4.2), l'action "reset_password" de manage-users (testée en
-//     conditions réelles : AUCUNE protection contre un double appel —
-//     confirmé par un doublon effectif dans audit_logs lors du test du
-//     31/08/2026), et ai-proxy (palier gratuit limité chez le fournisseur
-//     d'IA, Dossier de passation §7.14 — un retry sur faux négatif double la
-//     consommation d'un quota rare pour une fonctionnalité non critique).
-//
-// Principe technique : ne retente QUE sur une exception JS (échec réseau
-// avant d'atteindre le serveur) — JAMAIS si l'appel se résout normalement
-// avec un { error } rempli, qui est une vraie erreur métier (contrainte,
-// RLS...) à afficher tout de suite, pas à retarder inutilement derrière un
-// délai supplémentaire (inquiétude déjà notée en décision n°9).
-//
-// ⚠️ Règle d'usage impérative partout où cette fonction est appelée :
-// capHumaWithRetry() doit envelopper l'appel BRUT (le .from()/.rpc()/
-// .storage./fetch() lui-même, passé sous forme de fonction () => ...),
-// jamais une fonction qui a déjà transformé une erreur métier en exception
-// — sinon une vraie erreur métier finirait, elle aussi, par être retentée
-// inutilement.
-//
-// @param {Function} callFn  () => Promise — DOIT reconstruire l'appel à
-//        chaque invocation (ne jamais passer une Promise déjà créée : un
-//        query builder Supabase déjà "then()"/attendu une fois ne refait
-//        pas la requête réseau à un 2e await).
-// @param {Object} [options]
-// @param {number} [options.attempts=2]
-// @param {number} [options.delayMs=1500]
-// @returns {Promise} Le résultat de callFn() (données + erreur métier
-//        éventuelle, inchangés) — ou relance l'exception réseau d'origine
-//        si toutes les tentatives ont échoué.
+/**
+ * Retente un appel Supabase/fetch() sur échec réseau uniquement — jamais si
+ * l'appel se résout normalement avec un { error } rempli (une vraie erreur
+ * métier, à afficher tout de suite plutôt qu'à retarder).
+ *
+ * Règle d'usage impérative : callFn doit envelopper l'appel BRUT (le
+ * .from()/.rpc()/.storage./fetch() lui-même), jamais une fonction qui a déjà
+ * transformé une erreur métier en exception — sinon une vraie erreur métier
+ * finirait, elle aussi, par être retentée inutilement.
+ *
+ * @param {Function} callFn  () => Promise — DOIT reconstruire l'appel à
+ *        chaque invocation (ne jamais passer une Promise déjà créée : un
+ *        query builder Supabase déjà "then()"/attendu une fois ne refait
+ *        pas la requête réseau à un 2e await).
+ * @param {Object} [options]
+ * @param {number} [options.attempts=2]
+ * @param {number} [options.delayMs=1500]
+ * @returns {Promise} Le résultat de callFn() (données + erreur métier
+ *        éventuelle, inchangés) — ou relance l'exception réseau d'origine
+ *        si toutes les tentatives ont échoué.
+ */
 async function capHumaWithRetry(callFn, { attempts = 2, delayMs = 1500 } = {}) {
     for (let i = 0; i < attempts; i++) {
         try {
@@ -552,31 +343,6 @@ async function capHumaWithRetry(callFn, { attempts = 2, delayMs = 1500 } = {}) {
     }
 }
 
-// ----------------------------------------------------------------------------
-// 12. SIGNALER UN PROBLÈME (backlog B16-O2, priorité P21)
-// ----------------------------------------------------------------------------
-// Bouton "🚨 Signaler un problème" (#reportIssueBtn), injecté dans le header
-// partagé par shared/caphuma-layout.js (renderPageLayout() ET
-// renderDashboardLayout(), pour couvrir les 12 pages authentifiées — même
-// périmètre que l'intercepteur d'erreurs ci-dessus, section 8). Le clic est
-// câblé ICI, une seule fois pour tout le site, en écoute déléguée sur
-// document — inutile que le bouton existe déjà au moment où ce fichier
-// s'exécute, puisque caphuma-layout.js l'injecte plus tard dans le script de
-// chaque page. Même séparation que le reste du site : caphuma-layout.js ne
-// fait que le balisage, la logique reste centralisée ici avec
-// CAP_HUMA_ERROR_BUFFER, dont elle dépend directement.
-//
-// Copie dans le presse-papiers un rapport JSON (page, navigateur, les 20
-// dernières erreurs du buffer) prêt à coller dans un e-mail/message à
-// l'administrateur — volontairement AUCUN backend/nouvelle table (décision
-// utilisateur, 01/09/2026) : équipe cible non technique sur le terrain, ce
-// lien doit rester "copier-coller", pas un formulaire de plus à remplir.
-//
-// Repli si navigator.clipboard.writeText() échoue (contexte non sécurisé,
-// permission refusée, ancien navigateur — public cible parfois sur du
-// matériel/réseau terrain daté, décision utilisateur) : affiche le rapport
-// dans une invite sélectionnable (window.prompt()) plutôt que d'échouer
-// silencieusement — pas de nouvelle modale pour un cas de repli rare.
 document.addEventListener('click', async (e) => {
     const btn = e.target.closest('#reportIssueBtn');
     if (!btn) return;
@@ -601,46 +367,29 @@ document.addEventListener('click', async (e) => {
     }
 });
 
-// ----------------------------------------------------------------------------
-// 13. LECTURE RATE-LIMITÉE VIA L'EDGE FUNCTION "sensitive-reads"
-// ----------------------------------------------------------------------------
-// Centralise une fonction qui existait en 3 copies quasi identiques
-// (red_list.js, extraction.js, audit_logs.js) — vérifié avant centralisation
-// (règle 34) que les trois faisaient bien le même appel réseau, avec une
-// seule vraie différence de signature entre elles : deux passaient un simple
-// numéro de page, la troisième un objet de champs additionnels plus général
-// (mode, page, filters). C'est cette forme plus générale qui est retenue
-// ici, les deux autres pages passent désormais { page } au lieu d'un nombre
-// nu.
-//
-// Passe par cette Edge Function plutôt que par un appel direct à Supabase :
-// RLS et le mécanisme db_pre_request de PostgREST ne peuvent pas tenir de
-// compteur de débit sur une lecture (GET), qui s'exécute dans une
-// transaction Postgres en lecture seule refusant toute écriture. Seul un
-// point serveur classique (comme cette Edge Function) peut tenir ce
-// compteur.
-//
-// supabaseClient est pris en paramètre plutôt que lu comme variable globale
-// de la page — même choix que paginateQuery() plus haut dans ce fichier.
-// SUPABASE_URL et SUPABASE_ANON_KEY restent en revanche des constantes
-// globales : elles sont définies une seule fois par shared/caphuma-config.js
-// et identiques sur les 15 pages, contrairement à l'objet client.
-//
-// @param {Object} supabaseClient
-// @param {string} resource  "red_list" | "extraction" | "audit_logs"
-// @param {Object} [extra]   Champs additionnels envoyés tels quels au corps
-//        de la requête (ex. { page } pour red_list/extraction, ou
-//        { mode, page, filters } pour audit_logs).
-// @returns {Promise<Object>} La réponse JSON de la fonction — sa forme
-//        dépend de la ressource demandée, voir le code de l'Edge Function.
+/**
+ * Appelle l'Edge Function "sensitive-reads" plutôt que Supabase directement :
+ * RLS et le mécanisme db_pre_request de PostgREST ne peuvent pas tenir de
+ * compteur de débit sur une lecture (GET), qui s'exécute dans une
+ * transaction Postgres en lecture seule refusant toute écriture. Seul un
+ * point serveur classique comme cette Edge Function peut tenir ce compteur.
+ *
+ * @param {Object} supabaseClient
+ * @param {string} resource  "red_list" | "extraction" | "audit_logs"
+ * @param {Object} [extra]   Champs additionnels envoyés tels quels au corps
+ *        de la requête (ex. { page } pour red_list/extraction, ou
+ *        { mode, page, filters } pour audit_logs).
+ * @returns {Promise<Object>} La réponse JSON de la fonction — sa forme
+ *        dépend de la ressource demandée, voir le code de l'Edge Function.
+ */
 async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
 
-    // capHumaWithRetry() (section 11 ci-dessus) enveloppe ICI uniquement
-    // l'appel réseau BRUT (fetch()) — ne retente que sur un échec réseau
-    // réel, jamais sur une réponse HTTP d'erreur métier (403/429/500), qui
-    // doit s'afficher tout de suite.
+    // capHumaWithRetry() enveloppe ICI uniquement l'appel réseau brut
+    // (fetch()) — ne retente que sur un échec réseau réel, jamais sur une
+    // réponse HTTP d'erreur métier (403/429/500), qui doit s'afficher tout
+    // de suite.
     const response = await capHumaWithRetry(() =>
         fetch(`${SUPABASE_URL}/functions/v1/sensitive-reads`, {
             method: 'POST',
@@ -658,37 +407,27 @@ async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
     return json;
 }
 
-// ----------------------------------------------------------------------------
-// 14. CHARGEMENT DIFFÉRÉ D'UN SCRIPT VENDOR (perf, sans build)
-// ----------------------------------------------------------------------------
-// Certaines pages chargent une bibliothèque vendor lourde (xlsx, jsPDF...)
-// dès l'ouverture de la page alors qu'elle ne sert qu'à une action ponctuelle
-// (export Excel/PDF) — inutile de la payer à chaque visite si elle n'est pas
-// utilisée. Cette fonction injecte un <script src="..."> à la demande, une
-// seule fois même si elle est appelée plusieurs fois de suite (clics
-// rapprochés compris), et attend son chargement complet avant de continuer.
-//
-// Ne PAS utiliser pour un script dont dépend le rendu initial de la page
-// (Tailwind, supabase-js, caphuma-*.js) — uniquement pour une bibliothèque
-// dont l'usage est déclenché par une action explicite de la personne.
-//
-// Mémorise une PROMESSE par URL (pas un simple booléen "chargé") : deux
-// clics avant la fin du premier chargement partagent la même promesse au
-// lieu d'injecter deux fois la même balise <script>. Sur un échec réseau, la
-// promesse en cache est supprimée plutôt que conservée comme rejet définitif
-// — un clic suivant (ex. après retour de connexion) retente un chargement
-// complet au lieu d'échouer indéfiniment.
-//
-// @param {string} src  Chemin RELATIF du script (ex. "shared/vendor/xlsx-0.18.5.js")
-//        — toujours une ressource same-origin, cohérente avec script-src
-//        'self' de la CSP : ce n'est pas un contournement, seulement un
-//        chargement différé de la même ressource locale qu'un <script>
-//        statique aurait chargée au démarrage.
-// @returns {Promise<void>} Résolue une fois le script chargé et exécuté (ou
-//        immédiatement si déjà chargé) ; rejetée si le chargement échoue
-//        (coupure réseau, 404...) — à la charge de l'appelant d'afficher une
-//        erreur (toastMessage()/showError()), cette fonction reste générique
-//        et ne le fait pas elle-même.
+/**
+ * Injecte un <script src="..."> à la demande, une seule fois même appelée
+ * plusieurs fois de suite (clics rapprochés compris), et attend son
+ * chargement complet avant de continuer. À utiliser uniquement pour une
+ * bibliothèque dont l'usage est déclenché par une action explicite de la
+ * personne (ex. export Excel/PDF) — jamais pour un script dont dépend le
+ * rendu initial de la page (Tailwind, supabase-js, caphuma-*.js).
+ *
+ * Mémorise une PROMESSE par URL (pas un simple booléen "chargé") : deux
+ * clics avant la fin du premier chargement partagent la même promesse au
+ * lieu d'injecter deux fois la même balise <script>. Sur un échec réseau, la
+ * promesse en cache est supprimée plutôt que conservée comme rejet définitif
+ * — un clic suivant retente un chargement complet au lieu d'échouer
+ * indéfiniment.
+ *
+ * @param {string} src  Chemin relatif du script (ex. "shared/vendor/xlsx-0.18.5.js")
+ * @returns {Promise<void>} Résolue une fois le script chargé et exécuté (ou
+ *        immédiatement si déjà chargé) ; rejetée si le chargement échoue —
+ *        à la charge de l'appelant d'afficher une erreur, cette fonction
+ *        reste générique et ne le fait pas elle-même.
+ */
 const CAP_HUMA_SCRIPT_PROMISES = {};
 function capHumaLoadScriptOnce(src) {
     if (CAP_HUMA_SCRIPT_PROMISES[src]) return CAP_HUMA_SCRIPT_PROMISES[src];

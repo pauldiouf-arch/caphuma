@@ -1,96 +1,31 @@
-// ============================================================================
-// shared/caphuma-layout.js — Cap Huma / ALIMA
-// Chantier B4 (Master Context §7) : source unique pour le header "retour +
-// titre + actions" partagé par les pages de gestion, à la place d'une copie
-// quasi identique par page.
-//
-// HORS PÉRIMÈTRE (volontairement) :
-//  - dashboard.html : nav complète + cloche de notifications, structure
-//    différente. Traité à part, en 2ᵉ étape du même chantier B4.
-//  - index.html / login.html / shared-talent.html : pas de header authentifié
-//    (pas de session avant login, page publique sans nav pour shared-talent).
-//
-// Sans module ES (règle 29 du Master Context) : fichier chargé en <script>
-// classique, comme caphuma-utils.js/caphuma-auth.js. La fonction vit donc en
-// scope global, exactement comme escapeHtml() dont elle dépend (chargé avant,
-// via shared/caphuma-utils.js).
-//
-// USAGE — dans le HTML de la page, juste après <body ...> :
-//   <div id="layoutHeaderMount"></div>
-// (remplace l'ancien bloc <header>...</header> copié-collé)
-//
-// USAGE — dans pages/<nom>.js, tout en haut du fichier, avant tout accès à
-// #user-display-name / #logoutBtn et avant checkSession() :
-//   renderPageLayout({
-//       icon: '📖',
-//       title: "Guide d'utilisation",
-//       // subtitle par défaut : 'Cap Huma — ALIMA'
-//   });
-//
-// Options complètes :
-//   icon          (obligatoire) emoji affiché dans le badge coloré
-//   title         (obligatoire) titre affiché à côté de l'icône
-//   subtitle      (optionnel, défaut 'Cap Huma — ALIMA') sous-titre sous le titre
-//   titleId       (optionnel) id à poser sur le <span> titre, pour les pages
-//                 qui le réécrivent en JS au runtime (ex. missions.js réécrit
-//                 #pageTitle une fois le pool chargé)
-//   subtitleId    (optionnel) id à poser sur le <span> sous-titre, même usage
-//                 (ex. #userSubtitle, #poolHeading, #poolSubtitle, #pageHeaderTitle
-//                 selon la page)
-//   backHref      (optionnel, défaut 'dashboard.html') cible du lien Retour
-//   iconGradient  (optionnel, défaut 'from-primary to-accent') classes Tailwind
-//                 du dégradé du badge icône — admin.html/statistics.html utilisent
-//                 'from-primary to-primary-dark', red_list.html 'from-red-500 to-red-600'
-//   variant       (optionnel, défaut 'app-shell')
-//                 'app-shell'   : header non collant, conteneur 'container mx-auto px-6'
-//                                 (pages à coquille flex-col hauteur fixe : audit_logs,
-//                                 devalidated, extraction, guide, missions, talents)
-//                 'scroll-page' : header collant (sticky top-0), conteneur
-//                                 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'
-//                                 (pages à scroll de page normal : admin, import,
-//                                 red_list, statistics)
-//   stickyZ       (optionnel, défaut 50) z-index du header en variante 'scroll-page'
-//   maxWidth      (optionnel, défaut 'max-w-7xl') largeur max du conteneur en
-//                 variante 'scroll-page' — import.html utilise 'max-w-5xl'
-//   extraHeaderClass (optionnel, défaut '') classes Tailwind ajoutées telles
-//                 quelles à la fin du className du <header> — id-card.html
-//                 utilise 'shrink-0 no-print' (fiche imprimable)
-//   backButton    (optionnel, défaut false) si true, génère un <button id="back-btn">
-//                 <span id="back-btn-text">Retour</span></button> au lieu du <a href>
-//                 statique habituel — pour les pages qui réassignent la cible en JS
-//                 au runtime (id-card.js : dashboard.html par défaut, puis
-//                 "talents.html?pool=X" une fois le talent chargé, via
-//                 document.getElementById('back-btn').onclick = ...)
-//   logoutBtnExtraClass (optionnel, défaut '') classes Tailwind ajoutées à la fin
-//                 du className du bouton logout — id-card.html utilise 'no-print'
-//   actionsHtml   (optionnel, défaut '') HTML des boutons spécifiques à la page,
-//                 inséré juste avant le badge utilisateur + le bouton de déconnexion
-//
-// Correctif P21 (B16-O2, 01/09/2026) : #reportIssueBtn ("🚨 Signaler un
-// problème") injecté inconditionnellement dans les DEUX fonctions de header
-// de ce fichier (ici et renderDashboardLayout() plus bas) — pas un paramètre
-// d'options, il n'y a rien à personnaliser page par page. Le clic est câblé
-// dans shared/caphuma-utils.js (section 12), pas ici : ce fichier ne fait que
-// le balisage, cohérent avec le reste du site.
-// ============================================================================
+/**
+ * Source unique pour le header "retour + titre + actions" partagé par les
+ * pages de gestion. Fichier chargé en <script> classique (pas de module ES),
+ * la fonction vit donc en scope global, comme escapeHtml() dont elle dépend
+ * (chargé avant, via shared/caphuma-utils.js).
+ *
+ * Hors périmètre : dashboard.html a sa propre fonction ci-dessous
+ * (structure sans équivalent ailleurs) ; index.html / login.html /
+ * shared-talent.html n'ont pas de header authentifié.
+ *
+ * Usage — dans le HTML de la page, juste après <body ...> :
+ *   <div id="layoutHeaderMount"></div>
+ *
+ * Usage — dans pages/<nom>.js, tout en haut du fichier, avant tout accès à
+ * #user-display-name / #logoutBtn et avant checkSession() :
+ *   renderPageLayout({ icon: '📖', title: "Guide d'utilisation" });
+ */
 
-// ============================================================================
-// capHumaEnsureSkipLink() — P33 (B20-2, Master Context §7 Bloc B20).
-// Lien d'évitement ("Aller au contenu principal"), posé comme tout premier
-// enfant de <body>, permettant de sauter le header/nav injecté par ce fichier
-// sans le parcourir au clavier. Appelé une fois par renderPageLayout() et
-// renderDashboardLayout() — un seul point d'ajout pour les 14 pages qui
-// passent par l'une des deux. index.html/login.html (hors périmètre, pas de
-// layout commun) ont leur propre lien statique posé directement dans leur
-// HTML.
-//
-// Cible : le <main> de la page, vérifié présent immédiatement après
-// #layoutHeaderMount sur dashboard.html, guide.html et talents.html avant
-// généralisation (règle 19) — pas supposé sans avoir vu le code réel
-// (règle 4/23). tabindex="-1" posé sur <main> pour qu'il devienne une cible
-// de focus programmatique valide sans entrer dans l'ordre de tabulation
-// normal (patron standard pour un lien d'évitement).
-// ============================================================================
+/**
+ * Pose un lien d'évitement ("Aller au contenu principal") comme tout premier
+ * enfant de <body>, ciblant le <main> de la page. tabindex="-1" posé sur
+ * <main> pour qu'il devienne une cible de focus programmatique valide sans
+ * entrer dans l'ordre de tabulation normal.
+ *
+ * Appelé une fois par renderPageLayout() et renderDashboardLayout().
+ * index.html/login.html (hors périmètre) ont leur propre lien statique posé
+ * directement dans leur HTML.
+ */
 function capHumaEnsureSkipLink() {
     if (document.getElementById('skipToMainLink')) return;
 
@@ -113,6 +48,29 @@ function capHumaEnsureSkipLink() {
     document.body.insertBefore(skipLink, document.body.firstChild);
 }
 
+/**
+ * @param {Object} options
+ * @param {string} options.icon          (obligatoire) emoji affiché dans le badge coloré
+ * @param {string} options.title         (obligatoire) titre affiché à côté de l'icône
+ * @param {string} [options.subtitle='Cap Huma — ALIMA']
+ * @param {string} [options.titleId]     id à poser sur le <span> titre, pour les pages
+ *        qui le réécrivent en JS au runtime (ex. missions.js une fois le pool chargé)
+ * @param {string} [options.subtitleId]  id à poser sur le <span> sous-titre, même usage
+ * @param {string} [options.backHref='dashboard.html']
+ * @param {string} [options.iconGradient='from-primary to-accent']  classes Tailwind du dégradé du badge icône
+ * @param {string} [options.variant='app-shell']
+ *        'app-shell'   : header non collant, pages à coquille flex-col hauteur fixe
+ *        'scroll-page' : header collant (sticky top-0), pages à scroll de page normal
+ * @param {number} [options.stickyZ=50]  z-index du header en variante 'scroll-page'
+ * @param {string} [options.maxWidth='max-w-7xl']  largeur max du conteneur en variante 'scroll-page'
+ * @param {string} [options.extraHeaderClass='']  classes ajoutées à la fin du className du <header>
+ * @param {boolean} [options.backButton=false]  si true, génère un <button id="back-btn">
+ *        au lieu du <a href> statique habituel, pour les pages qui réassignent la
+ *        cible en JS au runtime (ex. id-card.js selon le contexte de la fiche)
+ * @param {string} [options.logoutBtnExtraClass='']  classes ajoutées au bouton logout
+ * @param {string} [options.actionsHtml='']  HTML des boutons spécifiques à la page,
+ *        inséré juste avant le badge utilisateur + le bouton de déconnexion
+ */
 function renderPageLayout(options) {
     const {
         icon,
@@ -154,10 +112,6 @@ function renderPageLayout(options) {
     const subtitleAttr = subtitleId ? ` id="${subtitleId}"` : '';
     const logoutClass = 'text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all' + (logoutBtnExtraClass ? ` ${logoutBtnExtraClass}` : '');
 
-    // backButton: true → <button id="back-btn"><span id="back-btn-text">...</span></button>,
-    // pour les pages qui réassignent la cible en JS au runtime (id-card.js : cible par
-    // défaut au chargement, puis "Retour au pool X" une fois le talent chargé). Sinon,
-    // lien <a href> statique classique.
     const backElement = backButton
         ? `<button id="back-btn" class="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors shrink-0">
                         <span aria-hidden="true">←</span> <span id="back-btn-text">Retour</span>
@@ -199,19 +153,17 @@ function renderPageLayout(options) {
     mount.replaceWith(header);
 }
 
-// ============================================================================
-// renderDashboardLayout() — 2ᵉ étape de B4 (Master Context §7), dashboard.html
-// uniquement. Nav complète (liens conditionnels par rôle) + cloche de
-// notifications avec panneau déroulant — structure sans équivalent ailleurs
-// sur le site, donc PAS de paramètres : le balisage exact de l'ancien
-// <header> de dashboard.html est repris tel quel, aux mêmes id, pour que
-// pages/dashboard.js (déjà écrit, non modifié pour B4) continue de
-// fonctionner sans aucun changement de sa propre logique.
-//
-// USAGE — dans pages/dashboard.js, tout en haut du fichier, avant tout accès
-// à #userSubtitle / #adminNavGroup / #notifBellBtn / #logoutBtn etc. :
-//   renderDashboardLayout();
-// ============================================================================
+/**
+ * Header de dashboard.html uniquement : nav complète (liens conditionnels
+ * par rôle) + cloche de notifications avec panneau déroulant, structure sans
+ * équivalent ailleurs sur le site — pas de paramètres, le balisage reprend
+ * exactement les mêmes id que l'ancien <header> pour que pages/dashboard.js
+ * continue de fonctionner sans changement.
+ *
+ * Usage — dans pages/dashboard.js, tout en haut du fichier, avant tout accès
+ * à #userSubtitle / #adminNavGroup / #notifBellBtn / #logoutBtn etc. :
+ *   renderDashboardLayout();
+ */
 function renderDashboardLayout() {
     const mount = document.getElementById('layoutHeaderMount');
     if (!mount) {
@@ -293,11 +245,9 @@ function renderDashboardLayout() {
                     </a>
                 </span>
 
-                <!-- Correctif P4 (B18-A6, 27/08/2026) : ces deux boutons n'affichent
-                     qu'une icône, sans texte visible. "title" seul ne suffit pas
-                     pour un lecteur d'écran (pas systématiquement lu) — aria-label
-                     fournit le vrai nom accessible du bouton, en plus de "title"
-                     conservé pour l'infobulle au survol de la souris. -->
+                <!-- title seul ne suffit pas pour un lecteur d'écran : aria-label
+                     fournit le nom accessible de ces boutons icône-seule, en plus
+                     de title pour l'infobulle au survol de la souris. -->
                 <span class="relative">
                     <button id="notifBellBtn" type="button" class="hidden relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Notifications" aria-label="Notifications" aria-expanded="false">
                         <span class="text-lg">🔔</span>
