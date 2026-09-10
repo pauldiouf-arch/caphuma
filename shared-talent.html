@@ -2,9 +2,6 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
-         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
-         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -20,9 +17,7 @@
     <title>Profil professionnel partagé - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS, hébergé localement -->
     <script defer src="shared/vendor/tailwind-browser-4.js"></script>
-    <!-- Supabase JS Client, hébergé localement -->
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
@@ -47,16 +42,10 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
 
-    <!-- P33 (B20-2, Master Context §7 Bloc B20) : lien d'évitement statique —
-         cette page n'utilise pas shared/caphuma-layout.js (page publique sans
-         session), donc pas de point d'ajout partagé. Page oubliée dans le
-         décompte initial du backlog ("14 pages" au lieu de 12 + 3) — traitée
-         ici pour que le correctif couvre bien les 15 pages du site. -->
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-100 focus:bg-white focus:text-primary focus:font-bold focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:outline focus:outline-2 focus:outline-primary">
         Aller au contenu principal
     </a>
 
-    <!-- En-tête minimal, sans navigation (page publique, sans connexion) -->
     <header class="bg-white border-b border-slate-200 shrink-0">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center h-16 gap-3">
@@ -73,7 +62,6 @@
 
     <main id="main-content" tabindex="-1" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 flex-1 w-full">
 
-        <!-- État de chargement -->
         <div id="loading-state" class="flex flex-col items-center gap-3 py-16">
             <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -82,14 +70,12 @@
             <p class="text-xs text-slate-500 font-semibold">Chargement du profil...</p>
         </div>
 
-        <!-- État d'erreur (lien invalide, expiré, révoqué...) -->
         <div id="error-state" role="alert" class="hidden bg-white border border-slate-200 rounded-3xl shadow-sm p-8 text-center space-y-3">
             <span class="text-4xl">🔒</span>
             <h1 class="text-lg font-bold text-slate-800" id="error-title">Lien indisponible</h1>
             <p class="text-sm text-slate-500" id="error-message">Ce lien de partage n'est plus valide.</p>
         </div>
 
-        <!-- Carte profil -->
         <div id="talent-card" class="hidden bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div class="bg-primary p-8 text-white">
                 <div class="flex items-center gap-3">

@@ -2,9 +2,6 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
-         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
-         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -20,22 +17,18 @@
     <title>Guide d'utilisation - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS CDN -->
     <script defer src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase CDN (Standard Non-Module) -->
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Charte graphique ALIMA / Cap Huma (identique à devalidated.html) -->
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;
@@ -53,18 +46,10 @@
 </head>
 <body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
-         renderPageLayout() dans pages/guide.js.
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         ZONE PRINCIPALE
-         ──────────────────────────────────────────────────────────────────────── -->
     <main class="max-w-5xl w-full mx-auto px-6 py-8 flex-1 overflow-auto space-y-8">
 
-        <!-- Introduction -->
         <section class="bg-white border border-slate-200 rounded-2xl p-6">
             <h2 class="text-lg font-extrabold text-slate-800 mb-2">🧭 Qu'est-ce que Cap Huma ?</h2>
             <p class="text-sm text-slate-600 leading-relaxed">
@@ -76,8 +61,6 @@
             </p>
         </section>
 
-        <!-- Rôle courant — orientation immédiate, puisque le contenu ci-dessous
-             change selon qui est connecté. -->
         <section id="roleBadge" class="hidden bg-primary-light border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
             <span class="text-xl" id="roleBadgeIcon">👋</span>
             <p class="text-sm text-slate-700">
@@ -86,7 +69,6 @@
             </p>
         </section>
 
-        <!-- Étape commune, identique quel que soit le rôle -->
         <section class="bg-white border border-slate-200 rounded-2xl p-6">
             <h2 class="text-lg font-extrabold text-slate-800 mb-2">🔑 Se connecter</h2>
             <p class="text-sm text-slate-600 leading-relaxed">
@@ -97,9 +79,6 @@
             </p>
         </section>
 
-        <!-- ════════════════════════════════════════════════════════════════════
-             BLOC VISITEUR — autonome, montré uniquement au rôle 'visitor'
-             ════════════════════════════════════════════════════════════════════ -->
         <section id="guideVisitor" class="hidden space-y-3">
             <h2 class="text-lg font-extrabold text-orange-700 flex items-center gap-2">👁️ Votre guide — Visiteur</h2>
             <p class="text-sm text-slate-600">
@@ -177,9 +156,6 @@
             </details>
         </section>
 
-        <!-- ════════════════════════════════════════════════════════════════════
-             BLOC RECRUTEUR — autonome, montré uniquement au rôle 'user'
-             ════════════════════════════════════════════════════════════════════ -->
         <section id="guideRecruteur" class="hidden space-y-3">
             <h2 class="text-lg font-extrabold text-emerald-700 flex items-center gap-2">🖊️ Votre guide — Recruteur</h2>
             <p class="text-sm text-slate-600">
@@ -315,9 +291,6 @@
             </details>
         </section>
 
-        <!-- ════════════════════════════════════════════════════════════════════
-             BLOC ADMIN — autonome, montré uniquement au rôle 'admin'
-             ════════════════════════════════════════════════════════════════════ -->
         <section id="guideAdmin" class="hidden space-y-3">
             <h2 class="text-lg font-extrabold text-blue-700 flex items-center gap-2">🛡️ Votre guide — Administrateur</h2>
             <p class="text-sm text-slate-600">
@@ -483,8 +456,6 @@
             </details>
         </section>
 
-
-        <!-- RGPD -->
         <section class="space-y-3">
             <h2 class="text-lg font-extrabold text-slate-800">🔒 Conformité RGPD</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

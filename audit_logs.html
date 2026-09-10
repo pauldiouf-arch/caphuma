@@ -2,25 +2,6 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head : une CSP
-         posée en <meta> ne s'applique qu'aux ressources chargées APRÈS elle dans le
-         document (spec CSP), donc tout ce qui suit (scripts, fonts, styles) doit
-         venir après cette balise.
-         - script-src 'self' : aucune dépendance du site n'a besoin d'eval()/new
-           Function() (vérifié sur Tailwind/supabase-js/Chart.js/xlsx/jsPDF), donc pas
-           de 'unsafe-eval'. Le seul onclick= inline du site (pagination partagée) a
-           été retiré au préalable (voir shared/caphuma-utils.js).
-         - style-src : 'unsafe-inline' pour le runtime Tailwind (compile en <style> au
-           vol) + fonts.googleapis.com pour la feuille de style Google Fonts.
-         - font-src : fonts.gstatic.com, où Google sert les fichiers de police.
-         - connect-src : uniquement le projet Supabase (API + Edge Functions).
-         - img-src : 'self' seul — aucune image externe ni data:/blob: trouvée sur le
-           site.
-         - object-src/base-uri/form-action : durcissement standard sans risque ici
-           (aucun <object>/<embed>, aucun <base>, aucun <form> à soumission native —
-           tous les formulaires du site sont interceptés en JS).
-         - frame-ancestors est ignoré dans une balise <meta> (exigence de la spec) :
-           nécessiterait un en-tête HTTP côté hébergeur. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -36,25 +17,20 @@
     <title>Journal d'audit - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS CDN -->
     <script defer src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase CDN (Standard Non-Module) -->
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
-    <!-- SheetJS (export Excel des logs, UMD, cohérent avec les autres pages) -->
     <script defer src="shared/vendor/xlsx-0.18.5.js"></script>
 
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Charte graphique ALIMA / Cap Huma (identique à devalidated.html) -->
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;
@@ -69,20 +45,12 @@
 </head>
 <body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
-         renderPageLayout() dans pages/audit_logs.js.
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         ZONE PRINCIPALE
-         ──────────────────────────────────────────────────────────────────────── -->
     <main class="max-w-6xl w-full mx-auto px-6 py-6 flex-1 overflow-auto space-y-6">
 
         <p id="pageError" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-4"></p>
 
-        <!-- Statistiques -->
         <div class="grid gap-4 md:grid-cols-4">
             <div class="bg-white border border-slate-200 rounded-2xl p-4">
                 <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total actions</p>
@@ -106,7 +74,6 @@
             </div>
         </div>
 
-        <!-- Filtres -->
         <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
             <div class="flex items-center justify-between flex-wrap gap-2">
                 <h3 class="font-bold text-slate-800 flex items-center gap-2">🔎 Filtres</h3>
@@ -157,7 +124,6 @@
             <p id="exactDateHint" class="hidden text-[11px] text-primary font-semibold">📅 Filtre "Jour précis" actif — le filtre "Période" est ignoré tant qu'une date précise est choisie.</p>
         </div>
 
-        <!-- Table des logs -->
         <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
                 <h3 class="font-bold text-slate-800 text-sm">📋 Actions enregistrées</h3>
@@ -186,9 +152,6 @@
             </p>
         </div>
 
-        <!-- Pagination réelle côté requête — remplace l'ancien .limit(1000) qui aurait
-             fini par masquer silencieusement les logs les plus anciens à mesure que le
-             journal grossit (correctif demandé explicitement par l'utilisateur). -->
         <div id="logsPaginationControls" class="hidden flex items-center justify-between gap-3">
             <button id="logsPrevPageBtn" type="button" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all">
                 ← Page précédente

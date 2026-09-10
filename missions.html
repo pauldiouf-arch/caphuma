@@ -2,9 +2,6 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
-         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
-         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -20,24 +17,19 @@
     <title>Postes - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS CDN -->
-    <script src="shared/vendor/tailwind-browser-4.js"></script>
+    <script defer src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase CDN (Standard Non-Module) -->
-    <script src="shared/vendor/supabase-js-2.110.6.js"></script>
-    <script src="shared/caphuma-config.js"></script>
-    <script src="shared/caphuma-utils.js"></script>
-    <!-- Brouillon local de formulaire -->
-    <script src="shared/caphuma-form-draft.js"></script>
-    <script src="shared/caphuma-auth.js"></script>
-    <script src="shared/caphuma-layout.js"></script>
+    <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script defer src="shared/caphuma-config.js"></script>
+    <script defer src="shared/caphuma-utils.js"></script>
+    <script defer src="shared/caphuma-form-draft.js"></script>
+    <script defer src="shared/caphuma-auth.js"></script>
+    <script defer src="shared/caphuma-layout.js"></script>
 
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Charte graphique ALIMA / Cap Huma (identique à dashboard.html) -->
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;
@@ -52,15 +44,8 @@
 </head>
 <body class="h-full bg-slate-50 font-sans flex flex-col overflow-hidden" id="appBody" style="display: none;">
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
-         renderPageLayout() dans pages/missions.js.
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         ZONE PRINCIPALE : LISTE DES POSTES DU POOL
-         ──────────────────────────────────────────────────────────────────────── -->
     <main class="max-w-7xl w-full mx-auto px-6 py-8 flex-1 overflow-auto">
 
         <div class="mb-6 flex items-end justify-between flex-wrap gap-3">
@@ -75,8 +60,6 @@
             </div>
         </div>
 
-        <!-- KPIs du pool (calculés côté client à partir des postes chargés, cf. Hercules
-             positions/stats.ts : getPositionStats / getDetailedPositionStats) -->
         <div id="kpiBar" class="hidden grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <div class="bg-white border border-slate-200 rounded-2xl p-3 text-center">
                 <p class="text-lg font-extrabold text-slate-800" id="kpiTotal">0</p>
@@ -104,8 +87,6 @@
             </div>
         </div>
 
-        <!-- Statistiques détaillées des contrats (cf. Hercules
-             positions/stats.ts : getDetailedPositionStats) -->
         <div id="detailedStatsCard" class="hidden bg-white border border-slate-200 rounded-2xl p-6 mb-6">
             <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2 mb-1">
                 📈 Statistiques détaillées des contrats
@@ -156,7 +137,6 @@
         </p>
 
         <div id="missionsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <!-- Squelettes de chargement -->
             <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
             <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
             <div class="animate-pulse bg-white border border-slate-200 rounded-2xl h-40"></div>
@@ -167,9 +147,6 @@
 
     </main>
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         MODALE CRÉATION / MODIFICATION D'UN POSTE
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="missionModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
         <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
@@ -305,12 +282,8 @@
         </div>
     </div>
 
-    <!-- Notification toast -->
     <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-bold shadow-lg"></div>
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         MODALE ÉVALUATIONS DE L'OCCUPANT COURANT
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="evaluationsModal" role="dialog" aria-modal="true" aria-labelledby="evaluationsModal-title" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50">
         <div class="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-3xl">
@@ -323,7 +296,6 @@
 
             <div class="px-6 py-5">
                 <div id="evaluationsList" class="space-y-3 mb-6">
-                    <!-- Rempli dynamiquement -->
                 </div>
                 <p id="evaluationsEmpty" class="hidden text-sm text-slate-500 text-center py-6">Aucune évaluation enregistrée pour cet occupant sur ce poste.</p>
                 <p id="evaluationsError" role="alert" class="hidden text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-4"></p>
@@ -363,12 +335,9 @@
         </div>
     </div>
 
-    <!-- missions.js est scindé en 4 fichiers par responsabilité. Ordre de
-         chargement obligatoire — voir l'en-tête de pages/missions.js pour le
-         détail (MissionsPage). -->
-    <script src="pages/missions.js"></script>
-    <script src="pages/missions-render.js"></script>
-    <script src="pages/missions-crud.js"></script>
-    <script src="pages/missions-evaluations.js"></script>
+    <script defer src="pages/missions.js"></script>
+    <script defer src="pages/missions-render.js"></script>
+    <script defer src="pages/missions-crud.js"></script>
+    <script defer src="pages/missions-evaluations.js"></script>
 </body>
 </html>

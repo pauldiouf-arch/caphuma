@@ -2,9 +2,6 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
-         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
-         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -20,20 +17,16 @@
     <title>Administration - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS via CDN -->
     <script defer src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase JS Client via CDN pour la communication BDD -->
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
-    <!-- Polices -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Configuration Tailwind personnalisée -->
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;
@@ -51,18 +44,10 @@
 </head>
 <body id="appBody" style="display:none;" class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- En-tête pleine largeur — harmonisé avec red_list.html et statistics.html :
-         plus de nav complète dupliquant le dashboard. -->
-    <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
-         renderPageLayout() dans pages/admin.js.
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
-    <!-- Conteneur Principal -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-        <!-- Bannière d'alerte -->
         <div id="error-banner" role="alert" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
             <div class="flex items-start gap-3">
                 <span class="text-red-500 font-bold text-xl">⚠️</span>
@@ -73,14 +58,12 @@
             </div>
         </div>
 
-        <!-- Bannière d'accès refusé (masquée par défaut, affichée si non-admin) -->
         <div id="access-denied-banner" role="alert" class="hidden bg-white border border-slate-200 rounded-3xl p-10 shadow-sm text-center space-y-3">
             <span class="text-4xl">🛡️</span>
             <h2 class="text-xl font-bold text-slate-900">Accès réservé aux administrateurs</h2>
             <p class="text-sm text-slate-500">Vous allez être redirigé vers le tableau de bord.</p>
         </div>
 
-        <!-- Contenu principal, masqué tant que le rôle admin n'est pas confirmé -->
         <div id="admin-content" class="hidden space-y-6">
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
@@ -88,13 +71,11 @@
                 <p class="text-sm text-slate-500 mt-1">Gestion des comptes utilisateurs et des pools de talents</p>
             </div>
 
-            <!-- Onglets -->
             <div class="flex gap-2 border-b border-slate-200">
                 <button type="button" class="admin-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-primary text-primary" data-tab="accounts">👤 Comptes</button>
                 <button type="button" class="admin-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-primary" data-tab="pools">🗂️ Pools</button>
             </div>
 
-            <!-- ONGLET COMPTES -->
             <section id="tab-accounts" class="space-y-4">
                 <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
@@ -123,7 +104,6 @@
                 </div>
             </section>
 
-            <!-- ONGLET POOLS -->
             <section id="tab-pools" class="space-y-4 hidden">
                 <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
@@ -154,7 +134,6 @@
         </div>
     </main>
 
-    <!-- MODALE : Création de compte -->
     <div id="modal-create-account" role="dialog" aria-modal="true" aria-labelledby="modal-create-account-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 id="modal-create-account-title" class="text-lg font-bold text-slate-900">Nouveau compte</h3>
@@ -186,7 +165,6 @@
         </div>
     </div>
 
-    <!-- MODALE : Code affiché une seule fois (création / réinitialisation) -->
     <div id="modal-access-code" role="dialog" aria-modal="true" aria-labelledby="modal-access-code-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4 text-center">
             <span class="text-4xl">🔑</span>
@@ -200,7 +178,6 @@
         </div>
     </div>
 
-    <!-- MODALE : Création de pool -->
     <div id="modal-create-pool" role="dialog" aria-modal="true" aria-labelledby="modal-create-pool-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 id="modal-create-pool-title" class="text-lg font-bold text-slate-900">Nouveau pool</h3>
@@ -235,7 +212,6 @@
         </div>
     </div>
 
-    <!-- MODALE : Confirmation générique (suppression, suspension, archivage...) -->
     <div id="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
             <span class="text-4xl" id="confirm-icon">⚠️</span>
@@ -251,7 +227,6 @@
         </div>
     </div>
 
-    <!-- Script de logique et liaison Supabase -->
     <script defer src="pages/admin.js"></script>
 </body>
 </html>

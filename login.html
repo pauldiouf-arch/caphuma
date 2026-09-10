@@ -2,9 +2,6 @@
 <html lang="fr" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
-         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
-         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -20,21 +17,16 @@
     <title>Connexion - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS, hébergé localement -->
     <script defer src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase JS Client, hébergé localement -->
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
 
-    <!-- Configuration Supabase partagée (source unique — remplace le pont localStorage) -->
     <script defer src="shared/caphuma-config.js"></script>
 
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Charte graphique ALIMA / Cap Huma (identique à missions.html) -->
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;

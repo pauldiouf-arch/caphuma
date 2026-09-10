@@ -2,9 +2,6 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP en
-         <meta> ne s'applique qu'aux ressources chargées après elle). Détail des
-         directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -20,20 +17,16 @@
     <title>Liste Rouge - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 
-    <!-- Tailwind CSS via CDN -->
-    <script src="shared/vendor/tailwind-browser-4.js"></script>
+    <script defer src="shared/vendor/tailwind-browser-4.js"></script>
 
-    <!-- Supabase JS Client via CDN pour la communication BDD -->
-    <script src="shared/vendor/supabase-js-2.110.6.js"></script>
-    <script src="shared/caphuma-config.js"></script>
-    <script src="shared/caphuma-utils.js"></script>
-    <script src="shared/caphuma-auth.js"></script>
-    <script src="shared/caphuma-layout.js"></script>
+    <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
+    <script defer src="shared/caphuma-config.js"></script>
+    <script defer src="shared/caphuma-utils.js"></script>
+    <script defer src="shared/caphuma-auth.js"></script>
+    <script defer src="shared/caphuma-layout.js"></script>
 
-    <!-- Polices -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Configuration Tailwind personnalisée -->
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;
@@ -51,20 +44,10 @@
 </head>
 <body id="appBody" style="display:none;" class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- En-tête pleine largeur — harmonisé : plus de nav complète dupliquant
-         le dashboard. À gauche : Retour + titre de page. À droite : action principale
-         de la page + user/logout. Inspiré du header red_list Hercules (Retour + action
-         unique), appliqué de façon cohérente sur cette page ET sur statistics.html. -->
-    <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
-         renderPageLayout() dans pages/red_list.js.
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
-    <!-- Conteneur Principal -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-        <!-- Bannière d'alerte -->
         <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
             <div class="flex items-start gap-3">
                 <span class="text-red-500 font-bold text-xl">⚠️</span>
@@ -75,14 +58,12 @@
             </div>
         </div>
 
-        <!-- Bannière d'accès refusé (masquée par défaut, affichée si visitor ou rôle inconnu) -->
         <div id="access-denied-banner" class="hidden bg-white border border-slate-200 rounded-3xl p-10 shadow-sm text-center space-y-3">
             <span class="text-4xl">🛡️</span>
             <h2 class="text-xl font-bold text-slate-900">Accès réservé aux admins et recruteurs</h2>
             <p class="text-sm text-slate-500">Vous allez être redirigé vers le tableau de bord.</p>
         </div>
 
-        <!-- Contenu principal, masqué tant que l'accès n'est pas confirmé -->
         <div id="redlist-content" class="hidden space-y-6">
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4">
@@ -127,7 +108,6 @@
         </div>
     </main>
 
-    <!-- MODALE : Confirmation générique (retrait de la liste rouge) -->
     <div id="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
             <span class="text-4xl" id="confirm-icon">⚠️</span>
@@ -143,7 +123,6 @@
         </div>
     </div>
 
-    <!-- MODALE : Détail du motif complet + documents justificatifs -->
     <div id="modal-reason" role="dialog" aria-modal="true" aria-labelledby="modal-reason-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 id="modal-reason-title" class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>📋</span> Motif du signalement</h3>
@@ -158,10 +137,6 @@
         </div>
     </div>
 
-    <!-- MODALE : Signalement Liste Rouge — la sélection pool → talent est
-         désormais fusionnée DANS ce dialogue (au lieu d'un sélecteur affiché en
-         permanence sur la page), sur le modèle du AddToRedListDialog de Hercules.
-         Documents justificatifs obligatoires ajoutés (alignement avec Hercules). -->
     <div id="redlist-add-modal" role="dialog" aria-modal="true" aria-labelledby="redlist-add-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto">
             <h3 id="redlist-add-modal-title" class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Ajouter à la liste rouge</h3>
@@ -201,7 +176,6 @@
         </div>
     </div>
 
-    <!-- Script de logique et liaison Supabase -->
-    <script src="pages/red_list.js"></script>
+    <script defer src="pages/red_list.js"></script>
 </body>
 </html>

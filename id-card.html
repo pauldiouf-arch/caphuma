@@ -2,9 +2,6 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <!-- Content-Security-Policy — placée en tout premier dans le head (une CSP
-         en <meta> ne s'applique qu'aux ressources chargées après elle). Détail
-         des directives : voir le commentaire équivalent dans audit_logs.html. -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
@@ -19,27 +16,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fiche d'Identité Talent - Cap Huma</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
-    
-    <!-- Démarre la négociation TLS avec Supabase avant même le premier appel
-         API (déclenché plus tard par checkSession()) — gain de quelques
-         dizaines de ms sur le premier appel réseau, sans dépendance ajoutée. -->
+
     <link rel="preconnect" href="https://bhjycotcmkqiumukkkih.supabase.co">
 
-    <!-- Tailwind CSS, hébergé localement -->
     <script defer src="shared/vendor/tailwind-browser-4.js"></script>
-    <!-- Supabase JS Client, hébergé localement -->
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
     <script defer src="shared/caphuma-form-draft.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
-    <!-- jsPDF & jsPDF-AutoTable ne sont plus chargés ici statiquement : chargés
-         à la demande au clic sur "Fiche PDF" (capHumaLoadScriptOnce(), voir
-         pages/id-card.js, bindPdfButton()) — ne servent qu'à cette action. -->
-    
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <style type="text/tailwindcss">
         @theme {
             --font-sans: 'Inter', sans-serif;
@@ -62,18 +51,10 @@
 </head>
 <body id="appBody" style="display:none;" class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         EN-TÊTE SUPÉRIEUR — injecté par shared/caphuma-layout.js. Voir
-         renderPageLayout() dans pages/id-card.js. back-btn/back-btn-text gardent
-         leurs id : id-card.js réassigne la cible en JS (dashboard.html par défaut,
-         puis "talents.html?pool=X" une fois le talent chargé).
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="layoutHeaderMount"></div>
 
-    <!-- Conteneur Principal -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 flex-1 overflow-y-auto">
 
-        <!-- Actions rapides (no-print) — le bouton Retour est désormais dans le header -->
         <div class="flex items-center justify-end gap-2 no-print">
             <button id="share-btn" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all flex items-center gap-2">
                 🔗 Partager
@@ -86,7 +67,6 @@
             </button>
         </div>
 
-        <!-- Bannière d'alerte de chargement / erreur détaillée -->
         <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-3xl shadow-sm">
             <div class="flex items-start gap-3">
                 <span class="text-red-500 font-bold text-xl">⚠️</span>
@@ -97,7 +77,6 @@
             </div>
         </div>
 
-        <!-- Bannière d'alerte Liste Rouge -->
         <div id="redlist-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-3xl shadow-sm no-print">
             <div class="flex items-start gap-3">
                 <span class="text-xl">⚠️</span>
@@ -108,10 +87,8 @@
             </div>
         </div>
 
-        <!-- Section Fiche d'identité -->
         <div id="talent-card-container" class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden print-card">
-            
-            <!-- En-tête profil -->
+
             <div class="bg-primary p-8 text-white relative">
                 <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
                     <div class="space-y-2">
@@ -129,9 +106,7 @@
                 </div>
             </div>
 
-            <!-- Corps de la carte d'identité -->
             <div class="p-8 space-y-6">
-                <!-- Barre de validité -->
                 <div class="space-y-2" id="validity-progress-container">
                     <div class="flex items-center justify-between text-xs font-semibold">
                         <span id="validity-label" class="text-slate-500">Compteur de validité pool :</span>
@@ -145,9 +120,7 @@
 
                 <hr class="border-slate-100">
 
-                <!-- Grille d'informations -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Informations Générales -->
                     <div class="space-y-3">
                         <h3 class="font-bold text-sm text-slate-500 uppercase tracking-wider">Information</h3>
                         <div class="grid grid-cols-2 gap-4 text-sm">
@@ -178,7 +151,6 @@
                         </div>
                     </div>
 
-                    <!-- Expérience & Éducation -->
                     <div class="space-y-3">
                         <h3 class="font-bold text-sm text-slate-500 uppercase tracking-wider">Parcours &amp; Éducation</h3>
                         <div class="grid grid-cols-2 gap-4 text-sm">
@@ -206,23 +178,19 @@
                     </div>
                 </div>
 
-                <!-- Section des badges (Compétences, Contextes et Zones) -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
-                    <!-- Compétences clés -->
                     <div class="space-y-2">
                         <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Compétences clés</span>
                         <div id="skills-badges-container" class="flex flex-wrap gap-1.5">
                             <span class="text-xs text-slate-500 italic">Aucune compétence clé répertoriée</span>
                         </div>
                     </div>
-                    <!-- Contextes d'intervention -->
                     <div class="space-y-2">
                         <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Contextes humanitaires</span>
                         <div id="contexts-badges-container" class="flex flex-wrap gap-1.5">
                             <span class="text-xs text-slate-500 italic">Aucun contexte spécifique</span>
                         </div>
                     </div>
-                    <!-- Zones géographiques -->
                     <div class="space-y-2">
                         <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Zones géographiques</span>
                         <div id="zones-badges-container" class="flex flex-wrap gap-1.5">
@@ -231,18 +199,16 @@
                     </div>
                 </div>
 
-                <!-- Section Parcours de mission (Timeline de style CV) -->
                 <div class="border-t border-slate-100 pt-6 space-y-4">
                     <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
                         <span>💼</span> Parcours de missions ALIMA
                     </h2>
-                    
+
                     <div id="timeline-container" class="space-y-4">
                         <p class="text-sm text-slate-500 italic">Aucun historique de mission disponible pour le moment.</p>
                     </div>
                 </div>
 
-                <!-- Section Historique des pools (changement de pool au fil du temps) -->
                 <div class="border-t border-slate-100 pt-6 space-y-4 no-print">
                     <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
                         <span>🔀</span> Historique des pools
@@ -254,13 +220,11 @@
                 </div>
             </div>
 
-            <!-- Footer confidentiel -->
             <div class="bg-slate-50 p-4 border-t border-slate-200 text-center text-xs text-slate-500">
                 Cap Huma — ALIMA • Document confidentiel à usage interne uniquement
             </div>
         </div>
 
-        <!-- Section administrative de gestion du talent (no-print) -->
         <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 no-print" id="admin-actions-card">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
                 <span>⚙️</span> Actions Administratives &amp; Gestion de Mission
@@ -287,13 +251,11 @@
             </div>
         </div>
 
-        <!-- Section Commentaires libres (no-print) -->
         <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 no-print" id="comments-card">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
                 <span>💬</span> Commentaires
             </h3>
 
-            <!-- Formulaire d'ajout — masqué pour le rôle visitor (lecture seule) -->
             <div id="comment-form-container" class="space-y-2">
                 <label for="new-comment-input" class="sr-only">Ajouter un commentaire</label>
                 <textarea id="new-comment-input" placeholder="Ajouter un commentaire..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" rows="3"></textarea>
@@ -310,9 +272,7 @@
         </div>
     </main>
 
-    <!-- ═══════════════════════════════════ MODALS INTERACTIFS (no-print) ═══════════════════════════════════ -->
-    
-    <!-- Modal Liste Rouge -->
+
     <div id="redlist-modal" role="dialog" aria-modal="true" aria-labelledby="redlist-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 id="redlist-modal-title" class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Signalement Liste Rouge</h3>
@@ -321,10 +281,6 @@
                 <label class="text-xs font-bold text-slate-500 uppercase" for="modal-redlist-reason">Motif / Justification *</label>
                 <textarea id="modal-redlist-reason" placeholder="Veuillez consigner les faits de manière précise..." class="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" rows="4" required></textarea>
             </div>
-            <!-- Cette fenêtre ne permet pas de joindre de document justificatif,
-                 contrairement au formulaire dédié de red_list.html qui en exige au
-                 moins un. Avertissement visible plutôt que de bloquer ou de dupliquer
-                 ici toute la logique d'upload. -->
             <p class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
                 ⚠️ Cette fenêtre n'inclut pas de document justificatif. Pour en joindre un, utilisez le formulaire dédié depuis la page Liste Rouge.
             </p>
@@ -335,7 +291,6 @@
         </div>
     </div>
 
-    <!-- Modal Changement de pool -->
     <div id="pool-change-modal" role="dialog" aria-modal="true" aria-labelledby="pool-change-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
             <h3 id="pool-change-modal-title" class="text-lg font-bold text-primary flex items-center gap-2">🔀 Changer de pool</h3>
@@ -357,10 +312,6 @@
         </div>
     </div>
 
-    <!-- ────────────────────────────────────────────────────────────────────────
-         MODALE : GESTION DES LIENS DE PARTAGE — liste des liens actifs, révocation
-         manuelle, génération d'un nouveau lien.
-         ──────────────────────────────────────────────────────────────────────── -->
     <div id="share-links-modal" role="dialog" aria-modal="true" aria-labelledby="share-links-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[85vh] overflow-y-auto">
             <div class="flex items-center justify-between">
@@ -395,9 +346,6 @@
         </div>
     </div>
 
-    <!-- JS de logique et SDK Supabase -->
-    <!-- id-card.js est scindé en 4 fichiers. Ordre obligatoire — voir l'en-tête
-         de pages/id-card.js. -->
     <script defer src="pages/id-card.js"></script>
     <script defer src="pages/id-card-comments.js"></script>
     <script defer src="pages/id-card-pdf.js"></script>
