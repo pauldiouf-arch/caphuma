@@ -187,7 +187,7 @@
             // changer ici.
             const result = await paginateQuery(
                 (c) => c.from('talents')
-                    .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission', { count: 'exact' })
+                    .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission, red_list_documents', { count: 'exact' })
                     .eq('is_valid', false)
                     .order('devalidation_date', { ascending: false }),
                 supabaseClient,
@@ -222,7 +222,7 @@
             const { data, error } = await capHumaWithRetry(() =>
                 supabaseClient
                     .from('talents')
-                    .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission')
+                    .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission, red_list_documents')
                     .eq('is_valid', false)
                     .order('devalidation_date', { ascending: false })
             );
@@ -611,6 +611,29 @@
             if (!doubleCheck) return;
 
             try {
+                // Nettoyage des documents Liste Rouge du bucket Storage — AVANT tout le
+                // reste. Contrairement à evaluations/comments/share_tokens (tables
+                // Postgres, cascade possible même si non confirmée), il n'existe aucun
+                // mécanisme de cascade entre talents et le bucket Storage : sans ce
+                // nettoyage explicite, un talent Liste Rouge supprimé ici laisserait ses
+                // documents dans le bucket indéfiniment, sans plus aucune ligne en base
+                // pour savoir qu'ils appartenaient à quelqu'un — pire que la référence
+                // orpheline déjà corrigée sur red_list.js, qui elle gardait au moins la
+                // fiche pour s'en apercevoir. Best-effort : un échec ici ne doit jamais
+                // bloquer la suppression elle-même, l'action prioritaire de cette page.
+                if (Array.isArray(t.red_list_documents) && t.red_list_documents.length > 0) {
+                    try {
+                        const { error: removeErr } = await supabaseClient.storage
+                            .from('red-list-documents')
+                            .remove(t.red_list_documents);
+                        if (removeErr) {
+                            console.error('[Suppression définitive] Échec de la suppression des documents Storage (suppression maintenue) :', removeErr);
+                        }
+                    } catch (e) {
+                        console.error('[Suppression définitive] Erreur pendant le nettoyage des documents Storage (suppression maintenue) :', e);
+                    }
+                }
+
                 // Nettoyage des données liées avant suppression du talent — la règle
                 // ON DELETE de ces FK vers talents.id n'a jamais été vérifiée, donc
                 // suppression défensive plutôt que de compter sur une cascade non confirmée

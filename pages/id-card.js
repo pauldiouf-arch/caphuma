@@ -934,6 +934,28 @@ const IdCardPage = {};
                 if (!confirm(`Confirmation finale : ${fullName} sera supprimé(e) de façon permanente. Continuer ?`)) return;
 
                 try {
+                    // Nettoyage des documents Liste Rouge du bucket Storage — AVANT tout
+                    // le reste. Aucune cascade possible entre talents et le bucket
+                    // Storage (contrairement aux tables Postgres ci-dessous, où au moins
+                    // la question se pose) : sans ce nettoyage explicite, un talent Liste
+                    // Rouge supprimé ici laisserait ses documents dans le bucket
+                    // indéfiniment, sans plus aucune fiche pour savoir qu'ils
+                    // appartenaient à quelqu'un. Même correctif que devalidated.js
+                    // (10/09/2026, signalé par l'utilisateur). Best-effort : un échec ici
+                    // ne doit jamais bloquer la suppression elle-même.
+                    if (Array.isArray(talent.red_list_documents) && talent.red_list_documents.length > 0) {
+                        try {
+                            const { error: removeErr } = await IdCardPage.supabaseClient.storage
+                                .from('red-list-documents')
+                                .remove(talent.red_list_documents);
+                            if (removeErr) {
+                                console.error('[Suppression définitive] Échec de la suppression des documents Storage (suppression maintenue) :', removeErr);
+                            }
+                        } catch (e) {
+                            console.error('[Suppression définitive] Erreur pendant le nettoyage des documents Storage (suppression maintenue) :', e);
+                        }
+                    }
+
                     // Nettoyage des données liées avant suppression du talent — la
                     // contrainte FK de ces tables vers talents.id n'a pas de règle ON
                     // DELETE confirmée, donc suppression explicite plutôt que de compter
