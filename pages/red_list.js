@@ -541,6 +541,20 @@
         // Retrait de la liste rouge : remet les 4 champs liés à null/false (client direct,
         // pas besoin d'Edge Function — action réservée par les policies RLS aux
         // admins/recruteurs déjà authentifiés, cohérent avec le reste du site).
+        //
+        // Corrigé le 10/09/2026 (signalé par l'utilisateur) : cette fonction ne
+        // touchait jamais red_list_documents ni les fichiers réels du bucket
+        // Storage — un talent retiré de la liste rouge gardait donc en base la
+        // référence de ses anciens documents. Si ce même talent était réinscrit
+        // plus tard depuis id-card.html (motif seul, pas d'upload), l'ancienne
+        // référence réapparaissait comme si elle appartenait au nouveau
+        // signalement, alors que le fichier avait entre-temps disparu du bucket
+        // (supprimé manuellement, ou par un futur nettoyage) — "Impossible de
+        // générer les liens des documents." dans showReasonModal() pour une
+        // référence désormais orpheline. Nettoyage Storage fait en best-effort,
+        // AVANT le retrait effectif : un échec ici (réseau, fichier déjà absent)
+        // ne doit jamais bloquer l'action métier prioritaire (le retrait), donc
+        // jamais de throw depuis ce bloc — seulement un log.
         async function onRemoveFromRedList(talentId, talentName) {
             openConfirmModal({
                 title: "Retirer de la liste rouge",
@@ -548,6 +562,22 @@
                 actionLabel: "Retirer",
                 icon: "✅",
                 onConfirm: async () => {
+                    const talent = redListTalents.find(t => t.id === talentId);
+                    const existingPaths = (talent && Array.isArray(talent.red_list_documents)) ? talent.red_list_documents : [];
+
+                    if (existingPaths.length > 0) {
+                        try {
+                            const { error: removeErr } = await supabaseClient.storage
+                                .from('red-list-documents')
+                                .remove(existingPaths);
+                            if (removeErr) {
+                                console.error('[Liste Rouge] Échec de la suppression des documents Storage (retrait maintenu) :', removeErr);
+                            }
+                        } catch (e) {
+                            console.error('[Liste Rouge] Erreur pendant le nettoyage des documents Storage (retrait maintenu) :', e);
+                        }
+                    }
+
                     const { error } = await capHumaWithRetry(() =>
                         supabaseClient
                             .from('talents')
@@ -556,7 +586,8 @@
                                 red_list_date: null,
                                 red_list_reason: null,
                                 red_list_added_by: null,
-                                red_list_added_by_name: null
+                                red_list_added_by_name: null,
+                                red_list_documents: null
                             })
                             .eq('id', talentId)
                     );
