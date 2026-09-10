@@ -878,10 +878,25 @@ const IdCardPage = {};
                     if (histError) throw histError;
 
                     // Enveloppé dans capHumaWithRetry() : UPDATE par id, sûr à retenter.
+                    // Réinitialise aussi la jauge "mois sans mission" (même logique que
+                    // bindRevalidateButton() ci-dessus) : un changement de pool est un
+                    // nouveau départ dans le pool de destination, la jauge ne doit pas
+                    // continuer à compter depuis l'ancienne last_mission_end_date de
+                    // l'ancien pool. calculateMonthsWithoutMission() priorise
+                    // last_mission_end_date sur pool_integration_date — la vider est donc
+                    // nécessaire, pas juste mettre à jour pool_integration_date. Bug
+                    // signalé par l'utilisateur le 10/09/2026, jamais couvert par le
+                    // correctif équivalent de la réintégration (hors-backlog n°3, Dossier
+                    // §8 entrée 21) car ce sont deux boutons distincts.
                     const { data, error } = await capHumaWithRetry(() =>
                         IdCardPage.supabaseClient
                             .from('talents')
-                            .update({ pool: newPool })
+                            .update({
+                                pool: newPool,
+                                months_without_mission: 0,
+                                last_mission_end_date: null,
+                                pool_integration_date: new Date().toISOString()
+                            })
                             .eq('id', IdCardPage.talentId)
                             .select('id')
                     );
