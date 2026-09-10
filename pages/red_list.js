@@ -512,7 +512,16 @@
                             .from('red-list-documents')
                             .createSignedUrl(path, 300) // 5 minutes, largement suffisant pour un clic
                     );
-                    if (error || !data) return null;
+                    if (error || !data) {
+                        // Ne plus jeter l'erreur en silence : sans ce log, "Impossible de
+                        // générer les liens" ne dit jamais POURQUOI (fichier supprimé du
+                        // bucket sans nettoyer la référence en base, policy Storage,
+                        // panne transitoire...). Un console.error() par chemin en échec,
+                        // pas un throw : les autres documents du même talent doivent
+                        // continuer à s'afficher normalement.
+                        console.error(`[Liste Rouge] createSignedUrl a échoué pour "${path}" :`, error || 'réponse vide, sans erreur explicite');
+                        return null;
+                    }
                     const label = path.split('/').pop() || `Document ${idx + 1}`;
                     return `<a href="${data.signedUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-primary hover:underline">📎 ${escapeHtml(label)}</a>`;
                 }));
