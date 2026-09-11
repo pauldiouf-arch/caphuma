@@ -1,6 +1,3 @@
-// Ce fichier déclare StatisticsPage (objet d'état partagé, seule dérogation à
-// l'encapsulation en IIFE des pages) et doit être chargé en premier, avant
-// statistics-charts.js / statistics-pool-ai.js / statistics-ai-report.js.
 const StatisticsPage = {};
 (() => {
         renderPageLayout({

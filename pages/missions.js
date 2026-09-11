@@ -1,21 +1,3 @@
-// missions.js scindé en 4 fichiers par responsabilité — données/session (ce
-// fichier), rendu (missions-render.js), CRUD postes (missions-crud.js),
-// évaluations (missions-evaluations.js).
-//
-// Ce fichier n'est PAS enveloppé dans une IIFE contrairement aux autres pages :
-// les 4 fichiers doivent partager un état commun (session, postes chargés, pool
-// courant...), impossible entre plusieurs <script> classiques sans un point de
-// partage explicite — une IIFE isolerait chaque fichier des 3 autres.
-// MissionsPage est ce point unique. Chaque fichier garde sa propre IIFE pour ses
-// déclarations locales et lit/écrit l'état partagé exclusivement via
-// MissionsPage.xxx ; les fonctions appelées depuis un autre fichier sont
-// exposées en fin de fichier via MissionsPage.nomDeFonction = nomDeFonction.
-//
-// Chargement requis dans missions.html, dans cet ordre :
-//   1. pages/missions.js               (ce fichier — déclare MissionsPage)
-//   2. pages/missions-render.js
-//   3. pages/missions-crud.js
-//   4. pages/missions-evaluations.js
 const MissionsPage = {};
 
 (() => {

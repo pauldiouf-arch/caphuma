@@ -1,18 +1,3 @@
-// talents.js est scindé en 2 fichiers — liste/recherche/export (ce fichier)
-// et fiche/formulaire talent (talents-modal.js) — plutôt que 3-4 comme
-// id-card.js ou missions.js : les sections de l'ancien fichier (onglets, tags,
-// champs conditionnels, validité, formations, brouillon) sont fortement
-// imbriquées entre elles, la limite entre "liste" et "fiche" étant en revanche
-// nette.
-//
-// Ce fichier n'est pas enveloppé dans une IIFE, contrairement aux autres
-// pages : les 2 fichiers doivent partager un état commun (session, pool
-// courant), impossible entre 2 <script> classiques sans un point de partage
-// explicite. TalentsPage est ce point unique.
-//
-// Chargement requis dans talents.html, dans cet ordre :
-//   1. pages/talents.js         (ce fichier — déclare TalentsPage)
-//   2. pages/talents-modal.js
 const TalentsPage = {};
 
 (() => {

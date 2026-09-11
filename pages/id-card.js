@@ -1,23 +1,6 @@
-// id-card.js est scindé en 4 fichiers par responsabilité : session/données/
-// rendu/actions admin (ce fichier), commentaires (id-card-comments.js),
-// export PDF (id-card-pdf.js), liens de partage (id-card-share.js).
-//
-// Ce fichier n'est pas enveloppé dans une IIFE, contrairement aux autres pages :
-// les 4 fichiers doivent partager un état commun (session, talent chargé...),
-// impossible entre <script> classiques sans un point de partage explicite.
-// IdCardPage est ce point unique.
-//
-// Chargement requis dans id-card.html, dans cet ordre :
-//   1. pages/id-card.js            (ce fichier — déclare IdCardPage)
-//   2. pages/id-card-comments.js
-//   3. pages/id-card-pdf.js
-//   4. pages/id-card-share.js
 const IdCardPage = {};
 
 (() => {
-        // backButton:true car cette page réassigne la cible du bouton Retour en JS
-        // (dashboard.html par défaut dans checkSession(), puis "talents.html?pool=X"
-        // une fois le talent chargé dans renderTalentCard()).
         renderPageLayout({
             icon: '🧭',
             title: 'Fiche talent',
@@ -99,13 +82,10 @@ const IdCardPage = {};
                 capHumaStartIdleTimeout(IdCardPage.supabaseClient);
                 appBody.style.display = '';
 
-                // Remplacée par "Retour au pool X" une fois le talent chargé (voir
-                // renderTalentCard()).
                 document.getElementById('back-btn').onclick = () => {
                     window.location.href = 'dashboard.html';
                 };
 
-                // Récupérer l'ID du talent dans l'URL
                 const urlParams = new URLSearchParams(window.location.search);
                 IdCardPage.talentId = urlParams.get('id');
                 if (!IdCardPage.talentId || IdCardPage.talentId === 'undefined' || IdCardPage.talentId === 'null') {
@@ -232,7 +212,6 @@ const IdCardPage = {};
 
             document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
             document.getElementById('back-btn').onclick = () => {
-                // talent.pool est un code pool forcé en majuscules par admin.html.
                 window.location.href = `talents.html?pool=${encodeURIComponent(talent.pool)}`;
             };
 
@@ -343,8 +322,6 @@ const IdCardPage = {};
             const timeline = document.getElementById('timeline-container');
             let hasTimelineElements = false;
 
-            // DocumentFragment plutôt qu'un `innerHTML += ...` par entrée, qui
-            // ferait ré-analyser tout le HTML déjà affiché à chaque itération.
             const timelineFragment = document.createDocumentFragment();
 
             if (activeMission) {
@@ -434,8 +411,6 @@ const IdCardPage = {};
             }
         }
 
-        // Orchestrateur : chaque étape peuple/rend une zone distincte de la fiche,
-        // sur le modèle de openEditModal() (talents-modal.js).
         function renderTalentCard() {
             populateTalentIdentity();
             const isInvalid = renderTalentValidityBar();
@@ -477,8 +452,6 @@ const IdCardPage = {};
             const btnRedlist = document.getElementById('btn-redlist');
             const btnDeleteTalent = document.getElementById('btn-delete-talent');
 
-            // La gestion des postes se fait entièrement depuis missions.html — ce
-            // lien y renvoie, filtré sur le pool du talent.
             btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || '');
 
             if (isInvalid) {
@@ -489,8 +462,6 @@ const IdCardPage = {};
                 btnDevalidate.classList.remove('hidden');
             }
 
-            // Masquage confort d'affichage pour visitor, pas un contrôle de sécurité :
-            // la protection réelle est la policy RLS côté Postgres sur ces actions.
             if (IdCardPage.currentUserRole === 'visitor') {
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
@@ -503,9 +474,6 @@ const IdCardPage = {};
                 document.getElementById('share-btn').classList.remove('hidden');
             }
 
-            // Un talent dévalidé se supprime depuis devalidated.html — deux chemins
-            // selon l'état du talent, jamais les deux sur la même fiche. Masquage
-            // confort d'affichage : la policy RLS sur talents est la vraie barrière.
             if (IdCardPage.currentUserRole === 'admin' && !isInvalid) {
                 btnDeleteTalent.classList.remove('hidden');
             } else {
@@ -514,8 +482,6 @@ const IdCardPage = {};
         }
 
         function bindShareButton() {
-            // Ouvre la modale de gestion des liens plutôt que de créer un nouveau
-            // lien à chaque clic.
             document.getElementById('share-btn').onclick = () => {
                 IdCardPage.openShareLinksModal();
             };
@@ -524,14 +490,10 @@ const IdCardPage = {};
         function bindPdfButton() {
             document.getElementById('pdf-btn').onclick = async () => {
                 try {
-                    // Ordre séquentiel obligatoire : jspdf-autotable étend le prototype
-                    // de jsPDF, donc doit se charger après que jsPDF soit déjà présent
-                    // (window.jspdf).
                     await capHumaLoadScriptOnce('shared/vendor/jspdf-2.5.1.js');
                     await capHumaLoadScriptOnce('shared/vendor/jspdf-autotable-3.5.29.js');
                     IdCardPage.exportTalentCardPDF(talent, activeMission);
                     toastMessage("Document PDF généré et téléchargé.", "success");
-                    // Traçabilité RGPD des exports.
                     const fullName = `${talent.first_name || ''} ${talent.last_name || ''}`.trim() || null;
                     await logAuditAction('export', 'talent', IdCardPage.talentId, fullName, 'Export PDF de la fiche');
                 } catch (err) {
@@ -569,8 +531,6 @@ const IdCardPage = {};
                 capHumaOfferDraftRestore(currentCommentDraftKey, restoreCommentDraft);
                 capHumaAttachDraftAutosave(newCommentInput, currentCommentDraftKey, { collect: collectCommentDraft });
 
-                // Champ redevenu vide : efface le brouillon tout de suite plutôt que
-                // d'attendre l'autosave.
                 newCommentInput.addEventListener('input', () => {
                     if (!newCommentInput.value.trim() && currentCommentDraftKey) {
                         capHumaDraftClear(currentCommentDraftKey);
@@ -588,9 +548,6 @@ const IdCardPage = {};
                     }
 
                     try {
-                        // Pas de capHumaWithRetry() : comments n'a aucune contrainte
-                        // UNIQUE, une relance après perte de réponse créerait un second
-                        // commentaire identique, silencieusement.
                         const { data, error } = await IdCardPage.supabaseClient
                             .from('comments')
                             .insert({
@@ -640,7 +597,6 @@ const IdCardPage = {};
 
                     if (error) throw error;
                     toastMessage("Le talent a été dévalidé.", "success");
-                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -655,10 +611,6 @@ const IdCardPage = {};
                     const { error } = await capHumaWithRetry(() =>
                         IdCardPage.supabaseClient
                             .from('talents')
-                            // Doit repartir de zéro à partir d'aujourd'hui : calculateMonthsWithoutMission()
-                            // priorise last_mission_end_date sur pool_integration_date, la vider
-                            // est donc nécessaire. months_without_mission gardé à jour aussi pour
-                            // les stats SQL du tableau de bord, qui lisent cette colonne stockée.
                             .update({
                                 is_valid: true,
                                 devalidation_date: null,
@@ -671,7 +623,6 @@ const IdCardPage = {};
 
                     if (error) throw error;
                     toastMessage("Le talent a été réintégré dans le pool.", "success");
-                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -681,7 +632,6 @@ const IdCardPage = {};
         }
 
         function bindRedlistButton() {
-            // Un seul champ (motif), clé par talent.
             let currentRedListReasonDraftKey = null;
             let currentRedListReasonDraftBinding = null;
 
@@ -740,7 +690,6 @@ const IdCardPage = {};
                     redlistModal.classList.add('hidden');
                     discardRedListReasonDraft();
                     toastMessage("Le talent est inscrit en Liste Rouge.", "success");
-                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -750,8 +699,6 @@ const IdCardPage = {};
         }
 
         function bindChangePoolButton() {
-            // Enregistre le changement dans pool_history avant de mettre à jour
-            // talents.pool, pour garder une trace "de X vers Y à telle date".
             const poolChangeModal = document.getElementById('pool-change-modal');
             document.getElementById('btn-change-pool').onclick = async () => {
                 document.getElementById('pool-change-error').classList.add('hidden');
@@ -798,11 +745,6 @@ const IdCardPage = {};
                 const previousPool = talent.pool || null;
 
                 try {
-                    // Historique d'abord (source de vérité "qui a changé quoi, quand"),
-                    // puis mise à jour du talent : si l'étape 2 échoue, on garde au moins
-                    // une trace de la tentative. Pas de capHumaWithRetry() ici : pool_history
-                    // est une table append-only sans contrainte UNIQUE, un doublon créé par
-                    // une relance serait silencieux et impossible à corriger depuis l'interface.
                     const { error: histError } = await IdCardPage.supabaseClient.from('pool_history').insert({
                         talent_id: IdCardPage.talentId,
                         from_pool: previousPool,
@@ -812,10 +754,6 @@ const IdCardPage = {};
                     });
                     if (histError) throw histError;
 
-                    // Réinitialise aussi la jauge "mois sans mission" : un changement de
-                    // pool est un nouveau départ, elle ne doit pas continuer à compter
-                    // depuis l'ancienne last_mission_end_date de l'ancien pool (même logique
-                    // que bindRevalidateButton() ci-dessus).
                     const { data, error } = await capHumaWithRetry(() =>
                         IdCardPage.supabaseClient
                             .from('talents')
@@ -835,7 +773,6 @@ const IdCardPage = {};
 
                     poolChangeModal.classList.add('hidden');
                     toastMessage("Pool mis à jour.", "success");
-                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
@@ -846,8 +783,6 @@ const IdCardPage = {};
         }
 
         function bindDeleteTalentButton() {
-            // Réservée admin, et uniquement pour un talent actif (visibilité déjà
-            // gérée par setupAdminActions).
             document.getElementById('btn-delete-talent').onclick = async () => {
                 const fullName = `${talent.first_name || talent.firstName || ''} ${talent.last_name || talent.lastName || ''}`.trim() || "ce talent";
 
@@ -879,17 +814,10 @@ const IdCardPage = {};
                         }
                     }
 
-                    // La contrainte FK de ces tables vers talents.id n'a pas de règle ON
-                    // DELETE confirmée : suppression explicite plutôt que de compter sur
-                    // une cascade éventuelle.
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('evaluations').delete().eq('talent_id', IdCardPage.talentId));
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('comments').delete().eq('talent_id', IdCardPage.talentId));
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('share_tokens').delete().eq('talent_id', IdCardPage.talentId));
 
-                    // Pas de capHumaWithRetry() : un DELETE par id fait disparaître la
-                    // ligne, une 2e tentative après une 1re réussie (réponse perdue) ne
-                    // trouverait plus rien et déclencherait à tort le contrôle "0 ligne
-                    // affectée" juste en dessous.
                     const { data, error } = await IdCardPage.supabaseClient
                         .from('talents')
                         .delete()
@@ -902,7 +830,6 @@ const IdCardPage = {};
                     }
 
                     toastMessage("Talent supprimé définitivement.", "success");
-                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                     setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
                 } catch (err) {
                     console.error(err);
@@ -923,7 +850,6 @@ const IdCardPage = {};
             bindDeleteTalentButton();
         }
 
-        // Exposé sur IdCardPage pour appel depuis les autres fichiers de la page
         IdCardPage.logAuditAction = logAuditAction;
         IdCardPage.passageDateMs = passageDateMs;
         IdCardPage.normalizePassageComment = normalizePassageComment;
