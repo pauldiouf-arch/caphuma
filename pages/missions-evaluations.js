@@ -153,12 +153,12 @@
                         </div>
                     </div>
                     <p class="text-sm text-slate-700 mb-2">${escapeHtml(evaluation.context)}</p>
-                    ${evaluation.positive_points ? `<p class="text-xs text-emerald-700 mb-1">✅ ${escapeHtml(evaluation.positive_points)}</p>` : ''}
-                    ${evaluation.negative_points ? `<p class="text-xs text-amber-700 mb-1">⚠️ ${escapeHtml(evaluation.negative_points)}</p>` : ''}
+                    ${evaluation.positive_points ? `<p class="text-xs text-emerald-700 mb-1">${CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} ${escapeHtml(evaluation.positive_points)}</p>` : ''}
+                    ${evaluation.negative_points ? `<p class="text-xs text-amber-700 mb-1">${CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} ${escapeHtml(evaluation.negative_points)}</p>` : ''}
                     ${canManage ? `
                     <div class="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200">
-                        <button type="button" class="editEvaluationBtn text-xs font-bold text-primary hover:underline" data-id="${escapeHtml(evaluation.id)}">✏️ Modifier</button>
-                        <button type="button" class="deleteEvaluationBtn text-xs font-bold text-red-600 hover:underline" data-id="${escapeHtml(evaluation.id)}">🗑️ Supprimer</button>
+                        <button type="button" class="editEvaluationBtn text-xs font-bold text-primary hover:underline" data-id="${escapeHtml(evaluation.id)}">${CapHumaIcons.get('pencil', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Modifier</button>
+                        <button type="button" class="deleteEvaluationBtn text-xs font-bold text-red-600 hover:underline" data-id="${escapeHtml(evaluation.id)}">${CapHumaIcons.get('trash', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Supprimer</button>
                     </div>` : ''}
                 `;
 

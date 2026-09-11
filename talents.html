@@ -60,13 +60,13 @@
                 <input id="searchInput" type="text" placeholder="🔎 Rechercher un talent (nom, prénom, fonction, email...)"
                     class="flex-1 min-w-[200px] rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary" />
                 <button id="toggleAdvancedBtn" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
-                    🔧 Filtres avancés
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg> Filtres avancés
                 </button>
                 <button id="resetFiltersBtn" class="hidden border border-slate-200 hover:bg-slate-50 text-slate-500 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
                     ↺ Réinitialiser
                 </button>
                 <button id="exportPoolExcelBtn" class="border border-emerald-200 hover:bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
-                    📥 Exporter Excel
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75H6.912a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H15M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859M12 3v8.25m0 0-3-3m3 3 3-3"/></svg> Exporter Excel
                 </button>
             </div>
 
@@ -111,7 +111,7 @@
             <!-- Hauteur plafonnée + défilement interne : le body est en overflow-hidden, sans quoi les derniers champs resteraient inaccessibles. -->
             <div id="advancedFiltersPanel" class="hidden space-y-3 pt-3 border-t border-slate-100 max-h-[55vh] overflow-y-auto pr-1">
                 <div class="bg-primary-light border border-blue-100 rounded-lg p-3 space-y-1.5">
-                    <label class="text-xs font-bold text-primary flex items-center gap-1.5" for="filterKeyword">🔎 Recherche par compétences / mots-clés</label>
+                    <label class="text-xs font-bold text-primary flex items-center gap-1.5" for="filterKeyword"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg> Recherche par compétences / mots-clés</label>
                     <input id="filterKeyword" type="text" placeholder="Ex : gestion de stock, urgence, leadership, Tchad..." class="w-full rounded-lg border border-slate-200 p-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary" />
                     <p class="text-[11px] text-slate-500">Recherche dans les compétences clés et dans l'historique de missions archivées (contexte, points forts, axes d'amélioration).</p>
                 </div>
@@ -396,7 +396,7 @@
 
     <div id="prolongModal" role="dialog" aria-modal="true" aria-labelledby="prolongModal-title" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 id="prolongModal-title" class="text-lg font-bold text-blue-700 flex items-center gap-2">⏳ Prolonger avant dévalidation</h3>
+            <h3 id="prolongModal-title" class="text-lg font-bold text-blue-700 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Prolonger avant dévalidation</h3>
             <p id="prolongTalentName" class="text-sm font-semibold text-slate-700"></p>
             <p class="text-sm text-slate-500">Le talent ne sera pas proposé à l'arbitrage tant que la prolongation est en cours.</p>
             <div class="space-y-1.5">

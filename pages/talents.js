@@ -2,7 +2,7 @@ const TalentsPage = {};
 
 (() => {
         renderPageLayout({
-            icon: '👤',
+            icon: CapHumaIcons.get('user', 'w-5 h-5'),
             title: 'Professionnels',
             iconGradient: 'from-primary to-primary-dark',
             subtitleId: 'poolSubtitle',
@@ -342,12 +342,12 @@ const TalentsPage = {};
 
                 let extraBadge = '';
                 if (isDevalidated) {
-                    extraBadge = '<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 text-slate-600">⛔ Dévalidé</span>';
+                    extraBadge = '<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg> Dévalidé</span>';
                 } else if (eligible) {
-                    extraBadge = '<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700">⚠️ À arbitrer</span>';
+                    extraBadge = '<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg> À arbitrer</span>';
                 } else if (TalentsPage.hasActiveExtension(t)) {
                     const untilLabel = new Date(t.devalidation_extension_until).toLocaleDateString('fr-FR');
-                    extraBadge = `<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">⏳ Prolongé jusqu'au ${untilLabel}</span>`;
+                    extraBadge = `<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Prolongé jusqu'au ${untilLabel}</span>`;
                 }
 
                 // Confort d'affichage : la vraie barrière est la policy RLS côté Postgres.
@@ -361,7 +361,7 @@ const TalentsPage = {};
                         <div class="min-w-0 flex-1">
                             <!-- Lien réel (pas un onclick), natif au clavier. -->
                             <a href="id-card.html?id=${encodeURIComponent(idKey)}" class="talent-name-hover block font-bold text-slate-800 hover:text-primary hover:underline truncate">
-                                ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? '🚩' : ''}
+                                ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? CapHumaIcons.get('flag', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0 text-red-600') : ''}
                             </a>
                             <p class="text-xs text-slate-500 truncate mt-0.5">
                                 <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
@@ -379,10 +379,10 @@ const TalentsPage = {};
 
                         ${(eligible && canManage) ? `
                         <button class="btn-prolong-talent text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-all" title="Prolonger">
-                            ⏳ Prolonger
+                            ${CapHumaIcons.get('clock', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Prolonger
                         </button>
                         <button class="btn-devalidate-talent text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg transition-all" title="Dévalider">
-                            ⛔ Dévalider
+                            ${CapHumaIcons.get('ban', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Dévalider
                         </button>` : ''}
 
                         ${canManage ? `

@@ -22,6 +22,7 @@
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
+    <script defer src="shared/caphuma-icons.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
@@ -50,7 +51,7 @@
 
         <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
             <div class="flex items-start gap-3">
-                <span class="text-red-500 font-bold text-xl">⚠️</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5 text-red-500 shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
                 <div>
                     <h3 class="font-semibold text-red-800">Alerte système</h3>
                     <p class="text-sm text-red-700 mt-1" id="error-message">Une erreur s'est produite.</p>
@@ -59,7 +60,7 @@
         </div>
 
         <div id="access-denied-banner" class="hidden bg-white border border-slate-200 rounded-3xl p-10 shadow-sm text-center space-y-3">
-            <span class="text-4xl">🛡️</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-10 h-10 mx-auto text-slate-400" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
             <h2 class="text-xl font-bold text-slate-900">Accès réservé aux admins et recruteurs</h2>
             <p class="text-sm text-slate-500">Vous allez être redirigé vers le tableau de bord.</p>
         </div>
@@ -68,7 +69,7 @@
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <div>
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>⚠️</span> Talents en liste rouge</h2>
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2"><span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg></span> Talents en liste rouge</h2>
                     <p class="text-sm text-slate-500 mt-1">Talents signalés, avec motif, date et auteur du signalement</p>
                 </div>
                 <div class="text-right">
@@ -80,10 +81,10 @@
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <div id="redlist-loading" class="text-sm text-slate-500 py-6 text-center">Chargement de la liste rouge...</div>
                 <div id="redlist-empty" class="hidden text-sm text-slate-500 py-10 text-center flex flex-col items-center gap-2">
-                    <span class="text-3xl">✅</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-8 h-8 text-emerald-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     <span>Aucun talent en liste rouge actuellement.</span>
                     <button id="btn-empty-add-redlist" class="mt-2 inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
-                        <span>🚨</span> Ajouter un talent à la liste rouge
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg></span> Ajouter un talent à la liste rouge
                     </button>
                 </div>
 
@@ -110,7 +111,7 @@
 
     <div id="modal-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
-            <span class="text-4xl" id="confirm-icon">⚠️</span>
+            <span class="text-4xl" id="confirm-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-10 h-10 mx-auto text-amber-500" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg></span>
             <h3 class="text-lg font-bold text-slate-900" id="confirm-title">Confirmer l'action</h3>
             <p class="text-sm text-slate-500" id="confirm-message"></p>
             <div class="flex justify-center gap-2 pt-2">
@@ -125,7 +126,7 @@
 
     <div id="modal-reason" role="dialog" aria-modal="true" aria-labelledby="modal-reason-title" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 id="modal-reason-title" class="text-lg font-bold text-slate-900 flex items-center gap-2"><span>📋</span> Motif du signalement</h3>
+            <h3 id="modal-reason-title" class="text-lg font-bold text-slate-900 flex items-center gap-2"><span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/></svg></span> Motif du signalement</h3>
             <p id="reason-content" class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap"></p>
             <div>
                 <p class="text-xs font-bold text-slate-500 uppercase mb-2">Documents justificatifs</p>
@@ -139,7 +140,7 @@
 
     <div id="redlist-add-modal" role="dialog" aria-modal="true" aria-labelledby="redlist-add-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-            <h3 id="redlist-add-modal-title" class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Ajouter à la liste rouge</h3>
+            <h3 id="redlist-add-modal-title" class="text-lg font-bold text-red-600 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg> Ajouter à la liste rouge</h3>
             <p class="text-sm text-slate-500">Signaler un talent qui ne doit pas être recruté. Cette action nécessite une justification et au moins un document justificatif.</p>
 
             <div class="space-y-1.5">

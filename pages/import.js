@@ -2,7 +2,7 @@
         // pageHeaderTitle garde son id pour rester réécrivable en JS selon l'onglet
         // actif (voir setImportMode() plus bas).
         renderPageLayout({
-            icon: '📥',
+            icon: CapHumaIcons.get('inboxDown', 'w-5 h-5'),
             title: 'Import en masse',
             titleId: 'pageHeaderTitle',
             iconGradient: 'from-primary to-primary-dark',
@@ -359,8 +359,8 @@
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.pool || '')}</td>
                                     <td class="px-3 py-2">
                                         ${r.errors.length === 0
-                                            ? '<span class="text-emerald-600 font-semibold">✅ Valide</span>'
-                                            : `<span class="text-red-600 font-semibold">❌ ${escapeHtml(r.errors.join(' · '))}</span>`}
+                                            ? '<span class="text-emerald-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
+                                            : `<span class="text-red-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${escapeHtml(r.errors.join(' · '))}</span>`}
                                     </td>
                                 </tr>
                             `).join('')}
@@ -449,11 +449,11 @@
             resultBox.classList.remove('hidden');
             resultBox.innerHTML = `
                 <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-2">
-                    <p class="text-sm font-bold text-emerald-700">✅ ${successCount} talent(s) importé(s) avec succès.</p>
+                    <p class="text-sm font-bold text-emerald-700"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${successCount} talent(s) importé(s) avec succès.</p>
                 </div>
                 ${failures.length > 0 ? `
                     <div class="bg-red-50 border border-red-100 rounded-xl p-4">
-                        <p class="text-sm font-bold text-red-700 mb-2">❌ ${failures.length} échec(s) :</p>
+                        <p class="text-sm font-bold text-red-700 mb-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${failures.length} échec(s) :</p>
                         <ul class="text-xs text-red-600 space-y-1">
                             ${failures.map(f => `<li>Ligne ${f.rowNumber} (${escapeHtml(f.name)}) — ${escapeHtml(f.message)}</li>`).join('')}
                         </ul>
@@ -663,8 +663,8 @@
                                     <td class="px-3 py-2">${escapeHtml(((r.normalized.location || '') + ' — ' + (r.normalized.country || '')))}</td>
                                     <td class="px-3 py-2">
                                         ${r.errors.length === 0
-                                            ? '<span class="text-emerald-600 font-semibold">✅ Valide</span>'
-                                            : `<span class="text-red-600 font-semibold">❌ ${escapeHtml(r.errors.join(' · '))}</span>`}
+                                            ? '<span class="text-emerald-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
+                                            : `<span class="text-red-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${escapeHtml(r.errors.join(' · '))}</span>`}
                                     </td>
                                 </tr>
                             `).join('')}
@@ -746,11 +746,11 @@
             resultBox.classList.remove('hidden');
             resultBox.innerHTML = `
                 <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-2">
-                    <p class="text-sm font-bold text-emerald-700">✅ ${successCount} poste(s) importé(s) avec succès.</p>
+                    <p class="text-sm font-bold text-emerald-700"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${successCount} poste(s) importé(s) avec succès.</p>
                 </div>
                 ${failures.length > 0 ? `
                     <div class="bg-red-50 border border-red-100 rounded-xl p-4">
-                        <p class="text-sm font-bold text-red-700 mb-2">❌ ${failures.length} échec(s) :</p>
+                        <p class="text-sm font-bold text-red-700 mb-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${failures.length} échec(s) :</p>
                         <ul class="text-xs text-red-600 space-y-1">
                             ${failures.map(f => `<li>Ligne ${f.rowNumber} (${escapeHtml(f.name)}) — ${escapeHtml(f.message)}</li>`).join('')}
                         </ul>

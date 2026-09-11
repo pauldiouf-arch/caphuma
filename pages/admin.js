@@ -1,6 +1,6 @@
 (() => {
         renderPageLayout({
-            icon: '🛡️',
+            icon: CapHumaIcons.get('shield', 'w-5 h-5'),
             title: 'Administration',
             iconGradient: 'from-primary to-primary-dark',
             variant: 'scroll-page'
@@ -147,7 +147,11 @@
 
             // "user" est libellé "Recruteur" côté métier, mais la valeur stockée en
             // base reste "user", jamais "recruteur".
-            const roleLabels = { admin: '🛡️ Admin', user: '👤 Recruteur', visitor: '👁️ Visiteur' };
+            const roleLabels = {
+                admin: CapHumaIcons.get('shield', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0') + ' Admin',
+                user: CapHumaIcons.get('user', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0') + ' Recruteur',
+                visitor: CapHumaIcons.get('eye', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0') + ' Visiteur'
+            };
             const roleColors = {
                 admin: 'bg-primary-light text-primary',
                 user: 'bg-green-50 text-green-700',
@@ -195,7 +199,7 @@
                     ? "L'utilisateur retrouvera immédiatement l'accès à la plateforme."
                     : "L'utilisateur perdra immédiatement l'accès à la plateforme.",
                 actionLabel: nextState ? "Réactiver" : "Suspendre",
-                icon: nextState ? "✅" : "⏸️",
+                icon: nextState ? CapHumaIcons.get('checkCircle', 'w-10 h-10 mx-auto text-emerald-500') : CapHumaIcons.get('pause', 'w-10 h-10 mx-auto text-amber-500'),
                 onConfirm: async () => {
                     const { error } = await capHumaWithRetry(() =>
                         supabaseClient
@@ -217,7 +221,7 @@
                 title: "Réinitialiser le code d'accès",
                 message: "Un nouveau code sera généré et l'ancien cessera immédiatement de fonctionner.",
                 actionLabel: "Réinitialiser",
-                icon: "🔑",
+                icon: CapHumaIcons.get('key', 'w-10 h-10 mx-auto text-slate-400'),
                 onConfirm: async () => {
                     const result = await callManageUsers('reset_password', { userId });
                     // Pas de logAuditAction ici : manage-users l'écrit lui-même côté
@@ -239,7 +243,7 @@
                 title: "Supprimer définitivement ce compte",
                 message: `Cette action est irréversible. Le compte "${email}" et son accès seront définitivement supprimés.`,
                 actionLabel: "Supprimer",
-                icon: "🗑️",
+                icon: CapHumaIcons.get('trash', 'w-10 h-10 mx-auto text-red-500'),
                 onConfirm: async () => {
                     const result = await callManageUsers('delete', { userId });
                     // Pas de logAuditAction ici : manage-users l'écrit lui-même côté
@@ -369,7 +373,7 @@
                     ? "Le pool n'apparaîtra plus dans les sélecteurs actifs (dashboard, statistiques)."
                     : "Le pool redeviendra visible et sélectionnable normalement.",
                 actionLabel: nextState ? "Archiver" : "Désarchiver",
-                icon: nextState ? "📦" : "📤",
+                icon: nextState ? CapHumaIcons.get('archiveBox', 'w-10 h-10 mx-auto text-slate-400') : CapHumaIcons.get('archiveOut', 'w-10 h-10 mx-auto text-slate-400'),
                 onConfirm: async () => {
                     const { data: { session } } = await supabaseClient.auth.getSession();
                     const updatePayload = nextState
@@ -444,7 +448,7 @@
             document.getElementById('confirm-title').textContent = title;
             document.getElementById('confirm-message').textContent = message;
             document.getElementById('confirm-action-label').textContent = actionLabel;
-            document.getElementById('confirm-icon').textContent = icon || '⚠️';
+            document.getElementById('confirm-icon').innerHTML = icon || CapHumaIcons.get('alertTriangle', 'w-10 h-10 mx-auto text-amber-500');
             pendingConfirmAction = onConfirm;
             document.getElementById('modal-confirm').classList.remove('hidden');
         }

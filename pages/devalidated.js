@@ -1,10 +1,10 @@
 (() => {
         renderPageLayout({
-            icon: '⛔',
+            icon: CapHumaIcons.get('ban', 'w-5 h-5'),
             title: 'Dévalidés',
             actionsHtml: `
                 <a href="red_list.html" class="border border-orange-200 hover:bg-orange-50 text-orange-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
-                    ⚠️ Liste Rouge
+                    ${CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Liste Rouge
                 </a>
             `
         });
@@ -156,7 +156,7 @@
             poolsContainer.innerHTML = '';
             if (result.count === 0) {
                 emptyState.classList.remove('hidden');
-                emptyState.textContent = '✅ Aucun talent dévalidé actuellement.';
+                emptyState.textContent = 'Aucun talent dévalidé actuellement.';
                 paginationContainer.innerHTML = '';
                 return;
             }
@@ -226,8 +226,8 @@
                 poolsContainer.innerHTML = '';
                 emptyState.classList.remove('hidden');
                 emptyState.textContent = pageState.allDevalidatedTalents.length === 0
-                    ? '✅ Aucun talent dévalidé actuellement.'
-                    : '🔎 Aucun talent dévalidé ne correspond à ces filtres.';
+                    ? 'Aucun talent dévalidé actuellement.'
+                    : 'Aucun talent dévalidé ne correspond à ces filtres.';
                 updateDevalidatedShowMoreControls();
                 return;
             }
@@ -370,15 +370,15 @@
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <button class="btn-reintegrer bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-lg text-xs font-bold transition-all">
-                        ✅ Réintégrer
+                        ${CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Réintégrer
                     </button>
                     ${!t.is_red_listed ? `
                     <button class="btn-redlist bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-3 py-2 rounded-lg text-xs font-bold transition-all">
-                        ⚠️ Liste Rouge
+                        ${CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Liste Rouge
                     </button>` : ''}
                     ${pageState.currentUserRole === 'admin' ? `
                     <button class="btn-delete bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all">
-                        🗑️ Supprimer définitivement
+                        ${CapHumaIcons.get('trash', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Supprimer définitivement
                     </button>` : ''}
                 </div>
             `;
@@ -521,7 +521,7 @@
 
         async function deleteTalentDefinitively(t) {
             const confirmed = confirm(
-                `⚠️ SUPPRESSION DÉFINITIVE de ${t.first_name} ${t.last_name}.\n\n` +
+                `SUPPRESSION DÉFINITIVE de ${t.first_name} ${t.last_name}.\n\n` +
                 `Cette action est irréversible et efface toute la fiche du talent (historique compris).\n\n` +
                 `Il n'existe aujourd'hui aucune suppression automatique des fiches talents : ` +
                 `cette suppression manuelle est le seul moyen d'effacer définitivement cette fiche.\n\n` +
