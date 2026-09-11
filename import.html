@@ -22,6 +22,7 @@
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
+    <script defer src="shared/caphuma-icons.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
@@ -60,11 +61,11 @@
             <div class="inline-flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm gap-1">
                 <button type="button" id="tabBtnTalents"
                         class="import-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition-all bg-primary text-white">
-                    👤 Talents
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg> Talents
                 </button>
                 <button type="button" id="tabBtnMissions"
                         class="import-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition-all text-slate-500 hover:bg-slate-50">
-                    🧩 Postes
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z"/></svg> Postes
                 </button>
             </div>
 
@@ -119,7 +120,7 @@
                     instructions de son premier onglet, puis déposez-le ci-dessous.
                 </p>
                 <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-3 mb-4">
-                    ⚠️ Le statut « Occupé » n'est pas proposé à l'import — un poste importé est toujours
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg> Le statut « Occupé » n'est pas proposé à l'import — un poste importé est toujours
                     créé « Vacant » ou « En recrutement ». L'affectation d'un talent à un poste se fait
                     ensuite, manuellement, depuis la page Postes du pool concerné.
                 </p>

@@ -1,10 +1,10 @@
 (() => {
         renderPageLayout({
-            icon: '📋',
+            icon: CapHumaIcons.get('clipboard', 'w-5 h-5'),
             title: "Journal d'audit",
             actionsHtml: `
                 <button id="exportBtn" class="bg-accent hover:bg-accent-dark text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5">
-                    📥 Exporter Excel
+                    ${CapHumaIcons.get('inboxDown', 'w-4 h-4 inline-block align-[-0.15em] shrink-0')} Exporter Excel
                 </button>
             `
         });

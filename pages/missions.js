@@ -2,17 +2,17 @@ const MissionsPage = {};
 
 (() => {
         renderPageLayout({
-            icon: '💼',
+            icon: CapHumaIcons.get('briefcase', 'w-5 h-5'),
             title: 'Postes',
             titleId: 'pageTitle',
             subtitle: 'Gestion des postes',
             subtitleId: 'userSubtitle',
             actionsHtml: `
                 <a href="#" id="navTalents" class="border border-blue-200 hover:bg-blue-50 text-primary px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
-                    👤 Professionnels du pool
+                    ${CapHumaIcons.get('user', 'w-4 h-4 inline-block align-[-0.15em] shrink-0')} Professionnels du pool
                 </a>
                 <a href="#" id="navPoolStats" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
-                    📊 Statistiques &amp; analyse IA
+                    ${CapHumaIcons.get('barChart', 'w-4 h-4 inline-block align-[-0.15em] shrink-0')} Statistiques &amp; analyse IA
                 </a>
             `
         });

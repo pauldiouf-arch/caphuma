@@ -1,7 +1,7 @@
 const StatisticsPage = {};
 (() => {
         renderPageLayout({
-            icon: '📊',
+            icon: CapHumaIcons.get('barChart', 'w-5 h-5'),
             title: 'Hub Statistique & IA',
             iconGradient: 'from-primary to-primary-dark',
             variant: 'scroll-page'
