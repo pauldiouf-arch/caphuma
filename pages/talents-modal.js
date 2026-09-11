@@ -135,18 +135,13 @@
             const untilStr = untilDate.toISOString().slice(0, 10); // colonne "date"
 
             try {
-                const { error } = await capHumaWithRetry(() =>
-                    TalentsPage.supabaseClient
-                        .from('talents')
-                        .update({
-                            devalidation_extension_until: untilStr,
-                            devalidation_extension_months: months,
-                            devalidation_extension_granted_by: TalentsPage.currentUserId,
-                            devalidation_extension_granted_by_name: TalentsPage.currentUserEmail,
-                            devalidation_extension_granted_at: new Date().toISOString()
-                        })
-                        .eq('id', talentPendingArbitration.id)
-                );
+                const { error } = await CapHumaData.updateTalent(talentPendingArbitration.id, {
+                    devalidation_extension_until: untilStr,
+                    devalidation_extension_months: months,
+                    devalidation_extension_granted_by: TalentsPage.currentUserId,
+                    devalidation_extension_granted_by_name: TalentsPage.currentUserEmail,
+                    devalidation_extension_granted_at: new Date().toISOString()
+                });
 
                 if (error) throw error;
 
@@ -172,10 +167,7 @@
             if (!confirmed) return;
 
             try {
-                const { error } = await capHumaWithRetry(() =>
-                    TalentsPage.supabaseClient
-                        .from('talents')
-                        .update({
+                const { error } = await CapHumaData.updateTalent(talent.id, {
                             is_valid: false,
                             devalidation_date: new Date().toISOString().slice(0, 10),
                             devalidation_extension_until: null,
@@ -183,9 +175,7 @@
                             devalidation_extension_granted_by: null,
                             devalidation_extension_granted_by_name: null,
                             devalidation_extension_granted_at: null
-                        })
-                        .eq('id', talent.id)
-                );
+                        });
 
                 if (error) throw error;
 
@@ -573,9 +563,7 @@
 
             try {
                 if (editingTalentId) {
-                    const { error } = await capHumaWithRetry(() =>
-                        TalentsPage.supabaseClient.from('talents').update(payload).eq('id', editingTalentId)
-                    );
+                    const { error } = await CapHumaData.updateTalent(editingTalentId, payload);
                     if (error) throw error;
                     // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 } else {
@@ -584,7 +572,7 @@
                     payload.is_valid = true;
                     // Pas de capHumaWithRetry() : talents n'a aucune contrainte UNIQUE,
                     // une relance après perte de réponse dupliquerait la fiche créée.
-                    const { error } = await TalentsPage.supabaseClient.from('talents').insert(payload);
+                    const { error } = await CapHumaData.createTalent(payload);
                     if (error) throw error;
                     // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 }

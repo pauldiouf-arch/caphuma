@@ -94,13 +94,11 @@
         async function loadPoolsForSelect() {
             const selectPool = document.getElementById('modal-select-pool');
             try {
-                const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('pools')
-                        .select('pool_id, full_name, is_archived')
-                        .eq('is_archived', false)
-                        .order('pool_id', { ascending: true })
-                );
+                const { data, error } = await CapHumaData.getPools({
+                    select: 'pool_id, full_name, is_archived',
+                    filters: { is_archived: false },
+                    orderBy: 'pool_id'
+                });
 
                 if (error) throw error;
                 poolsForSelect = data || [];
@@ -228,13 +226,11 @@
             try {
                 // is_red_listed est nullable : .is('is_red_listed', false) exclurait
                 // les NULL, filtré côté client pour couvrir null et false.
-                const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('talents')
-                        .select('id, first_name, last_name, is_red_listed')
-                        .eq('pool', poolCode)
-                        .order('last_name', { ascending: true })
-                );
+                const { data, error } = await CapHumaData.getTalents({
+                    select: 'id, first_name, last_name, is_red_listed',
+                    filters: { pool: poolCode },
+                    orderBy: 'last_name'
+                });
 
                 if (error) throw error;
 
@@ -300,19 +296,14 @@
                 label.textContent = 'Inscription...';
                 // Format ISO (pas toLocaleDateString) : la colonne est un timestamptz,
                 // un format DD/MM/YYYY serait ambigu à la relecture.
-                const { error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('talents')
-                        .update({
-                            is_red_listed: true,
-                            red_list_date: new Date().toISOString(),
-                            red_list_reason: reasonVal,
-                            red_list_added_by: currentUserId,
-                            red_list_added_by_name: document.getElementById('user-display-name').textContent,
-                            red_list_documents: documentPaths
-                        })
-                        .eq('id', selectedTalentForRedlist.id)
-                );
+                const { error } = await CapHumaData.updateTalent(selectedTalentForRedlist.id, {
+                    is_red_listed: true,
+                    red_list_date: new Date().toISOString(),
+                    red_list_reason: reasonVal,
+                    red_list_added_by: currentUserId,
+                    red_list_added_by_name: document.getElementById('user-display-name').textContent,
+                    red_list_documents: documentPaths
+                });
 
                 if (error) throw error;
 
@@ -506,19 +497,14 @@
                         }
                     }
 
-                    const { error } = await capHumaWithRetry(() =>
-                        supabaseClient
-                            .from('talents')
-                            .update({
-                                is_red_listed: false,
-                                red_list_date: null,
-                                red_list_reason: null,
-                                red_list_added_by: null,
-                                red_list_added_by_name: null,
-                                red_list_documents: null
-                            })
-                            .eq('id', talentId)
-                    );
+                    const { error } = await CapHumaData.updateTalent(talentId, {
+                        is_red_listed: false,
+                        red_list_date: null,
+                        red_list_reason: null,
+                        red_list_added_by: null,
+                        red_list_added_by_name: null,
+                        red_list_documents: null
+                    });
                     if (error) throw error;
                     // Pas d'appel à logAuditAction('remove_from_red_list', ...) ici :
                     // couvert par le trigger Postgres trg_audit_talents.

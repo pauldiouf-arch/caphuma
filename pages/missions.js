@@ -165,13 +165,11 @@ const MissionsPage = {};
         async function loadPoolTalents() {
             try {
                 // Colonnes strictement nécessaires (pas de select('*'))
-                const { data: talents, error } = await capHumaWithRetry(() =>
-                    MissionsPage.supabaseClient
-                        .from('talents')
-                        .select('id, first_name, last_name, pool')
-                        .eq('pool', MissionsPage.currentPoolId)
-                        .order('last_name', { ascending: true })
-                );
+                const { data: talents, error } = await CapHumaData.getTalents({
+                    select: 'id, first_name, last_name, pool',
+                    filters: { pool: MissionsPage.currentPoolId },
+                    orderBy: 'last_name'
+                });
 
                 if (error) throw error;
 
@@ -371,12 +369,8 @@ const MissionsPage = {};
                     : [];
                 const updatedPassages = existingPassages.concat([passage]);
 
-                const { data: passageUpdateData, error: passageUpdateErr } = await capHumaWithRetry(() =>
-                    MissionsPage.supabaseClient
-                        .from('talents')
-                        .update({ archived_position_passages: updatedPassages })
-                        .eq('id', mission.occupant_id)
-                        .select('id')
+                const { data: passageUpdateData, error: passageUpdateErr } = await CapHumaData.updateTalent(
+                    mission.occupant_id, { archived_position_passages: updatedPassages }, 'id'
                 );
                 if (passageUpdateErr) throw passageUpdateErr;
                 if (!passageUpdateData || passageUpdateData.length === 0) {
@@ -396,17 +390,11 @@ const MissionsPage = {};
 
             // Mise à jour du suivi de disponibilité, toujours faite même sans
             // évaluation à archiver.
-            const { data: statusData, error: statusErr } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('talents')
-                    .update({
+            const { data: statusData, error: statusErr } = await CapHumaData.updateTalent(mission.occupant_id, {
                         is_currently_on_mission: false,
                         last_mission_end_date: exitDate,
                         status: 'En attente de poste'
-                    })
-                    .eq('id', mission.occupant_id)
-                    .select('id')
-            );
+                    }, 'id');
             if (statusErr) throw statusErr;
             if (!statusData || statusData.length === 0) {
                 throw new Error("La mise à jour du statut du talent sortant n'a affecté aucune ligne (policy RLS ?).");
@@ -433,20 +421,14 @@ const MissionsPage = {};
             const currentCount = (currentTalent && currentTalent.number_of_alima_missions) || 'none';
             const newCount = currentCount === 'none' ? 'one' : (currentCount === 'one' ? 'two' : 'three_plus');
 
-            const { data, error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('talents')
-                    .update({
+            const { data, error } = await CapHumaData.updateTalent(talentId, {
                         is_currently_on_mission: true,
                         months_without_mission: 0,
                         last_mission_end_date: null,
                         status: 'En poste ALIMA',
                         number_of_alima_missions: newCount,
                         had_alima_mission: true
-                    })
-                    .eq('id', talentId)
-                    .select('id')
-            );
+                    }, 'id');
             if (error) throw error;
             if (!data || data.length === 0) {
                 throw new Error("La mise à jour du talent entrant n'a affecté aucune ligne (policy RLS ?).");

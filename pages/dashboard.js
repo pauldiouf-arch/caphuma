@@ -138,14 +138,7 @@
 
         async function loadPools() {
             try {
-                const { data: pools, error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('pools')
-                        .select('pool_id, name, full_name, is_archived')
-                        .order('name', { ascending: true })
-                );
-
-                if (error) throw error;
+                const { data: pools, error } = await CapHumaData.getPools({ orderBy: 'name' });
 
                 if (pools && pools.length > 0) {
                     currentPools = pools;

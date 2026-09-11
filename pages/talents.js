@@ -72,9 +72,10 @@ const TalentsPage = {};
             const subtitle = document.getElementById('poolSubtitle');
             if (!TalentsPage.currentPoolId) { subtitle.textContent = 'Tous les pools'; return; }
             try {
-                const { data } = await capHumaWithRetry(() =>
-                    TalentsPage.supabaseClient.from('pools').select('name, full_name').eq('pool_id', TalentsPage.currentPoolId)
-                );
+                const { data } = await CapHumaData.getPools({
+                    select: 'name, full_name',
+                    filters: { pool_id: TalentsPage.currentPoolId }
+                });
                 if (data && data.length > 0) {
                     subtitle.textContent = `${data[0].full_name || data[0].name} (${TalentsPage.currentPoolId})`;
                 } else {
@@ -142,14 +143,13 @@ const TalentsPage = {};
                 // La construction de la requête est déplacée dans la fonction passée à
                 // capHumaWithRetry(), pour qu'un retry reconstruise un query builder tout
                 // neuf plutôt que de réutiliser un objet déjà attendu une 1re fois.
-                const { data, error } = await capHumaWithRetry(() => {
-                    // Volontairement select('*'), pas resserré comme statistics.js/
-                    // missions.js : ces lignes alimentent TalentsPage.openEditModal()
-                    // (talents-modal.js) via Object.keys(talent) — une colonne absente
-                    // du select resterait silencieusement vide à l'édition.
-                    let query = TalentsPage.supabaseClient.from('talents').select('*').order('last_name', { ascending: true });
-                    if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
-                    return query;
+                // Volontairement select('*'), pas resserré comme statistics.js/
+                // missions.js : ces lignes alimentent TalentsPage.openEditModal()
+                // (talents-modal.js) via Object.keys(talent) — une colonne absente
+                // du select resterait silencieusement vide à l'édition.
+                const { data, error } = await CapHumaData.getTalents({
+                    orderBy: 'last_name',
+                    filters: TalentsPage.currentPoolId ? { pool: TalentsPage.currentPoolId } : {}
                 });
                 if (error) throw error;
                 TalentsPage.allTalents = data || [];

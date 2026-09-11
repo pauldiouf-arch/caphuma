@@ -104,18 +104,14 @@
 
         async function loadReferenceData() {
             try {
-                const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient.from('pools').select('pool_id, name')
-                );
+                const { data, error } = await CapHumaData.getPools({ select: 'pool_id, name' });
                 if (error) throw error;
                 cachedPools = data || [];
             } catch (err) {
                 console.error('[Import] Erreur de chargement des pools :', err);
             }
             try {
-                const { data, error } = await capHumaWithRetry(() =>
-                    supabaseClient.from('talents').select('email')
-                );
+                const { data, error } = await CapHumaData.getTalents({ select: 'email' });
                 if (error) throw error;
                 cachedExistingEmails = new Set((data || []).map(t => (t.email || '').trim().toLowerCase()).filter(Boolean));
             } catch (err) {
@@ -422,7 +418,7 @@
                     // Pas de capHumaWithRetry() : lot de jusqu'à 25 talents sans aucune
                     // contrainte UNIQUE, une relance après perte de réponse dupliquerait
                     // silencieusement jusqu'à 25 fiches d'un coup.
-                    const { data, error } = await supabaseClient.from('talents').insert(payload).select('id');
+                    const { data, error } = await CapHumaData.createTalent(payload, 'id');
                     if (error) throw error;
                     successCount += (data || []).length;
                 } catch (err) {

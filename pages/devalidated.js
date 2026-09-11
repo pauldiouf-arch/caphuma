@@ -112,9 +112,7 @@
             try {
                 // Liste des pools chargée une seule fois (sert au filtre + aux libellés).
                 if (pageState.allPools.length === 0) {
-                    const poolsRes = await capHumaWithRetry(() =>
-                        supabaseClient.from('pools').select('pool_id, name, full_name').order('name', { ascending: true })
-                    );
+                    const poolsRes = await CapHumaData.getPools({ select: 'pool_id, name, full_name', orderBy: 'name' });
                     if (poolsRes.error) throw poolsRes.error;
                     pageState.allPools = poolsRes.data || [];
                     populatePoolFilterOptions();
@@ -175,13 +173,11 @@
         }
 
         async function loadAndRenderFiltered() {
-            const { data, error } = await capHumaWithRetry(() =>
-                supabaseClient
-                    .from('talents')
-                    .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission, red_list_documents')
-                    .eq('is_valid', false)
-                    .order('devalidation_date', { ascending: false })
-            );
+            const { data, error } = await CapHumaData.getTalents({
+                select: 'id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission, red_list_documents',
+                filters: { is_valid: false },
+                orderBy: ['devalidation_date', false]
+            });
 
             if (error) throw error;
             pageState.allDevalidatedTalents = data || [];
@@ -397,14 +393,11 @@
             if (!confirmed) return;
 
             try {
-                const { error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('talents')
-                        // La jauge "mois sans mission" doit repartir de zéro à partir
-                        // d'aujourd'hui : last_mission_end_date est prioritaire sur
-                        // pool_integration_date dans calculateMonthsWithoutMission(), donc
-                        // la vider est nécessaire pour que ce soit bien le cas.
-                        .update({
+                // La jauge "mois sans mission" doit repartir de zéro à partir
+                // d'aujourd'hui : last_mission_end_date est prioritaire sur
+                // pool_integration_date dans calculateMonthsWithoutMission(), donc
+                // la vider est nécessaire pour que ce soit bien le cas.
+                const { error } = await CapHumaData.updateTalent(t.id, {
                             is_valid: true,
                             devalidation_date: null,
                             devalidation_extension_until: null,
@@ -415,9 +408,7 @@
                             months_without_mission: 0,
                             last_mission_end_date: null,
                             pool_integration_date: new Date().toISOString()
-                        })
-                        .eq('id', t.id)
-                );
+                        });
 
                 if (error) throw error;
 
@@ -492,18 +483,13 @@
             }
 
             try {
-                const { error } = await capHumaWithRetry(() =>
-                    supabaseClient
-                        .from('talents')
-                        .update({
+                const { error } = await CapHumaData.updateTalent(pageState.redListTargetTalent.id, {
                             is_red_listed: true,
                             red_list_date: new Date().toISOString(),
                             red_list_reason: reason,
                             red_list_added_by: pageState.currentUserId,
                             red_list_added_by_name: pageState.currentUserName
-                        })
-                        .eq('id', pageState.redListTargetTalent.id)
-                );
+                        });
 
                 if (error) throw error;
 
@@ -564,11 +550,7 @@
                 // pourrait aussi vouloir dire "1re tentative réussie, réponse perdue,
                 // 2e tentative ne retrouve plus rien à supprimer", et ferait afficher à
                 // tort une erreur RLS après une suppression en réalité déjà effective.
-                const { data, error } = await supabaseClient
-                    .from('talents')
-                    .delete()
-                    .eq('id', t.id)
-                    .select('id');
+                const { data, error } = await CapHumaData.deleteTalent(t.id);
 
                 if (error) throw error;
 
