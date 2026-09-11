@@ -138,7 +138,7 @@
 
         async function loadPools() {
             try {
-                const { data: pools, error } = await CapHumaData.getPools({ orderBy: 'name' });
+                const { data: pools, error } = await CapHumaData.getPools(supabaseClient, { orderBy: 'name' });
 
                 if (pools && pools.length > 0) {
                     currentPools = pools;

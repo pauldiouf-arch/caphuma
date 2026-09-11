@@ -165,7 +165,7 @@ const MissionsPage = {};
         async function loadPoolTalents() {
             try {
                 // Colonnes strictement nécessaires (pas de select('*'))
-                const { data: talents, error } = await CapHumaData.getTalents({
+                const { data: talents, error } = await CapHumaData.getTalents(MissionsPage.supabaseClient, {
                     select: 'id, first_name, last_name, pool',
                     filters: { pool: MissionsPage.currentPoolId },
                     orderBy: 'last_name'
@@ -369,7 +369,7 @@ const MissionsPage = {};
                     : [];
                 const updatedPassages = existingPassages.concat([passage]);
 
-                const { data: passageUpdateData, error: passageUpdateErr } = await CapHumaData.updateTalent(
+                const { data: passageUpdateData, error: passageUpdateErr } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, 
                     mission.occupant_id, { archived_position_passages: updatedPassages }, 'id'
                 );
                 if (passageUpdateErr) throw passageUpdateErr;
@@ -390,7 +390,7 @@ const MissionsPage = {};
 
             // Mise à jour du suivi de disponibilité, toujours faite même sans
             // évaluation à archiver.
-            const { data: statusData, error: statusErr } = await CapHumaData.updateTalent(mission.occupant_id, {
+            const { data: statusData, error: statusErr } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, mission.occupant_id, {
                         is_currently_on_mission: false,
                         last_mission_end_date: exitDate,
                         status: 'En attente de poste'
@@ -421,7 +421,7 @@ const MissionsPage = {};
             const currentCount = (currentTalent && currentTalent.number_of_alima_missions) || 'none';
             const newCount = currentCount === 'none' ? 'one' : (currentCount === 'one' ? 'two' : 'three_plus');
 
-            const { data, error } = await CapHumaData.updateTalent(talentId, {
+            const { data, error } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, talentId, {
                         is_currently_on_mission: true,
                         months_without_mission: 0,
                         last_mission_end_date: null,

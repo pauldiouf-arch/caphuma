@@ -308,7 +308,7 @@
             table.classList.add('hidden');
 
             try {
-                const { data, error } = await CapHumaData.getPools({ select: 'id, pool_id, full_name, level, description, is_archived' });
+                const { data, error } = await CapHumaData.getPools(supabaseClient, { select: 'id, pool_id, full_name, level, description, is_archived' });
                 if (error) throw error;
                 poolsList = data || [];
                 renderPools();
@@ -378,7 +378,7 @@
                         ? { is_archived: true, archived_at: new Date().toISOString(), archived_by_name: session.user.email }
                         : { is_archived: false, archived_at: null, archived_by_name: null };
 
-                    const { error } = await CapHumaData.updatePool(poolId, updatePayload);
+                    const { error } = await CapHumaData.updatePool(supabaseClient, poolId, updatePayload);
                     if (error) throw error;
                     toastMessage(nextState ? "Pool archivé." : "Pool désarchivé.");
                     await loadPools();
@@ -415,7 +415,7 @@
                 // name reçoit le code court (colonne NOT NULL en base).
                 // pools.pool_id porte une contrainte UNIQUE : un retry est sûr,
                 // contrairement aux inserts sur talents (voir CapHumaData.createPool).
-                const { error } = await CapHumaData.createPool({
+                const { error } = await CapHumaData.createPool(supabaseClient, {
                     pool_id: code,
                     name: code,
                     full_name: fullName,

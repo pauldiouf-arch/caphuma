@@ -94,7 +94,7 @@
         async function loadPoolsForSelect() {
             const selectPool = document.getElementById('modal-select-pool');
             try {
-                const { data, error } = await CapHumaData.getPools({
+                const { data, error } = await CapHumaData.getPools(supabaseClient, {
                     select: 'pool_id, full_name, is_archived',
                     filters: { is_archived: false },
                     orderBy: 'pool_id'
@@ -226,7 +226,7 @@
             try {
                 // is_red_listed est nullable : .is('is_red_listed', false) exclurait
                 // les NULL, filtré côté client pour couvrir null et false.
-                const { data, error } = await CapHumaData.getTalents({
+                const { data, error } = await CapHumaData.getTalents(supabaseClient, {
                     select: 'id, first_name, last_name, is_red_listed',
                     filters: { pool: poolCode },
                     orderBy: 'last_name'
@@ -296,7 +296,7 @@
                 label.textContent = 'Inscription...';
                 // Format ISO (pas toLocaleDateString) : la colonne est un timestamptz,
                 // un format DD/MM/YYYY serait ambigu à la relecture.
-                const { error } = await CapHumaData.updateTalent(selectedTalentForRedlist.id, {
+                const { error } = await CapHumaData.updateTalent(supabaseClient, selectedTalentForRedlist.id, {
                     is_red_listed: true,
                     red_list_date: new Date().toISOString(),
                     red_list_reason: reasonVal,
@@ -497,7 +497,7 @@
                         }
                     }
 
-                    const { error } = await CapHumaData.updateTalent(talentId, {
+                    const { error } = await CapHumaData.updateTalent(supabaseClient, talentId, {
                         is_red_listed: false,
                         red_list_date: null,
                         red_list_reason: null,

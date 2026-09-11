@@ -1,58 +1,53 @@
 const CapHumaData = (() => {
 
-    function client() {
-        if (!supabaseClient) throw new Error('supabaseClient non initialisé.');
-        return supabaseClient;
-    }
-
-    async function getPools({ select = 'pool_id, name, full_name, is_archived', filters = {}, orderBy = null } = {}) {
-        let q = client().from('pools').select(select);
+    async function getPools(sb, { select = 'pool_id, name, full_name, is_archived', filters = {}, orderBy = null } = {}) {
+        let q = sb.from('pools').select(select);
         for (const [key, val] of Object.entries(filters)) q = q.eq(key, val);
         if (orderBy) { const [col, asc] = Array.isArray(orderBy) ? orderBy : [orderBy, true]; q = q.order(col, { ascending: asc }); }
         return capHumaWithRetry(() => q);
     }
 
-    async function getPoolByCode(poolId, select = 'id, pool_id, full_name, level') {
+    async function getPoolByCode(sb, poolId, select = 'id, pool_id, full_name, level') {
         return capHumaWithRetry(() =>
-            client().from('pools').select(select).eq('pool_id', poolId).single()
+            sb.from('pools').select(select).eq('pool_id', poolId).single()
         );
     }
 
-    async function updatePool(id, payload) {
-        return capHumaWithRetry(() => client().from('pools').update(payload).eq('id', id));
+    async function updatePool(sb, id, payload) {
+        return capHumaWithRetry(() => sb.from('pools').update(payload).eq('id', id));
     }
 
-    async function createPool(payload) {
-        return capHumaWithRetry(() => client().from('pools').insert(payload));
+    async function createPool(sb, payload) {
+        return capHumaWithRetry(() => sb.from('pools').insert(payload));
     }
 
-    async function getTalents({ select = '*', filters = {}, orderBy = null } = {}) {
-        let q = client().from('talents').select(select);
+    async function getTalents(sb, { select = '*', filters = {}, orderBy = null } = {}) {
+        let q = sb.from('talents').select(select);
         for (const [key, val] of Object.entries(filters)) q = q.eq(key, val);
         if (orderBy) { const [col, asc] = Array.isArray(orderBy) ? orderBy : [orderBy, true]; q = q.order(col, { ascending: asc }); }
         return capHumaWithRetry(() => q);
     }
 
-    async function getTalentById(id, select = '*') {
+    async function getTalentById(sb, id, select = '*') {
         return capHumaWithRetry(() =>
-            client().from('talents').select(select).eq('id', id).single()
+            sb.from('talents').select(select).eq('id', id).single()
         );
     }
 
-    async function updateTalent(id, payload, returning = null) {
+    async function updateTalent(sb, id, payload, returning = null) {
         return capHumaWithRetry(() => {
-            const q = client().from('talents').update(payload).eq('id', id);
+            const q = sb.from('talents').update(payload).eq('id', id);
             return returning ? q.select(returning) : q;
         });
     }
 
-    async function deleteTalent(id, returning = 'id') {
-        return client().from('talents').delete().eq('id', id).select(returning);
+    async function createTalent(sb, payload, returning = null) {
+        const q = sb.from('talents').insert(payload);
+        return returning ? q.select(returning) : q;
     }
 
-    async function createTalent(payload, returning = null) {
-        const q = client().from('talents').insert(payload);
-        return returning ? q.select(returning) : q;
+    async function deleteTalent(sb, id, returning = 'id') {
+        return sb.from('talents').delete().eq('id', id).select(returning);
     }
 
     return {

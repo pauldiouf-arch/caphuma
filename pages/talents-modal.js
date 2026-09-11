@@ -135,7 +135,7 @@
             const untilStr = untilDate.toISOString().slice(0, 10); // colonne "date"
 
             try {
-                const { error } = await CapHumaData.updateTalent(talentPendingArbitration.id, {
+                const { error } = await CapHumaData.updateTalent(TalentsPage.supabaseClient, talentPendingArbitration.id, {
                     devalidation_extension_until: untilStr,
                     devalidation_extension_months: months,
                     devalidation_extension_granted_by: TalentsPage.currentUserId,
@@ -167,7 +167,7 @@
             if (!confirmed) return;
 
             try {
-                const { error } = await CapHumaData.updateTalent(talent.id, {
+                const { error } = await CapHumaData.updateTalent(TalentsPage.supabaseClient, talent.id, {
                             is_valid: false,
                             devalidation_date: new Date().toISOString().slice(0, 10),
                             devalidation_extension_until: null,
@@ -563,7 +563,7 @@
 
             try {
                 if (editingTalentId) {
-                    const { error } = await CapHumaData.updateTalent(editingTalentId, payload);
+                    const { error } = await CapHumaData.updateTalent(TalentsPage.supabaseClient, editingTalentId, payload);
                     if (error) throw error;
                     // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 } else {
@@ -572,7 +572,7 @@
                     payload.is_valid = true;
                     // Pas de capHumaWithRetry() : talents n'a aucune contrainte UNIQUE,
                     // une relance après perte de réponse dupliquerait la fiche créée.
-                    const { error } = await CapHumaData.createTalent(payload);
+                    const { error } = await CapHumaData.createTalent(TalentsPage.supabaseClient, payload);
                     if (error) throw error;
                     // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 }

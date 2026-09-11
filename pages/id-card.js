@@ -580,7 +580,7 @@ const IdCardPage = {};
             document.getElementById('btn-devalidate').onclick = async () => {
                 if (!confirm("Voulez-vous vraiment dévalider ce talent ?")) return;
                 try {
-                    const { error } = await CapHumaData.updateTalent(IdCardPage.talentId, {
+                    const { error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
                                 is_valid: false,
                                 devalidation_date: new Date().toISOString(),
                                 devalidation_extension_until: null,
@@ -603,7 +603,7 @@ const IdCardPage = {};
         function bindRevalidateButton() {
             document.getElementById('btn-revalidate').onclick = async () => {
                 try {
-                    const { error } = await CapHumaData.updateTalent(IdCardPage.talentId, {
+                    const { error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
                                 is_valid: true,
                                 devalidation_date: null,
                                 months_without_mission: 0,
@@ -662,7 +662,7 @@ const IdCardPage = {};
                 }
 
                 try {
-                    const { error } = await CapHumaData.updateTalent(IdCardPage.talentId, {
+                    const { error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
                                 is_red_listed: true,
                                 red_list_date: new Date().toISOString(),
                                 red_list_reason: reasonVal,
@@ -693,7 +693,7 @@ const IdCardPage = {};
                 poolChangeModal.classList.remove('hidden');
 
                 try {
-                    const { data: pools, error } = await CapHumaData.getPools({ select: 'pool_id, name, full_name', orderBy: 'name' });
+                    const { data: pools, error } = await CapHumaData.getPools(IdCardPage.supabaseClient, { select: 'pool_id, name, full_name', orderBy: 'name' });
                     if (error) throw error;
 
                     select.innerHTML = '<option value="">— Choisir un pool —</option>';
@@ -734,7 +734,7 @@ const IdCardPage = {};
                     });
                     if (histError) throw histError;
 
-                    const { data, error } = await CapHumaData.updateTalent(IdCardPage.talentId, {
+                    const { data, error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
                                 pool: newPool,
                                 months_without_mission: 0,
                                 last_mission_end_date: null,
@@ -792,7 +792,7 @@ const IdCardPage = {};
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('comments').delete().eq('talent_id', IdCardPage.talentId));
                     await capHumaWithRetry(() => IdCardPage.supabaseClient.from('share_tokens').delete().eq('talent_id', IdCardPage.talentId));
 
-                    const { data, error } = await CapHumaData.deleteTalent(IdCardPage.talentId);
+                    const { data, error } = await CapHumaData.deleteTalent(IdCardPage.supabaseClient, IdCardPage.talentId);
 
                     if (error) throw error;
                     if (!data || data.length === 0) {

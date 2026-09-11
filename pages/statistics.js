@@ -79,7 +79,7 @@ const StatisticsPage = {};
 
         async function initHub() {
             try {
-                const { data: pools, error: ep } = await CapHumaData.getPools({ select: 'pool_id, name, full_name' });
+                const { data: pools, error: ep } = await CapHumaData.getPools(StatisticsPage.supabaseClient, { select: 'pool_id, name, full_name' });
                 if (ep) throw ep;
                 StatisticsPage.poolList = pools || [];
 
@@ -128,7 +128,7 @@ const StatisticsPage = {};
             // `candidate_type` confirmé présent en base (colonne existante, jamais
             // absente) : la détection "colonne absente vs vide" plus bas
             // (hasCandidateTypeColumn) continue de fonctionner à l'identique.
-            const { data: talents, error: et } = await CapHumaData.getTalents({
+            const { data: talents, error: et } = await CapHumaData.getTalents(StatisticsPage.supabaseClient, {
                 select: 'pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality, languages'
             });
             if (et) throw et;

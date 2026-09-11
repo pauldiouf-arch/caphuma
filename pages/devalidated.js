@@ -112,7 +112,7 @@
             try {
                 // Liste des pools chargée une seule fois (sert au filtre + aux libellés).
                 if (pageState.allPools.length === 0) {
-                    const poolsRes = await CapHumaData.getPools({ select: 'pool_id, name, full_name', orderBy: 'name' });
+                    const poolsRes = await CapHumaData.getPools(supabaseClient, { select: 'pool_id, name, full_name', orderBy: 'name' });
                     if (poolsRes.error) throw poolsRes.error;
                     pageState.allPools = poolsRes.data || [];
                     populatePoolFilterOptions();
@@ -173,7 +173,7 @@
         }
 
         async function loadAndRenderFiltered() {
-            const { data, error } = await CapHumaData.getTalents({
+            const { data, error } = await CapHumaData.getTalents(supabaseClient, {
                 select: 'id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission, red_list_documents',
                 filters: { is_valid: false },
                 orderBy: ['devalidation_date', false]
@@ -397,7 +397,7 @@
                 // d'aujourd'hui : last_mission_end_date est prioritaire sur
                 // pool_integration_date dans calculateMonthsWithoutMission(), donc
                 // la vider est nécessaire pour que ce soit bien le cas.
-                const { error } = await CapHumaData.updateTalent(t.id, {
+                const { error } = await CapHumaData.updateTalent(supabaseClient, t.id, {
                             is_valid: true,
                             devalidation_date: null,
                             devalidation_extension_until: null,
@@ -483,7 +483,7 @@
             }
 
             try {
-                const { error } = await CapHumaData.updateTalent(pageState.redListTargetTalent.id, {
+                const { error } = await CapHumaData.updateTalent(supabaseClient, pageState.redListTargetTalent.id, {
                             is_red_listed: true,
                             red_list_date: new Date().toISOString(),
                             red_list_reason: reason,
@@ -550,7 +550,7 @@
                 // pourrait aussi vouloir dire "1re tentative réussie, réponse perdue,
                 // 2e tentative ne retrouve plus rien à supprimer", et ferait afficher à
                 // tort une erreur RLS après une suppression en réalité déjà effective.
-                const { data, error } = await CapHumaData.deleteTalent(t.id);
+                const { data, error } = await CapHumaData.deleteTalent(supabaseClient, t.id);
 
                 if (error) throw error;
 

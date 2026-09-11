@@ -89,7 +89,7 @@
         async function loadData() {
             try {
                 const [poolsRes, extractionData] = await Promise.all([
-                    CapHumaData.getPools({ orderBy: 'name' }),
+                    CapHumaData.getPools(supabaseClient, { orderBy: 'name' }),
                     fetchSensitiveRead(supabaseClient, 'extraction')
                 ]);
 

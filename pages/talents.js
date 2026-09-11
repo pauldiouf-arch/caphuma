@@ -72,7 +72,7 @@ const TalentsPage = {};
             const subtitle = document.getElementById('poolSubtitle');
             if (!TalentsPage.currentPoolId) { subtitle.textContent = 'Tous les pools'; return; }
             try {
-                const { data } = await CapHumaData.getPools({
+                const { data } = await CapHumaData.getPools(TalentsPage.supabaseClient, {
                     select: 'name, full_name',
                     filters: { pool_id: TalentsPage.currentPoolId }
                 });
@@ -147,7 +147,7 @@ const TalentsPage = {};
                 // missions.js : ces lignes alimentent TalentsPage.openEditModal()
                 // (talents-modal.js) via Object.keys(talent) — une colonne absente
                 // du select resterait silencieusement vide à l'édition.
-                const { data, error } = await CapHumaData.getTalents({
+                const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {
                     orderBy: 'last_name',
                     filters: TalentsPage.currentPoolId ? { pool: TalentsPage.currentPoolId } : {}
                 });
