@@ -1,6 +1,6 @@
 (() => {
         renderPageLayout({
-            icon: '📖',
+            icon: CapHumaIcons.get('bookOpen', 'w-5 h-5'),
             title: "Guide d'utilisation"
         });
 
@@ -20,9 +20,9 @@
         // Un seul des 3 blocs est affiché, celui qui correspond au rôle réel de la
         // personne connectée — pas de sélecteur manuel.
         const ROLE_SECTIONS = {
-            visitor: { blockId: 'guideVisitor', label: 'Visiteur', icon: '👁️' },
-            user: { blockId: 'guideRecruteur', label: 'Recruteur', icon: '🖊️' },
-            admin: { blockId: 'guideAdmin', label: 'Administrateur', icon: '🛡️' }
+            visitor: { blockId: 'guideVisitor', label: 'Visiteur', icon: CapHumaIcons.get('eye', 'w-5 h-5') },
+            user: { blockId: 'guideRecruteur', label: 'Recruteur', icon: CapHumaIcons.get('pencil', 'w-5 h-5') },
+            admin: { blockId: 'guideAdmin', label: 'Administrateur', icon: CapHumaIcons.get('shield', 'w-5 h-5') }
         };
 
         function showRoleSection(role) {
@@ -31,7 +31,7 @@
 
             document.getElementById(config.blockId).classList.remove('hidden');
 
-            document.getElementById('roleBadgeIcon').textContent = config.icon;
+            document.getElementById('roleBadgeIcon').innerHTML = config.icon;
             document.getElementById('roleBadgeLabel').textContent = config.label;
             document.getElementById('roleBadge').classList.remove('hidden');
         }

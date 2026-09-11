@@ -24,6 +24,7 @@
     <script defer src="shared/vendor/supabase-js-2.110.6.js"></script>
     <script defer src="shared/caphuma-config.js"></script>
     <script defer src="shared/caphuma-utils.js"></script>
+    <script defer src="shared/caphuma-icons.js"></script>
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
@@ -52,7 +53,7 @@
 
         <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
             <div class="flex items-start gap-3">
-                <span class="text-red-500 font-bold text-xl">⚠️</span>
+                <span class="text-red-500 font-bold text-xl"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg></span>
                 <div>
                     <h3 class="font-semibold text-red-800">Alerte système</h3>
                     <p class="text-sm text-red-700 mt-1" id="error-message">Une erreur s'est produite lors du chargement des statistiques.</p>
@@ -81,7 +82,7 @@
                   <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-occupancy-rate">0%</p>
                   <p class="text-xs text-slate-500 mt-1" id="kpi-occupancy-sub">0 postes occupés</p>
                 </div>
-                <div class="text-3xl p-3 bg-blue-50 rounded-2xl text-blue-600">📊</div>
+                <div class="text-3xl p-3 bg-blue-50 rounded-2xl text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg></div>
             </div>
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div>
@@ -89,7 +90,7 @@
                   <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-vacancies">0</p>
                   <p class="text-xs text-slate-500 mt-1" id="kpi-vacancies-sub">Recrutements en cours : 0</p>
                 </div>
-                <div class="text-3xl p-3 bg-red-50 rounded-2xl text-red-600">⚠️</div>
+                <div class="text-3xl p-3 bg-red-50 rounded-2xl text-red-600"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg></div>
             </div>
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div>
@@ -97,7 +98,7 @@
                   <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-talents-active">0</p>
                   <p class="text-xs text-slate-500 mt-1" id="kpi-talents-sub">Disponibles immédiatement : 0</p>
                 </div>
-                <div class="text-3xl p-3 bg-green-50 rounded-2xl text-green-600">👤</div>
+                <div class="text-3xl p-3 bg-green-50 rounded-2xl text-green-600"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg></div>
             </div>
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div>
@@ -105,14 +106,14 @@
                   <p class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-talents-risk">0</p>
                   <p class="text-xs text-slate-500 mt-1" id="kpi-risk-sub">Menace de dévalidation</p>
                 </div>
-                <div class="text-3xl p-3 bg-amber-50 rounded-2xl text-amber-600">⏱️</div>
+                <div class="text-3xl p-3 bg-amber-50 rounded-2xl text-amber-600"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></div>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <span>📈</span> Répartition des Postes
+                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg></span> Répartition des Postes
                 </h3>
                 <div class="h-64 flex items-center justify-center relative">
                     <canvas id="statusChart"></canvas>
@@ -121,12 +122,12 @@
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <span>🌍</span> Proportion de Profils Expatriés vs Nationaux
+                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg></span> Proportion de Profils Expatriés vs Nationaux
                 </h3>
                 <div class="h-64 flex items-center justify-center relative">
                     <canvas id="expatChart"></canvas>
                     <div id="expatChartEmptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center px-6 gap-2">
-                        <span class="text-3xl">🗂️</span>
+                        <span class="text-3xl"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776"/></svg></span>
                         <p class="text-sm font-semibold text-slate-500">Donnée indisponible</p>
                         <p class="text-xs text-slate-500">La colonne <code class="bg-slate-100 px-1 rounded">candidate_type</code> n'existe pas (ou n'est pas encore renseignée) dans la table <code class="bg-slate-100 px-1 rounded">missions</code>.</p>
                     </div>
@@ -137,12 +138,12 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <span>🚻</span> Répartition par Genre
+                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg></span> Répartition par Genre
                 </h3>
                 <div class="h-64 flex items-center justify-center relative">
                     <canvas id="genderChart"></canvas>
                     <div id="genderChartEmptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center px-6 gap-2">
-                        <span class="text-3xl">🗂️</span>
+                        <span class="text-3xl"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776"/></svg></span>
                         <p class="text-sm font-semibold text-slate-500">Aucun talent dans cette sélection</p>
                     </div>
                 </div>
@@ -150,13 +151,13 @@
 
             <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                 <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <span>🌐</span> Répartition par Nationalité
+                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg></span> Répartition par Nationalité
                 </h3>
                 <p class="text-xs text-slate-500 -mt-3 mb-3" id="nationalityChartSub">Top nationalités du pool (les autres sont regroupées sous « Autres »)</p>
                 <div class="h-64 flex items-center justify-center relative">
                     <canvas id="nationalityChart"></canvas>
                     <div id="nationalityChartEmptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center px-6 gap-2">
-                        <span class="text-3xl">🗂️</span>
+                        <span class="text-3xl"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776"/></svg></span>
                         <p class="text-sm font-semibold text-slate-500">Aucun talent dans cette sélection</p>
                     </div>
                 </div>
@@ -165,7 +166,7 @@
 
         <div id="detailed-stats-card" class="hidden bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-1">
-                <span>📈</span> Statistiques détaillées des contrats — <span id="detailed-stats-pool-name">ce pool</span>
+                <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg></span> Statistiques détaillées des contrats — <span id="detailed-stats-pool-name">ce pool</span>
             </h3>
             <p class="text-xs text-slate-500 mb-4">Analyse approfondie des contrats et répartition géographique du pool</p>
 
@@ -208,14 +209,14 @@
         </div>
 
         <p id="aiVisitorNotice" class="hidden text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-lg p-3">
-            👁️ L'analyse IA n'est pas disponible pour votre rôle — les statistiques et graphiques ci-dessus restent consultables.
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg> L'analyse IA n'est pas disponible pour votre rôle — les statistiques et graphiques ci-dessus restent consultables.
         </p>
 
         <div id="pool-ai-analysis-card" class="hidden bg-white border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-white rounded-3xl p-6 shadow-sm space-y-4">
             <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <span>💡</span> Analyse IA — <span id="pool-ai-analysis-pool-name">ce pool</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg></span> Analyse IA — <span id="pool-ai-analysis-pool-name">ce pool</span>
                     </h3>
                     <p class="text-xs text-slate-500 mt-1">Analyse des talents, analyse des postes et recommandations stratégiques, sur des données agrégées et anonymisées</p>
                 </div>
@@ -238,7 +239,7 @@
         <div id="aiStrategicHub" class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
             <div class="flex items-center gap-3">
                 <div class="flex size-10 items-center justify-center rounded-xl bg-orange-100 text-accent font-bold">
-                    ✨
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>
                 </div>
                 <div>
                     <h3 class="text-lg font-bold text-slate-900">Analyste Stratégique Intelligent</h3>
@@ -258,7 +259,7 @@
 
                 <div class="flex justify-between items-center">
                     <div class="text-xs text-slate-500 flex items-center gap-1">
-                        🔒 Anonymisation RGPD active (aucun nom ni e-mail n'est envoyé à l'IA)
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg> Anonymisation RGPD active (aucun nom ni e-mail n'est envoyé à l'IA)
                     </div>
                     <button id="ai-generate-btn" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-6 py-2.5 rounded-2xl transition-all flex items-center gap-2">
                         <span>Lancer l'analyse IA</span>
@@ -270,7 +271,7 @@
             <div id="ai-result-box" class="hidden rounded-2xl bg-slate-50 border border-slate-200 p-6 space-y-4">
                 <div class="flex justify-between items-center border-b border-slate-200 pb-3">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <span class="animate-pulse">🟢</span> Rapport Stratégique IA Généré
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> Rapport Stratégique IA Généré
                     </span>
                     <button id="ai-clear-btn" class="text-xs text-slate-500 hover:text-slate-600">Effacer</button>
                 </div>

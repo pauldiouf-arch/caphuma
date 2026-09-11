@@ -331,15 +331,15 @@
             }
 
             if (total === 0) {
-                listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Aucune alerte pour le moment 👍</p>';
+                listEl.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Aucune alerte pour le moment.</p>';
                 return;
             }
 
             const sections = [
-                { key: 'contracts', icon: '📅', title: 'Contrats arrivant à échéance', render: a => `Pool ${escapeHtml(a.pool)} — fin dans ${a.daysLeft} jour${a.daysLeft > 1 ? 's' : ''} (≤ ${a.window}j)` },
-                { key: 'available', icon: '✅', title: 'Talents disponibles', render: a => `Pool ${escapeHtml(a.pool)} — talent disponible dès maintenant` },
-                { key: 'atRisk', icon: '⚠️', title: 'Risque de dévalidation (≥20 mois)', render: a => `Pool ${escapeHtml(a.pool)} — talent à risque` },
-                { key: 'vacancies', icon: '🟡', title: 'Postes vacants / en recrutement', render: a => `Pool ${escapeHtml(a.pool)} — ${a.status === 'vacant' ? 'vacant' : 'en recrutement'}` }
+                { key: 'contracts', icon: CapHumaIcons.get('calendar', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: 'Contrats arrivant à échéance', render: a => `Pool ${escapeHtml(a.pool)} — fin dans ${a.daysLeft} jour${a.daysLeft > 1 ? 's' : ''} (≤ ${a.window}j)` },
+                { key: 'available', icon: CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: 'Talents disponibles', render: a => `Pool ${escapeHtml(a.pool)} — talent disponible dès maintenant` },
+                { key: 'atRisk', icon: CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: 'Risque de dévalidation (≥20 mois)', render: a => `Pool ${escapeHtml(a.pool)} — talent à risque` },
+                { key: 'vacancies', icon: CapHumaIcons.get('briefcase', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: 'Postes vacants / en recrutement', render: a => `Pool ${escapeHtml(a.pool)} — ${a.status === 'vacant' ? 'vacant' : 'en recrutement'}` }
             ];
 
             listEl.innerHTML = sections
@@ -442,11 +442,11 @@
 
         function poolIcon(poolId) {
             const icons = {
-                COLOG: '🚚',
-                COMED: '🩺',
-                ADMIN: '📁'
+                COLOG: CapHumaIcons.get('truck', 'w-6 h-6'),
+                COMED: CapHumaIcons.get('heart', 'w-6 h-6'),
+                ADMIN: CapHumaIcons.get('folder', 'w-6 h-6')
             };
-            return icons[poolId] || '🌍';
+            return icons[poolId] || CapHumaIcons.get('globeAlt', 'w-6 h-6');
         }
 
         function renderPools() {
@@ -457,9 +457,9 @@
 
             if (archivedPools.length > 0) {
                 archivedToggleContainer.classList.remove('hidden');
-                archivedToggleBtn.textContent = showArchivedPools
-                    ? `🔽 Masquer les pools archivés (${archivedPools.length})`
-                    : `▶️ Afficher les pools archivés (${archivedPools.length})`;
+                archivedToggleBtn.innerHTML = showArchivedPools
+                    ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg> Masquer les pools archivés (${archivedPools.length})`
+                    : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg> Afficher les pools archivés (${archivedPools.length})`;
             } else {
                 archivedToggleContainer.classList.add('hidden');
             }
@@ -512,14 +512,14 @@
                     <div class="flex flex-col gap-2 mt-6">
                         <div class="grid grid-cols-2 gap-2">
                             <a href="talents.html?pool=${encodeURIComponent(pool.pool_id)}" class="bg-primary hover:bg-primary-dark text-white px-3 py-2.5 rounded-lg text-xs font-bold text-center transition-all shadow-xs">
-                                👤 Professionnels
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg> Professionnels
                             </a>
                             <a href="missions.html?pool=${encodeURIComponent(pool.pool_id)}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-2.5 rounded-lg text-xs font-bold text-center transition-all">
                                 Postes
                             </a>
                         </div>
                         <a href="statistics.html?pool=${encodeURIComponent(pool.pool_id)}" class="bg-accent-light hover:bg-orange-100 text-accent-dark px-4 py-2.5 rounded-lg text-xs font-bold text-center transition-all">
-                            📊 Statistiques du Pool
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg> Statistiques du Pool
                         </a>
                     </div>
                 `;
