@@ -90,12 +90,6 @@ async function capHumaLogAudit(supabaseClient, ctx, action, entityType, entityId
  * entityName, details) déjà liée au client Supabase et à l'identité de
  * l'appelant.
  *
- * getSupabaseClient/getCtx sont des fonctions, pas des valeurs, réévaluées à
- * chaque appel : certaines pages n'assignent leur client Supabase réel que
- * dans un checkSession() asynchrone, après que le reste du script (donc la
- * fabrication du logger) s'est déjà exécuté — un paramètre pris par valeur
- * figerait alors une dépendance absente pour toujours.
- *
  * @param {() => Object} getSupabaseClient
  * @param {() => {userId: string, userEmail: string, userName?: string}} getCtx
  * @returns {(action: string, entityType: string, entityId: string|null, entityName: string|null, details: Object|null) => Promise<void>}

@@ -5,9 +5,7 @@
  * page qui l'utilise.
  */
 
-// Échappe aussi le contexte attribut (data-id="${...}"), pas seulement le
-// texte — à utiliser systématiquement avant toute injection via innerHTML
-// d'une donnée venant de la base ou d'un formulaire.
+// Échappe aussi le contexte attribut (data-id="${...}"), pas seulement le texte.
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -72,11 +70,6 @@ async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    // queryBuilderFn(...) est appelé À L'INTÉRIEUR de la fonction passée à
-    // capHumaWithRetry(), pas une seule fois avant : un query builder
-    // Supabase déjà "await"é une fois ne refait pas la requête réseau si on
-    // l'attend une 2e fois, il faut reconstruire un query builder neuf à
-    // chaque tentative.
     const { data, error, count } = await capHumaWithRetry(() =>
         queryBuilderFn(supabaseClient).range(from, to)
     );
@@ -122,9 +115,6 @@ function renderPaginationControls(page, totalPages, count) {
         </div>`;
 }
 
-// Si ces seuils changent, mettre aussi à jour get_pool_talent_stats() et
-// get_notification_alerts() côté SQL : ces 2 fonctions gardent leur propre
-// copie figée, le SQL ne peut pas lire une constante JS.
 const DEVALIDATION_AT_RISK_MONTHS = 20;   // seuil visuel "à risque" (orange)
 const DEVALIDATION_CRITICAL_MONTHS = 22;  // seuil visuel "critique" (rouge clair)
 const DEVALIDATION_MAX_MONTHS = 24;       // seuil dur : éligible à l'arbitrage dévalider/prolonger
@@ -148,8 +138,6 @@ function calculateMonthsWithoutMission(talent) {
     const refDateStr = talent.last_mission_end_date || talent.lastMissionEndDate || talent.pool_integration_date || talent.poolIntegrationDate;
     if (!refDateStr) return 0;
 
-    // UTC plutôt que local : le résultat ne doit pas dépendre du fuseau
-    // horaire du navigateur de qui consulte la page.
     const refDate = new Date(refDateStr);
     const now = new Date();
     const diffMonths = (now.getUTCFullYear() - refDate.getUTCFullYear()) * 12 + (now.getUTCMonth() - refDate.getUTCMonth());
@@ -166,8 +154,6 @@ function toastMessage(msg, type = "success") {
     toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
         type === 'success' ? 'bg-green-600' : 'bg-red-600'
     }`;
-    // role="status" + aria-live="polite" : sans ça, un lecteur d'écran ne
-    // remarque jamais l'apparition de ce toast.
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
     toast.textContent = msg;
@@ -182,11 +168,6 @@ function toastMessage(msg, type = "success") {
 /**
  * Affiche la bannière d'erreur générique (#error-banner / #error-message)
  * et fait remonter la page en haut pour garantir sa visibilité.
- *
- * shared-talent.html a sa propre fonction showError() (signature et
- * éléments ciblés différents) qui écrase silencieusement celle-ci en JS
- * classique — cette version-ci n'y est donc jamais réellement appelée.
- *
  * @param {string} msg  Le message d'erreur à afficher
  */
 function showError(msg) {
@@ -222,24 +203,12 @@ function captureError(kind, detail) {
 window.addEventListener('error', (e) => captureError('Erreur JS', e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => captureError('Promesse rejetée', e.reason));
 
-// Limite connue : ne couvre que le signal navigator.onLine (coupure Wi-Fi/
-// Ethernet complète) — une coupure VPN partielle qui laisse l'interface
-// réseau locale "up" ne déclenche pas ces événements.
 window.addEventListener('offline', () => toastMessage("Connexion perdue — vos actions seront bloquées jusqu'au retour du réseau.", "error"));
 window.addEventListener('online', () => toastMessage("Connexion rétablie.", "success"));
 
 /**
  * Rend les modaux (<div role="dialog">) accessibles au clavier : piège
- * Tab/Maj+Tab, ferme sur Échap (en cliquant le bouton [data-modal-dismiss]
- * pour repasser par la même logique de fermeture qu'un clic), mémorise puis
- * restitue le focus. Observe la classe "hidden" de chaque modal via
- * MutationObserver plutôt que de modifier chaque point d'ouverture/fermeture
- * existant — le code métier d'ouverture/fermeture n'est pas touché.
- *
- * Le panneau de notifications (notifPanel, caphuma-layout.js) n'est pas un
- * vrai modal et n'est pas concerné : traité séparément, plus légèrement,
- * dans caphuma-layout.js.
- *
+ * Tab/Maj+Tab, ferme sur Échap, mémorise puis restitue le focus.
  * À appeler une seule fois par page, après le rendu du layout.
  */
 function capHumaInitModalA11y() {
@@ -312,18 +281,10 @@ function capHumaInitModalA11y() {
 
 /**
  * Retente un appel Supabase/fetch() sur échec réseau uniquement — jamais si
- * l'appel se résout normalement avec un { error } rempli (une vraie erreur
- * métier, à afficher tout de suite plutôt qu'à retarder).
- *
- * Règle d'usage impérative : callFn doit envelopper l'appel BRUT (le
- * .from()/.rpc()/.storage./fetch() lui-même), jamais une fonction qui a déjà
- * transformé une erreur métier en exception — sinon une vraie erreur métier
- * finirait, elle aussi, par être retentée inutilement.
+ * l'appel se résout normalement avec un { error } rempli.
  *
  * @param {Function} callFn  () => Promise — DOIT reconstruire l'appel à
- *        chaque invocation (ne jamais passer une Promise déjà créée : un
- *        query builder Supabase déjà "then()"/attendu une fois ne refait
- *        pas la requête réseau à un 2e await).
+ *        chaque invocation (ne jamais passer une Promise déjà créée).
  * @param {Object} [options]
  * @param {number} [options.attempts=2]
  * @param {number} [options.delayMs=1500]
@@ -368,11 +329,7 @@ document.addEventListener('click', async (e) => {
 });
 
 /**
- * Appelle l'Edge Function "sensitive-reads" plutôt que Supabase directement :
- * RLS et le mécanisme db_pre_request de PostgREST ne peuvent pas tenir de
- * compteur de débit sur une lecture (GET), qui s'exécute dans une
- * transaction Postgres en lecture seule refusant toute écriture. Seul un
- * point serveur classique comme cette Edge Function peut tenir ce compteur.
+ * Appelle l'Edge Function "sensitive-reads" plutôt que Supabase directement.
  *
  * @param {Object} supabaseClient
  * @param {string} resource  "red_list" | "extraction" | "audit_logs"
@@ -386,10 +343,6 @@ async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
 
-    // capHumaWithRetry() enveloppe ICI uniquement l'appel réseau brut
-    // (fetch()) — ne retente que sur un échec réseau réel, jamais sur une
-    // réponse HTTP d'erreur métier (403/429/500), qui doit s'afficher tout
-    // de suite.
     const response = await capHumaWithRetry(() =>
         fetch(`${SUPABASE_URL}/functions/v1/sensitive-reads`, {
             method: 'POST',
@@ -409,18 +362,9 @@ async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
 
 /**
  * Injecte un <script src="..."> à la demande, une seule fois même appelée
- * plusieurs fois de suite (clics rapprochés compris), et attend son
- * chargement complet avant de continuer. À utiliser uniquement pour une
- * bibliothèque dont l'usage est déclenché par une action explicite de la
- * personne (ex. export Excel/PDF) — jamais pour un script dont dépend le
- * rendu initial de la page (Tailwind, supabase-js, caphuma-*.js).
- *
- * Mémorise une PROMESSE par URL (pas un simple booléen "chargé") : deux
- * clics avant la fin du premier chargement partagent la même promesse au
- * lieu d'injecter deux fois la même balise <script>. Sur un échec réseau, la
- * promesse en cache est supprimée plutôt que conservée comme rejet définitif
- * — un clic suivant retente un chargement complet au lieu d'échouer
- * indéfiniment.
+ * plusieurs fois de suite. À utiliser uniquement pour une bibliothèque dont
+ * l'usage est déclenché par une action explicite de la personne — jamais pour
+ * un script dont dépend le rendu initial de la page.
  *
  * @param {string} src  Chemin relatif du script (ex. "shared/vendor/xlsx-0.18.5.js")
  * @returns {Promise<void>} Résolue une fois le script chargé et exécuté (ou
