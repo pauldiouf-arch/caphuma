@@ -2,17 +2,16 @@
 // reçus en paramètres de exportTalentCardPDF(), pas via l'état de page —
 // seuls passageDateMs()/normalizePassageComment() passent par IdCardPage
 // (définis dans id-card.js, voir ce fichier pour l'explication de IdCardPage).
+//
+// Bilingue FR/EN depuis le 12/09/2026 : chaque fonction de dessin reçoit `L`
+// (le dictionnaire de langue courant, voir shared/caphuma-export-i18n.js),
+// jamais de texte français en dur. La langue vient du bouton FR|EN de
+// id-card.html, mémorisée par capHumaGetExportLang() (navigateur, pas en
+// base — voir shared/caphuma-export-i18n.js pour le choix de conception).
 (() => {
         // Aucune donnée "availability"/"project_status" : ces champs ne sont pas
         // dans le schéma/formulaire validés.
         const PDF_ALIMA_BLUE = [29, 78, 216]; // #1d4ed8 — primary Cap Huma
-
-        function pdfFormatExpAlima(months) {
-            const m = Number(months) || 0;
-            const y = Math.floor(m / 12);
-            const rem = m % 12;
-            return `${y} an${y !== 1 ? "s" : ""} ${rem} mois`;
-        }
 
         function pdfFormatMissions(count) {
             const map = { three_plus: "3+", two: "2", one: "1", none: "0" };
@@ -25,7 +24,7 @@
             return "N/A";
         }
 
-        function pdfDrawHeader(doc, talent, fName, lName, fFunction) {
+        function pdfDrawHeader(doc, L, talent, fName, lName, fFunction) {
             const pageW = doc.internal.pageSize.getWidth();
             doc.setFillColor(...PDF_ALIMA_BLUE);
             doc.rect(0, 0, pageW, 42, "F");
@@ -33,7 +32,7 @@
             doc.setFontSize(8);
             doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "normal");
-            doc.text("ALIMA TalentHub", 14, 10);
+            doc.text(L.brand, 14, 10);
 
             doc.setFontSize(20);
             doc.setFont("helvetica", "bold");
@@ -44,7 +43,7 @@
             doc.text(fFunction, 14, 27);
 
             doc.setFontSize(9);
-            doc.text(`Pool : ${talent.pool || "—"}`, 14, 33);
+            doc.text(`${L.poolPrefix}${talent.pool || "—"}`, 14, 33);
 
             doc.setTextColor(30, 30, 30);
             return 50;
@@ -119,74 +118,76 @@
 
         // Chaque section reçoit `y` en paramètre et renvoie le `y` mis à jour,
         // composées séquentiellement dans exportTalentCardPDF() plus bas.
-        function pdfDrawGeneralInfoSection(doc, y, talent, COL_LEFT, COL_MID) {
-            y = pdfDrawSectionTitle(doc, "Informations Générales", y);
-            const l1 = pdfDrawField(doc, "Email", talent.email || "N/A", COL_LEFT, y, 85);
-            const m1 = pdfDrawField(doc, "Statut", talent.status || "N/A", COL_MID, y, 80);
+        function pdfDrawGeneralInfoSection(doc, L, y, talent, COL_LEFT, COL_MID) {
+            y = pdfDrawSectionTitle(doc, L.sectionGeneralInfo, y);
+            const l1 = pdfDrawField(doc, L.fieldEmail, talent.email || "N/A", COL_LEFT, y, 85);
+            const m1 = pdfDrawField(doc, L.fieldStatus, talent.status || "N/A", COL_MID, y, 80);
             y = Math.max(l1, m1) + 3;
 
-            const genderLabel = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
-            const l2 = pdfDrawField(doc, "Genre", genderLabel, COL_LEFT, y, 85);
-            const m2 = pdfDrawField(doc, "Pool", talent.pool || "N/A", COL_MID, y, 80);
+            const genderLabel = talent.gender === "H" ? L.genderMale : talent.gender === "F" ? L.genderFemale : "N/A";
+            const l2 = pdfDrawField(doc, L.fieldGender, genderLabel, COL_LEFT, y, 85);
+            const m2 = pdfDrawField(doc, L.fieldPool, talent.pool || "N/A", COL_MID, y, 80);
             y = Math.max(l2, m2) + 6;
 
             return y;
         }
 
-        function pdfDrawExperienceSection(doc, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate) {
+        function pdfDrawExperienceSection(doc, L, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate) {
+            const missionLabels = MISSION_COUNT_LABELS_I18N[L === PDF_I18N.en ? 'en' : 'fr'];
             y = pdfEnsureSpace(doc, y, 30);
-            y = pdfDrawSectionTitle(doc, "Expérience", y);
-            const l3 = pdfDrawField(doc, "Expérience ALIMA", pdfFormatExpAlima(expAlima), COL_LEFT, y, 85);
-            const m3 = pdfDrawField(doc, "Expérience Humanitaire", pdfFormatExpAlima(expHum), COL_MID, y, 80);
+            y = pdfDrawSectionTitle(doc, L.sectionExperience, y);
+            const l3 = pdfDrawField(doc, L.fieldExpAlima, capHumaFormatExpDuration(expAlima, L === PDF_I18N.en ? 'en' : 'fr'), COL_LEFT, y, 85);
+            const m3 = pdfDrawField(doc, L.fieldExpHum, capHumaFormatExpDuration(expHum, L === PDF_I18N.en ? 'en' : 'fr'), COL_MID, y, 80);
             y = Math.max(l3, m3) + 3;
 
-            const l4 = pdfDrawField(doc, "Missions ALIMA", MISSION_COUNT_LABELS[nbMissions] || pdfFormatMissions(nbMissions), COL_LEFT, y, 85);
-            const m4 = pdfDrawField(doc, "Date d'intégration pool", intDate ? new Date(intDate).toLocaleDateString('fr-FR') : "N/A", COL_MID, y, 80);
+            const l4 = pdfDrawField(doc, L.fieldMissionsAlima, missionLabels[nbMissions] || pdfFormatMissions(nbMissions), COL_LEFT, y, 85);
+            const m4 = pdfDrawField(doc, L.fieldPoolIntegrationDate, intDate ? new Date(intDate).toLocaleDateString(L.locale) : "N/A", COL_MID, y, 80);
             y = Math.max(l4, m4) + 6;
 
             return y;
         }
 
-        function pdfDrawEducationSection(doc, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills) {
+        function pdfDrawEducationSection(doc, L, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills) {
+            const eduLabels = EDU_LEVEL_LABELS_I18N[L === PDF_I18N.en ? 'en' : 'fr'];
             y = pdfEnsureSpace(doc, y, 30);
-            y = pdfDrawSectionTitle(doc, "Formation & Compétences", y);
-            const l5 = pdfDrawField(doc, "Niveau d'études", EDU_LEVEL_LABELS[eduLvl] || "N/A", COL_LEFT, y, 85);
-            const m5 = pdfDrawField(doc, "Spécialité", eduSpec, COL_MID, y, 80);
+            y = pdfDrawSectionTitle(doc, L.sectionEducation, y);
+            const l5 = pdfDrawField(doc, L.fieldEduLevel, eduLabels[eduLvl] || "N/A", COL_LEFT, y, 85);
+            const m5 = pdfDrawField(doc, L.fieldEduSpecialty, eduSpec, COL_MID, y, 80);
             y = Math.max(l5, m5) + 6;
 
             if (keySkills.length > 0) {
                 y = pdfEnsureSpace(doc, y, 20);
-                y = pdfDrawSectionTitle(doc, "Compétences clés", y);
+                y = pdfDrawSectionTitle(doc, L.sectionKeySkills, y);
                 y = pdfDrawBadgeRow(doc, keySkills, y, pageW, [219, 234, 254], [147, 197, 253], [30, 64, 175], 9);
             }
 
             return y;
         }
 
-        function pdfDrawGeoLanguagesSection(doc, y, pageW, COL_LEFT, COL_MID, talent, cRes) {
+        function pdfDrawGeoLanguagesSection(doc, L, y, pageW, COL_LEFT, COL_MID, talent, cRes) {
             y = pdfEnsureSpace(doc, y, 30);
-            y = pdfDrawSectionTitle(doc, "Géographie & Langues", y);
-            const l7 = pdfDrawField(doc, "Nationalité", talent.nationality || "N/A", COL_LEFT, y, 85);
-            const m7 = pdfDrawField(doc, "Pays de résidence", cRes, COL_MID, y, 80);
+            y = pdfDrawSectionTitle(doc, L.sectionGeoLanguages, y);
+            const l7 = pdfDrawField(doc, L.fieldNationality, talent.nationality || "N/A", COL_LEFT, y, 85);
+            const m7 = pdfDrawField(doc, L.fieldCountryResidence, cRes, COL_MID, y, 80);
             y = Math.max(l7, m7) + 3;
 
-            const l8 = pdfDrawField(doc, "Langues", pdfFormatLanguages(talent.languages), COL_LEFT, y, pageW - 28);
+            const l8 = pdfDrawField(doc, L.fieldLanguages, pdfFormatLanguages(talent.languages), COL_LEFT, y, pageW - 28);
             y = l8 + 6;
 
             return y;
         }
 
-        function pdfDrawInterventionSection(doc, y, pageW, contexts, zones) {
+        function pdfDrawInterventionSection(doc, L, y, pageW, contexts, zones) {
             if (contexts.length > 0 || zones.length > 0) {
                 y = pdfEnsureSpace(doc, y, 30);
-                y = pdfDrawSectionTitle(doc, "Contextes & Zones d'intervention", y);
+                y = pdfDrawSectionTitle(doc, L.sectionIntervention, y);
 
                 if (contexts.length > 0) {
                     y = pdfEnsureSpace(doc, y, 20);
                     doc.setFontSize(8);
                     doc.setFont("helvetica", "bold");
                     doc.setTextColor(60, 60, 60);
-                    doc.text("Types de contextes vécus :", 14, y);
+                    doc.text(L.contextsLabel, 14, y);
                     y += 5;
                     y = pdfDrawBadgeRow(doc, contexts, y, pageW, [219, 234, 254], [147, 197, 253], [30, 64, 175], 8);
                 }
@@ -196,7 +197,7 @@
                     doc.setFontSize(8);
                     doc.setFont("helvetica", "bold");
                     doc.setTextColor(60, 60, 60);
-                    doc.text("Zones géographiques :", 14, y);
+                    doc.text(L.zonesLabel, 14, y);
                     y += 5;
                     y = pdfDrawBadgeRow(doc, zones, y, pageW, [220, 252, 231], [134, 239, 172], [21, 128, 61], 7.5);
                 }
@@ -206,7 +207,7 @@
             return y;
         }
 
-        function pdfDrawMissionHistorySection(doc, y, pageW, talent, currentPosition) {
+        function pdfDrawMissionHistorySection(doc, L, y, pageW, talent, currentPosition) {
             let passages = [];
             try {
                 const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
@@ -221,7 +222,7 @@
 
             if (currentPosition || passages.length > 0) {
                 y = pdfEnsureSpace(doc, y, 20);
-                y = pdfDrawSectionTitle(doc, "Parcours de missions ALIMA", y);
+                y = pdfDrawSectionTitle(doc, L.sectionMissionHistory, y);
 
                 if (currentPosition) {
                     y = pdfEnsureSpace(doc, y, 20);
@@ -232,12 +233,12 @@
                     doc.setFontSize(8);
                     doc.setFont("helvetica", "bold");
                     doc.setTextColor(21, 128, 61);
-                    doc.text("● EN COURS", 18, y + 4);
+                    doc.text(L.ongoing, 18, y + 4);
 
                     doc.setFontSize(9);
                     doc.setFont("helvetica", "bold");
                     doc.setTextColor(30, 30, 30);
-                    doc.text(currentPosition.title || "Mission ALIMA", 46, y + 4);
+                    doc.text(currentPosition.title || L.missionFallback, 46, y + 4);
 
                     doc.setFontSize(8);
                     doc.setFont("helvetica", "normal");
@@ -246,7 +247,7 @@
                     if (currentPosition.pool_id || currentPosition.pool) details.push(currentPosition.pool_id || currentPosition.pool);
                     if (currentPosition.country) details.push(currentPosition.country);
                     const startD = currentPosition.contract_start_date || currentPosition.contractStartDate;
-                    if (startD) details.push(`Depuis ${new Date(startD).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`);
+                    if (startD) details.push(`${L.since}${new Date(startD).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' })}`);
                     doc.text(details.join("  |  "), 18, y + 11);
 
                     y += 24;
@@ -274,16 +275,16 @@
                     doc.setFontSize(10);
                     doc.setFont("helvetica", "bold");
                     doc.setTextColor(30, 30, 30);
-                    doc.text(passage.positionTitle || "Mission ALIMA", 18, y + 5);
+                    doc.text(passage.positionTitle || L.missionFallback, 18, y + 5);
 
                     doc.setFontSize(8);
                     doc.setFont("helvetica", "normal");
                     doc.setTextColor(100, 100, 100);
                     const startMs = IdCardPage.passageDateMs(passage.startDate);
                     const endMs = IdCardPage.passageDateMs(passage.endDate);
-                    const dateStr = `${startMs !== null ? new Date(startMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'} → ${endMs !== null ? new Date(endMs).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '?'}`;
+                    const dateStr = `${startMs !== null ? new Date(startMs).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' }) : '?'} → ${endMs !== null ? new Date(endMs).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' }) : '?'}`;
                     const durationMonths = (startMs !== null && endMs !== null) ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24 * 30)) : null;
-                    const metaLine = [passage.country || "", dateStr, durationMonths !== null ? `(${durationMonths} mois)` : ''].filter(Boolean).join("  |  ");
+                    const metaLine = [passage.country || "", dateStr, durationMonths !== null ? L.durationMonths(durationMonths) : ''].filter(Boolean).join("  |  ");
                     doc.text(metaLine, 18, y + 11);
 
                     const firstRating = comments[0] ? comments[0].rating : null;
@@ -301,7 +302,7 @@
                             doc.setFontSize(7.5);
                             doc.setFont("helvetica", "bold");
                             doc.setTextColor(60, 60, 60);
-                            doc.text("Contexte :", 18, cy);
+                            doc.text(L.context, 18, cy);
                             doc.setFont("helvetica", "normal");
                             const lines = doc.splitTextToSize(comment.context, pageW - 40);
                             doc.text(lines, 18, cy + 4);
@@ -312,7 +313,7 @@
                             doc.setFontSize(7.5);
                             doc.setFont("helvetica", "bold");
                             doc.setTextColor(21, 128, 61);
-                            doc.text("Points forts :", 18, cy);
+                            doc.text(L.strengths, 18, cy);
                             doc.setFont("helvetica", "normal");
                             doc.setTextColor(30, 80, 30);
                             const lines = doc.splitTextToSize(comment.positivePoints, pageW - 40);
@@ -324,7 +325,7 @@
                             doc.setFontSize(7.5);
                             doc.setFont("helvetica", "bold");
                             doc.setTextColor(194, 65, 12);
-                            doc.text("Axes d'amélioration :", 18, cy);
+                            doc.text(L.improvementAreas, 18, cy);
                             doc.setFont("helvetica", "normal");
                             doc.setTextColor(80, 30, 10);
                             const lines = doc.splitTextToSize(comment.negativePoints, pageW - 40);
@@ -345,7 +346,7 @@
                         doc.setFont("helvetica", "italic");
                         doc.setTextColor(130, 130, 130);
                         doc.text(
-                            `Évaluation par ${comment.authorLabel || "N/A"}`,
+                            `${L.evaluationBy}${comment.authorLabel || "N/A"}`,
                             pageW - 18, cy + 3, { align: "right" }
                         );
                         cy += 6;
@@ -358,23 +359,27 @@
             return y;
         }
 
-        function pdfDrawRecapTable(doc, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones) {
+        function pdfDrawRecapTable(doc, L, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones) {
+            const lang = L === PDF_I18N.en ? 'en' : 'fr';
+            const eduLabels = EDU_LEVEL_LABELS_I18N[lang];
+            const missionLabels = MISSION_COUNT_LABELS_I18N[lang];
+
             y = pdfEnsureSpace(doc, y, 40);
-            y = pdfDrawSectionTitle(doc, "Récapitulatif Expérience", y);
+            y = pdfDrawSectionTitle(doc, L.sectionRecap, y);
 
             const recapBody = [
-                ["Expérience ALIMA", pdfFormatExpAlima(expAlima)],
-                ["Expérience humanitaire", pdfFormatExpAlima(expHum)],
-                ["Nombre de missions ALIMA", MISSION_COUNT_LABELS[nbMissions] || pdfFormatMissions(nbMissions)],
-                ["Niveau d'études", EDU_LEVEL_LABELS[eduLvl] || "N/A"],
+                [L.fieldExpAlima, capHumaFormatExpDuration(expAlima, lang)],
+                [L.fieldExpHumRecap, capHumaFormatExpDuration(expHum, lang)],
+                [L.fieldMissionsAlimaRecap, missionLabels[nbMissions] || pdfFormatMissions(nbMissions)],
+                [L.fieldEduLevel, eduLabels[eduLvl] || "N/A"],
             ];
-            if (keySkills.length > 0) recapBody.push(["Compétences clés", keySkills.join(", ")]);
-            if (contexts.length > 0) recapBody.push(["Contextes d'intervention", contexts.join(", ")]);
-            if (zones.length > 0) recapBody.push(["Zones géographiques", zones.join(", ")]);
+            if (keySkills.length > 0) recapBody.push([L.fieldKeySkillsRecap, keySkills.join(", ")]);
+            if (contexts.length > 0) recapBody.push([L.fieldInterventionContexts, contexts.join(", ")]);
+            if (zones.length > 0) recapBody.push([L.fieldGeoZones, zones.join(", ")]);
 
             doc.autoTable({
                 startY: y,
-                head: [["Critère", "Valeur"]],
+                head: [[L.recapCriterion, L.recapValue]],
                 body: recapBody,
                 theme: "striped",
                 headStyles: { fillColor: PDF_ALIMA_BLUE, textColor: 255, fontStyle: "bold", fontSize: 9 },
@@ -388,7 +393,7 @@
             return y;
         }
 
-        function pdfDrawFooter(doc, y, pageW) {
+        function pdfDrawFooter(doc, L, y, pageW) {
             y = pdfEnsureSpace(doc, y, 20);
             doc.setDrawColor(200, 200, 200);
             doc.setLineWidth(0.3);
@@ -398,8 +403,8 @@
             doc.setFontSize(8);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(130, 130, 130);
-            const generatedDate = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
-            doc.text(`Carte générée le ${generatedDate} — ALIMA TalentHub`, pageW / 2, y, { align: "center" });
+            const generatedDate = new Date().toLocaleDateString(L.locale, { year: 'numeric', month: 'long', day: 'numeric' });
+            doc.text(L.generatedOn(generatedDate), pageW / 2, y, { align: "center" });
 
             const totalPages = doc.getNumberOfPages();
             for (let i = 1; i <= totalPages; i++) {
@@ -407,13 +412,15 @@
                 doc.setFontSize(7);
                 doc.setFont("helvetica", "normal");
                 doc.setTextColor(150, 150, 150);
-                doc.text(`Page ${i}/${totalPages}`, pageW - 14, doc.internal.pageSize.getHeight() - 8, { align: "right" });
+                doc.text(L.page(i, totalPages), pageW - 14, doc.internal.pageSize.getHeight() - 8, { align: "right" });
             }
 
             return y;
         }
 
-        function exportTalentCardPDF(talent, currentPosition) {
+        // lang : 'fr' (défaut) ou 'en' — voir shared/caphuma-export-i18n.js.
+        function exportTalentCardPDF(talent, currentPosition, lang = 'fr') {
+            const L = PDF_I18N[lang] || PDF_I18N.fr;
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
             const pageW = doc.internal.pageSize.getWidth();
@@ -435,20 +442,20 @@
             const contexts = talent.intervention_contexts || talent.interventionContexts || [];
             const zones = talent.intervention_zones || talent.interventionZones || [];
 
-            let y = pdfDrawHeader(doc, talent, fName, lName, fFunction);
+            let y = pdfDrawHeader(doc, L, talent, fName, lName, fFunction);
 
-            y = pdfDrawGeneralInfoSection(doc, y, talent, COL_LEFT, COL_MID);
-            y = pdfDrawExperienceSection(doc, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate);
-            y = pdfDrawEducationSection(doc, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills);
-            y = pdfDrawGeoLanguagesSection(doc, y, pageW, COL_LEFT, COL_MID, talent, cRes);
-            y = pdfDrawInterventionSection(doc, y, pageW, contexts, zones);
-            y = pdfDrawMissionHistorySection(doc, y, pageW, talent, currentPosition);
-            y = pdfDrawRecapTable(doc, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones);
-            y = pdfDrawFooter(doc, y, pageW);
+            y = pdfDrawGeneralInfoSection(doc, L, y, talent, COL_LEFT, COL_MID);
+            y = pdfDrawExperienceSection(doc, L, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate);
+            y = pdfDrawEducationSection(doc, L, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills);
+            y = pdfDrawGeoLanguagesSection(doc, L, y, pageW, COL_LEFT, COL_MID, talent, cRes);
+            y = pdfDrawInterventionSection(doc, L, y, pageW, contexts, zones);
+            y = pdfDrawMissionHistorySection(doc, L, y, pageW, talent, currentPosition);
+            y = pdfDrawRecapTable(doc, L, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones);
+            y = pdfDrawFooter(doc, L, y, pageW);
 
             const safeFirst = (fName || "talent").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
             const safeLast = (lName || "").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            const fileName = `talent-${safeFirst}${safeLast ? '-' + safeLast : ''}.pdf`;
+            const fileName = `talent-${safeFirst}${safeLast ? '-' + safeLast : ''}${lang === 'en' ? '-en' : ''}.pdf`;
             doc.save(fileName);
         }
 

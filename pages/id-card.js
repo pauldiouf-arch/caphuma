@@ -488,19 +488,52 @@ const IdCardPage = {};
         }
 
         function bindPdfButton() {
+            bindPdfLangToggle();
             document.getElementById('pdf-btn').onclick = async () => {
                 try {
+                    const lang = capHumaGetExportLang();
                     await capHumaLoadScriptOnce('shared/vendor/jspdf-2.5.1.js');
                     await capHumaLoadScriptOnce('shared/vendor/jspdf-autotable-3.5.29.js');
-                    IdCardPage.exportTalentCardPDF(talent, activeMission);
-                    toastMessage("Document PDF généré et téléchargé.", "success");
+                    IdCardPage.exportTalentCardPDF(talent, activeMission, lang);
+                    toastMessage(lang === 'en' ? "PDF document generated and downloaded." : "Document PDF généré et téléchargé.", "success");
                     const fullName = `${talent.first_name || ''} ${talent.last_name || ''}`.trim() || null;
-                    await logAuditAction('export', 'talent', IdCardPage.talentId, fullName, 'Export PDF de la fiche');
+                    await logAuditAction('export', 'talent', IdCardPage.talentId, fullName, `Export PDF de la fiche (${lang.toUpperCase()})`);
                 } catch (err) {
                     console.error("Erreur génération PDF :", err);
                     toastMessage("Échec de la génération du PDF.", "error");
                 }
             };
+        }
+
+        // Interrupteur FR|EN : ne déclenche aucune génération, se contente de
+        // mémoriser le choix (capHumaSetExportLang) lu au clic sur "Fiche PDF"
+        // ci-dessus. Un clic sur la langue déjà active ne fait rien d'observable.
+        function bindPdfLangToggle() {
+            const btnFr = document.getElementById('pdf-lang-fr');
+            const btnEn = document.getElementById('pdf-lang-en');
+            if (!btnFr || !btnEn) return;
+
+            const activeClasses = ['bg-primary', 'text-white'];
+            const inactiveClasses = ['bg-white', 'text-slate-600'];
+
+            function applyState(lang) {
+                const isFr = lang !== 'en';
+                btnFr.classList.remove(...activeClasses, ...inactiveClasses);
+                btnEn.classList.remove(...activeClasses, ...inactiveClasses);
+                btnFr.classList.add(...(isFr ? activeClasses : inactiveClasses));
+                btnEn.classList.add(...(isFr ? inactiveClasses : activeClasses));
+                btnFr.setAttribute('aria-pressed', String(isFr));
+                btnEn.setAttribute('aria-pressed', String(!isFr));
+            }
+
+            applyState(capHumaGetExportLang());
+
+            [btnFr, btnEn].forEach(btn => {
+                btn.addEventListener('click', () => {
+                    capHumaSetExportLang(btn.dataset.lang);
+                    applyState(btn.dataset.lang);
+                });
+            });
         }
 
         function bindPrintButton() {
