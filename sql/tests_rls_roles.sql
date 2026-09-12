@@ -114,9 +114,10 @@ declare
     v_token_user_id            uuid;
 
     -- variables de travail reutilisees test apres test
-    v_count  int;
-    v_rows   int;
-    v_log_id uuid;
+    v_count       int;
+    v_rows        int;
+    v_log_id      uuid;
+    v_total_users int;
 begin
     select session_user into v_admin_role;
 
@@ -414,6 +415,11 @@ begin
     -- TESTS EN TANT QUE ADMIN
     -- =================================================================
     perform set_config('role', v_admin_role, true);
+
+    -- Vrai total actuel, mesure ici en bypass RLS (donc fiable quel que
+    -- soit le nombre reel de comptes) plutot qu'un seuil fige a comparer.
+    select count(*) into v_total_users from users;
+
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_admin_id), true);
     perform set_config('role', 'authenticated', true);
 
@@ -422,8 +428,8 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || 'A3-30 ECHEC - admin voit 0 ligne (attendu >= 1)' || chr(10); end if;
 
     select count(*) into v_count from users;
-    if v_count >= 6 then v_ok := v_ok + 1; v_report := v_report || format('A3-31 OK - admin voit %s ligne(s) dans users (toutes les fiches)', v_count) || chr(10);
-    else v_fail := v_fail + 1; v_report := v_report || format('A3-31 ECHEC - admin voit %s ligne(s) (attendu >= 6)', v_count) || chr(10); end if;
+    if v_count = v_total_users then v_ok := v_ok + 1; v_report := v_report || format('A3-31 OK - admin voit %s ligne(s) dans users (toutes les fiches)', v_count) || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-31 ECHEC - admin voit %s ligne(s) sur %s au total (devrait voir toutes les fiches)', v_count, v_total_users) || chr(10); end if;
 
     delete from talents where id = v_dummy_talent_id;
     get diagnostics v_rows = row_count;
