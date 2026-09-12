@@ -23,11 +23,11 @@
 -- provoque TOUJOURS une erreur volontaire a la toute fin (raise
 -- exception), qu'il y ait des tests en echec ou non — c'est le seul
 -- moyen fiable de forcer l'annulation de toutes les ecritures de test
--- (bascule Liste Rouge/devalidation temporaire, INSERT/UPDATE/DELETE de
--- test) sans dependre d'un BEGIN/ROLLBACK ecrit comme instruction a
--- part (qui recreerait le probleme initial). CONSEQUENCE VISIBLE : le
--- dernier message affiche par l'editeur sera TOUJOURS une erreur rouge,
--- meme quand tout va bien. Ce n'est pas un bug.
+-- (talents/commentaires/evaluations/jetons crees pour le test) sans
+-- dependre d'un BEGIN/ROLLBACK ecrit comme instruction a part (qui
+-- recreerait le probleme initial). CONSEQUENCE VISIBLE : le dernier
+-- message affiche par l'editeur sera TOUJOURS une erreur rouge, meme
+-- quand tout va bien. Ce n'est pas un bug.
 --
 -- COMMENT EXECUTER : coller ce fichier en entier (uniquement ce bloc,
 -- rien avant ni apres — pas de "begin;"/"rollback;" ajoute autour) dans
@@ -47,18 +47,19 @@
 --   - Une ligne "A3-06 IGNORE" est neutre (ni succes ni echec) : le
 --     test n'a pas pu s'executer, voir le detail sur la ligne.
 --
--- IDENTIFIANTS UTILISES (comptes reels au 18/08/2026, jamais modifies
--- pour de vrai) :
---   admin   : 010e9996-cfed-4b32-880e-9a66c6b8f8f9 (paul.diouf@alima.ngo)
---   user    : cfe9e9ca-5cd3-403f-b66a-fc955acf8b14 (ibrahima.ciss@alima.ngo)
---   visitor : 2493fcae-b17b-4bd0-9af3-0f02b3d83898 (sdferto@gmail.com,
---             compte de test cree le 18/08/2026 specifiquement pour A3)
---
--- TALENTS UTILISES (comptes reels, bascules TEMPORAIREMENT le temps du
--- bloc, jamais modifies pour de vrai grace au rollback force) :
---   e4599905-5ffa-4b7f-a059-fb01b24ff5fb (Aissatou Ba)   -> Liste Rouge temporaire
---   13fa2e10-c98b-46fa-aee8-3d5100555b64 (Ibrahima FIRST) -> devalide temporaire
---   b83e9f6e-a43a-4fdc-9b9e-5c77663cc74e (Paul FIRST)     -> temoin, jamais touche
+-- IDENTIFIANTS UTILISES (v3 — reecrit le 12/09/2026, chantier PII-1) :
+-- Ce fichier ne contient plus aucun UUID, nom ou email reel. Au lieu de
+-- cibler des comptes et des fiches talents specifiques codes en dur, le
+-- bloc SETUP ci-dessous :
+--   - retrouve dynamiquement le premier compte de chaque role (admin,
+--     user, visitor) present dans la table users ;
+--   - cree lui-meme 3 fiches talents factices (Liste Rouge / devalidee /
+--     temoin) au lieu de basculer temporairement des fiches reelles.
+-- Consequence pratique : un compte de test du role "visitor" doit
+-- exister dans la base pour que ce script fonctionne (le role "visitor"
+-- n'etant pas garanti d'avoir un titulaire reel en permanence). S'il
+-- n'en existe pas, le script s'arrete proprement des le SETUP avec un
+-- message explicite plutot que d'echouer plus loin de facon confuse.
 --
 -- LIMITES ASSUMEES :
 --   - `evaluations` : insertion de test protegee par gestion d'erreur,
@@ -87,6 +88,21 @@ declare
     v_report text := '';
     v_final_message text;
 
+    -- comptes utilises pour simuler chaque role, resolus dynamiquement
+    -- au debut du SETUP (voir bloc S0 ci-dessous) — jamais codes en dur
+    v_admin_id      uuid;
+    v_admin_email   text;
+    v_user_id       uuid;
+    v_user_email    text;
+    v_visitor_id    uuid;
+    v_visitor_email text;
+
+    -- talents factices crees pour le test (voir S1/S2/S3) — jamais de
+    -- fiche reelle manipulee
+    v_talent_redlisted_id   uuid;
+    v_talent_devalidated_id uuid;
+    v_talent_control_id     uuid;
+
     -- identifiants crees pendant le setup, reutilises dans les tests
     v_dummy_talent_id          uuid;
     v_comment_redlisted_id     uuid;
@@ -108,39 +124,62 @@ begin
     -- SETUP — execute sous le role de session (bypass RLS)
     -- =================================================================
 
-    -- S1/S2 : bascule temporaire des deux talents reels
-    update talents set is_red_listed = true, red_list_reason = 'TEST RLS temporaire (A3)'
-    where id = 'e4599905-5ffa-4b7f-a059-fb01b24ff5fb';
+    -- S0 : resolution dynamique d'un compte de chaque role. Le premier
+    -- compte trouve par role est utilise ; peu importe qui il est,
+    -- seul son role compte pour ce test.
+    select id, email into v_admin_id, v_admin_email
+        from users where role = 'admin' order by created_at limit 1;
+    select id, email into v_user_id, v_user_email
+        from users where role = 'user' order by created_at limit 1;
+    select id, email into v_visitor_id, v_visitor_email
+        from users where role = 'visitor' order by created_at limit 1;
 
-    update talents set is_valid = false
-    where id = '13fa2e10-c98b-46fa-aee8-3d5100555b64';
+    if v_admin_id is null or v_user_id is null or v_visitor_id is null then
+        raise exception 'A3 SETUP IMPOSSIBLE : au moins un compte de chaque role (admin, user, visitor) doit exister dans la table users pour lancer ce test. Manquant -> admin:%, user:%, visitor:%',
+            (v_admin_id is null), (v_user_id is null), (v_visitor_id is null);
+    end if;
 
-    -- S3 : talent factice dedie aux tests d'ecriture
+    -- S1/S2/S3 : trois talents factices dedies au test, crees ici et
+    -- detruits par le rollback force en fin de bloc — jamais de fiche
+    -- reelle manipulee, contrairement a la v2 de ce script.
+    insert into talents (first_name, last_name, pool, is_red_listed, red_list_reason)
+    values ('TEST-A3', 'REDLISTED', 'COLOG', true, 'TEST RLS temporaire (A3)')
+    returning id into v_talent_redlisted_id;
+
+    insert into talents (first_name, last_name, pool, is_valid)
+    values ('TEST-A3', 'DEVALIDATED', 'COLOG', false)
+    returning id into v_talent_devalidated_id;
+
+    insert into talents (first_name, last_name, pool)
+    values ('TEST-A3', 'CONTROL', 'COLOG')
+    returning id into v_talent_control_id;
+
+    -- S4 : talent factice dedie aux tests d'ecriture
     insert into talents (first_name, last_name, pool)
     values ('TEST-A3', 'DUMMY-ECRITURE', 'COLOG')
     returning id into v_dummy_talent_id;
 
-    -- S4/S5/S6 : commentaires de test
+    -- S5/S6/S7 : commentaires de test
     insert into comments (talent_id, user_id, content, author_email)
-    values ('e4599905-5ffa-4b7f-a059-fb01b24ff5fb', '010e9996-cfed-4b32-880e-9a66c6b8f8f9',
-            'TEST RLS temporaire - commentaire sur talent Liste Rouge', 'paul.diouf@alima.ngo')
+    values (v_talent_redlisted_id, v_admin_id,
+            'TEST RLS temporaire - commentaire sur talent Liste Rouge', v_admin_email)
     returning id into v_comment_redlisted_id;
 
     insert into comments (talent_id, user_id, content, author_email)
-    values ('b83e9f6e-a43a-4fdc-9b9e-5c77663cc74e', '010e9996-cfed-4b32-880e-9a66c6b8f8f9',
-            'TEST RLS temporaire - commentaire sur talent temoin', 'paul.diouf@alima.ngo')
+    values (v_talent_control_id, v_admin_id,
+            'TEST RLS temporaire - commentaire sur talent temoin', v_admin_email)
     returning id into v_comment_control_id;
 
     insert into comments (talent_id, user_id, content, author_email)
-    values ('b83e9f6e-a43a-4fdc-9b9e-5c77663cc74e', 'cfe9e9ca-5cd3-403f-b66a-fc955acf8b14',
-            'TEST RLS temporaire - commentaire du user de test', 'ibrahima.ciss@alima.ngo')
+    values (v_talent_control_id, v_user_id,
+            'TEST RLS temporaire - commentaire du user de test', v_user_email)
     returning id into v_comment_owned_by_user_id;
 
-    -- S7 : evaluation de test, protegee (nullabilite de mission_id non confirmee)
+    -- S8 : evaluation de test, protegee (nullabilite de mission_id non confirmee)
     begin
         insert into evaluations (talent_id, author_id, context, author_email)
-        values ('13fa2e10-c98b-46fa-aee8-3d5100555b64', '010e9996-cfed-4b32-880e-9a66c6b8f8f9',
-                'TEST RLS temporaire - evaluation sur talent devalide', 'paul.diouf@alima.ngo')
+        values (v_talent_devalidated_id, v_admin_id,
+                'TEST RLS temporaire - evaluation sur talent devalide', v_admin_email)
         returning id into v_eval_devalidated_id;
         v_eval_setup_ok := true;
     exception when others then
@@ -148,35 +187,35 @@ begin
         v_report := v_report || format('Setup evaluations ECHEC (%s) - le test A3-06 sera IGNORE', sqlerrm) || chr(10);
     end;
 
-    -- S8/S9 : jetons de partage de test
+    -- S9/S10 : jetons de partage de test
     insert into share_tokens (token, talent_id, created_by, created_by_name, expires_at)
-    values ('test-a3-admin-' || gen_random_uuid()::text, 'b83e9f6e-a43a-4fdc-9b9e-5c77663cc74e',
-            '010e9996-cfed-4b32-880e-9a66c6b8f8f9', 'TEST A3 Admin', now() + interval '7 days')
+    values ('test-a3-admin-' || gen_random_uuid()::text, v_talent_control_id,
+            v_admin_id, 'TEST A3 Admin', now() + interval '7 days')
     returning id into v_token_admin_id;
 
     insert into share_tokens (token, talent_id, created_by, created_by_name, expires_at)
-    values ('test-a3-user-' || gen_random_uuid()::text, 'b83e9f6e-a43a-4fdc-9b9e-5c77663cc74e',
-            'cfe9e9ca-5cd3-403f-b66a-fc955acf8b14', 'TEST A3 User', now() + interval '7 days')
+    values ('test-a3-user-' || gen_random_uuid()::text, v_talent_control_id,
+            v_user_id, 'TEST A3 User', now() + interval '7 days')
     returning id into v_token_user_id;
 
-    v_report := v_report || 'Setup termine (talent factice, 3 commentaires, jetons de partage, evaluation si possible)' || chr(10);
+    v_report := v_report || 'Setup termine (comptes resolus par role, 3 talents factices, talent d''ecriture, 3 commentaires, jetons de partage, evaluation si possible)' || chr(10);
 
     -- =================================================================
-    -- TESTS EN TANT QUE VISITOR (2493fcae-b17b-4bd0-9af3-0f02b3d83898)
+    -- TESTS EN TANT QUE VISITOR
     -- =================================================================
-    perform set_config('request.jwt.claims', '{"sub":"2493fcae-b17b-4bd0-9af3-0f02b3d83898","role":"authenticated"}', true);
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_visitor_id), true);
     perform set_config('role', 'authenticated', true);
 
     -- --- talents : visibilite ---
-    select count(*) into v_count from talents where id = 'e4599905-5ffa-4b7f-a059-fb01b24ff5fb';
+    select count(*) into v_count from talents where id = v_talent_redlisted_id;
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-01 OK - visitor ne voit pas le talent Liste Rouge' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-01 ECHEC - visitor voit %s ligne(s) du talent Liste Rouge (attendu 0)', v_count) || chr(10); end if;
 
-    select count(*) into v_count from talents where id = '13fa2e10-c98b-46fa-aee8-3d5100555b64';
+    select count(*) into v_count from talents where id = v_talent_devalidated_id;
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-02 OK - visitor ne voit pas le talent devalide' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-02 ECHEC - visitor voit %s ligne(s) du talent devalide (attendu 0)', v_count) || chr(10); end if;
 
-    select count(*) into v_count from talents where id = 'b83e9f6e-a43a-4fdc-9b9e-5c77663cc74e';
+    select count(*) into v_count from talents where id = v_talent_control_id;
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-03 OK - visitor voit bien le talent temoin (sanity check)' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-03 ECHEC - visitor voit %s ligne(s) du talent temoin (attendu 1)', v_count) || chr(10); end if;
 
@@ -228,8 +267,8 @@ begin
     -- --- comments : ecriture interdite ---
     begin
         insert into comments (talent_id, user_id, content, author_email)
-        values ('b83e9f6e-a43a-4fdc-9b9e-5c77663cc74e', '2493fcae-b17b-4bd0-9af3-0f02b3d83898',
-                'TEST visitor insert', 'sdferto@gmail.com');
+        values (v_talent_control_id, v_visitor_id,
+                'TEST visitor insert', v_visitor_email);
         v_fail := v_fail + 1; v_report := v_report || 'A3-10 ECHEC - visitor a reussi a inserer un commentaire' || chr(10);
     exception when others then
         v_ok := v_ok + 1; v_report := v_report || 'A3-10 OK - INSERT bloque comme attendu' || chr(10);
@@ -265,7 +304,7 @@ begin
 
     begin
         insert into audit_logs (user_id, user_email, action, entity_type, entity_name)
-        values ('2493fcae-b17b-4bd0-9af3-0f02b3d83898', 'sdferto@gmail.com', 'test_a3', 'test', 'test');
+        values (v_visitor_id, v_visitor_email, 'test_a3', 'test', 'test');
         v_ok := v_ok + 1; v_report := v_report || 'A3-15 OK - visitor a bien pu journaliser sa propre action' || chr(10);
     exception when others then
         v_fail := v_fail + 1; v_report := v_report || format('A3-15 ECHEC - INSERT bloque alors qu''il devrait etre autorise (%s)', sqlerrm) || chr(10);
@@ -273,7 +312,7 @@ begin
 
     begin
         insert into audit_logs (user_id, user_email, action, entity_type, entity_name)
-        values ('010e9996-cfed-4b32-880e-9a66c6b8f8f9', 'paul.diouf@alima.ngo', 'test_a3_usurpation', 'test', 'test');
+        values (v_admin_id, v_admin_email, 'test_a3_usurpation', 'test', 'test');
         v_fail := v_fail + 1; v_report := v_report || 'A3-16 ECHEC - visitor a reussi a usurper un autre user_id' || chr(10);
     exception when others then
         v_ok := v_ok + 1; v_report := v_report || 'A3-16 OK - usurpation bloquee comme attendu' || chr(10);
@@ -285,7 +324,7 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-17 ECHEC - visitor voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
 
     begin
-        update users set role = 'admin' where id = '2493fcae-b17b-4bd0-9af3-0f02b3d83898';
+        update users set role = 'admin' where id = v_visitor_id;
         get diagnostics v_rows = row_count;
         if v_rows = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-18 OK - auto-promotion bloquee (0 ligne)' || chr(10);
         else v_fail := v_fail + 1; v_report := v_report || format('A3-18 ECHEC - visitor a modifie son role sur %s ligne(s)', v_rows) || chr(10); end if;
@@ -301,13 +340,13 @@ begin
     end;
 
     -- =================================================================
-    -- TESTS EN TANT QUE USER (cfe9e9ca-5cd3-403f-b66a-fc955acf8b14 - Ibrahima Ciss)
+    -- TESTS EN TANT QUE USER
     -- =================================================================
     perform set_config('role', v_admin_role, true);
-    perform set_config('request.jwt.claims', '{"sub":"cfe9e9ca-5cd3-403f-b66a-fc955acf8b14","role":"authenticated"}', true);
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
     perform set_config('role', 'authenticated', true);
 
-    select count(*) into v_count from talents where id = 'e4599905-5ffa-4b7f-a059-fb01b24ff5fb';
+    select count(*) into v_count from talents where id = v_talent_redlisted_id;
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-20 OK - user voit le talent Liste Rouge (restriction visitor uniquement)' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-20 ECHEC - user voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
 
@@ -359,7 +398,7 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-27 ECHEC - user voit %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
 
     begin
-        update users set role = 'admin' where id = 'cfe9e9ca-5cd3-403f-b66a-fc955acf8b14';
+        update users set role = 'admin' where id = v_user_id;
         get diagnostics v_rows = row_count;
         if v_rows = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-28 OK - auto-promotion bloquee (0 ligne)' || chr(10);
         else v_fail := v_fail + 1; v_report := v_report || format('A3-28 ECHEC - user a modifie son role sur %s ligne(s)', v_rows) || chr(10); end if;
@@ -372,10 +411,10 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-29 ECHEC - user voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
 
     -- =================================================================
-    -- TESTS EN TANT QUE ADMIN (010e9996-cfed-4b32-880e-9a66c6b8f8f9 - Paul Diouf)
+    -- TESTS EN TANT QUE ADMIN
     -- =================================================================
     perform set_config('role', v_admin_role, true);
-    perform set_config('request.jwt.claims', '{"sub":"010e9996-cfed-4b32-880e-9a66c6b8f8f9","role":"authenticated"}', true);
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_admin_id), true);
     perform set_config('role', 'authenticated', true);
 
     select count(*) into v_count from audit_logs;
