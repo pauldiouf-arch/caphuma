@@ -91,6 +91,23 @@
                 if (poolsVentiles.length > 0) {
                     payload.repartitionParPool = poolsVentiles;
                 }
+
+                // Un seul agrégat, jamais ventilé par pool (voir le commentaire de
+                // computePoolBreakdown() ci-dessus) : la nationalité de quelqu'un dans
+                // un petit pool reste protégée même en vue globale. Même seuil
+                // d'anonymat que l'analyse par pool (StatisticsPage.
+                // AI_DIVERSITY_MIN_ACTIVE_TALENTS), appliqué ici sur l'effectif actif
+                // total de l'organisation plutôt que celui d'un seul pool.
+                const activeTalentsGlobal = StatisticsPage.computeActiveTalents(talents);
+                if (activeTalentsGlobal.length >= StatisticsPage.AI_DIVERSITY_MIN_ACTIVE_TALENTS) {
+                    const repartitionNationalites = {};
+                    activeTalentsGlobal.forEach(t => {
+                        if (!t.nationality_code) return;
+                        const label = CapHumaCountries.getNationality(t.nationality_code) || t.nationality_code;
+                        repartitionNationalites[label] = (repartitionNationalites[label] || 0) + 1;
+                    });
+                    payload.repartitionNationalites = repartitionNationalites;
+                }
             }
 
             return payload;

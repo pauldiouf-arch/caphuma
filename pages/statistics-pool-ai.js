@@ -351,4 +351,8 @@
 
         // Exposé sur StatisticsPage pour appel depuis statistics-charts.js
         StatisticsPage.updatePoolAiAnalysisVisibility = updatePoolAiAnalysisVisibility;
+        // Exposés pour réutilisation par statistics-ai-report.js (agrégat global) :
+        // même seuil, même définition de "actif", une seule source pour les deux.
+        StatisticsPage.AI_DIVERSITY_MIN_ACTIVE_TALENTS = AI_DIVERSITY_MIN_ACTIVE_TALENTS;
+        StatisticsPage.computeActiveTalents = computeActiveTalents;
 })();
