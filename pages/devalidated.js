@@ -145,6 +145,7 @@
                 (c) => c.from('talents')
                     .select('id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission, red_list_documents', { count: 'exact' })
                     .eq('is_valid', false)
+                    .eq('staff_type', 'expat')
                     .order('devalidation_date', { ascending: false }),
                 supabaseClient,
                 pageState.devalidatedPage,
@@ -175,7 +176,7 @@
         async function loadAndRenderFiltered() {
             const { data, error } = await CapHumaData.getTalents(supabaseClient, {
                 select: 'id, first_name, last_name, pool, is_red_listed, devalidation_date, months_without_mission, red_list_documents',
-                filters: { is_valid: false },
+                filters: { is_valid: false, staff_type: 'expat' },
                 orderBy: ['devalidation_date', false]
             });
 

@@ -149,7 +149,7 @@ const TalentsPage = {};
                 // du select resterait silencieusement vide à l'édition.
                 const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {
                     orderBy: 'last_name',
-                    filters: TalentsPage.currentPoolId ? { pool: TalentsPage.currentPoolId } : {}
+                    filters: TalentsPage.currentPoolId ? { pool: TalentsPage.currentPoolId } : { staff_type: 'expat' }
                 });
                 if (error) throw error;
                 TalentsPage.allTalents = data || [];
@@ -190,6 +190,7 @@ const TalentsPage = {};
                         .range(from, to);
 
                     if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
+                    else query = query.eq('staff_type', 'expat');
                     if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
 
                     // Répété ici côté serveur (filterTalents() ne couvre que le mode
@@ -795,6 +796,7 @@ const TalentsPage = {};
                         // complète via Object.keys(talent).
                         let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa').order(sortColumn, { ascending });
                         if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
+                        else query = query.eq('staff_type', 'expat');
                         if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
                         return query;
                     });

@@ -111,7 +111,7 @@
                 console.error('[Import] Erreur de chargement des pools :', err);
             }
             try {
-                const { data, error } = await CapHumaData.getTalents(supabaseClient, { select: 'email' });
+                const { data, error } = await CapHumaData.getTalents(supabaseClient, { select: 'email', filters: { staff_type: 'expat' } });
                 if (error) throw error;
                 cachedExistingEmails = new Set((data || []).map(t => (t.email || '').trim().toLowerCase()).filter(Boolean));
             } catch (err) {
