@@ -31,7 +31,19 @@ const DESK_LABELS = {
 
 const CANDIDATE_TYPE_LABELS = {
     expat: 'Expatrié',
-    nat: 'National'
+    nat: 'National',
+    detache: 'Détachement'
+};
+
+const STAFF_TYPE_LABELS = {
+    expat: 'Expatrié',
+    national: 'National'
+};
+
+const CONTRACT_END_TYPE_LABELS = {
+    date: 'Date fixe',
+    cdi: 'CDI',
+    ongoing: 'En cours'
 };
 
 const CONTRACT_STATUS_LABELS = {
