@@ -101,7 +101,7 @@
             // Répartition par pays
             const byCountry = {};
             MissionsPage.currentMissions.forEach(m => {
-                const c = m.country || 'Non précisé';
+                const c = CapHumaCountries.getCountryName(m.country_code) || 'Non précisé';
                 byCountry[c] = (byCountry[c] || 0) + 1;
             });
             document.getElementById('statByCountry').innerHTML = Object.entries(byCountry)
@@ -187,7 +187,7 @@
                             <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-slate-100 text-slate-600 shrink-0">${escapeHtml(statusLabel)}</span>
                         </div>
                         ${isExpiredUnconfirmed ? `<p class="text-[11px] font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2 py-1 mb-2">🔴 Contrat expiré le ${escapeHtml(formatDate(mission.contract_end_date))} — statut à mettre à jour d'urgence</p>` : ''}
-                        <p class="text-xs text-slate-500 font-semibold">${escapeHtml(mission.location)}, ${escapeHtml(mission.country)}</p>
+                        <p class="text-xs text-slate-500 font-semibold">${escapeHtml(mission.location)}, ${escapeHtml(CapHumaCountries.getCountryName(mission.country_code) || '')}</p>
                         ${mission.project_name ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHtml(mission.project_name)}</p>` : ''}
                         <div class="flex flex-wrap gap-1.5 mt-3">
                             ${mission.pool_level ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-primary">${escapeHtml(MissionsPage.POOL_LEVEL_LABELS[mission.pool_level] || mission.pool_level)}</span>` : ''}

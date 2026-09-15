@@ -15,6 +15,13 @@
             });
         });
 
+        const nationalitySelect = document.getElementById('field-nationality');
+        nationalitySelect.innerHTML = '<option value="">— Sélectionner —</option>' +
+            CapHumaCountries.getAll().map(c => {
+                const label = c.nationalityFr.charAt(0).toUpperCase() + c.nationalityFr.slice(1);
+                return `<option value="${c.code}">${escapeHtml(label)}</option>`;
+            }).join('');
+
         function resetTabsToFirst() {
             document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== '1'));

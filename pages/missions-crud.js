@@ -16,6 +16,9 @@
         const projectNameField = document.getElementById('projectNameField');
         const fieldProjectName = document.getElementById('fieldProjectName');
 
+        document.getElementById('fieldCountry').innerHTML = '<option value="">— Sélectionner —</option>' +
+            CapHumaCountries.getAll().map(c => `<option value="${c.code}">${escapeHtml(c.nameFr)}</option>`).join('');
+
         function toggleProjectNameField() {
             if (fieldPoolLevel.value === 'project') {
                 projectNameField.classList.remove('hidden');
@@ -66,7 +69,7 @@
             document.getElementById('fieldTitle').value = mission.title || '';
             document.getElementById('fieldPoolLevel').value = mission.pool_level || 'mission';
             document.getElementById('fieldStatus').value = mission.status || 'vacant';
-            document.getElementById('fieldCountry').value = mission.country || '';
+            document.getElementById('fieldCountry').value = mission.country_code || '';
             document.getElementById('fieldLocation').value = mission.location || '';
             document.getElementById('fieldProjectName').value = mission.project_name || '';
             document.getElementById('fieldCandidateType').value = mission.candidate_type || '';
@@ -108,7 +111,7 @@
                 pool: MissionsPage.currentPoolId,
                 pool_level: document.getElementById('fieldPoolLevel').value,
                 status: selectedStatus,
-                country: document.getElementById('fieldCountry').value.trim(),
+                country_code: document.getElementById('fieldCountry').value.trim(),
                 location: document.getElementById('fieldLocation').value.trim(),
                 project_name: document.getElementById('fieldProjectName').value.trim() || null,
                 candidate_type: candidateType,
@@ -126,7 +129,7 @@
                 future_contract_end_date: document.getElementById('fieldFutureContractEnd').value || null,
             };
 
-            if (!payload.title || !payload.country || !payload.location) {
+            if (!payload.title || !payload.country_code || !payload.location) {
                 formError.textContent = "Le titre, le pays et le lieu sont obligatoires.";
                 formError.classList.remove('hidden');
                 return;

@@ -75,7 +75,7 @@ const MissionsPage = {};
         // (loadMissions() et le rafraîchissement dans processExpiredMissions()),
         // pour qu'ils restent synchronisés : un champ manquant s'ajoute ici, une
         // seule fois, plutôt que dans les deux requêtes séparément.
-        MissionsPage.MISSIONS_COLUMNS = 'id, title, pool, pool_level, status, country, location, project_name, candidate_type, desk, occupant_id, contract_start_date, contract_end_date, contract_status, future_talent_id, future_contract_start_date, future_contract_end_date';
+        MissionsPage.MISSIONS_COLUMNS = 'id, title, pool, pool_level, status, country, country_code, location, project_name, candidate_type, desk, occupant_id, contract_start_date, contract_end_date, contract_status, future_talent_id, future_contract_start_date, future_contract_end_date';
         MissionsPage.poolTalents = []; // talents du pool, pour les listes déroulantes occupant / futur occupant
         MissionsPage.talentNameById = {};
 
@@ -341,7 +341,7 @@ const MissionsPage = {};
                 const passage = {
                     positionTitle: mission.title,
                     pool: mission.pool,
-                    country: mission.country,
+                    country: CapHumaCountries.getCountryName(mission.country_code) || null,
                     desk: mission.desk || null,
                     startDate: mission.contract_start_date || null,
                     endDate: exitDate,

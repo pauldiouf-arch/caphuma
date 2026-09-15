@@ -164,10 +164,10 @@
             return y;
         }
 
-        function pdfDrawGeoLanguagesSection(doc, L, y, pageW, COL_LEFT, COL_MID, talent, cRes) {
+        function pdfDrawGeoLanguagesSection(doc, L, lang, y, pageW, COL_LEFT, COL_MID, talent, cRes) {
             y = pdfEnsureSpace(doc, y, 30);
             y = pdfDrawSectionTitle(doc, L.sectionGeoLanguages, y);
-            const l7 = pdfDrawField(doc, L.fieldNationality, talent.nationality || "N/A", COL_LEFT, y, 85);
+            const l7 = pdfDrawField(doc, L.fieldNationality, CapHumaCountries.getNationality(talent.nationality_code, lang) || "N/A", COL_LEFT, y, 85);
             const m7 = pdfDrawField(doc, L.fieldCountryResidence, cRes, COL_MID, y, 80);
             y = Math.max(l7, m7) + 3;
 
@@ -245,7 +245,7 @@
                     doc.setTextColor(80, 80, 80);
                     const details = [];
                     if (currentPosition.pool_id || currentPosition.pool) details.push(currentPosition.pool_id || currentPosition.pool);
-                    if (currentPosition.country) details.push(currentPosition.country);
+                    if (currentPosition.country_code) details.push(CapHumaCountries.getCountryName(currentPosition.country_code, lang));
                     const startD = currentPosition.contract_start_date || currentPosition.contractStartDate;
                     if (startD) details.push(`${L.since}${new Date(startD).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' })}`);
                     doc.text(details.join("  |  "), 18, y + 11);
@@ -447,7 +447,7 @@
             y = pdfDrawGeneralInfoSection(doc, L, y, talent, COL_LEFT, COL_MID);
             y = pdfDrawExperienceSection(doc, L, y, COL_LEFT, COL_MID, expAlima, expHum, nbMissions, intDate);
             y = pdfDrawEducationSection(doc, L, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills);
-            y = pdfDrawGeoLanguagesSection(doc, L, y, pageW, COL_LEFT, COL_MID, talent, cRes);
+            y = pdfDrawGeoLanguagesSection(doc, L, lang, y, pageW, COL_LEFT, COL_MID, talent, cRes);
             y = pdfDrawInterventionSection(doc, L, y, pageW, contexts, zones);
             y = pdfDrawMissionHistorySection(doc, L, y, pageW, talent, currentPosition);
             y = pdfDrawRecapTable(doc, L, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones);

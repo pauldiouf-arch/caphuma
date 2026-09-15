@@ -53,7 +53,7 @@
                         <div class="space-y-1">
                             <span class="inline-block text-[10px] uppercase font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">En cours</span>
                             <h4 class="font-bold text-slate-900">${escapeHtml(mission.title)}</h4>
-                            <p class="text-xs text-slate-500">${escapeHtml(mission.country)} • Prise de poste le ${startStr}</p>
+                            <p class="text-xs text-slate-500">${escapeHtml(CapHumaCountries.getCountryName(mission.country_code) || '')} • Prise de poste le ${startStr}</p>
                         </div>
                     </div>
                 `;
@@ -110,7 +110,7 @@
 
             document.getElementById('info-email').textContent = talent.email || "N/A";
             document.getElementById('info-gender').textContent = talent.gender === "H" ? "Homme" : talent.gender === "F" ? "Femme" : "N/A";
-            document.getElementById('info-nationality').textContent = talent.nationality || "N/A";
+            document.getElementById('info-nationality').textContent = CapHumaCountries.getNationality(talent.nationality_code) || "N/A";
             document.getElementById('info-residence').textContent = talent.country_of_residence || "N/A";
             document.getElementById('info-visa').textContent = talent.has_visa ? "Valide" : "Non valide / N/A";
             const langs = Array.isArray(talent.languages) ? talent.languages.join(", ") : (talent.languages || "N/A");

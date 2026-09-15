@@ -575,7 +575,7 @@ const TalentsPage = {};
 
             if (f.nationalityFilter) {
                 const q = f.nationalityFilter.toLowerCase();
-                filtered = filtered.filter(t => (t.nationality || '').toLowerCase().includes(q));
+                filtered = filtered.filter(t => (CapHumaCountries.getNationality(t.nationality_code) || '').toLowerCase().includes(q));
             }
 
             if (f.countryFilter) {
@@ -794,7 +794,7 @@ const TalentsPage = {};
                         // fetchPagedTalents : ces lignes ne servent qu'au mapping Excel,
                         // jamais à TalentsPage.openEditModal() qui a besoin de la ligne
                         // complète via Object.keys(talent).
-                        let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa').order(sortColumn, { ascending });
+                        let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality_code, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa').order(sortColumn, { ascending });
                         if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                         else query = query.eq('staff_type', 'expat');
                         if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
@@ -822,7 +822,7 @@ const TalentsPage = {};
                         'Prénom(s) et Nom': `${t.first_name || ''} ${t.last_name || ''}`.trim(),
                         'Genre': t.gender === 'H' ? 'Homme' : t.gender === 'F' ? 'Femme' : 'N/A',
                         'Adresse mail': t.email || 'N/A',
-                        'Nationalité': t.nationality || 'N/A',
+                        'Nationalité': CapHumaCountries.getNationality(t.nationality_code) || 'N/A',
                         'Pool': t.pool || '',
                         'Date fin dernière mission ALIMA': t.last_mission_end_date ? new Date(t.last_mission_end_date).toLocaleDateString('fr-FR') : 'N/A',
                         'Expérience ALIMA (mois)': t.experience_months_alima || 0,
