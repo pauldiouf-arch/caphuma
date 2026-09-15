@@ -148,6 +148,17 @@
             return { value: isSet ? rawValue : allowedValues[rawValue], error: null };
         }
 
+        // absent → pas d'erreur, code null ; présent et reconnu par le référentiel
+        // (shared/caphuma-countries.js) → code ISO ; présent et non reconnu → erreur
+        // nommant la valeur refusée. Même sémantique que validateOptionalEnumField()
+        // ci-dessus, mais résolu dynamiquement plutôt que contre une liste fixe.
+        function validateOptionalCountryField(rawValue, fieldLabel) {
+            if (!rawValue) return { value: null, error: null };
+            const code = CapHumaCountries.findCodeByText(rawValue);
+            if (!code) return { value: null, error: `${fieldLabel} "${rawValue}" non reconnu(e)` };
+            return { value: code, error: null };
+        }
+
         const TALENT_OPTIONAL_ENUM_FIELDS = [
             { key: 'education_level', label: "Niveau d'études", allowed: EDU_LEVELS_VALID },
             { key: 'has_visa', label: 'Visa', allowed: HAS_VISA_LABEL_TO_BOOL },
@@ -203,6 +214,9 @@
                 enumResults[key] = value;
             });
 
+            const nationalityResult = validateOptionalCountryField(get('nationality'), 'Nationalité');
+            if (nationalityResult.error) errors.push(nationalityResult.error);
+
             let availDate = null;
             if (enumResults.availability_type === 'date') {
                 availDate = parseDateCell(raw['availability_date']);
@@ -246,7 +260,7 @@
                 email: email || null,
                 pool: pool ? String(pool).toUpperCase() : null,
                 gender: gender || null,
-                nationality: get('nationality') || null,
+                nationality_code: nationalityResult.value,
                 country_of_residence: get('country_of_residence') || null,
                 current_function: get('current_function') || null,
                 education_level: enumResults.education_level,
@@ -516,7 +530,12 @@
             else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
                 errors.push(`Pool "${pool}" inconnu`);
             }
+            let countryCode = null;
             if (!country) errors.push('Pays manquant');
+            else {
+                countryCode = CapHumaCountries.findCodeByText(country);
+                if (!countryCode) errors.push(`Pays "${country}" non reconnu`);
+            }
             if (!location) errors.push('Lieu manquant');
 
             const poolLevelRaw = get('pool_level');
@@ -559,7 +578,7 @@
                 pool: pool ? String(pool).toUpperCase() : null,
                 pool_level: poolLevel,
                 status: status,
-                country: country || null,
+                country_code: countryCode,
                 location: location || null,
                 project_name: get('project_name') || null,
                 candidate_type: enumResults.candidate_type,
@@ -656,7 +675,7 @@
                                     <td class="px-3 py-2 text-slate-600">${r.rowNumber}</td>
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.title || '')}</td>
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.pool || '')}</td>
-                                    <td class="px-3 py-2">${escapeHtml(((r.normalized.location || '') + ' — ' + (r.normalized.country || '')))}</td>
+                                    <td class="px-3 py-2">${escapeHtml(((r.normalized.location || '') + ' — ' + (CapHumaCountries.getCountryName(r.normalized.country_code) || '')))}</td>
                                     <td class="px-3 py-2">
                                         ${r.errors.length === 0
                                             ? '<span class="text-emerald-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
