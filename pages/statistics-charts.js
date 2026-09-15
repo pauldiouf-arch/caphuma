@@ -137,7 +137,7 @@
 
             const byCountry = {};
             mData.forEach(m => {
-                const c = m.country || 'Non précisé';
+                const c = CapHumaCountries.getCountryName(m.country_code) || 'Non précisé';
                 byCountry[c] = (byCountry[c] || 0) + 1;
             });
             document.getElementById('stat-by-country').innerHTML = Object.entries(byCountry)
@@ -248,16 +248,17 @@
             });
             renderGenderChart(genderDist);
 
-            // Nationalité en texte libre, pas de nombre de valeurs distinctes borné :
-            // on garde les NATIONALITY_CHART_TOP_N plus représentées, le reste regroupé
-            // sous "Autres", et un bucket "Non renseigné" séparé et explicite.
+            // Nationalité regroupée par code (shared/caphuma-countries.js) plutôt que
+            // par texte brut : plus de fragmentation entre variantes d'orthographe.
             const counts = {};
             let nonRenseigne = 0;
             activeTalents.forEach(t => {
-                if (!t.nationality) { nonRenseigne++; return; }
-                counts[t.nationality] = (counts[t.nationality] || 0) + 1;
+                if (!t.nationality_code) { nonRenseigne++; return; }
+                counts[t.nationality_code] = (counts[t.nationality_code] || 0) + 1;
             });
-            const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            const sorted = Object.entries(counts)
+                .map(([code, count]) => [CapHumaCountries.getNationality(code) || code, count])
+                .sort((a, b) => b[1] - a[1]);
             const top = sorted.slice(0, NATIONALITY_CHART_TOP_N);
             const othersTotal = sorted.slice(NATIONALITY_CHART_TOP_N).reduce((sum, [, c]) => sum + c, 0);
             renderNationalityChart(top, othersTotal, nonRenseigne);

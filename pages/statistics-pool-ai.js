@@ -66,7 +66,7 @@
 
             const positionsByCountry = {};
             mData.forEach(m => {
-                const c = m.country || 'Non précisé';
+                const c = CapHumaCountries.getCountryName(m.country_code) || 'Non précisé';
                 positionsByCountry[c] = (positionsByCountry[c] || 0) + 1;
             });
 
@@ -151,8 +151,9 @@
 
             const nationalityDistribution = {};
             activeTalents.forEach(t => {
-                if (!t.nationality) return;
-                nationalityDistribution[t.nationality] = (nationalityDistribution[t.nationality] || 0) + 1;
+                if (!t.nationality_code) return;
+                const label = CapHumaCountries.getNationality(t.nationality_code) || t.nationality_code;
+                nationalityDistribution[label] = (nationalityDistribution[label] || 0) + 1;
             });
 
             // `languages` est un tableau côté talents.

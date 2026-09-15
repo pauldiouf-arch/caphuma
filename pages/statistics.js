@@ -129,7 +129,7 @@ const StatisticsPage = {};
             // absente) : la détection "colonne absente vs vide" plus bas
             // (hasCandidateTypeColumn) continue de fonctionner à l'identique.
             const { data: talents, error: et } = await CapHumaData.getTalents(StatisticsPage.supabaseClient, {
-                select: 'pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality, languages',
+                select: 'pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality_code, languages',
                 filters: { staff_type: 'expat' }
             });
             if (et) throw et;
@@ -138,7 +138,7 @@ const StatisticsPage = {};
             const { data: mData, error: em } = await capHumaWithRetry(() =>
                 StatisticsPage.supabaseClient
                     .from('missions')
-                    .select('pool, pool_id, status, candidate_type, contract_start_date, contract_end_date, contract_status, country, desk, future_talent_id')
+                    .select('pool, pool_id, status, candidate_type, contract_start_date, contract_end_date, contract_status, country_code, desk, future_talent_id')
             );
             if (em) throw em;
             StatisticsPage.rawMissions = mData || [];
