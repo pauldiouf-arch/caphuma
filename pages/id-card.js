@@ -413,11 +413,13 @@ const IdCardPage = {};
 
         function renderTalentCard() {
             populateTalentIdentity();
-            const isInvalid = renderTalentValidityBar();
+            const isNational = talent.staff_type === 'national';
+            document.getElementById('validity-progress-container').classList.toggle('hidden', isNational);
+            const isInvalid = isNational ? false : renderTalentValidityBar();
             populateTalentInfoFields();
             renderTalentTimeline();
 
-            setupAdminActions(isInvalid);
+            setupAdminActions(isInvalid, isNational);
             bindButtonListeners(); // après le rendu du profil : les éléments DOM doivent exister
         }
 
@@ -445,7 +447,7 @@ const IdCardPage = {};
             });
         }
 
-        function setupAdminActions(isInvalid) {
+        function setupAdminActions(isInvalid, isNational) {
             const btnManageMissions = document.getElementById('btn-manage-missions');
             const btnDevalidate = document.getElementById('btn-devalidate');
             const btnRevalidate = document.getElementById('btn-revalidate');
@@ -454,7 +456,13 @@ const IdCardPage = {};
 
             btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || '');
 
-            if (isInvalid) {
+            if (isNational) {
+                // Ni pool à changer, ni dévalidation/prolongation : ce cycle de vie
+                // n'existe pas encore pour un staff national (étape 6 du chantier).
+                btnDevalidate.classList.add('hidden');
+                btnRevalidate.classList.add('hidden');
+                document.getElementById('btn-change-pool').classList.add('hidden');
+            } else if (isInvalid) {
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.remove('hidden');
             } else {
@@ -470,7 +478,7 @@ const IdCardPage = {};
                 document.getElementById('share-btn').classList.add('hidden');
             } else {
                 btnRedlist.classList.remove('hidden');
-                document.getElementById('btn-change-pool').classList.remove('hidden');
+                if (!isNational) document.getElementById('btn-change-pool').classList.remove('hidden');
                 document.getElementById('share-btn').classList.remove('hidden');
             }
 
