@@ -382,7 +382,7 @@ const TalentsPage = {};
                                 <span class="mx-1.5 text-slate-300">·</span>
                                 <span class="font-semibold text-slate-500">Disponible :</span> ${escapeHtml(formatAvailabilityLabel(t))}
                             </p>
-                            ${TalentsPage.renderInlineValidityBar(t)}
+                            ${t.staff_type === 'national' ? '' : TalentsPage.renderInlineValidityBar(t)}
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
