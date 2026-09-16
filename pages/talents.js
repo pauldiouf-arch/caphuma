@@ -8,9 +8,9 @@ const TalentsPage = {};
             subtitleId: 'poolSubtitle',
             subtitle: 'Chargement du pool...',
             actionsHtml: `
-                <a id="newNationalStaffLink" class="hidden bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 px-4 py-2.5 rounded-lg text-sm font-bold transition-all inline-flex items-center gap-2">
+                <button id="newNationalStaffLink" type="button" class="hidden bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 px-4 py-2.5 rounded-lg text-sm font-bold transition-all inline-flex items-center gap-2">
                     ＋ Nouveau staff national
-                </a>
+                </button>
                 <button id="newTalentBtn" class="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2">
                     ＋ Nouveau talent
                 </button>
@@ -26,18 +26,11 @@ const TalentsPage = {};
         TalentsPage.currentPoolId = urlParams.get('pool');
         TalentsPage.isNationalScope = urlParams.get('scope') === 'national';
 
-        // N'ajoute jamais que la classe hidden, ne la retire jamais : validityIndicator
-        // porte déjà sa propre logique d'affichage (populateBasicFields), sans lien avec
-        // le scope de la page.
-        if (TalentsPage.isNationalScope) {
-            document.querySelectorAll('.pool-only-field').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.national-only-field').forEach(el => el.classList.remove('hidden'));
-        } else if (TalentsPage.currentPoolId) {
-            // Raccourci de création depuis la page d'un pool précis (jamais en mode
-            // "tous les pools", où il n'y aurait pas de pool de suivi à préremplir).
-            const link = document.getElementById('newNationalStaffLink');
-            link.href = `talents.html?scope=national&pool=${encodeURIComponent(TalentsPage.currentPoolId)}`;
-            link.classList.remove('hidden');
+        // Le formulaire pool/national se configure à chaque ouverture de modale
+        // (openCreateModal/openEditModal dans talents-modal.js), pas ici : un staff
+        // national peut être créé depuis la page d'un pool, sans changer de scope.
+        if (TalentsPage.currentPoolId && !TalentsPage.isNationalScope) {
+            document.getElementById('newNationalStaffLink').classList.remove('hidden');
         }
 
         const appBody = document.getElementById('appBody');
@@ -70,15 +63,17 @@ const TalentsPage = {};
                 document.getElementById('newTalentBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');
                 if (TalentsPage.isNationalScope) {
                     document.getElementById('newTalentBtn').textContent = '＋ Nouveau staff national';
+                }
+                if (TalentsPage.currentUserRole !== 'visitor') {
                     await populateTrackingPoolOptions();
                 }
 
                 appBody.style.display = '';
                 await loadPoolInfo();
-                await loadTalents();
                 if (!TalentsPage.isNationalScope && TalentsPage.currentPoolId) {
                     await loadTrackedNationalStaff();
                 }
+                await loadTalents();
             } catch (err) {
                 console.warn("[Session Guard]", err.message);
                 window.location.replace('login.html');
@@ -108,49 +103,21 @@ const TalentsPage = {};
             }
         }
 
-        // Section distincte, non paginée (effectif attendu faible), à part de la
-        // liste principale du pool : évite de mélanger deux requêtes différentes
-        // dans une même pagination. Actifs et archivés confondus, avec distinction
-        // visuelle — voir échange du 15/09/2026, un staff nat suivi par ce pool doit
-        // y rester visible pendant les 2 ans avant purge, poste ou non.
+        // Effectif attendu faible, non paginé — chargé une fois, filtré et fusionné
+        // dans renderTalents() à chaque rendu, avec le même filtre de validité que
+        // la liste principale (voir échange du 15/09/2026 : réutiliser le filtre
+        // existant plutôt qu'une section à part avec sa propre logique).
         async function loadTrackedNationalStaff() {
-            const section = document.getElementById('trackedNationalStaffSection');
-            const listEl = document.getElementById('trackedNationalStaffList');
             try {
                 const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {
                     orderBy: 'last_name',
                     filters: { staff_type: 'national', tracking_pool: TalentsPage.currentPoolId }
                 });
                 if (error) throw error;
-                if (!data || data.length === 0) { section.classList.add('hidden'); return; }
-
-                listEl.innerHTML = data.map(t => {
-                    const idKey = t.id || t._id;
-                    const archived = t.is_valid === false;
-                    return `
-                        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-4">
-                            <div class="flex items-start gap-3 min-w-0 flex-1">
-                                <div class="h-10 w-10 rounded-full bg-amber-100 text-amber-800 font-extrabold flex items-center justify-center shrink-0">
-                                    ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <a href="id-card.html?id=${encodeURIComponent(idKey)}" class="talent-name-hover block font-bold text-slate-800 hover:text-primary hover:underline truncate">
-                                        ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')}
-                                    </a>
-                                    <p class="text-xs text-slate-500 truncate mt-0.5">
-                                        <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
-                                    </p>
-                                </div>
-                            </div>
-                            <span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full ${archived ? 'bg-slate-200 text-slate-600' : 'bg-amber-100 text-amber-800'}">
-                                Staff national${archived ? ' · archivé' : ''}
-                            </span>
-                        </div>`;
-                }).join('');
-                section.classList.remove('hidden');
+                TalentsPage.trackedNationalStaff = data || [];
             } catch (err) {
                 console.error(err);
-                section.classList.add('hidden');
+                TalentsPage.trackedNationalStaff = [];
             }
         }
 
@@ -395,6 +362,49 @@ const TalentsPage = {};
         document.querySelector('main').addEventListener('scroll', hideHoverCard);
         window.addEventListener('resize', hideHoverCard);
 
+        // Ligne pour un staff national suivi par ce pool — même interaction que les
+        // lignes normales (édition, lien vers la fiche), mais jamais de jauge de
+        // validité ni d'actions dévalider/prolonger, qui n'ont pas de sens pour lui.
+        function buildTrackedNationalRow(t) {
+            const row = document.createElement('div');
+            const archived = t.is_valid === false;
+            const idKey = t.id || t._id;
+            const canManage = TalentsPage.currentUserRole !== 'visitor';
+
+            row.className = "bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-sm transition-all";
+            row.innerHTML = `
+                <div class="flex items-start gap-3 min-w-0 flex-1">
+                    <div class="h-10 w-10 rounded-full bg-amber-100 text-amber-800 font-extrabold flex items-center justify-center shrink-0 mt-0.5">
+                        ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <a href="id-card.html?id=${encodeURIComponent(idKey)}" class="block font-bold text-slate-800 hover:text-primary hover:underline truncate">
+                            ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')}
+                        </a>
+                        <p class="text-xs text-slate-500 truncate mt-0.5">
+                            <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    <span class="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full ${archived ? 'bg-slate-200 text-slate-600' : 'bg-amber-100 text-amber-800'}">
+                        Staff national${archived ? ' · archivé' : ''}
+                    </span>
+                    ${canManage ? `
+                    <button class="edit-btn p-2 hover:bg-amber-100 rounded-xl text-amber-700 transition-all" title="Modifier">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg>
+                    </button>` : ''}
+                </div>
+            `;
+
+            const editBtn = row.querySelector('.edit-btn');
+            if (editBtn) editBtn.addEventListener('click', () => TalentsPage.openEditModal(t));
+
+            return row;
+        }
+
         function renderTalents(talents, append = false) {
             const listEl = document.getElementById('talentsList');
             const emptyEl = document.getElementById('emptyState');
@@ -402,9 +412,24 @@ const TalentsPage = {};
             if (!append) {
                 listEl.innerHTML = '';
                 TalentsPage.renderedTalentsCount = 0;
+
+                // Fusionnés ici, une seule fois par rendu complet (jamais en pagination
+                // "Afficher plus") : mêmes filtres de validité que la liste principale,
+                // pour que le filtre déjà en place s'applique aussi à eux plutôt que
+                // d'avoir leur propre logique séparée.
+                const tracked = (TalentsPage.trackedNationalStaff || []).filter(t => {
+                    if (TalentsPage.searchFilters.validityFilter === 'active') return t.is_valid !== false;
+                    if (TalentsPage.searchFilters.validityFilter === 'devalidated') return t.is_valid === false;
+                    return true;
+                });
+                if (tracked.length > 0) {
+                    const trackedFragment = document.createDocumentFragment();
+                    tracked.forEach(t => trackedFragment.appendChild(buildTrackedNationalRow(t)));
+                    listEl.appendChild(trackedFragment);
+                }
             }
 
-            if (!talents.length) {
+            if (!talents.length && !(TalentsPage.trackedNationalStaff || []).length) {
                 emptyEl.classList.remove('hidden');
                 updateShowMoreControls(talents);
                 return;

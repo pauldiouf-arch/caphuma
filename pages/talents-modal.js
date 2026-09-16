@@ -394,13 +394,24 @@
         const formError = document.getElementById('formError');
         let editingTalentId = null;
 
-        function openCreateModal() {
+        // Appelé à chaque ouverture de modale (création ou édition), jamais une
+        // seule fois au chargement de la page : un staff national suivi par un pool
+        // peut être créé ou édité depuis la page de ce pool, sans changer de scope.
+        function applyStaffTypeFieldVisibility(isNational) {
+            document.querySelectorAll('.pool-only-field').forEach(el => el.classList.toggle('hidden', isNational));
+            document.querySelectorAll('.national-only-field').forEach(el => el.classList.toggle('hidden', !isNational));
+        }
+
+        function openCreateModal(forceNational) {
             editingTalentId = null;
             talentForm.reset();
-            if (TalentsPage.isNationalScope && TalentsPage.currentPoolId) {
+            const creatingNational = forceNational === true || TalentsPage.isNationalScope;
+            TalentsPage.creatingNationalStaff = creatingNational;
+            applyStaffTypeFieldVisibility(creatingNational);
+            if (creatingNational && TalentsPage.currentPoolId) {
                 document.getElementById('field-tracking-pool').value = TalentsPage.currentPoolId;
             }
-            document.getElementById('modalTitle').textContent = 'Nouveau talent';
+            document.getElementById('modalTitle').textContent = creatingNational ? 'Nouveau staff national' : 'Nouveau talent';
             document.querySelectorAll('.tags-wrap').forEach(w => w.innerHTML = '');
             document.getElementById('trainingsList').innerHTML = '';
             document.getElementById('availabilityMonthsWrap').classList.add('hidden');
@@ -508,6 +519,8 @@
         function openEditModal(talent) {
             editingTalentId = talent.id;
             talentForm.reset();
+            TalentsPage.creatingNationalStaff = false; // ne concerne que la création
+            applyStaffTypeFieldVisibility(talent.staff_type === 'national');
             document.getElementById('modalTitle').textContent = `${talent.first_name} ${talent.last_name}`;
 
             populateBasicFields(talent);
@@ -522,7 +535,8 @@
             talentModal.classList.remove('hidden');
         }
 
-        document.getElementById('newTalentBtn').addEventListener('click', openCreateModal);
+        document.getElementById('newTalentBtn').addEventListener('click', () => openCreateModal());
+        document.getElementById('newNationalStaffLink').addEventListener('click', () => openCreateModal(true));
         document.getElementById('closeModalBtn').addEventListener('click', () => {
             talentModal.classList.add('hidden');
             stopTalentDraftTracking();
@@ -577,7 +591,7 @@
                     if (error) throw error;
                     // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 } else {
-                    if (TalentsPage.isNationalScope) {
+                    if (TalentsPage.creatingNationalStaff) {
                         payload.pool = null;
                         payload.staff_type = 'national';
                     } else {
