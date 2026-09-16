@@ -176,6 +176,20 @@ Données consolidées du pool (${statsSummary.pool}) :
                     `quand tu compares ou désignes un pool précis) :\n${lignes}`;
             }
 
+            // Agrégat global de nationalités — voir buildAnonymizedPayload() pour le
+            // pourquoi (seuil d'anonymat, jamais ventilé par pool). Absent du payload
+            // si le seuil n'est pas atteint ou si personne n'a de nationalité renseignée.
+            let nationalitesBloc = "";
+            if (statsSummary.repartitionNationalites && Object.keys(statsSummary.repartitionNationalites).length > 0) {
+                const lignesNat = Object.entries(statsSummary.repartitionNationalites)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([nat, count]) => `${nat} : ${count}`)
+                    .join(", ");
+                nationalitesBloc = `\n\nRépartition des nationalités (talents actifs, toute ` +
+                    `l'organisation, jamais par pool pour préserver l'anonymat des petits ` +
+                    `effectifs) : ${lignesNat}`;
+            }
+
             // La question passe EN TÊTE du prompt — pesée plus lourd que le reste du
             // cadrage, pour éviter des réponses trop proches d'une question à l'autre.
             // Sans question saisie, la consigne générale ci-dessous est utilisée.
@@ -187,7 +201,7 @@ Données consolidées du pool (${statsSummary.pool}) :
                 : `Analyse la santé du pool et formule des recommandations, à partir des ` +
                   `données ci-dessous.`;
 
-            return `${objectif}\n\n${systemContext}${ventilationBloc}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
+            return `${objectif}\n\n${systemContext}${ventilationBloc}${nationalitesBloc}\n\nRéponds en français, de manière structurée avec des puces et du gras.`;
         }
 
         async function generateAIReport(customQuery = "") {
