@@ -14,6 +14,9 @@
 --     une consultation qui échoue ensuite n'est plus comptée comme une vue.
 --   - ORDER BY ajouté avant LIMIT 1 sur la mission affichée — déterministe
 --     même si plusieurs lignes "occupied" existaient par anomalie de données.
+-- Mise à jour le 15/09/2026 (chantier staffs nationaux/détachements, étape 2
+-- point 3, voir staff_national_detachement_etape2_get_shared_talent.sql) :
+-- nationality_code et country_code ajoutés aux deux objets JSON retournés.
 -- ============================================================================
 
 create or replace function public.is_admin()
@@ -70,6 +73,7 @@ BEGIN
         'email', t.email,
         'gender', t.gender,
         'nationality', t.nationality,
+        'nationality_code', t.nationality_code,
         'country_of_residence', t.country_of_residence,
         'has_visa', t.has_visa,
         'languages', t.languages,
@@ -102,6 +106,7 @@ BEGIN
     SELECT jsonb_build_object(
         'title', m.title,
         'country', m.country,
+        'country_code', m.country_code,
         'contract_start_date', m.contract_start_date
     ) INTO v_mission
     FROM public.missions m
