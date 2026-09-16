@@ -574,7 +574,12 @@
                     if (error) throw error;
                     // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 } else {
-                    payload.pool = TalentsPage.currentPoolId;
+                    if (TalentsPage.isNationalScope) {
+                        payload.pool = null;
+                        payload.staff_type = 'national';
+                    } else {
+                        payload.pool = TalentsPage.currentPoolId;
+                    }
                     payload.created_by = TalentsPage.currentUserId;
                     payload.is_valid = true;
                     // Pas de capHumaWithRetry() : talents n'a aucune contrainte UNIQUE,
