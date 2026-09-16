@@ -210,14 +210,20 @@ const IdCardPage = {};
             const fFunction = talent.current_function || talent.currentFunction || "N/A";
             const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
 
-            document.getElementById('back-btn-text').textContent = `Retour au pool ${talent.pool}`;
+            // Un staff national n'a jamais de talent.pool (NULL par construction) —
+            // le pool de suivi (tracking_pool) prend le relais pour "d'où revenir" et
+            // quoi afficher, sans jamais écrire dans talent.pool lui-même.
+            const effectivePool = talent.pool || talent.tracking_pool || null;
+            const poolLabel = talent.pool ? talent.pool : (talent.tracking_pool ? `${talent.tracking_pool} (suivi)` : null);
+
+            document.getElementById('back-btn-text').textContent = effectivePool ? `Retour au pool ${effectivePool}` : 'Retour';
             document.getElementById('back-btn').onclick = () => {
-                window.location.href = `talents.html?pool=${encodeURIComponent(talent.pool)}`;
+                window.location.href = effectivePool ? `talents.html?pool=${encodeURIComponent(effectivePool)}` : 'talents.html?scope=national';
             };
 
             document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "N/A";
             document.getElementById('talent-function').textContent = fFunction;
-            document.getElementById('talent-pool-display').textContent = `Pool : ${talent.pool || '—'}`;
+            document.getElementById('talent-pool-display').textContent = `Pool : ${poolLabel || '—'}`;
 
             const expAlimaYears = Math.floor(expAlima / 12);
             const expAlimaRem = expAlima % 12;
@@ -454,7 +460,7 @@ const IdCardPage = {};
             const btnRedlist = document.getElementById('btn-redlist');
             const btnDeleteTalent = document.getElementById('btn-delete-talent');
 
-            btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || '');
+            btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || talent.tracking_pool || '');
 
             if (isNational) {
                 // Ni pool à changer, ni dévalidation/prolongation : ce cycle de vie
