@@ -8,6 +8,9 @@ const TalentsPage = {};
             subtitleId: 'poolSubtitle',
             subtitle: 'Chargement du pool...',
             actionsHtml: `
+                <a id="newNationalStaffLink" class="hidden bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 px-4 py-2.5 rounded-lg text-sm font-bold transition-all inline-flex items-center gap-2">
+                    ＋ Nouveau staff national
+                </a>
                 <button id="newTalentBtn" class="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2">
                     ＋ Nouveau talent
                 </button>
@@ -28,6 +31,13 @@ const TalentsPage = {};
         // le scope de la page.
         if (TalentsPage.isNationalScope) {
             document.querySelectorAll('.pool-only-field').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.national-only-field').forEach(el => el.classList.remove('hidden'));
+        } else if (TalentsPage.currentPoolId) {
+            // Raccourci de création depuis la page d'un pool précis (jamais en mode
+            // "tous les pools", où il n'y aurait pas de pool de suivi à préremplir).
+            const link = document.getElementById('newNationalStaffLink');
+            link.href = `talents.html?scope=national&pool=${encodeURIComponent(TalentsPage.currentPoolId)}`;
+            link.classList.remove('hidden');
         }
 
         const appBody = document.getElementById('appBody');
@@ -58,10 +68,17 @@ const TalentsPage = {};
                 // Confort d'affichage : la policy RLS sur talents (insert) est la vraie
                 // barrière.
                 document.getElementById('newTalentBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');
+                if (TalentsPage.isNationalScope) {
+                    document.getElementById('newTalentBtn').textContent = '＋ Nouveau staff national';
+                    await populateTrackingPoolOptions();
+                }
 
                 appBody.style.display = '';
                 await loadPoolInfo();
                 await loadTalents();
+                if (!TalentsPage.isNationalScope && TalentsPage.currentPoolId) {
+                    await loadTrackedNationalStaff();
+                }
             } catch (err) {
                 console.warn("[Session Guard]", err.message);
                 window.location.replace('login.html');
@@ -75,6 +92,67 @@ const TalentsPage = {};
             await TalentsPage.supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });
+
+        // Options du menu "Pool de suivi", scope national uniquement. Peuplé une
+        // fois au chargement — la liste des pools ne change pas pendant une session.
+        async function populateTrackingPoolOptions() {
+            const select = document.getElementById('field-tracking-pool');
+            try {
+                const { data, error } = await CapHumaData.getPools(TalentsPage.supabaseClient, { select: 'pool_id, name' });
+                if (error) throw error;
+                select.innerHTML = '<option value="">— Aucun —</option>' +
+                    (data || []).map(p => `<option value="${escapeHtml(p.pool_id)}">${escapeHtml(p.name)} (${escapeHtml(p.pool_id)})</option>`).join('');
+            } catch (err) {
+                console.error(err);
+                select.innerHTML = '<option value="">— Aucun —</option>';
+            }
+        }
+
+        // Section distincte, non paginée (effectif attendu faible), à part de la
+        // liste principale du pool : évite de mélanger deux requêtes différentes
+        // dans une même pagination. Actifs et archivés confondus, avec distinction
+        // visuelle — voir échange du 15/09/2026, un staff nat suivi par ce pool doit
+        // y rester visible pendant les 2 ans avant purge, poste ou non.
+        async function loadTrackedNationalStaff() {
+            const section = document.getElementById('trackedNationalStaffSection');
+            const listEl = document.getElementById('trackedNationalStaffList');
+            try {
+                const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {
+                    orderBy: 'last_name',
+                    filters: { staff_type: 'national', tracking_pool: TalentsPage.currentPoolId }
+                });
+                if (error) throw error;
+                if (!data || data.length === 0) { section.classList.add('hidden'); return; }
+
+                listEl.innerHTML = data.map(t => {
+                    const idKey = t.id || t._id;
+                    const archived = t.is_valid === false;
+                    return `
+                        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+                            <div class="flex items-start gap-3 min-w-0 flex-1">
+                                <div class="h-10 w-10 rounded-full bg-amber-100 text-amber-800 font-extrabold flex items-center justify-center shrink-0">
+                                    ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <a href="id-card.html?id=${encodeURIComponent(idKey)}" class="talent-name-hover block font-bold text-slate-800 hover:text-primary hover:underline truncate">
+                                        ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')}
+                                    </a>
+                                    <p class="text-xs text-slate-500 truncate mt-0.5">
+                                        <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
+                                    </p>
+                                </div>
+                            </div>
+                            <span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full ${archived ? 'bg-slate-200 text-slate-600' : 'bg-amber-100 text-amber-800'}">
+                                Staff national${archived ? ' · archivé' : ''}
+                            </span>
+                        </div>`;
+                }).join('');
+                section.classList.remove('hidden');
+            } catch (err) {
+                console.error(err);
+                section.classList.add('hidden');
+            }
+        }
 
         async function loadPoolInfo() {
             const subtitle = document.getElementById('poolSubtitle');

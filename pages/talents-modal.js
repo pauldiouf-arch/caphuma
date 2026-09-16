@@ -397,6 +397,9 @@
         function openCreateModal() {
             editingTalentId = null;
             talentForm.reset();
+            if (TalentsPage.isNationalScope && TalentsPage.currentPoolId) {
+                document.getElementById('field-tracking-pool').value = TalentsPage.currentPoolId;
+            }
             document.getElementById('modalTitle').textContent = 'Nouveau talent';
             document.querySelectorAll('.tags-wrap').forEach(w => w.innerHTML = '');
             document.getElementById('trainingsList').innerHTML = '';
