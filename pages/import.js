@@ -95,7 +95,7 @@
         // Correspond exactement à la ligne 2 (noms techniques) du modèle livré —
         // ne pas modifier sans mettre à jour le modèle Excel en parallèle.
         const IMPORT_COLUMNS = [
-            'first_name', 'last_name', 'email', 'pool', 'gender', 'nationality',
+            'first_name', 'last_name', 'email', 'pool', 'staff_type', 'tracking_pool', 'gender', 'nationality',
             'country_of_residence', 'current_function', 'education_level', 'education_specialty',
             'languages', 'other_languages', 'key_skills', 'intervention_contexts', 'intervention_zones',
             'has_visa', 'pool_integration_date', 'experience_months_alima', 'experience_months_humanitarian',
@@ -111,7 +111,7 @@
                 console.error('[Import] Erreur de chargement des pools :', err);
             }
             try {
-                const { data, error } = await CapHumaData.getTalents(supabaseClient, { select: 'email', filters: { staff_type: 'expat' } });
+                const { data, error } = await CapHumaData.getTalents(supabaseClient, { select: 'email' });
                 if (error) throw error;
                 cachedExistingEmails = new Set((data || []).map(t => (t.email || '').trim().toLowerCase()).filter(Boolean));
             } catch (err) {
@@ -159,6 +159,10 @@
             return { value: code, error: null };
         }
 
+        // invertLabelMap est déclarée plus bas dans ce fichier (déclaration de fonction,
+        // hissée — utilisable ici sans souci d'ordre).
+        const STAFF_TYPE_LABEL_TO_ENUM = invertLabelMap(STAFF_TYPE_LABELS);
+
         const TALENT_OPTIONAL_ENUM_FIELDS = [
             { key: 'education_level', label: "Niveau d'études", allowed: EDU_LEVELS_VALID },
             { key: 'has_visa', label: 'Visa', allowed: HAS_VISA_LABEL_TO_BOOL },
@@ -182,9 +186,34 @@
             if (!lastName) errors.push('Nom manquant');
             if (!email) errors.push('Email manquant');
             else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email au format invalide');
-            if (!pool) errors.push('Code Pool manquant');
-            else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
-                errors.push(`Pool "${pool}" inconnu`);
+
+            // Vide -> expat (comportement par défaut, identique à avant l'ajout de cette
+            // colonne — rétrocompatible avec un fichier qui ne la remplit pas).
+            const staffTypeRaw = get('staff_type');
+            let staffType = 'expat';
+            if (staffTypeRaw) {
+                staffType = STAFF_TYPE_LABEL_TO_ENUM[staffTypeRaw];
+                if (!staffType) errors.push(`Type de staff "${staffTypeRaw}" invalide (attendu : Expatrié / National)`);
+            }
+
+            const trackingPoolRaw = get('tracking_pool');
+            let trackingPool = null;
+            if (trackingPoolRaw) {
+                if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(trackingPoolRaw).toUpperCase())) {
+                    errors.push(`Pool de suivi "${trackingPoolRaw}" inconnu`);
+                } else {
+                    trackingPool = String(trackingPoolRaw).toUpperCase();
+                }
+            }
+
+            if (staffType === 'national') {
+                if (pool) errors.push('Code Pool doit être vide pour un staff national (utiliser Pool de suivi)');
+            } else {
+                if (!pool) errors.push('Code Pool manquant');
+                else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
+                    errors.push(`Pool "${pool}" inconnu`);
+                }
+                if (trackingPoolRaw) errors.push('Pool de suivi ne doit être rempli que pour un staff national');
             }
 
             const emailLower = (email || '').toString().toLowerCase();
@@ -258,7 +287,9 @@
                 first_name: firstName || null,
                 last_name: lastName || null,
                 email: email || null,
-                pool: pool ? String(pool).toUpperCase() : null,
+                pool: staffType === 'national' ? null : (pool ? String(pool).toUpperCase() : null),
+                staff_type: staffType,
+                tracking_pool: staffType === 'national' ? trackingPool : null,
                 gender: gender || null,
                 nationality_code: nationalityResult.value,
                 country_of_residence: get('country_of_residence') || null,
@@ -366,7 +397,9 @@
                                     <td class="px-3 py-2 text-slate-600">${r.rowNumber}</td>
                                     <td class="px-3 py-2">${escapeHtml(((r.normalized.first_name || '') + ' ' + (r.normalized.last_name || '')).trim())}</td>
                                     <td class="px-3 py-2">${escapeHtml(r.normalized.email || '')}</td>
-                                    <td class="px-3 py-2">${escapeHtml(r.normalized.pool || '')}</td>
+                                    <td class="px-3 py-2">${r.normalized.staff_type === 'national'
+                                        ? `<span class="text-amber-700 font-semibold">National${r.normalized.tracking_pool ? ` (${escapeHtml(r.normalized.tracking_pool)})` : ''}</span>`
+                                        : escapeHtml(r.normalized.pool || '')}</td>
                                     <td class="px-3 py-2">
                                         ${r.errors.length === 0
                                             ? '<span class="text-emerald-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
