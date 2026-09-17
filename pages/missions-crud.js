@@ -172,8 +172,10 @@
             }
 
             // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste ?
+            // Un détachement en est exempté : le staff garde son poste national en
+            // parallèle, "libérer" ce poste national serait une erreur.
             let conflictMissionToVacate = null;
-            if (payload.status === 'occupied' && payload.occupant_id) {
+            if (payload.candidate_type !== 'detache' && payload.status === 'occupied' && payload.occupant_id) {
                 const conflict = MissionsPage.currentMissions.find(m =>
                     m.id !== missionId &&
                     m.occupant_id === payload.occupant_id &&
@@ -210,6 +212,60 @@
                         `antérieure à cette date de sortie — chevauchement. Continuer quand même ?`
                     );
                     if (!confirmed) return;
+                }
+            }
+
+            // Garde-fou 3, non bloquant (§1.3 du plan) : un poste national niveau
+            // projet accepte un expat sans la nationalité du pays, mais on le signale.
+            if (payload.candidate_type === 'nat' && payload.pool_level === 'project'
+                && payload.status === 'occupied' && payload.occupant_id) {
+                const occupant = (MissionsPage.poolTalents || []).find(t => t.id === payload.occupant_id);
+                if (occupant && occupant.staff_type !== 'national' && occupant.nationality_code !== payload.country_code) {
+                    const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
+                    const confirmed = window.confirm(
+                        `${talentLabel} n'a pas la nationalité du pays de ce poste.\n\n` +
+                        `Ce poste est de type National — si c'est voulu (un expat peut occuper un poste ` +
+                        `national), continue. Sinon, annule et repasse le poste en Expatrié.`
+                    );
+                    if (!confirmed) return;
+                }
+            }
+
+            // Garde-fou 4, non bloquant : le poste national du staff peut appartenir à
+            // un autre pool que celui affiché ici, d'où la requête dédiée plutôt qu'une
+            // recherche dans MissionsPage.currentMissions comme les 3 précédents.
+            if (payload.candidate_type === 'detache' && payload.pool_level === 'project'
+                && payload.status === 'occupied' && payload.occupant_id) {
+                const { data: nationalPost, error: natError } = await MissionsPage.supabaseClient
+                    .from('missions')
+                    .select('title, contract_end_date, contract_end_type')
+                    .eq('occupant_id', payload.occupant_id)
+                    .eq('candidate_type', 'nat')
+                    .eq('status', 'occupied')
+                    .maybeSingle();
+
+                if (natError) {
+                    console.error("Erreur de vérification du poste national sous-jacent :", natError);
+                } else {
+                    const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
+                    if (!nationalPost) {
+                        const confirmed = window.confirm(
+                            `${talentLabel} n'occupe actuellement aucun poste national.\n\n` +
+                            `Un détachement niveau projet suppose normalement un poste national existant. ` +
+                            `Continuer quand même ?`
+                        );
+                        if (!confirmed) return;
+                    } else if (nationalPost.contract_end_type === 'date' && nationalPost.contract_end_date
+                        && payload.contract_end_type === 'date' && payload.contract_end_date
+                        && nationalPost.contract_end_date < payload.contract_end_date) {
+                        const confirmed = window.confirm(
+                            `Le poste national de ${talentLabel} (« ${nationalPost.title} ») se termine le ` +
+                            `${MissionsPage.formatDate(nationalPost.contract_end_date)}, avant la fin de ce ` +
+                            `détachement (${MissionsPage.formatDate(payload.contract_end_date)}).\n\n` +
+                            `Continuer quand même ?`
+                        );
+                        if (!confirmed) return;
+                    }
                 }
             }
 
