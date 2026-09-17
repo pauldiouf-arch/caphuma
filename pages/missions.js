@@ -164,40 +164,87 @@ const MissionsPage = {};
 
         async function loadPoolTalents() {
             try {
-                // Colonnes strictement nécessaires (pas de select('*'))
-                const { data: talents, error } = await CapHumaData.getTalents(MissionsPage.supabaseClient, {
-                    select: 'id, first_name, last_name, pool',
-                    filters: { pool: MissionsPage.currentPoolId },
-                    orderBy: 'last_name'
-                });
+                // Colonnes strictement nécessaires (pas de select('*')). Les staffs nat
+                // suivis par ce pool (tracking_pool) sont chargés en plus des expats du
+                // pool (pool) — deux requêtes distinctes, staff_type et nationality_code
+                // gardés pour le filtrage dynamique de populateTalentDropdown().
+                const [expatsRes, nationalRes] = await Promise.all([
+                    CapHumaData.getTalents(MissionsPage.supabaseClient, {
+                        select: 'id, first_name, last_name, pool, staff_type, nationality_code',
+                        filters: { pool: MissionsPage.currentPoolId },
+                        orderBy: 'last_name'
+                    }),
+                    CapHumaData.getTalents(MissionsPage.supabaseClient, {
+                        select: 'id, first_name, last_name, pool, staff_type, nationality_code',
+                        filters: { staff_type: 'national', tracking_pool: MissionsPage.currentPoolId },
+                        orderBy: 'last_name'
+                    })
+                ]);
 
-                if (error) throw error;
+                if (expatsRes.error) throw expatsRes.error;
+                if (nationalRes.error) throw nationalRes.error;
 
-                MissionsPage.poolTalents = talents || [];
+                MissionsPage.poolTalents = [...(expatsRes.data || []), ...(nationalRes.data || [])];
                 MissionsPage.talentNameById = {};
                 MissionsPage.poolTalents.forEach(t => {
                     MissionsPage.talentNameById[t.id] = `${t.first_name || ''} ${t.last_name || ''}`.trim();
                 });
 
-                populateTalentDropdown('fieldOccupant', MissionsPage.poolTalents);
-                populateTalentDropdown('fieldFutureOccupant', MissionsPage.poolTalents);
+                populateTalentDropdown('fieldOccupant');
+                populateTalentDropdown('fieldFutureOccupant');
 
             } catch (error) {
                 console.error("Erreur de récupération des talents du pool :", error);
             }
         }
 
-        function populateTalentDropdown(selectId, talents) {
+        // Confort d'usage uniquement, pas une barrière (voir garde-fou réel en base,
+        // trigger trg_enforce_missions_occupant_staff_type) : applique les 5
+        // combinaisons candidate_type x pool_level du tableau du plan (§1.3). Un
+        // détachement ne s'appuie que sur pool_level = 'project' ('projet') vs tout
+        // le reste — 'mission' (pool_level) correspond au niveau coordo du plan,
+        // confirmé avec l'utilisateur le 15/09/2026.
+        function getEligibleTalents() {
+            const all = MissionsPage.poolTalents || [];
+            const candidateType = document.getElementById('fieldCandidateType').value;
+            const poolLevel = document.getElementById('fieldPoolLevel').value;
+            const countryCode = document.getElementById('fieldCountry').value;
+
+            if (candidateType === 'expat' || !candidateType) {
+                // Non précisé : comportement historique, expats uniquement.
+                return all.filter(t => t.staff_type !== 'national');
+            }
+            if (candidateType === 'nat') {
+                if (poolLevel === 'mission') {
+                    return all.filter(t => t.staff_type === 'national' || t.nationality_code === countryCode);
+                }
+                return all; // niveau projet : expats et staffs nats, sans restriction de nationalité ici
+            }
+            if (candidateType === 'detache') {
+                if (poolLevel === 'project') {
+                    return all.filter(t => t.staff_type === 'national');
+                }
+                return all; // niveau coordo : expats et staffs nats
+            }
+            return all;
+        }
+
+        function populateTalentDropdown(selectId) {
             const select = document.getElementById(selectId);
             const currentValue = select.value;
+            const eligible = getEligibleTalents();
             select.innerHTML = '<option value="">— Aucun —</option>';
-            talents.forEach(t => {
+            eligible.forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = t.id;
-                opt.textContent = `${t.first_name || ''} ${t.last_name || ''}`.trim();
+                opt.textContent = `${t.first_name || ''} ${t.last_name || ''}`.trim() + (t.staff_type === 'national' ? ' (staff national)' : '');
                 select.appendChild(opt);
             });
-            select.value = currentValue;
+            // La valeur actuelle peut ne plus être éligible après un changement de
+            // filtre (ex. on passe le poste en "Expatrié" alors qu'un staff national
+            // était sélectionné) — dans ce cas, laissée vide plutôt que de garder une
+            // valeur qui n'est plus dans le menu, silencieusement invisible.
+            select.value = eligible.some(t => t.id === currentValue) ? currentValue : '';
         }
 
         async function loadMissions() {
@@ -438,4 +485,5 @@ const MissionsPage = {};
         // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.markIncomingOccupant = markIncomingOccupant;
         MissionsPage.archiveOutgoingOccupant = archiveOutgoingOccupant;
+        MissionsPage.populateTalentDropdown = populateTalentDropdown;
 })();

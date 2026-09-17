@@ -62,6 +62,18 @@
 
         fieldContractEndType.addEventListener('change', toggleContractEndDateField);
 
+        // Confort d'usage (voir getEligibleTalents() dans missions.js) : recalculé à
+        // chaque changement d'un des 3 critères dont dépendent les 5 combinaisons du
+        // tableau du plan (§1.3) — type de poste, niveau de pool, pays du poste.
+        function refreshOccupantDropdowns() {
+            MissionsPage.populateTalentDropdown('fieldOccupant');
+            MissionsPage.populateTalentDropdown('fieldFutureOccupant');
+        }
+
+        document.getElementById('fieldCandidateType').addEventListener('change', refreshOccupantDropdowns);
+        fieldPoolLevel.addEventListener('change', refreshOccupantDropdowns);
+        document.getElementById('fieldCountry').addEventListener('change', refreshOccupantDropdowns);
+
         function openCreateModal() {
             modalTitle.textContent = 'Nouveau poste';
             missionForm.reset();
@@ -69,6 +81,7 @@
             document.getElementById('fieldPoolLevel').value = 'mission';
             document.getElementById('fieldStatus').value = 'vacant';
             document.getElementById('fieldContractEndType').value = 'date';
+            refreshOccupantDropdowns();
             toggleProjectNameField();
             toggleOccupantField();
             toggleContractEndDateField();
@@ -90,6 +103,10 @@
             document.getElementById('fieldProjectName').value = mission.project_name || '';
             document.getElementById('fieldCandidateType').value = mission.candidate_type || '';
             document.getElementById('fieldDesk').value = mission.desk || '';
+            // Options du menu occupant reconstruites AVANT de leur assigner une valeur :
+            // l'occupant réel (un staff national par ex.) doit déjà exister dans la
+            // liste au moment de l'affectation, sinon elle échoue silencieusement.
+            refreshOccupantDropdowns();
             document.getElementById('fieldOccupant').value = mission.occupant_id || '';
             document.getElementById('fieldContractStart').value = toDateInputValue(mission.contract_start_date);
             document.getElementById('fieldContractEndType').value = mission.contract_end_type || 'date';
