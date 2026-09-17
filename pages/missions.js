@@ -170,12 +170,12 @@ const MissionsPage = {};
                 // gardés pour le filtrage dynamique de populateTalentDropdown().
                 const [expatsRes, nationalRes] = await Promise.all([
                     CapHumaData.getTalents(MissionsPage.supabaseClient, {
-                        select: 'id, first_name, last_name, pool, staff_type, nationality_code',
+                        select: 'id, first_name, last_name, pool, staff_type, nationality_code, is_red_listed, is_valid',
                         filters: { pool: MissionsPage.currentPoolId },
                         orderBy: 'last_name'
                     }),
                     CapHumaData.getTalents(MissionsPage.supabaseClient, {
-                        select: 'id, first_name, last_name, pool, staff_type, nationality_code',
+                        select: 'id, first_name, last_name, pool, staff_type, nationality_code, is_red_listed, is_valid',
                         filters: { staff_type: 'national', tracking_pool: MissionsPage.currentPoolId },
                         orderBy: 'last_name'
                     })
@@ -184,7 +184,12 @@ const MissionsPage = {};
                 if (expatsRes.error) throw expatsRes.error;
                 if (nationalRes.error) throw nationalRes.error;
 
-                MissionsPage.poolTalents = [...(expatsRes.data || []), ...(nationalRes.data || [])];
+                // Ni un talent en Liste Rouge, ni un talent dévalidé ne doivent être
+                // proposables comme occupant — filtré ici plutôt que par .eq(), pour
+                // les mêmes raisons (is_red_listed vaut NULL pour la plupart des
+                // talents, NULL = false ne matche pas en SQL).
+                MissionsPage.poolTalents = [...(expatsRes.data || []), ...(nationalRes.data || [])]
+                    .filter(t => !t.is_red_listed && t.is_valid !== false);
                 MissionsPage.talentNameById = {};
                 MissionsPage.poolTalents.forEach(t => {
                     MissionsPage.talentNameById[t.id] = `${t.first_name || ''} ${t.last_name || ''}`.trim();
