@@ -214,8 +214,10 @@ const MissionsPage = {};
             const countryCode = document.getElementById('fieldCountry').value;
 
             if (candidateType === 'expat' || !candidateType) {
-                // Non précisé : comportement historique, expats uniquement.
-                return all.filter(t => t.staff_type !== 'national');
+                // Un expat de la même nationalité que le pays du poste n'a pas sa place
+                // ici — "expatrié" suppose d'être hors de son pays, quel que soit le
+                // niveau (mission ou projet).
+                return all.filter(t => t.staff_type !== 'national' && t.nationality_code !== countryCode);
             }
             if (candidateType === 'nat') {
                 // Même règle quel que soit le niveau : un poste national ne peut être
@@ -299,6 +301,7 @@ const MissionsPage = {};
             const now = Date.now();
             const toProcess = MissionsPage.currentMissions.filter(m =>
                 m.status === 'occupied' &&
+                m.contract_end_type === 'date' &&
                 m.contract_end_date &&
                 new Date(m.contract_end_date).getTime() < now &&
                 m.contract_status === 'ending'
@@ -311,6 +314,36 @@ const MissionsPage = {};
             for (const mission of toProcess) {
                 try {
                     await MissionsPage.archiveOutgoingOccupant(mission);
+
+                    // Un poste national qui se termine libère aussi le détachement
+                    // rattaché au même staff, où qu'il soit (potentiellement un autre
+                    // pool, d'où la requête dédiée) : rester en détachement sans poste
+                    // national actif derrière n'a pas de sens. Sa date de fin est
+                    // reportée à celle du poste national qui vient d'expirer plutôt que
+                    // de garder une date dans le futur qui n'aurait plus de sens.
+                    if (mission.candidate_type === 'nat' && mission.occupant_id) {
+                        const { data: linkedDetachment, error: detachError } = await capHumaWithRetry(() =>
+                            MissionsPage.supabaseClient
+                                .from('missions')
+                                .select('id, title, pool, contract_start_date, country_code, desk')
+                                .eq('occupant_id', mission.occupant_id)
+                                .eq('candidate_type', 'detache')
+                                .eq('status', 'occupied')
+                                .maybeSingle()
+                        );
+                        if (detachError) throw detachError;
+
+                        if (linkedDetachment) {
+                            await MissionsPage.archiveOutgoingOccupant({ ...linkedDetachment, occupant_id: mission.occupant_id, candidate_type: 'detache', contract_end_date: mission.contract_end_date });
+                            const { error: vacateError } = await capHumaWithRetry(() =>
+                                MissionsPage.supabaseClient
+                                    .from('missions')
+                                    .update({ status: 'vacant', occupant_id: null, contract_end_date: mission.contract_end_date })
+                                    .eq('id', linkedDetachment.id)
+                            );
+                            if (vacateError) throw vacateError;
+                        }
+                    }
 
                     if (mission.future_talent_id) {
                         const { data, error } = await capHumaWithRetry(() =>
