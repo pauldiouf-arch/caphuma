@@ -92,12 +92,11 @@
                     payload.repartitionParPool = poolsVentiles;
                 }
 
-                // Un seul agrégat, jamais ventilé par pool (voir le commentaire de
-                // computePoolBreakdown() ci-dessus) : la nationalité de quelqu'un dans
-                // un petit pool reste protégée même en vue globale. Même seuil
-                // d'anonymat que l'analyse par pool (StatisticsPage.
-                // AI_DIVERSITY_MIN_ACTIVE_TALENTS), appliqué ici sur l'effectif actif
-                // total de l'organisation plutôt que celui d'un seul pool.
+                // Un seul agrégat global, jamais ventilé par pool — protège la
+                // nationalité de quelqu'un dans un petit pool même en vue globale.
+                // Même seuil d'anonymat que l'analyse par pool
+                // (StatisticsPage.AI_DIVERSITY_MIN_ACTIVE_TALENTS), appliqué ici à
+                // l'effectif actif total de l'organisation.
                 const activeTalentsGlobal = StatisticsPage.computeActiveTalents(talents);
                 if (activeTalentsGlobal.length >= StatisticsPage.AI_DIVERSITY_MIN_ACTIVE_TALENTS) {
                     const repartitionNationalites = {};
