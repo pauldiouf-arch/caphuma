@@ -216,9 +216,12 @@ const MissionsPage = {};
             }
             if (candidateType === 'nat') {
                 if (poolLevel === 'mission') {
-                    return all.filter(t => t.staff_type === 'national' || t.nationality_code === countryCode);
+                    // Niveau coordo : la nationalité filtre tout le monde, expats et
+                    // staffs nat confondus — corrigé le 15/09/2026 après clarification
+                    // avec l'utilisateur (la première version ne filtrait que les expats).
+                    return all.filter(t => t.nationality_code === countryCode);
                 }
-                return all; // niveau projet : expats et staffs nats, sans restriction de nationalité ici
+                return all; // niveau projet : expats et staffs nats, sans restriction de nationalité
             }
             if (candidateType === 'detache') {
                 if (poolLevel === 'project') {

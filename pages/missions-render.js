@@ -8,6 +8,17 @@
         const missionsEmpty = document.getElementById('missionsEmpty');
         const kpiBar = document.getElementById('kpiBar');
 
+        // Expatrié reste en gris neutre — c'est la norme du site, pas la peine de le
+        // signaler. National et détachement sortent de cette norme, chacun avec sa
+        // propre couleur pour qu'on les distingue au premier coup d'œil dans la liste
+        // (demandé par l'utilisateur le 15/09/2026, même logique que la bannière ambrée
+        // déjà posée sur les fiches de staffs nationaux dans talents.js).
+        const CANDIDATE_TYPE_BADGE_CLASSES = {
+            expat: 'bg-slate-100 text-slate-600',
+            nat: 'bg-amber-100 text-amber-800',
+            detache: 'bg-indigo-100 text-indigo-700'
+        };
+
         function updateKpiBar() {
             if (MissionsPage.currentMissions.length === 0) {
                 kpiBar.classList.add('hidden');
@@ -192,7 +203,7 @@
                         <div class="flex flex-wrap gap-1.5 mt-3">
                             ${mission.pool_level ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-primary">${escapeHtml(MissionsPage.POOL_LEVEL_LABELS[mission.pool_level] || mission.pool_level)}</span>` : ''}
                             ${mission.desk ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">${escapeHtml(DESK_LABELS[mission.desk] || mission.desk)}</span>` : ''}
-                            ${mission.candidate_type ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">${escapeHtml(CANDIDATE_TYPE_LABELS[mission.candidate_type] || mission.candidate_type)}</span>` : ''}
+                            ${mission.candidate_type ? `<span class="text-[10px] font-bold px-2 py-1 rounded-full ${CANDIDATE_TYPE_BADGE_CLASSES[mission.candidate_type] || 'bg-slate-100 text-slate-600'}">${escapeHtml(CANDIDATE_TYPE_LABELS[mission.candidate_type] || mission.candidate_type)}</span>` : ''}
                         </div>
                         <div class="mt-3 text-xs text-slate-500 space-y-1">
                             ${occupantName ? `<p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg> Occupant : <span class="font-semibold text-slate-700">${escapeHtml(occupantName)}</span></p>` : ''}
