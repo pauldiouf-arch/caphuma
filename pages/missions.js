@@ -170,12 +170,12 @@ const MissionsPage = {};
                 // gardés pour le filtrage dynamique de populateTalentDropdown().
                 const [expatsRes, nationalRes] = await Promise.all([
                     CapHumaData.getTalents(MissionsPage.supabaseClient, {
-                        select: 'id, first_name, last_name, pool, staff_type, nationality_code, is_red_listed, is_valid',
+                        select: 'id, first_name, last_name, pool, staff_type, nationality_code, is_red_listed, is_valid, status',
                         filters: { pool: MissionsPage.currentPoolId },
                         orderBy: 'last_name'
                     }),
                     CapHumaData.getTalents(MissionsPage.supabaseClient, {
-                        select: 'id, first_name, last_name, pool, staff_type, nationality_code, is_red_listed, is_valid',
+                        select: 'id, first_name, last_name, pool, staff_type, nationality_code, is_red_listed, is_valid, status',
                         filters: { staff_type: 'national', tracking_pool: MissionsPage.currentPoolId },
                         orderBy: 'last_name'
                     })
@@ -227,9 +227,14 @@ const MissionsPage = {};
             }
             if (candidateType === 'detache') {
                 if (poolLevel === 'project') {
-                    return all.filter(t => t.staff_type === 'national');
+                    // Un détachement niveau projet suppose un poste national actif
+                    // derrière (voir le contrôle de durée à la sauvegarde) — "déjà en
+                    // position" ici, sans être de la nationalité du pays du poste.
+                    return all.filter(t => t.staff_type === 'national' && t.nationality_code !== countryCode && t.status === 'En poste ALIMA');
                 }
-                return all; // niveau coordo : expats et staffs nats
+                // Niveau coordo : expats et staffs nat, jamais de la nationalité du
+                // pays du poste — pas de condition de position ici.
+                return all.filter(t => t.nationality_code !== countryCode);
             }
             return all;
         }
