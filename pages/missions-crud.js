@@ -172,14 +172,17 @@
             }
 
             // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste ?
-            // Un détachement en est exempté : le staff garde son poste national en
-            // parallèle, "libérer" ce poste national serait une erreur.
+            // Un détachement ne compte jamais comme conflit, ni comme poste qu'on
+            // enregistre (déjà exclu ci-dessous), ni comme poste déjà occupé trouvé en
+            // conflit (m.candidate_type) : le staff garde son poste national en
+            // parallèle de son détachement, "libérer" l'un des deux serait une erreur.
             let conflictMissionToVacate = null;
             if (payload.candidate_type !== 'detache' && payload.status === 'occupied' && payload.occupant_id) {
                 const conflict = MissionsPage.currentMissions.find(m =>
                     m.id !== missionId &&
                     m.occupant_id === payload.occupant_id &&
-                    m.status === 'occupied'
+                    m.status === 'occupied' &&
+                    m.candidate_type !== 'detache'
                 );
                 if (conflict) {
                     const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
