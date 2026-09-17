@@ -48,14 +48,30 @@
 
         fieldStatus.addEventListener('change', toggleOccupantField);
 
+        const fieldContractEndType = document.getElementById('fieldContractEndType');
+        const contractEndDateField = document.getElementById('contractEndDateField');
+
+        function toggleContractEndDateField() {
+            if (fieldContractEndType.value === 'cdi' || fieldContractEndType.value === 'ongoing') {
+                contractEndDateField.classList.add('hidden');
+                document.getElementById('fieldContractEnd').value = '';
+            } else {
+                contractEndDateField.classList.remove('hidden');
+            }
+        }
+
+        fieldContractEndType.addEventListener('change', toggleContractEndDateField);
+
         function openCreateModal() {
             modalTitle.textContent = 'Nouveau poste';
             missionForm.reset();
             document.getElementById('missionId').value = '';
             document.getElementById('fieldPoolLevel').value = 'mission';
             document.getElementById('fieldStatus').value = 'vacant';
+            document.getElementById('fieldContractEndType').value = 'date';
             toggleProjectNameField();
             toggleOccupantField();
+            toggleContractEndDateField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
         }
@@ -76,6 +92,7 @@
             document.getElementById('fieldDesk').value = mission.desk || '';
             document.getElementById('fieldOccupant').value = mission.occupant_id || '';
             document.getElementById('fieldContractStart').value = toDateInputValue(mission.contract_start_date);
+            document.getElementById('fieldContractEndType').value = mission.contract_end_type || 'date';
             document.getElementById('fieldContractEnd').value = toDateInputValue(mission.contract_end_date);
             document.getElementById('fieldContractStatus').value = mission.contract_status || '';
             document.getElementById('fieldFutureOccupant').value = mission.future_talent_id || '';
@@ -84,6 +101,7 @@
 
             toggleProjectNameField();
             toggleOccupantField();
+            toggleContractEndDateField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
         }
@@ -122,6 +140,7 @@
                 // Garde-fou : un poste qui n'est plus "occupied" ne peut pas conserver d'occupant affiché.
                 occupant_id: selectedStatus === 'occupied' ? selectedOccupantId : null,
                 contract_start_date: document.getElementById('fieldContractStart').value || null,
+                contract_end_type: document.getElementById('fieldContractEndType').value || 'date',
                 contract_end_date: document.getElementById('fieldContractEnd').value || null,
                 contract_status: document.getElementById('fieldContractStatus').value || null,
                 future_talent_id: document.getElementById('fieldFutureOccupant').value || null,
