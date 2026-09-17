@@ -132,6 +132,116 @@
             missionModal.classList.add('hidden');
         }
 
+        // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste ? Un
+        // détachement ne compte jamais comme conflit, ni comme poste qu'on enregistre,
+        // ni comme poste déjà occupé trouvé en conflit : le staff garde son poste
+        // national en parallèle de son détachement, "libérer" l'un des deux serait
+        // une erreur.
+        function checkOccupantConflict(payload, missionId) {
+            if (payload.candidate_type === 'detache' || payload.status !== 'occupied' || !payload.occupant_id) {
+                return { proceed: true, conflictMissionToVacate: null };
+            }
+            const conflict = MissionsPage.currentMissions.find(m =>
+                m.id !== missionId &&
+                m.occupant_id === payload.occupant_id &&
+                m.status === 'occupied' &&
+                m.candidate_type !== 'detache'
+            );
+            if (!conflict) return { proceed: true, conflictMissionToVacate: null };
+
+            const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
+            const confirmed = window.confirm(
+                `${talentLabel} occupe déjà le poste « ${conflict.title} ».\n\n` +
+                `Confirmer le changement de poste ? L'ancien poste sera automatiquement libéré ` +
+                `(remis en Vacant) et ses évaluations archivées dans l'historique du talent.`
+            );
+            return { proceed: confirmed, conflictMissionToVacate: confirmed ? conflict : null };
+        }
+
+        // Garde-fou 2, purement informatif (pas d'action automatique contrairement au
+        // 1) : chevauchement entre la date de début prévue ici et la date de sortie du
+        // futur occupant sur son poste actuel ?
+        function checkFutureOccupantOverlap(payload, missionId) {
+            if (!payload.future_talent_id) return true;
+            const futureConflict = MissionsPage.currentMissions.find(m =>
+                m.id !== missionId &&
+                m.occupant_id === payload.future_talent_id &&
+                m.status === 'occupied'
+            );
+            if (!futureConflict || !payload.future_contract_start_date || !futureConflict.contract_end_date
+                || payload.future_contract_start_date >= futureConflict.contract_end_date) {
+                return true;
+            }
+            const talentLabel = MissionsPage.talentNameById[payload.future_talent_id] || 'Ce talent';
+            return window.confirm(
+                `${talentLabel} est actuellement occupant de « ${futureConflict.title} » jusqu'au ` +
+                `${MissionsPage.formatDate(futureConflict.contract_end_date)}.\n\n` +
+                `La date de début prévue ici (${MissionsPage.formatDate(payload.future_contract_start_date)}) est ` +
+                `antérieure à cette date de sortie — chevauchement. Continuer quand même ?`
+            );
+        }
+
+        // Garde-fou 3, non bloquant (§1.3 du plan) : un poste national niveau projet
+        // accepte un expat sans la nationalité du pays, mais on le signale.
+        function checkNationalityMismatch(payload) {
+            if (payload.candidate_type !== 'nat' || payload.pool_level !== 'project'
+                || payload.status !== 'occupied' || !payload.occupant_id) {
+                return true;
+            }
+            const occupant = (MissionsPage.poolTalents || []).find(t => t.id === payload.occupant_id);
+            if (!occupant || occupant.staff_type === 'national' || occupant.nationality_code === payload.country_code) {
+                return true;
+            }
+            const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
+            return window.confirm(
+                `${talentLabel} n'a pas la nationalité du pays de ce poste.\n\n` +
+                `Ce poste est de type National — si c'est voulu (un expat peut occuper un poste ` +
+                `national), continue. Sinon, annule et repasse le poste en Expatrié.`
+            );
+        }
+
+        // Garde-fou 4, non bloquant : le poste national du staff peut appartenir à un
+        // autre pool que celui affiché ici, d'où la requête dédiée plutôt qu'une
+        // recherche dans MissionsPage.currentMissions comme les 3 précédents.
+        async function checkDetachmentDuration(payload) {
+            if (payload.candidate_type !== 'detache' || payload.pool_level !== 'project'
+                || payload.status !== 'occupied' || !payload.occupant_id) {
+                return true;
+            }
+            const { data: nationalPost, error: natError } = await MissionsPage.supabaseClient
+                .from('missions')
+                .select('title, contract_end_date, contract_end_type')
+                .eq('occupant_id', payload.occupant_id)
+                .eq('candidate_type', 'nat')
+                .eq('status', 'occupied')
+                .maybeSingle();
+
+            if (natError) {
+                console.error("Erreur de vérification du poste national sous-jacent :", natError);
+                return true;
+            }
+
+            const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
+            if (!nationalPost) {
+                return window.confirm(
+                    `${talentLabel} n'occupe actuellement aucun poste national.\n\n` +
+                    `Un détachement niveau projet suppose normalement un poste national existant. ` +
+                    `Continuer quand même ?`
+                );
+            }
+            if (nationalPost.contract_end_type === 'date' && nationalPost.contract_end_date
+                && payload.contract_end_type === 'date' && payload.contract_end_date
+                && nationalPost.contract_end_date < payload.contract_end_date) {
+                return window.confirm(
+                    `Le poste national de ${talentLabel} (« ${nationalPost.title} ») se termine le ` +
+                    `${MissionsPage.formatDate(nationalPost.contract_end_date)}, avant la fin de ce ` +
+                    `détachement (${MissionsPage.formatDate(payload.contract_end_date)}).\n\n` +
+                    `Continuer quand même ?`
+                );
+            }
+            return true;
+        }
+
         missionForm.addEventListener('submit', async function (e) {
             e.preventDefault();
             formError.classList.add('hidden');
@@ -171,106 +281,13 @@
                 return;
             }
 
-            // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste ?
-            // Un détachement ne compte jamais comme conflit, ni comme poste qu'on
-            // enregistre (déjà exclu ci-dessous), ni comme poste déjà occupé trouvé en
-            // conflit (m.candidate_type) : le staff garde son poste national en
-            // parallèle de son détachement, "libérer" l'un des deux serait une erreur.
-            let conflictMissionToVacate = null;
-            if (payload.candidate_type !== 'detache' && payload.status === 'occupied' && payload.occupant_id) {
-                const conflict = MissionsPage.currentMissions.find(m =>
-                    m.id !== missionId &&
-                    m.occupant_id === payload.occupant_id &&
-                    m.status === 'occupied' &&
-                    m.candidate_type !== 'detache'
-                );
-                if (conflict) {
-                    const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
-                    const confirmed = window.confirm(
-                        `${talentLabel} occupe déjà le poste « ${conflict.title} ».\n\n` +
-                        `Confirmer le changement de poste ? L'ancien poste sera automatiquement libéré ` +
-                        `(remis en Vacant) et ses évaluations archivées dans l'historique du talent.`
-                    );
-                    if (!confirmed) return;
-                    conflictMissionToVacate = conflict;
-                }
-            }
+            const occupantCheck = checkOccupantConflict(payload, missionId);
+            if (!occupantCheck.proceed) return;
+            const conflictMissionToVacate = occupantCheck.conflictMissionToVacate;
 
-            // Garde-fou 2, purement informatif (pas d'action automatique contrairement
-            // au 1) : chevauchement entre la date de début prévue ici et la date de
-            // sortie du futur occupant sur son poste actuel ?
-            if (payload.future_talent_id) {
-                const futureConflict = MissionsPage.currentMissions.find(m =>
-                    m.id !== missionId &&
-                    m.occupant_id === payload.future_talent_id &&
-                    m.status === 'occupied'
-                );
-                if (futureConflict && payload.future_contract_start_date && futureConflict.contract_end_date
-                    && payload.future_contract_start_date < futureConflict.contract_end_date) {
-                    const talentLabel = MissionsPage.talentNameById[payload.future_talent_id] || 'Ce talent';
-                    const confirmed = window.confirm(
-                        `${talentLabel} est actuellement occupant de « ${futureConflict.title} » jusqu'au ` +
-                        `${MissionsPage.formatDate(futureConflict.contract_end_date)}.\n\n` +
-                        `La date de début prévue ici (${MissionsPage.formatDate(payload.future_contract_start_date)}) est ` +
-                        `antérieure à cette date de sortie — chevauchement. Continuer quand même ?`
-                    );
-                    if (!confirmed) return;
-                }
-            }
-
-            // Garde-fou 3, non bloquant (§1.3 du plan) : un poste national niveau
-            // projet accepte un expat sans la nationalité du pays, mais on le signale.
-            if (payload.candidate_type === 'nat' && payload.pool_level === 'project'
-                && payload.status === 'occupied' && payload.occupant_id) {
-                const occupant = (MissionsPage.poolTalents || []).find(t => t.id === payload.occupant_id);
-                if (occupant && occupant.staff_type !== 'national' && occupant.nationality_code !== payload.country_code) {
-                    const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
-                    const confirmed = window.confirm(
-                        `${talentLabel} n'a pas la nationalité du pays de ce poste.\n\n` +
-                        `Ce poste est de type National — si c'est voulu (un expat peut occuper un poste ` +
-                        `national), continue. Sinon, annule et repasse le poste en Expatrié.`
-                    );
-                    if (!confirmed) return;
-                }
-            }
-
-            // Garde-fou 4, non bloquant : le poste national du staff peut appartenir à
-            // un autre pool que celui affiché ici, d'où la requête dédiée plutôt qu'une
-            // recherche dans MissionsPage.currentMissions comme les 3 précédents.
-            if (payload.candidate_type === 'detache' && payload.pool_level === 'project'
-                && payload.status === 'occupied' && payload.occupant_id) {
-                const { data: nationalPost, error: natError } = await MissionsPage.supabaseClient
-                    .from('missions')
-                    .select('title, contract_end_date, contract_end_type')
-                    .eq('occupant_id', payload.occupant_id)
-                    .eq('candidate_type', 'nat')
-                    .eq('status', 'occupied')
-                    .maybeSingle();
-
-                if (natError) {
-                    console.error("Erreur de vérification du poste national sous-jacent :", natError);
-                } else {
-                    const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
-                    if (!nationalPost) {
-                        const confirmed = window.confirm(
-                            `${talentLabel} n'occupe actuellement aucun poste national.\n\n` +
-                            `Un détachement niveau projet suppose normalement un poste national existant. ` +
-                            `Continuer quand même ?`
-                        );
-                        if (!confirmed) return;
-                    } else if (nationalPost.contract_end_type === 'date' && nationalPost.contract_end_date
-                        && payload.contract_end_type === 'date' && payload.contract_end_date
-                        && nationalPost.contract_end_date < payload.contract_end_date) {
-                        const confirmed = window.confirm(
-                            `Le poste national de ${talentLabel} (« ${nationalPost.title} ») se termine le ` +
-                            `${MissionsPage.formatDate(nationalPost.contract_end_date)}, avant la fin de ce ` +
-                            `détachement (${MissionsPage.formatDate(payload.contract_end_date)}).\n\n` +
-                            `Continuer quand même ?`
-                        );
-                        if (!confirmed) return;
-                    }
-                }
-            }
+            if (!checkFutureOccupantOverlap(payload, missionId)) return;
+            if (!checkNationalityMismatch(payload)) return;
+            if (!(await checkDetachmentDuration(payload))) return;
 
             const saveBtn = document.getElementById('saveMissionBtn');
             saveBtn.disabled = true;

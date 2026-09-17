@@ -293,6 +293,38 @@ const MissionsPage = {};
             }
         }
 
+        // Un poste national qui se termine libère aussi le détachement rattaché au
+        // même staff, où qu'il soit (potentiellement un autre pool, d'où la requête
+        // dédiée) : rester en détachement sans poste national actif derrière n'a pas
+        // de sens. Sa date de fin est reportée à celle du poste national qui vient
+        // d'expirer plutôt que de garder une date dans le futur qui n'aurait plus de
+        // sens. Sans effet si le poste n'est pas national ou si aucun détachement
+        // occupé n'est trouvé pour ce staff.
+        async function releaseLinkedDetachment(mission) {
+            if (mission.candidate_type !== 'nat' || !mission.occupant_id) return;
+
+            const { data: linkedDetachment, error: detachError } = await capHumaWithRetry(() =>
+                MissionsPage.supabaseClient
+                    .from('missions')
+                    .select('id, title, pool, contract_start_date, country_code, desk')
+                    .eq('occupant_id', mission.occupant_id)
+                    .eq('candidate_type', 'detache')
+                    .eq('status', 'occupied')
+                    .maybeSingle()
+            );
+            if (detachError) throw detachError;
+            if (!linkedDetachment) return;
+
+            await MissionsPage.archiveOutgoingOccupant({ ...linkedDetachment, occupant_id: mission.occupant_id, candidate_type: 'detache', contract_end_date: mission.contract_end_date });
+            const { error: vacateError } = await capHumaWithRetry(() =>
+                MissionsPage.supabaseClient
+                    .from('missions')
+                    .update({ status: 'vacant', occupant_id: null, contract_end_date: mission.contract_end_date })
+                    .eq('id', linkedDetachment.id)
+            );
+            if (vacateError) throw vacateError;
+        }
+
         // Un contrat expiré (contract_end_date dépassée) ne signifie pas forcément que
         // le talent est réellement sorti — il peut avoir été renouvelé sans que ce soit
         // encore saisi. Seul contract_status === 'ending' (confirmé "Se termine")
@@ -319,36 +351,7 @@ const MissionsPage = {};
             for (const mission of toProcess) {
                 try {
                     await MissionsPage.archiveOutgoingOccupant(mission);
-
-                    // Un poste national qui se termine libère aussi le détachement
-                    // rattaché au même staff, où qu'il soit (potentiellement un autre
-                    // pool, d'où la requête dédiée) : rester en détachement sans poste
-                    // national actif derrière n'a pas de sens. Sa date de fin est
-                    // reportée à celle du poste national qui vient d'expirer plutôt que
-                    // de garder une date dans le futur qui n'aurait plus de sens.
-                    if (mission.candidate_type === 'nat' && mission.occupant_id) {
-                        const { data: linkedDetachment, error: detachError } = await capHumaWithRetry(() =>
-                            MissionsPage.supabaseClient
-                                .from('missions')
-                                .select('id, title, pool, contract_start_date, country_code, desk')
-                                .eq('occupant_id', mission.occupant_id)
-                                .eq('candidate_type', 'detache')
-                                .eq('status', 'occupied')
-                                .maybeSingle()
-                        );
-                        if (detachError) throw detachError;
-
-                        if (linkedDetachment) {
-                            await MissionsPage.archiveOutgoingOccupant({ ...linkedDetachment, occupant_id: mission.occupant_id, candidate_type: 'detache', contract_end_date: mission.contract_end_date });
-                            const { error: vacateError } = await capHumaWithRetry(() =>
-                                MissionsPage.supabaseClient
-                                    .from('missions')
-                                    .update({ status: 'vacant', occupant_id: null, contract_end_date: mission.contract_end_date })
-                                    .eq('id', linkedDetachment.id)
-                            );
-                            if (vacateError) throw vacateError;
-                        }
-                    }
+                    await releaseLinkedDetachment(mission);
 
                     if (mission.future_talent_id) {
                         const { data, error } = await capHumaWithRetry(() =>
