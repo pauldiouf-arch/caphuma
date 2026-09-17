@@ -326,7 +326,7 @@ const MissionsPage = {};
                         );
                         if (error) throw error;
                         if (data && data.length > 0) {
-                            await MissionsPage.markIncomingOccupant(mission.future_talent_id);
+                            await MissionsPage.markIncomingOccupant(mission.future_talent_id, mission.candidate_type);
                             rotatedCount++;
                         }
                     } else {
@@ -371,9 +371,12 @@ const MissionsPage = {};
         async function archiveOutgoingOccupant(mission) {
             if (!mission.occupant_id) return;
 
+            const isDetachment = mission.candidate_type === 'detache';
             const exitDate = mission.contract_end_date || new Date().toISOString().substring(0, 10);
 
-            // 1. Archivage des évaluations (uniquement si des évaluations existent)
+            // 1. Archivage des évaluations (uniquement si des évaluations existent) —
+            // fait aussi pour un détachement, avec le titre préfixé pour qu'on
+            // comprenne à la lecture qu'il ne s'agissait pas du poste national.
             const { data: evals, error: evalErr } = await capHumaWithRetry(() =>
                 MissionsPage.supabaseClient
                     .from('evaluations')
@@ -384,7 +387,7 @@ const MissionsPage = {};
 
             if (evals && evals.length > 0) {
                 const passage = {
-                    positionTitle: mission.title,
+                    positionTitle: (isDetachment ? 'Détachement — ' : '') + mission.title,
                     pool: mission.pool,
                     country: CapHumaCountries.getCountryName(mission.country_code) || null,
                     desk: mission.desk || null,
@@ -433,8 +436,11 @@ const MissionsPage = {};
                 if (deleteErr) throw deleteErr;
             }
 
-            // Mise à jour du suivi de disponibilité, toujours faite même sans
-            // évaluation à archiver.
+            // 2. Mise à jour du suivi de disponibilité — jamais pour un détachement :
+            // le staff reste actif sur son poste national sous-jacent, en sortir
+            // le détachement ne doit pas le déclarer "en attente de poste".
+            if (isDetachment) return;
+
             const { data: statusData, error: statusErr } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, mission.occupant_id, {
                         is_currently_on_mission: false,
                         last_mission_end_date: exitDate,
@@ -448,32 +454,37 @@ const MissionsPage = {};
 
         // À l'entrée d'un talent sur un poste (nouvelle affectation ou rotation) : ses
         // compteurs repartent à zéro et le décompte des mois sans mission est gelé tant
-        // qu'il reste occupant.
-        async function markIncomingOccupant(talentId) {
-            if (!talentId) return;
+        // qu'il reste occupant. Neutralisée pour un détachement (candidateType), et le
+        // compteur de missions ALIMA n'avance que sur un poste expat — un poste
+        // national ou un détachement n'en sont pas une au sens de ce compteur.
+        async function markIncomingOccupant(talentId, candidateType) {
+            if (!talentId || candidateType === 'detache') return;
 
-            // number_of_alima_missions n'est pas un simple incrément numérique mais
-            // une progression par palier : none → one → two → three_plus.
-            const { data: currentTalent, error: readErr } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('talents')
-                    .select('number_of_alima_missions')
-                    .eq('id', talentId)
-                    .maybeSingle()
-            );
-            if (readErr) throw readErr;
+            const payload = {
+                is_currently_on_mission: true,
+                months_without_mission: 0,
+                last_mission_end_date: null,
+                status: 'En poste ALIMA'
+            };
 
-            const currentCount = (currentTalent && currentTalent.number_of_alima_missions) || 'none';
-            const newCount = currentCount === 'none' ? 'one' : (currentCount === 'one' ? 'two' : 'three_plus');
+            if (candidateType === 'expat') {
+                // number_of_alima_missions n'est pas un simple incrément numérique mais
+                // une progression par palier : none → one → two → three_plus.
+                const { data: currentTalent, error: readErr } = await capHumaWithRetry(() =>
+                    MissionsPage.supabaseClient
+                        .from('talents')
+                        .select('number_of_alima_missions')
+                        .eq('id', talentId)
+                        .maybeSingle()
+                );
+                if (readErr) throw readErr;
 
-            const { data, error } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, talentId, {
-                        is_currently_on_mission: true,
-                        months_without_mission: 0,
-                        last_mission_end_date: null,
-                        status: 'En poste ALIMA',
-                        number_of_alima_missions: newCount,
-                        had_alima_mission: true
-                    }, 'id');
+                const currentCount = (currentTalent && currentTalent.number_of_alima_missions) || 'none';
+                payload.number_of_alima_missions = currentCount === 'none' ? 'one' : (currentCount === 'one' ? 'two' : 'three_plus');
+                payload.had_alima_mission = true;
+            }
+
+            const { data, error } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, talentId, payload, 'id');
             if (error) throw error;
             if (!data || data.length === 0) {
                 throw new Error("La mise à jour du talent entrant n'a affecté aucune ligne (policy RLS ?).");

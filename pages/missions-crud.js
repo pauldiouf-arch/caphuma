@@ -314,7 +314,7 @@
                     // Postgres trg_audit_missions, fiable même hors de cette page.
 
                     if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
-                        await MissionsPage.markIncomingOccupant(payload.occupant_id);
+                        await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
                     }
 
                     toastMessage('Poste mis à jour.', 'success');
@@ -331,7 +331,7 @@
                     // Postgres trg_audit_missions.
 
                     if (payload.occupant_id) {
-                        await MissionsPage.markIncomingOccupant(payload.occupant_id);
+                        await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
                     }
 
                     toastMessage('Poste créé.', 'success');
