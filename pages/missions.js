@@ -420,9 +420,11 @@ const MissionsPage = {};
             const isDetachment = mission.candidate_type === 'detache';
             const exitDate = mission.contract_end_date || new Date().toISOString().substring(0, 10);
 
-            // 1. Archivage des évaluations (uniquement si des évaluations existent) —
-            // fait aussi pour un détachement, avec le titre préfixé pour qu'on
-            // comprenne à la lecture qu'il ne s'agissait pas du poste national.
+            // 1. Archivage du poste dans l'historique — systématique, avec ou sans
+            // évaluation : l'historique des postes d'un talent ne doit jamais dépendre
+            // du fait qu'une évaluation ait été saisie ou non. Fait aussi pour un
+            // détachement, avec le titre préfixé pour qu'on comprenne à la lecture
+            // qu'il ne s'agissait pas du poste national.
             const { data: evals, error: evalErr } = await capHumaWithRetry(() =>
                 MissionsPage.supabaseClient
                     .from('evaluations')
@@ -431,7 +433,7 @@ const MissionsPage = {};
             );
             if (evalErr) throw evalErr;
 
-            if (evals && evals.length > 0) {
+            {
                 const passage = {
                     positionTitle: (isDetachment ? 'Détachement — ' : '') + mission.title,
                     pool: mission.pool,
@@ -439,7 +441,7 @@ const MissionsPage = {};
                     desk: mission.desk || null,
                     startDate: mission.contract_start_date || null,
                     endDate: exitDate,
-                    comments: evals.map(e => ({
+                    comments: (evals || []).map(e => ({
                         context: e.context,
                         positive_points: e.positive_points,
                         negative_points: e.negative_points,
@@ -471,15 +473,18 @@ const MissionsPage = {};
                     throw new Error("La mise à jour de l'historique du talent n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // Suppression par mission_id, aucun contrôle de lignes affectées après
-                // coup ici — idempotent, sûr à envelopper dans capHumaWithRetry().
-                const { error: deleteErr } = await capHumaWithRetry(() =>
-                    MissionsPage.supabaseClient
-                        .from('evaluations')
-                        .delete()
-                        .eq('mission_id', mission.id)
-                );
-                if (deleteErr) throw deleteErr;
+                // Suppression par mission_id, uniquement s'il y avait quelque chose à
+                // supprimer. Aucun contrôle de lignes affectées après coup ici —
+                // idempotent, sûr à envelopper dans capHumaWithRetry().
+                if (evals && evals.length > 0) {
+                    const { error: deleteErr } = await capHumaWithRetry(() =>
+                        MissionsPage.supabaseClient
+                            .from('evaluations')
+                            .delete()
+                            .eq('mission_id', mission.id)
+                    );
+                    if (deleteErr) throw deleteErr;
+                }
             }
 
             // 2. Mise à jour du suivi de disponibilité — jamais pour un détachement :
