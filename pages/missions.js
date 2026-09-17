@@ -198,12 +198,10 @@ const MissionsPage = {};
             }
         }
 
-        // Confort d'usage uniquement, pas une barrière (voir garde-fou réel en base,
-        // trigger trg_enforce_missions_occupant_staff_type) : applique les 5
-        // combinaisons candidate_type x pool_level du tableau du plan (§1.3). Un
-        // détachement ne s'appuie que sur pool_level = 'project' ('projet') vs tout
-        // le reste — 'mission' (pool_level) correspond au niveau coordo du plan,
-        // confirmé avec l'utilisateur le 15/09/2026.
+        // Confort d'usage, pas une barrière — le vrai garde-fou est en base (trigger
+        // trg_enforce_missions_occupant_staff_type). Applique les 5 combinaisons
+        // candidate_type x pool_level du plan (§1.3) : pool_level 'mission'
+        // correspond au niveau coordo, 'project' au niveau projet.
         function getEligibleTalents() {
             const all = MissionsPage.poolTalents || [];
             const candidateType = document.getElementById('fieldCandidateType').value;
@@ -215,13 +213,10 @@ const MissionsPage = {};
                 return all.filter(t => t.staff_type !== 'national');
             }
             if (candidateType === 'nat') {
-                if (poolLevel === 'mission') {
-                    // Niveau coordo : la nationalité filtre tout le monde, expats et
-                    // staffs nat confondus — corrigé le 15/09/2026 après clarification
-                    // avec l'utilisateur (la première version ne filtrait que les expats).
-                    return all.filter(t => t.nationality_code === countryCode);
-                }
-                return all; // niveau projet : expats et staffs nats, sans restriction de nationalité
+                // Même règle quel que soit le niveau : un poste national ne peut être
+                // pris que par quelqu'un de la nationalité du pays du poste, expat ou
+                // staff nat confondus.
+                return all.filter(t => t.nationality_code === countryCode);
             }
             if (candidateType === 'detache') {
                 if (poolLevel === 'project') {
