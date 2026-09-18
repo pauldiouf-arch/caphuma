@@ -364,6 +364,12 @@ const TalentsPage = {};
         // Ligne pour un staff national suivi par ce pool — même interaction que les
         // lignes normales (édition, lien vers la fiche), mais jamais de jauge de
         // validité ni d'actions dévalider/prolonger, qui n'ont pas de sens pour lui.
+        function monthsWithoutNationalPost(sinceDate) {
+            const since = new Date(sinceDate);
+            const now = new Date();
+            return Math.max(0, (now.getUTCFullYear() - since.getUTCFullYear()) * 12 + (now.getUTCMonth() - since.getUTCMonth()));
+        }
+
         function buildTrackedNationalRow(t) {
             const row = document.createElement('div');
             const archived = t.is_valid === false;
@@ -383,6 +389,7 @@ const TalentsPage = {};
                         <p class="text-xs text-slate-500 truncate mt-0.5">
                             <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
                         </p>
+                        ${t.national_inactive_since ? `<p class="text-xs text-slate-500 mt-0.5">Sans poste depuis ${monthsWithoutNationalPost(t.national_inactive_since)} mois</p>` : ''}
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
