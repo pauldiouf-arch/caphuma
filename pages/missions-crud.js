@@ -242,16 +242,12 @@
             return true;
         }
 
-        missionForm.addEventListener('submit', async function (e) {
-            e.preventDefault();
-            formError.classList.add('hidden');
-
-            const missionId = document.getElementById('missionId').value;
+        function buildMissionPayloadFromForm() {
             const candidateType = document.getElementById('fieldCandidateType').value || null;
             const selectedStatus = document.getElementById('fieldStatus').value;
             const selectedOccupantId = document.getElementById('fieldOccupant').value || null;
 
-            const payload = {
+            return {
                 title: document.getElementById('fieldTitle').value.trim(),
                 pool: MissionsPage.currentPoolId,
                 pool_level: document.getElementById('fieldPoolLevel').value,
@@ -274,99 +270,147 @@
                 future_contract_start_date: document.getElementById('fieldFutureContractStart').value || null,
                 future_contract_end_date: document.getElementById('fieldFutureContractEnd').value || null,
             };
+        }
 
+        function validateMissionPayload(payload) {
             if (!payload.title || !payload.country_code || !payload.location) {
-                formError.textContent = "Le titre, le pays et le lieu sont obligatoires.";
-                formError.classList.remove('hidden');
-                return;
+                return "Le titre, le pays et le lieu sont obligatoires.";
+            }
+            return null;
+        }
+
+        // Regroupe les 4 garde-fous (voir leurs définitions ci-dessus) dans l'ordre où
+        // le formulaire les vérifiait : proceed=false dès que l'un d'eux est refusé,
+        // en s'arrêtant là sans enchaîner les suivants.
+        async function runMissionSaveGuards(payload, missionId) {
+            const occupantCheck = checkOccupantConflict(payload, missionId);
+            if (!occupantCheck.proceed) return { proceed: false };
+
+            if (!checkFutureOccupantOverlap(payload, missionId)) return { proceed: false };
+            if (!checkNationalityMismatch(payload)) return { proceed: false };
+            if (!(await checkDetachmentDuration(payload))) return { proceed: false };
+
+            return { proceed: true, conflictMissionToVacate: occupantCheck.conflictMissionToVacate };
+        }
+
+        async function vacateConflictingMission(conflictMission) {
+            await MissionsPage.archiveOutgoingOccupant(conflictMission);
+
+            const { data, error } = await capHumaWithRetry(() =>
+                MissionsPage.supabaseClient
+                    .from('missions')
+                    .update({ status: 'vacant', occupant_id: null })
+                    .eq('id', conflictMission.id)
+                    .select('id')
+            );
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error("La libération de l'ancien poste n'a affecté aucune ligne (policy RLS ?).");
+            }
+        }
+
+        async function updateExistingMission(missionId, payload) {
+            const originalMission = MissionsPage.currentMissions.find(m => m.id === missionId);
+            const previousOccupantId = originalMission ? originalMission.occupant_id : null;
+
+            if (originalMission && previousOccupantId && previousOccupantId !== payload.occupant_id) {
+                await MissionsPage.archiveOutgoingOccupant(originalMission);
             }
 
-            const occupantCheck = checkOccupantConflict(payload, missionId);
-            if (!occupantCheck.proceed) return;
-            const conflictMissionToVacate = occupantCheck.conflictMissionToVacate;
+            const { error } = await capHumaWithRetry(() =>
+                MissionsPage.supabaseClient
+                    .from('missions')
+                    .update(payload)
+                    .eq('id', missionId)
+            );
+            if (error) throw error;
 
-            if (!checkFutureOccupantOverlap(payload, missionId)) return;
-            if (!checkNationalityMismatch(payload)) return;
-            if (!(await checkDetachmentDuration(payload))) return;
+            // Pas d'appel à logAuditAction('update', ...) : couvert par le trigger
+            // Postgres trg_audit_missions, fiable même hors de cette page.
 
+            if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
+                await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
+            }
+
+            toastMessage('Poste mis à jour.', 'success');
+        }
+
+        async function createNewMission(payload) {
+            payload.created_by = MissionsPage.currentUserId;
+            // Pas de capHumaWithRetry() : missions n'a aucune contrainte UNIQUE,
+            // une relance après perte de réponse dupliquerait silencieusement le poste.
+            const { error } = await MissionsPage.supabaseClient
+                .from('missions')
+                .insert(payload);
+            if (error) throw error;
+
+            // Pas d'appel à logAuditAction('create', ...) : couvert par le trigger
+            // Postgres trg_audit_missions.
+
+            if (payload.occupant_id) {
+                await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
+            }
+
+            toastMessage('Poste créé.', 'success');
+        }
+
+        async function saveMissionPayload(missionId, payload, conflictMissionToVacate) {
+            // Conflit confirmé (garde-fou 1) : même traitement qu'une sortie normale.
+            if (conflictMissionToVacate) {
+                await vacateConflictingMission(conflictMissionToVacate);
+            }
+
+            if (missionId) {
+                await updateExistingMission(missionId, payload);
+            } else {
+                await createNewMission(payload);
+            }
+        }
+
+        async function withSaveButtonDisabled(fn) {
             const saveBtn = document.getElementById('saveMissionBtn');
             saveBtn.disabled = true;
             saveBtn.textContent = 'Enregistrement…';
-
             try {
-                // Conflit confirmé (garde-fou 1) : même traitement qu'une sortie normale.
-                if (conflictMissionToVacate) {
-                    await MissionsPage.archiveOutgoingOccupant(conflictMissionToVacate);
-
-                    const { data: vacateData, error: vacateErr } = await capHumaWithRetry(() =>
-                        MissionsPage.supabaseClient
-                            .from('missions')
-                            .update({ status: 'vacant', occupant_id: null })
-                            .eq('id', conflictMissionToVacate.id)
-                            .select('id')
-                    );
-                    if (vacateErr) throw vacateErr;
-                    if (!vacateData || vacateData.length === 0) {
-                        throw new Error("La libération de l'ancien poste n'a affecté aucune ligne (policy RLS ?).");
-                    }
-                }
-
-                if (missionId) {
-                    const originalMission = MissionsPage.currentMissions.find(m => m.id === missionId);
-                    const previousOccupantId = originalMission ? originalMission.occupant_id : null;
-
-                    if (originalMission && previousOccupantId && previousOccupantId !== payload.occupant_id) {
-                        await MissionsPage.archiveOutgoingOccupant(originalMission);
-                    }
-
-                    const { error } = await capHumaWithRetry(() =>
-                        MissionsPage.supabaseClient
-                            .from('missions')
-                            .update(payload)
-                            .eq('id', missionId)
-                    );
-                    if (error) throw error;
-
-                    // Pas d'appel à logAuditAction('update', ...) : couvert par le trigger
-                    // Postgres trg_audit_missions, fiable même hors de cette page.
-
-                    if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
-                        await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
-                    }
-
-                    toastMessage('Poste mis à jour.', 'success');
-                } else {
-                    payload.created_by = MissionsPage.currentUserId;
-                    // Pas de capHumaWithRetry() : missions n'a aucune contrainte UNIQUE,
-                    // une relance après perte de réponse dupliquerait silencieusement le poste.
-                    const { error } = await MissionsPage.supabaseClient
-                        .from('missions')
-                        .insert(payload);
-                    if (error) throw error;
-
-                    // Pas d'appel à logAuditAction('create', ...) : couvert par le trigger
-                    // Postgres trg_audit_missions.
-
-                    if (payload.occupant_id) {
-                        await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
-                    }
-
-                    toastMessage('Poste créé.', 'success');
-                }
-
-                closeModal();
-                await MissionsPage.loadMissions();
-
-            } catch (error) {
-                console.error("Erreur d'enregistrement du poste :", error);
-                // PostgrestError n'est pas une instance native d'Error : on teste .message directement.
-                formError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
-                formError.classList.remove('hidden');
+                await fn();
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.textContent = 'Enregistrer';
             }
-        });
+        }
+
+        async function handleMissionFormSubmit(e) {
+            e.preventDefault();
+            formError.classList.add('hidden');
+
+            const missionId = document.getElementById('missionId').value;
+            const payload = buildMissionPayloadFromForm();
+
+            const validationError = validateMissionPayload(payload);
+            if (validationError) {
+                formError.textContent = validationError;
+                formError.classList.remove('hidden');
+                return;
+            }
+
+            const guards = await runMissionSaveGuards(payload, missionId);
+            if (!guards.proceed) return;
+
+            await withSaveButtonDisabled(async () => {
+                try {
+                    await saveMissionPayload(missionId, payload, guards.conflictMissionToVacate);
+                    closeModal();
+                    await MissionsPage.loadMissions();
+                } catch (error) {
+                    console.error("Erreur d'enregistrement du poste :", error);
+                    // PostgrestError n'est pas une instance native d'Error : on teste .message directement.
+                    formError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
+                    formError.classList.remove('hidden');
+                }
+            });
+        }
+
+        missionForm.addEventListener('submit', handleMissionFormSubmit);
 
         // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.openEditModal = openEditModal;
