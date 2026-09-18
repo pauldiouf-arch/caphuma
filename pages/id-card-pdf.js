@@ -207,7 +207,36 @@
             return y;
         }
 
-        function pdfDrawMissionHistorySection(doc, L, y, pageW, talent, currentPosition) {
+        function pdfDrawOngoingPositionBox(doc, L, lang, y, pageW, position) {
+            y = pdfEnsureSpace(doc, y, 20);
+            doc.setFillColor(240, 253, 244);
+            doc.setDrawColor(134, 239, 172);
+            doc.roundedRect(14, y - 2, pageW - 28, 18, 2, 2, "FD");
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(21, 128, 61);
+            doc.text(L.ongoing, 18, y + 4);
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 30, 30);
+            doc.text(position.title || L.missionFallback, 46, y + 4);
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(80, 80, 80);
+            const details = [];
+            if (position.pool_id || position.pool) details.push(position.pool_id || position.pool);
+            if (position.country_code) details.push(CapHumaCountries.getCountryName(position.country_code, lang));
+            const startD = position.contract_start_date || position.contractStartDate;
+            if (startD) details.push(`${L.since}${new Date(startD).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' })}`);
+            doc.text(details.join("  |  "), 18, y + 11);
+
+            return y + 24;
+        }
+
+        function pdfDrawMissionHistorySection(doc, L, lang, y, pageW, talent, currentPosition, currentDetachment) {
             let passages = [];
             try {
                 const rawPassages = talent.archived_position_passages || talent.archivedPositionPassages;
@@ -220,37 +249,15 @@
                 console.error("Erreur de parsing des passages (PDF) :", e);
             }
 
-            if (currentPosition || passages.length > 0) {
+            if (currentPosition || currentDetachment || passages.length > 0) {
                 y = pdfEnsureSpace(doc, y, 20);
                 y = pdfDrawSectionTitle(doc, L.sectionMissionHistory, y);
 
                 if (currentPosition) {
-                    y = pdfEnsureSpace(doc, y, 20);
-                    doc.setFillColor(240, 253, 244);
-                    doc.setDrawColor(134, 239, 172);
-                    doc.roundedRect(14, y - 2, pageW - 28, 18, 2, 2, "FD");
-
-                    doc.setFontSize(8);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(21, 128, 61);
-                    doc.text(L.ongoing, 18, y + 4);
-
-                    doc.setFontSize(9);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(30, 30, 30);
-                    doc.text(currentPosition.title || L.missionFallback, 46, y + 4);
-
-                    doc.setFontSize(8);
-                    doc.setFont("helvetica", "normal");
-                    doc.setTextColor(80, 80, 80);
-                    const details = [];
-                    if (currentPosition.pool_id || currentPosition.pool) details.push(currentPosition.pool_id || currentPosition.pool);
-                    if (currentPosition.country_code) details.push(CapHumaCountries.getCountryName(currentPosition.country_code, lang));
-                    const startD = currentPosition.contract_start_date || currentPosition.contractStartDate;
-                    if (startD) details.push(`${L.since}${new Date(startD).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' })}`);
-                    doc.text(details.join("  |  "), 18, y + 11);
-
-                    y += 24;
+                    y = pdfDrawOngoingPositionBox(doc, L, lang, y, pageW, currentPosition);
+                }
+                if (currentDetachment) {
+                    y = pdfDrawOngoingPositionBox(doc, L, lang, y, pageW, currentDetachment);
                 }
 
                 const sortedPassages = [...passages].sort((a, b) => (IdCardPage.passageDateMs(b.startDate) || 0) - (IdCardPage.passageDateMs(a.startDate) || 0));
@@ -419,7 +426,7 @@
         }
 
         // lang : 'fr' (défaut) ou 'en' — voir shared/caphuma-export-i18n.js.
-        function exportTalentCardPDF(talent, currentPosition, lang = 'fr') {
+        function exportTalentCardPDF(talent, currentPosition, currentDetachment, lang = 'fr') {
             const L = PDF_I18N[lang] || PDF_I18N.fr;
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -449,7 +456,7 @@
             y = pdfDrawEducationSection(doc, L, y, pageW, COL_LEFT, COL_MID, eduLvl, eduSpec, keySkills);
             y = pdfDrawGeoLanguagesSection(doc, L, lang, y, pageW, COL_LEFT, COL_MID, talent, cRes);
             y = pdfDrawInterventionSection(doc, L, y, pageW, contexts, zones);
-            y = pdfDrawMissionHistorySection(doc, L, y, pageW, talent, currentPosition);
+            y = pdfDrawMissionHistorySection(doc, L, lang, y, pageW, talent, currentPosition, currentDetachment);
             y = pdfDrawRecapTable(doc, L, y, expAlima, expHum, nbMissions, eduLvl, keySkills, contexts, zones);
             y = pdfDrawFooter(doc, L, y, pageW);
 

@@ -37,27 +37,31 @@
 
         // Informations professionnelles uniquement, jamais les commentaires/
         // évaluations internes (page publique, sans authentification).
-        function renderTimeline(mission, passages) {
+        function renderActiveMissionEntry(mission) {
+            const startStr = mission.contract_start_date
+                ? new Date(mission.contract_start_date).toLocaleDateString('fr-FR')
+                : "En cours";
+            return `
+                <div class="relative pl-6 border-l-2 border-green-500">
+                    <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
+                    <div class="space-y-1">
+                        <span class="inline-block text-[10px] uppercase font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">En cours</span>
+                        <h4 class="font-bold text-slate-900">${escapeHtml(mission.title)}</h4>
+                        <p class="text-xs text-slate-500">${escapeHtml(CapHumaCountries.getCountryName(mission.country_code) || '')} • Prise de poste le ${startStr}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTimeline(mission, detachment, passages) {
             const timeline = document.getElementById('timeline-container');
             timeline.innerHTML = "";
             let hasTimelineElements = false;
 
-            if (mission) {
+            [mission, detachment].filter(Boolean).forEach(m => {
                 hasTimelineElements = true;
-                const startStr = mission.contract_start_date
-                    ? new Date(mission.contract_start_date).toLocaleDateString('fr-FR')
-                    : "En cours";
-                timeline.innerHTML += `
-                    <div class="relative pl-6 border-l-2 border-green-500">
-                        <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
-                        <div class="space-y-1">
-                            <span class="inline-block text-[10px] uppercase font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">En cours</span>
-                            <h4 class="font-bold text-slate-900">${escapeHtml(mission.title)}</h4>
-                            <p class="text-xs text-slate-500">${escapeHtml(CapHumaCountries.getCountryName(mission.country_code) || '')} • Prise de poste le ${startStr}</p>
-                        </div>
-                    </div>
-                `;
-            }
+                timeline.innerHTML += renderActiveMissionEntry(m);
+            });
 
             if (passages.length > 0) {
                 hasTimelineElements = true;
@@ -92,6 +96,7 @@
         function renderTalent(payload) {
             const talent = payload.talent;
             const mission = payload.mission;
+            const detachment = payload.detachment;
 
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('talent-card').classList.remove('hidden');
@@ -145,7 +150,7 @@
                 console.error("Erreur de parsing des passages :", e);
             }
 
-            renderTimeline(mission, passages);
+            renderTimeline(mission, detachment, passages);
         }
 
         async function loadSharedTalent() {

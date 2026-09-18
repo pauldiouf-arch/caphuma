@@ -16,6 +16,7 @@ const IdCardPage = {};
         IdCardPage.talentId = null;
         let talent = null;
         let activeMission = null;
+        let activeDetachment = null;
         IdCardPage.currentUserId = null;
         let currentUserEmail = null;
         IdCardPage.currentUserRole = null;
@@ -142,12 +143,21 @@ const IdCardPage = {};
                             .select('*')
                             .eq('occupant_id', IdCardPage.talentId)
                             .eq('status', 'occupied')
-                            .maybeSingle()
                     )
                 ]);
 
+                if (missionResult.error) {
+                    console.error("Échec du chargement du poste occupé :", missionResult.error);
+                    throw missionResult.error;
+                }
+
                 talent = talentResult;
-                activeMission = missionResult.data;
+                // Un talent peut occuper un poste national/expatrié et un détachement en
+                // même temps (garde-fou 1 de missions-crud.js) : les deux coexistent parmi
+                // les missions "occupied", distingués par candidate_type.
+                const occupiedMissions = missionResult.data || [];
+                activeMission = occupiedMissions.find(m => m.candidate_type !== 'detache') || null;
+                activeDetachment = occupiedMissions.find(m => m.candidate_type === 'detache') || null;
 
                 renderTalentCard();
                 await Promise.all([
@@ -324,31 +334,35 @@ const IdCardPage = {};
             renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
         }
 
+        function buildActiveMissionEntry(mission) {
+            const startStr = mission.contract_start_date || mission.contractStartDate
+                ? new Date(mission.contract_start_date || mission.contractStartDate).toLocaleDateString('fr-FR')
+                : "En cours";
+
+            const entry = document.createElement('div');
+            entry.innerHTML = `
+                <div class="relative pl-6 border-l-2 border-green-500">
+                    <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
+                    <div class="space-y-1">
+                        <span class="inline-block text-[10px] uppercase font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">En cours</span>
+                        <h4 class="font-bold text-slate-900">${escapeHtml(mission.title)}</h4>
+                        <p class="text-xs text-slate-500">${escapeHtml(CapHumaCountries.getCountryName(mission.country_code) || '')} • Prise de poste le ${startStr}</p>
+                    </div>
+                </div>
+            `;
+            return entry.firstElementChild;
+        }
+
         function renderTalentTimeline() {
             const timeline = document.getElementById('timeline-container');
             let hasTimelineElements = false;
 
             const timelineFragment = document.createDocumentFragment();
 
-            if (activeMission) {
+            [activeMission, activeDetachment].filter(Boolean).forEach(mission => {
                 hasTimelineElements = true;
-                const startStr = activeMission.contract_start_date || activeMission.contractStartDate
-                    ? new Date(activeMission.contract_start_date || activeMission.contractStartDate).toLocaleDateString('fr-FR')
-                    : "En cours";
-
-                const activeEntry = document.createElement('div');
-                activeEntry.innerHTML = `
-                    <div class="relative pl-6 border-l-2 border-green-500">
-                        <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
-                        <div class="space-y-1">
-                            <span class="inline-block text-[10px] uppercase font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">En cours</span>
-                            <h4 class="font-bold text-slate-900">${escapeHtml(activeMission.title)}</h4>
-                            <p class="text-xs text-slate-500">${escapeHtml(CapHumaCountries.getCountryName(activeMission.country_code) || '')} • Prise de poste le ${startStr}</p>
-                        </div>
-                    </div>
-                `;
-                timelineFragment.appendChild(activeEntry.firstElementChild);
-            }
+                timelineFragment.appendChild(buildActiveMissionEntry(mission));
+            });
 
             let passages = [];
             try {
@@ -508,7 +522,7 @@ const IdCardPage = {};
                     const lang = capHumaGetExportLang();
                     await capHumaLoadScriptOnce('shared/vendor/jspdf-2.5.1.js');
                     await capHumaLoadScriptOnce('shared/vendor/jspdf-autotable-3.5.29.js');
-                    IdCardPage.exportTalentCardPDF(talent, activeMission, lang);
+                    IdCardPage.exportTalentCardPDF(talent, activeMission, activeDetachment, lang);
                     toastMessage(lang === 'en' ? "PDF document generated and downloaded." : "Document PDF généré et téléchargé.", "success");
                     const fullName = `${talent.first_name || ''} ${talent.last_name || ''}`.trim() || null;
                     await logAuditAction('export', 'talent', IdCardPage.talentId, fullName, `Export PDF de la fiche (${lang.toUpperCase()})`);
