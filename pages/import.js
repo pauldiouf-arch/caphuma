@@ -170,6 +170,121 @@
             { key: 'availability_type', label: 'Disponibilité', allowed: AVAILABILITY_LABEL_TO_ENUM }
         ];
 
+        // Reprend les valeurs du filtre "Statut" de talents.html — aucune liste
+        // centralisée dans caphuma-utils.js pour ce champ précis.
+        const TALENT_STATUS_VALID = new Set([
+            'En poste ALIMA', 'En attente de poste', 'En poste autre ONG', 'En poste hors humanitaire'
+        ]);
+
+        function validateRequiredIdentityFields(firstName, lastName, email, errors) {
+            if (!firstName) errors.push('Prénom manquant');
+            if (!lastName) errors.push('Nom manquant');
+            if (!email) errors.push('Email manquant');
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email au format invalide');
+        }
+
+        // Vide -> expat (comportement par défaut, identique à avant l'ajout de cette
+        // colonne — rétrocompatible avec un fichier qui ne la remplit pas).
+        function resolveStaffType(staffTypeRaw, errors) {
+            if (!staffTypeRaw) return 'expat';
+            const staffType = STAFF_TYPE_LABEL_TO_ENUM[staffTypeRaw];
+            if (!staffType) errors.push(`Type de staff "${staffTypeRaw}" invalide (attendu : Expatrié / National)`);
+            return staffType;
+        }
+
+        function resolveTrackingPool(trackingPoolRaw, errors) {
+            if (!trackingPoolRaw) return null;
+            if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(trackingPoolRaw).toUpperCase())) {
+                errors.push(`Pool de suivi "${trackingPoolRaw}" inconnu`);
+                return null;
+            }
+            return String(trackingPoolRaw).toUpperCase();
+        }
+
+        function validatePoolForStaffType(staffType, pool, trackingPoolRaw, errors) {
+            if (staffType === 'national') {
+                if (pool) errors.push('Code Pool doit être vide pour un staff national (utiliser Pool de suivi)');
+            } else {
+                if (!pool) errors.push('Code Pool manquant');
+                else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
+                    errors.push(`Pool "${pool}" inconnu`);
+                }
+                if (trackingPoolRaw) errors.push('Pool de suivi ne doit être rempli que pour un staff national');
+            }
+        }
+
+        function checkEmailDuplicates(email, seenEmailsInFile, errors) {
+            const emailLower = (email || '').toString().toLowerCase();
+            if (email) {
+                if (seenEmailsInFile.has(emailLower)) errors.push('Email en double dans le fichier');
+                else seenEmailsInFile.add(emailLower);
+                if (cachedExistingEmails.has(emailLower)) errors.push('Un talent avec cet email existe déjà');
+            }
+        }
+
+        function validateGender(gender, errors) {
+            if (gender && gender !== 'H' && gender !== 'F') errors.push(`Genre "${gender}" invalide`);
+        }
+
+        function validateStatus(status, errors) {
+            if (status && !TALENT_STATUS_VALID.has(status)) {
+                errors.push(`Statut "${status}" invalide (attendu : ${Array.from(TALENT_STATUS_VALID).join(' / ')})`);
+            }
+        }
+
+        function resolveOptionalEnumFields(get, errors) {
+            const enumResults = {};
+            TALENT_OPTIONAL_ENUM_FIELDS.forEach(({ key, label, allowed }) => {
+                const { value, error } = validateOptionalEnumField(get(key), allowed, label);
+                if (error) errors.push(error);
+                enumResults[key] = value;
+            });
+            return enumResults;
+        }
+
+        function resolveNationality(get, errors) {
+            const result = validateOptionalCountryField(get('nationality'), 'Nationalité');
+            if (result.error) errors.push(result.error);
+            return result.value;
+        }
+
+        function resolveAvailability(get, raw, availabilityType, errors) {
+            let availDate = null;
+            if (availabilityType === 'date') {
+                availDate = parseDateCell(raw['availability_date']);
+                if (!availDate) errors.push('Date de disponibilité requise (type = Date précise)');
+            }
+
+            let availMonths = null;
+            const availMonthsRaw = get('availability_months');
+            if (availabilityType === 'notice') {
+                availMonths = Number(availMonthsRaw);
+                if (availMonthsRaw === '' || availMonthsRaw == null || isNaN(availMonths)) errors.push('Préavis (mois) requis (type = Préavis)');
+            } else if (availMonthsRaw !== '' && availMonthsRaw != null) {
+                const n = Number(availMonthsRaw);
+                if (isNaN(n)) errors.push('Préavis (mois) doit être numérique');
+                else availMonths = n;
+            }
+
+            return { availDate, availMonths };
+        }
+
+        function resolvePoolIntegrationDate(raw, errors) {
+            if (!raw['pool_integration_date']) return null;
+            const date = parseDateCell(raw['pool_integration_date']);
+            if (!date) errors.push("Date d'intégration invalide");
+            return date;
+        }
+
+        // NaN volontairement renvoyé tel quel si invalide (comme avant) : sans
+        // effet, la ligne est de toute façon rejetée par ses erreurs.
+        function resolveNumericField(rawValue, fieldLabel, errors) {
+            if (rawValue === '' || rawValue == null) return null;
+            const n = Number(rawValue);
+            if (isNaN(n)) errors.push(`${fieldLabel} doit être numérique`);
+            return n;
+        }
+
         function validateAndNormalizeRow(raw, rowNumber, seenEmailsInFile) {
             const errors = [];
             const get = (key) => {
@@ -182,106 +297,27 @@
             const email = get('email');
             const pool = get('pool');
 
-            if (!firstName) errors.push('Prénom manquant');
-            if (!lastName) errors.push('Nom manquant');
-            if (!email) errors.push('Email manquant');
-            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email au format invalide');
+            validateRequiredIdentityFields(firstName, lastName, email, errors);
 
-            // Vide -> expat (comportement par défaut, identique à avant l'ajout de cette
-            // colonne — rétrocompatible avec un fichier qui ne la remplit pas).
-            const staffTypeRaw = get('staff_type');
-            let staffType = 'expat';
-            if (staffTypeRaw) {
-                staffType = STAFF_TYPE_LABEL_TO_ENUM[staffTypeRaw];
-                if (!staffType) errors.push(`Type de staff "${staffTypeRaw}" invalide (attendu : Expatrié / National)`);
-            }
-
+            const staffType = resolveStaffType(get('staff_type'), errors);
             const trackingPoolRaw = get('tracking_pool');
-            let trackingPool = null;
-            if (trackingPoolRaw) {
-                if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(trackingPoolRaw).toUpperCase())) {
-                    errors.push(`Pool de suivi "${trackingPoolRaw}" inconnu`);
-                } else {
-                    trackingPool = String(trackingPoolRaw).toUpperCase();
-                }
-            }
+            const trackingPool = resolveTrackingPool(trackingPoolRaw, errors);
+            validatePoolForStaffType(staffType, pool, trackingPoolRaw, errors);
 
-            if (staffType === 'national') {
-                if (pool) errors.push('Code Pool doit être vide pour un staff national (utiliser Pool de suivi)');
-            } else {
-                if (!pool) errors.push('Code Pool manquant');
-                else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
-                    errors.push(`Pool "${pool}" inconnu`);
-                }
-                if (trackingPoolRaw) errors.push('Pool de suivi ne doit être rempli que pour un staff national');
-            }
-
-            const emailLower = (email || '').toString().toLowerCase();
-            if (email) {
-                if (seenEmailsInFile.has(emailLower)) errors.push('Email en double dans le fichier');
-                else seenEmailsInFile.add(emailLower);
-                if (cachedExistingEmails.has(emailLower)) errors.push('Un talent avec cet email existe déjà');
-            }
+            checkEmailDuplicates(email, seenEmailsInFile, errors);
 
             const gender = get('gender');
-            if (gender && gender !== 'H' && gender !== 'F') errors.push(`Genre "${gender}" invalide`);
+            validateGender(gender, errors);
 
-            // Reprend les valeurs du filtre "Statut" de talents.html — aucune liste
-            // centralisée dans caphuma-utils.js pour ce champ précis.
-            const TALENT_STATUS_VALID = new Set([
-                'En poste ALIMA', 'En attente de poste', 'En poste autre ONG', 'En poste hors humanitaire'
-            ]);
             const status = get('status');
-            if (status && !TALENT_STATUS_VALID.has(status)) {
-                errors.push(`Statut "${status}" invalide (attendu : ${Array.from(TALENT_STATUS_VALID).join(' / ')})`);
-            }
+            validateStatus(status, errors);
 
-            const enumResults = {};
-            TALENT_OPTIONAL_ENUM_FIELDS.forEach(({ key, label, allowed }) => {
-                const { value, error } = validateOptionalEnumField(get(key), allowed, label);
-                if (error) errors.push(error);
-                enumResults[key] = value;
-            });
-
-            const nationalityResult = validateOptionalCountryField(get('nationality'), 'Nationalité');
-            if (nationalityResult.error) errors.push(nationalityResult.error);
-
-            let availDate = null;
-            if (enumResults.availability_type === 'date') {
-                availDate = parseDateCell(raw['availability_date']);
-                if (!availDate) errors.push('Date de disponibilité requise (type = Date précise)');
-            }
-
-            let availMonths = null;
-            const availMonthsRaw = get('availability_months');
-            if (enumResults.availability_type === 'notice') {
-                availMonths = Number(availMonthsRaw);
-                if (availMonthsRaw === '' || availMonthsRaw == null || isNaN(availMonths)) errors.push('Préavis (mois) requis (type = Préavis)');
-            } else if (availMonthsRaw !== '' && availMonthsRaw != null) {
-                const n = Number(availMonthsRaw);
-                if (isNaN(n)) errors.push('Préavis (mois) doit être numérique');
-                else availMonths = n;
-            }
-
-            let poolIntegrationDate = null;
-            if (raw['pool_integration_date']) {
-                poolIntegrationDate = parseDateCell(raw['pool_integration_date']);
-                if (!poolIntegrationDate) errors.push("Date d'intégration invalide");
-            }
-
-            let expAlima = null;
-            const expAlimaRaw = get('experience_months_alima');
-            if (expAlimaRaw !== '' && expAlimaRaw != null) {
-                expAlima = Number(expAlimaRaw);
-                if (isNaN(expAlima)) errors.push('Expérience ALIMA (mois) doit être numérique');
-            }
-
-            let expHum = null;
-            const expHumRaw = get('experience_months_humanitarian');
-            if (expHumRaw !== '' && expHumRaw != null) {
-                expHum = Number(expHumRaw);
-                if (isNaN(expHum)) errors.push('Expérience humanitaire (mois) doit être numérique');
-            }
+            const enumResults = resolveOptionalEnumFields(get, errors);
+            const nationalityCode = resolveNationality(get, errors);
+            const { availDate, availMonths } = resolveAvailability(get, raw, enumResults.availability_type, errors);
+            const poolIntegrationDate = resolvePoolIntegrationDate(raw, errors);
+            const expAlima = resolveNumericField(get('experience_months_alima'), 'Expérience ALIMA (mois)', errors);
+            const expHum = resolveNumericField(get('experience_months_humanitarian'), 'Expérience humanitaire (mois)', errors);
 
             const normalized = {
                 first_name: firstName || null,
@@ -291,7 +327,7 @@
                 staff_type: staffType,
                 tracking_pool: staffType === 'national' ? trackingPool : null,
                 gender: gender || null,
-                nationality_code: nationalityResult.value,
+                nationality_code: nationalityCode,
                 country_of_residence: get('country_of_residence') || null,
                 current_function: get('current_function') || null,
                 education_level: enumResults.education_level,
@@ -546,6 +582,69 @@
             { key: 'contract_status', label: 'Statut du contrat', allowed: CONTRACT_STATUS_LABEL_TO_ENUM }
         ];
 
+        function validateMissionTitle(title, errors) {
+            if (!title) errors.push('Titre manquant');
+        }
+
+        function validateMissionPool(pool, errors) {
+            if (!pool) errors.push('Code Pool manquant');
+            else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
+                errors.push(`Pool "${pool}" inconnu`);
+            }
+        }
+
+        function resolveMissionCountryCode(country, errors) {
+            if (!country) { errors.push('Pays manquant'); return null; }
+            const countryCode = CapHumaCountries.findCodeByText(country);
+            if (!countryCode) errors.push(`Pays "${country}" non reconnu`);
+            return countryCode;
+        }
+
+        function validateMissionLocation(location, errors) {
+            if (!location) errors.push('Lieu manquant');
+        }
+
+        function resolveMissionPoolLevel(poolLevelRaw, errors) {
+            if (!poolLevelRaw) { errors.push('Niveau manquant'); return null; }
+            if (!(poolLevelRaw in POOL_LEVEL_LABEL_TO_ENUM)) {
+                errors.push(`Niveau "${poolLevelRaw}" invalide (attendu : Mission / Projet)`);
+                return null;
+            }
+            return POOL_LEVEL_LABEL_TO_ENUM[poolLevelRaw];
+        }
+
+        function resolveMissionStatus(statusRaw, errors) {
+            if (!statusRaw) { errors.push('Statut manquant'); return null; }
+            if (statusRaw === 'Occupé') {
+                errors.push(`Statut "Occupé" non autorisé à l'import — importez en Vacant ou En recrutement, puis affectez le talent depuis la page Postes`);
+                return null;
+            }
+            if (!(statusRaw in MISSION_STATUS_LABEL_TO_ENUM)) {
+                errors.push(`Statut "${statusRaw}" invalide (attendu : Vacant / En recrutement)`);
+                return null;
+            }
+            return MISSION_STATUS_LABEL_TO_ENUM[statusRaw];
+        }
+
+        // Mêmes 3 champs "optionnel, valeur parmi une liste connue" que côté talent
+        // — réduits via validateOptionalEnumField() ci-dessus.
+        function resolveMissionOptionalEnumFields(get, errors) {
+            const enumResults = {};
+            MISSION_OPTIONAL_ENUM_FIELDS.forEach(({ key, label, allowed }) => {
+                const { value, error } = validateOptionalEnumField(get(key), allowed, label);
+                if (error) errors.push(error);
+                enumResults[key] = value;
+            });
+            return enumResults;
+        }
+
+        function resolveMissionContractDate(rawValue, fieldLabel, errors) {
+            if (!rawValue) return null;
+            const date = parseDateCell(rawValue);
+            if (!date) errors.push(fieldLabel);
+            return date;
+        }
+
         function validateAndNormalizeMissionRow(raw, rowNumber) {
             const errors = [];
             const get = (key) => {
@@ -558,53 +657,16 @@
             const country = get('country');
             const location = get('location');
 
-            if (!title) errors.push('Titre manquant');
-            if (!pool) errors.push('Code Pool manquant');
-            else if (!cachedPools.some(p => (p.pool_id || '').toUpperCase() === String(pool).toUpperCase())) {
-                errors.push(`Pool "${pool}" inconnu`);
-            }
-            let countryCode = null;
-            if (!country) errors.push('Pays manquant');
-            else {
-                countryCode = CapHumaCountries.findCodeByText(country);
-                if (!countryCode) errors.push(`Pays "${country}" non reconnu`);
-            }
-            if (!location) errors.push('Lieu manquant');
+            validateMissionTitle(title, errors);
+            validateMissionPool(pool, errors);
+            const countryCode = resolveMissionCountryCode(country, errors);
+            validateMissionLocation(location, errors);
 
-            const poolLevelRaw = get('pool_level');
-            let poolLevel = null;
-            if (!poolLevelRaw) errors.push('Niveau manquant');
-            else if (!(poolLevelRaw in POOL_LEVEL_LABEL_TO_ENUM)) errors.push(`Niveau "${poolLevelRaw}" invalide (attendu : Mission / Projet)`);
-            else poolLevel = POOL_LEVEL_LABEL_TO_ENUM[poolLevelRaw];
-
-            const statusRaw = get('status');
-            let status = null;
-            if (!statusRaw) errors.push('Statut manquant');
-            else if (statusRaw === 'Occupé') errors.push(`Statut "Occupé" non autorisé à l'import — importez en Vacant ou En recrutement, puis affectez le talent depuis la page Postes`);
-            else if (!(statusRaw in MISSION_STATUS_LABEL_TO_ENUM)) errors.push(`Statut "${statusRaw}" invalide (attendu : Vacant / En recrutement)`);
-            else status = MISSION_STATUS_LABEL_TO_ENUM[statusRaw];
-
-            // Mêmes 3 champs "optionnel, valeur parmi une liste connue" que côté talent
-            // — réduits via validateOptionalEnumField() ci-dessus.
-            const enumResults = {};
-            MISSION_OPTIONAL_ENUM_FIELDS.forEach(({ key, label, allowed }) => {
-                const { value, error } = validateOptionalEnumField(get(key), allowed, label);
-                if (error) errors.push(error);
-                enumResults[key] = value;
-            });
-
-            let contractStart = null;
-            const contractStartRaw = get('contract_start_date');
-            if (contractStartRaw) {
-                contractStart = parseDateCell(contractStartRaw);
-                if (!contractStart) errors.push('Date début contrat invalide');
-            }
-            let contractEnd = null;
-            const contractEndRaw = get('contract_end_date');
-            if (contractEndRaw) {
-                contractEnd = parseDateCell(contractEndRaw);
-                if (!contractEnd) errors.push('Date fin contrat invalide');
-            }
+            const poolLevel = resolveMissionPoolLevel(get('pool_level'), errors);
+            const status = resolveMissionStatus(get('status'), errors);
+            const enumResults = resolveMissionOptionalEnumFields(get, errors);
+            const contractStart = resolveMissionContractDate(get('contract_start_date'), 'Date début contrat invalide', errors);
+            const contractEnd = resolveMissionContractDate(get('contract_end_date'), 'Date fin contrat invalide', errors);
 
             const normalized = {
                 title: title || null,
