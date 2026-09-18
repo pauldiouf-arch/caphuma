@@ -45,6 +45,15 @@ const IdCardPage = {};
             return isNaN(parsed) ? null : parsed;
         }
 
+        function mostRecentByContractStart(missions) {
+            if (missions.length === 0) return null;
+            return missions.reduce((latest, m) => {
+                const mStart = m.contract_start_date ? new Date(m.contract_start_date).getTime() : -Infinity;
+                const latestStart = latest.contract_start_date ? new Date(latest.contract_start_date).getTime() : -Infinity;
+                return mStart > latestStart ? m : latest;
+            });
+        }
+
         function normalizePassageComment(c) {
             return {
                 context: c.context || null,
@@ -154,10 +163,14 @@ const IdCardPage = {};
                 talent = talentResult;
                 // Un talent peut occuper un poste national/expatrié et un détachement en
                 // même temps (garde-fou 1 de missions-crud.js) : les deux coexistent parmi
-                // les missions "occupied", distingués par candidate_type.
+                // les missions "occupied", distingués par candidate_type. Rien ne bloque
+                // encore en base un second détachement simultané (contrairement au poste
+                // national/expat, protégé par ce même garde-fou 1) — most-recent-d'abord
+                // pour rester déterministe si ce cas survient, même logique que la
+                // sous-requête ORDER BY ... LIMIT 1 de get_shared_talent().
                 const occupiedMissions = missionResult.data || [];
-                activeMission = occupiedMissions.find(m => m.candidate_type !== 'detache') || null;
-                activeDetachment = occupiedMissions.find(m => m.candidate_type === 'detache') || null;
+                activeMission = mostRecentByContractStart(occupiedMissions.filter(m => m.candidate_type !== 'detache'));
+                activeDetachment = mostRecentByContractStart(occupiedMissions.filter(m => m.candidate_type === 'detache'));
 
                 renderTalentCard();
                 await Promise.all([
@@ -473,32 +486,38 @@ const IdCardPage = {};
             const btnRevalidate = document.getElementById('btn-revalidate');
             const btnRedlist = document.getElementById('btn-redlist');
             const btnDeleteTalent = document.getElementById('btn-delete-talent');
+            const btnPromote = document.getElementById('btn-promote-to-expat');
 
             btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || talent.tracking_pool || '');
 
             if (isNational) {
-                // Ni pool à changer, ni dévalidation/prolongation : ce cycle de vie
-                // n'existe pas encore pour un staff national (étape 6 du chantier).
+                // Ni pool à changer, ni dévalidation/prolongation : ce cycle de vie ne
+                // s'applique qu'à partir du passage en expat (bouton dédié ci-dessous).
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
                 document.getElementById('btn-change-pool').classList.add('hidden');
-            } else if (isInvalid) {
-                btnDevalidate.classList.add('hidden');
-                btnRevalidate.classList.remove('hidden');
             } else {
-                btnRevalidate.classList.add('hidden');
-                btnDevalidate.classList.remove('hidden');
+                btnPromote.classList.add('hidden');
+                if (isInvalid) {
+                    btnDevalidate.classList.add('hidden');
+                    btnRevalidate.classList.remove('hidden');
+                } else {
+                    btnRevalidate.classList.add('hidden');
+                    btnDevalidate.classList.remove('hidden');
+                }
             }
 
             if (IdCardPage.currentUserRole === 'visitor') {
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
                 btnRedlist.classList.add('hidden');
+                btnPromote.classList.add('hidden');
                 document.getElementById('btn-change-pool').classList.add('hidden');
                 document.getElementById('share-btn').classList.add('hidden');
             } else {
                 btnRedlist.classList.remove('hidden');
                 if (!isNational) document.getElementById('btn-change-pool').classList.remove('hidden');
+                if (isNational) btnPromote.classList.remove('hidden');
                 document.getElementById('share-btn').classList.remove('hidden');
             }
 
@@ -817,6 +836,79 @@ const IdCardPage = {};
             };
         }
 
+        function bindPromoteButton() {
+            const promoteModal = document.getElementById('promote-modal');
+            document.getElementById('btn-promote-to-expat').onclick = async () => {
+                document.getElementById('promote-error').classList.add('hidden');
+                const select = document.getElementById('modal-promote-pool-select');
+                select.innerHTML = '<option value="">Chargement des pools...</option>';
+                promoteModal.classList.remove('hidden');
+
+                try {
+                    const { data: pools, error } = await CapHumaData.getPools(IdCardPage.supabaseClient, { select: 'pool_id, name, full_name', orderBy: 'name' });
+                    if (error) throw error;
+
+                    select.innerHTML = '<option value="">— Choisir un pool —</option>';
+                    (pools || []).forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.pool_id;
+                        opt.textContent = p.full_name || p.name;
+                        select.appendChild(opt);
+                    });
+                } catch (err) {
+                    console.error(err);
+                    select.innerHTML = '<option value="">Erreur de chargement des pools</option>';
+                }
+            };
+
+            document.getElementById('modal-promote-cancel').onclick = () => promoteModal.classList.add('hidden');
+
+            document.getElementById('modal-promote-confirm').onclick = async () => {
+                const errorEl = document.getElementById('promote-error');
+                errorEl.classList.add('hidden');
+                const newPool = document.getElementById('modal-promote-pool-select').value;
+                if (!newPool) {
+                    errorEl.textContent = "Veuillez choisir un pool d'intégration.";
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                try {
+                    const { error: histError } = await IdCardPage.supabaseClient.from('pool_history').insert({
+                        talent_id: IdCardPage.talentId,
+                        from_pool: null,
+                        to_pool: newPool,
+                        changed_by: IdCardPage.currentUserId,
+                        changed_by_name: currentUserName || currentUserEmail
+                    });
+                    if (histError) throw histError;
+
+                    // Pas de logAuditAction() : trg_audit_talents loggue déjà ce cas via
+                    // sa branche "changement de pool" (NEW.pool distinct de OLD.pool).
+                    const { data, error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
+                                staff_type: 'expat',
+                                pool: newPool,
+                                national_inactive_since: null,
+                                months_without_mission: 0,
+                                last_mission_end_date: null,
+                                pool_integration_date: new Date().toISOString()
+                            }, 'id');
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("La mise à jour n'a affecté aucune ligne (policy RLS ?).");
+                    }
+
+                    promoteModal.classList.add('hidden');
+                    toastMessage("Le talent est passé en expat.", "success");
+                    await loadTalentData();
+                } catch (err) {
+                    console.error(err);
+                    errorEl.textContent = "Échec du passage en expat : " + (err.message || 'erreur inconnue');
+                    errorEl.classList.remove('hidden');
+                }
+            };
+        }
+
         function bindDeleteTalentButton() {
             document.getElementById('btn-delete-talent').onclick = async () => {
                 const fullName = `${talent.first_name || talent.firstName || ''} ${talent.last_name || talent.lastName || ''}`.trim() || "ce talent";
@@ -878,6 +970,7 @@ const IdCardPage = {};
             bindRevalidateButton();
             bindRedlistButton();
             bindChangePoolButton();
+            bindPromoteButton();
             bindDeleteTalentButton();
         }
 

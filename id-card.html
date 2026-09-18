@@ -245,6 +245,9 @@
                 <button id="btn-change-pool" class="bg-blue-50 hover:bg-blue-100 border border-blue-200 text-primary font-semibold text-xs px-4 py-2 rounded-xl transition-all">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg> Changer de pool
                 </button>
+                <button id="btn-promote-to-expat" class="hidden bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5 19.5 4.5m0 0h-9m9 0v9"/></svg> Passer en expat
+                </button>
                 <button id="btn-devalidate" class="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg> Dévalider le talent
                 </button>
@@ -319,6 +322,27 @@
             <div class="flex justify-end gap-2 pt-2">
                 <button id="modal-pool-cancel" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
                 <button id="modal-pool-confirm" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-4 py-2 rounded-xl">Confirmer le changement</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="promote-modal" role="dialog" aria-modal="true" aria-labelledby="promote-modal-title" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 id="promote-modal-title" class="text-lg font-bold text-indigo-700 flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5 19.5 4.5m0 0h-9m9 0v9"/></svg> Passer en expat</h3>
+            <p class="text-sm text-slate-500">
+                Choisissez le pool d'intégration. Son historique (parcours, détachements) est conservé.
+                La validité de pool démarre à la date du jour.
+            </p>
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-500 uppercase" for="modal-promote-pool-select">Pool d'intégration *</label>
+                <select id="modal-promote-pool-select" class="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">Chargement des pools...</option>
+                </select>
+            </div>
+            <p id="promote-error" class="hidden text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg p-3"></p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="modal-promote-cancel" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:bg-slate-50 px-4 py-2 rounded-xl">Annuler</button>
+                <button id="modal-promote-confirm" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2 rounded-xl">Confirmer le passage en expat</button>
             </div>
         </div>
     </div>
