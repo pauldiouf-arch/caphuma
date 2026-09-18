@@ -315,7 +315,7 @@ const MissionsPage = {};
             if (detachError) throw detachError;
             if (!linkedDetachment) return;
 
-            await MissionsPage.archiveOutgoingOccupant({ ...linkedDetachment, occupant_id: mission.occupant_id, candidate_type: 'detache', contract_end_date: mission.contract_end_date });
+            await MissionsPage.archiveOutgoingOccupant({ ...linkedDetachment, occupant_id: mission.occupant_id, candidate_type: 'detache' }, mission.contract_end_date);
             const { error: vacateError } = await capHumaWithRetry(() =>
                 MissionsPage.supabaseClient
                     .from('missions')
@@ -350,7 +350,7 @@ const MissionsPage = {};
             let vacatedCount = 0;
             for (const mission of toProcess) {
                 try {
-                    await MissionsPage.archiveOutgoingOccupant(mission);
+                    await MissionsPage.archiveOutgoingOccupant(mission, mission.contract_end_date);
                     await releaseLinkedDetachment(mission);
 
                     if (mission.future_talent_id) {
@@ -414,11 +414,16 @@ const MissionsPage = {};
         // ou suppression du poste) : archive ses évaluations dans
         // talents.archived_position_passages, puis met à jour son suivi de
         // disponibilité (is_currently_on_mission, last_mission_end_date, status).
-        async function archiveOutgoingOccupant(mission) {
+        // exitDate : la date de sortie réelle, pas nécessairement celle du contrat.
+        // Passée explicitement par l'appelant pour une expiration automatique
+        // (processExpiredMissions, releaseLinkedDetachment — contract_end_date fait foi),
+        // sinon la date du jour pour une action manuelle (changement d'occupant,
+        // passage à vacant, suppression), quelle que soit la date de contrat saisie.
+        async function archiveOutgoingOccupant(mission, explicitExitDate = null) {
             if (!mission.occupant_id) return;
 
             const isDetachment = mission.candidate_type === 'detache';
-            const exitDate = mission.contract_end_date || new Date().toISOString().substring(0, 10);
+            const exitDate = explicitExitDate || new Date().toISOString().substring(0, 10);
             let occupantIsNational = false;
 
             // 1. Archivage du poste dans l'historique — systématique, avec ou sans
