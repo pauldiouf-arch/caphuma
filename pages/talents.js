@@ -105,8 +105,7 @@ const TalentsPage = {};
 
         // Effectif attendu faible, non paginé — chargé une fois, filtré et fusionné
         // dans renderTalents() à chaque rendu, avec le même filtre de validité que
-        // la liste principale (voir échange du 15/09/2026 : réutiliser le filtre
-        // existant plutôt qu'une section à part avec sa propre logique).
+        // la liste principale.
         async function loadTrackedNationalStaff() {
             try {
                 const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {

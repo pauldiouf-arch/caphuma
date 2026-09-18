@@ -10,9 +10,7 @@
 
         // Expatrié reste en gris neutre — c'est la norme du site, pas la peine de le
         // signaler. National et détachement sortent de cette norme, chacun avec sa
-        // propre couleur pour qu'on les distingue au premier coup d'œil dans la liste
-        // (demandé par l'utilisateur le 15/09/2026, même logique que la bannière ambrée
-        // déjà posée sur les fiches de staffs nationaux dans talents.js).
+        // propre couleur.
         const CANDIDATE_TYPE_BADGE_CLASSES = {
             expat: 'bg-slate-100 text-slate-600',
             nat: 'bg-amber-100 text-amber-800',

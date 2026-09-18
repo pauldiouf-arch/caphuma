@@ -132,20 +132,20 @@
             missionModal.classList.add('hidden');
         }
 
-        // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste ? Un
-        // détachement ne compte jamais comme conflit, ni comme poste qu'on enregistre,
-        // ni comme poste déjà occupé trouvé en conflit : le staff garde son poste
-        // national en parallèle de son détachement, "libérer" l'un des deux serait
-        // une erreur.
+        // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste de la
+        // même catégorie ? Poste national/expatrié et détachement ne se bloquent jamais
+        // entre eux (le staff garde son poste national en parallèle de son détachement),
+        // mais deux détachements simultanés ne sont pas plus autorisés que deux postes
+        // nationaux/expatriés simultanés.
         function checkOccupantConflict(payload, missionId) {
-            if (payload.candidate_type === 'detache' || payload.status !== 'occupied' || !payload.occupant_id) {
+            if (payload.status !== 'occupied' || !payload.occupant_id) {
                 return { proceed: true, conflictMissionToVacate: null };
             }
             const conflict = MissionsPage.currentMissions.find(m =>
                 m.id !== missionId &&
                 m.occupant_id === payload.occupant_id &&
                 m.status === 'occupied' &&
-                m.candidate_type !== 'detache'
+                (payload.candidate_type === 'detache' ? m.candidate_type === 'detache' : m.candidate_type !== 'detache')
             );
             if (!conflict) return { proceed: true, conflictMissionToVacate: null };
 

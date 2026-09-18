@@ -1,42 +1,24 @@
 -- ============================================================================
--- functions_is_admin_get_shared_talent.sql
+-- staff_national_detachement_etape5_get_shared_talent_detachement.sql
 -- ----------------------------------------------------------------------------
--- Fichier de référence des 2 fonctions SECURITY DEFINER du schéma public.
--- Ne bouge que si le code de l'une des deux change (créé le 14/08/2026, mis
--- à jour le 19/08/2026 — voir ci-dessous).
+-- Étape 5 point 3 du chantier staff national / détachement.
 --
--- is_admin() : INCHANGÉE depuis sa création.
+-- get_shared_talent() ne remontait qu'un seul poste "en cours" (le plus
+-- récent par contract_start_date), en excluant de fait un détachement quand
+-- le talent occupe aussi un poste national ou expatrié en parallèle — cas
+-- normal depuis le garde-fou 1 de missions-crud.js. La fiche interne
+-- (id-card.js) a le même problème, corrigé dans ce même lot en dehors de la
+-- base.
 --
--- get_shared_talent() : corrigée le 19/08/2026 (chantier B1, points 3 et 4
--- identifiés le 18/08/2026 en construisant l'instantané du schéma) :
---   - view_count/last_viewed_at incrémentés désormais APRÈS la confirmation
---     que le talent existe et n'est pas en Liste Rouge (au lieu d'avant) —
---     une consultation qui échoue ensuite n'est plus comptée comme une vue.
---   - ORDER BY ajouté avant LIMIT 1 sur la mission affichée — déterministe
---     même si plusieurs lignes "occupied" existaient par anomalie de données.
--- Mise à jour le 15/09/2026 (chantier staffs nationaux/détachements, étape 2
--- point 3, voir staff_national_detachement_etape2_get_shared_talent.sql) :
--- nationality_code et country_code ajoutés aux deux objets JSON retournés.
--- Mise à jour le 18/09/2026 (chantier staffs nationaux/détachements, étape 5
--- point 3, voir staff_national_detachement_etape5_get_shared_talent_detachement.sql) :
--- un talent peut occuper un poste national/expatrié et un détachement en
--- même temps (garde-fou 1 de missions-crud.js) — la mission "en cours"
--- retournée exclut désormais candidate_type = 'detache', et une nouvelle
--- clé 'detachment' porte ce détachement séparément.
+-- La sous-requête existante est désormais filtrée sur candidate_type
+-- différent de 'detache' (poste national/expatrié), et une seconde
+-- sous-requête identique, filtrée sur candidate_type = 'detache', alimente
+-- une nouvelle clé 'detachment' dans le JSON retourné. Structure de
+-- 'mission' et de 'detachment' identique. is_admin() n'est pas touchée.
+--
+-- Rédigé le : 18/09/2026
+-- Exécuté en base le : [À COMPLÉTER]
 -- ============================================================================
-
-create or replace function public.is_admin()
- returns boolean
- language sql
- stable security definer
- set search_path to 'public'
-as $function$
-    SELECT EXISTS (
-        SELECT 1 FROM public.users
-        WHERE id = auth.uid()
-        AND role = 'admin'
-    );
-$function$;
 
 create or replace function public.get_shared_talent(p_token text)
  returns jsonb
@@ -66,11 +48,6 @@ BEGIN
         RETURN jsonb_build_object('error', 'expired');
     END IF;
 
-    -- Sous-ensemble volontairement restreint des colonnes de talents :
-    -- informations "CV" uniquement, jamais les champs internes de gestion RH
-    -- (Liste Rouge, compteur de validité, dévalidation, etc.)
-    -- CORRECTIF DU 17/07/2026 : exclut désormais explicitement un talent en
-    -- Liste Rouge, même si le lien de partage lui-même est encore valide.
     SELECT jsonb_build_object(
         'first_name', t.first_name,
         'last_name', t.last_name,
@@ -103,8 +80,6 @@ BEGIN
         RETURN jsonb_build_object('error', 'talent_not_found');
     END IF;
 
-    -- CORRECTIF DU 19/08/2026 (B1) : déplacé ici, après confirmation du
-    -- talent, au lieu d'avant (juste après le contrôle d'expiration).
     UPDATE public.share_tokens
     SET view_count = COALESCE(view_count, 0) + 1,
         last_viewed_at = now()
@@ -139,3 +114,10 @@ BEGIN
     RETURN jsonb_build_object('talent', v_talent, 'mission', v_mission, 'detachment', v_detachment);
 END;
 $function$;
+
+-- ----------------------------------------------------------------------------
+-- Rollback (règle 10) : recréer get_shared_talent() avec le corps précédent
+-- (sans la sous-requête 'detachment' ni le filtre candidate_type), tel que
+-- documenté dans sql/functions_is_admin_get_shared_talent.sql avant cette
+-- migration.
+-- ----------------------------------------------------------------------------
