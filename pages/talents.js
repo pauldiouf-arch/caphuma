@@ -370,11 +370,21 @@ const TalentsPage = {};
             return Math.max(0, (now.getUTCFullYear() - since.getUTCFullYear()) * 12 + (now.getUTCMonth() - since.getUTCMonth()));
         }
 
+        // national_inactive_since ne couvre que la sortie d'un poste national déjà
+        // occupé. Un staff nat jamais affecté n'a pas d'autre date de référence :
+        // on retombe sur sa date de création.
+        function nationalInactiveSinceDate(t) {
+            if (t.national_inactive_since) return t.national_inactive_since;
+            if (!t.is_currently_on_mission) return t.created_at;
+            return null;
+        }
+
         function buildTrackedNationalRow(t) {
             const row = document.createElement('div');
             const archived = t.is_valid === false;
             const idKey = t.id || t._id;
             const canManage = TalentsPage.currentUserRole !== 'visitor';
+            const inactiveSince = nationalInactiveSinceDate(t);
 
             row.className = "bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-sm transition-all";
             row.innerHTML = `
@@ -389,7 +399,7 @@ const TalentsPage = {};
                         <p class="text-xs text-slate-500 truncate mt-0.5">
                             <span class="font-semibold text-slate-500">Fonction :</span> ${escapeHtml(t.current_function || '—')}
                         </p>
-                        ${t.national_inactive_since ? `<p class="text-xs text-slate-500 mt-0.5">Sans poste depuis ${monthsWithoutNationalPost(t.national_inactive_since)} mois</p>` : ''}
+                        ${inactiveSince ? `<p class="text-xs text-slate-500 mt-0.5">Sans poste depuis ${monthsWithoutNationalPost(inactiveSince)} mois</p>` : ''}
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
