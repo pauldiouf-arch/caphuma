@@ -419,6 +419,7 @@ const MissionsPage = {};
 
             const isDetachment = mission.candidate_type === 'detache';
             const exitDate = mission.contract_end_date || new Date().toISOString().substring(0, 10);
+            let occupantIsNational = false;
 
             // 1. Archivage du poste dans l'historique — systématique, avec ou sans
             // évaluation : l'historique des postes d'un talent ne doit jamais dépendre
@@ -454,11 +455,13 @@ const MissionsPage = {};
                 const { data: talent, error: talentErr } = await capHumaWithRetry(() =>
                     MissionsPage.supabaseClient
                         .from('talents')
-                        .select('archived_position_passages')
+                        .select('archived_position_passages, staff_type')
                         .eq('id', mission.occupant_id)
                         .maybeSingle()
                 );
                 if (talentErr) throw talentErr;
+
+                occupantIsNational = !!talent && talent.staff_type === 'national';
 
                 const existingPassages = (talent && Array.isArray(talent.archived_position_passages))
                     ? talent.archived_position_passages
@@ -492,11 +495,16 @@ const MissionsPage = {};
             // le détachement ne doit pas le déclarer "en attente de poste".
             if (isDetachment) return;
 
-            const { data: statusData, error: statusErr } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, mission.occupant_id, {
-                        is_currently_on_mission: false,
-                        last_mission_end_date: exitDate,
-                        status: 'En attente de poste'
-                    }, 'id');
+            const statusPayload = {
+                is_currently_on_mission: false,
+                last_mission_end_date: exitDate,
+                status: 'En attente de poste'
+            };
+            // Départ affiché en base uniquement pour un staff national : sert de
+            // point de départ au décompte des 2 ans sans poste avant purge.
+            if (occupantIsNational) statusPayload.national_inactive_since = exitDate;
+
+            const { data: statusData, error: statusErr } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, mission.occupant_id, statusPayload, 'id');
             if (statusErr) throw statusErr;
             if (!statusData || statusData.length === 0) {
                 throw new Error("La mise à jour du statut du talent sortant n'a affecté aucune ligne (policy RLS ?).");
@@ -515,6 +523,7 @@ const MissionsPage = {};
                 is_currently_on_mission: true,
                 months_without_mission: 0,
                 last_mission_end_date: null,
+                national_inactive_since: null,
                 status: 'En poste ALIMA'
             };
 
