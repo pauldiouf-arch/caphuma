@@ -14,9 +14,9 @@ const CapHumaCountries = (() => {
         { code: 'CF', nameFr: 'République centrafricaine', nameEn: 'Central African Republic', nationalityFr: 'centrafricaine', nationalityEn: 'Central African' },
         { code: 'KM', nameFr: 'Comores', nameEn: 'Comoros', nationalityFr: 'comorienne', nationalityEn: 'Comoran' },
         { code: 'CG', nameFr: 'Congo', nameEn: 'Congo', nationalityFr: 'congolaise', nationalityEn: 'Congolese' },
-        // Distingué de CG (choix explicite de l'utilisateur, 15/09/2026) : les
-        // deux pays partagent le même gentilé en usage courant, ce qui rendait
-        // congolaise ambigu pour la correspondance nationalité -> code.
+        // Distingué de CG : les deux pays partagent le même gentilé en usage
+        // courant, ce qui rendait "congolaise" ambigu pour la correspondance
+        // nationalité -> code.
         { code: 'CD', nameFr: 'République démocratique du Congo', nameEn: 'DR Congo', nationalityFr: 'congolaise RD', nationalityEn: 'Congolese (DRC)' },
         { code: 'CI', nameFr: "Côte d'Ivoire", nameEn: 'Ivory Coast', nationalityFr: 'ivoirienne', nationalityEn: 'Ivorian' },
         { code: 'DJ', nameFr: 'Djibouti', nameEn: 'Djibouti', nationalityFr: 'djiboutienne', nationalityEn: 'Djiboutian' },
@@ -73,9 +73,8 @@ const CapHumaCountries = (() => {
         { code: 'CO', nameFr: 'Colombie', nameEn: 'Colombia', nationalityFr: 'colombienne', nationalityEn: 'Colombian' },
         { code: 'CR', nameFr: 'Costa Rica', nameEn: 'Costa Rica', nationalityFr: 'costaricienne', nationalityEn: 'Costa Rican' },
         { code: 'CU', nameFr: 'Cuba', nameEn: 'Cuba', nationalityFr: 'cubaine', nationalityEn: 'Cuban' },
-        // nationalityEn distingué de DO (République dominicaine) : "Dominican"
-        // seul est ambigu en anglais entre les deux pays (choix explicite de
-        // l'utilisateur, 15/09/2026, même traitement que CG/CD plus haut).
+        // nationalityEn distingué de DO (République dominicaine) : "Dominican" seul
+        // est ambigu en anglais entre les deux pays, même traitement que CG/CD.
         { code: 'DM', nameFr: 'Dominique', nameEn: 'Dominica', nationalityFr: 'dominiquaise', nationalityEn: 'Dominican (Dominica)' },
         { code: 'DO', nameFr: 'République dominicaine', nameEn: 'Dominican Republic', nationalityFr: 'dominicaine', nationalityEn: 'Dominican' },
         { code: 'EC', nameFr: 'Équateur', nameEn: 'Ecuador', nationalityFr: 'équatorienne', nationalityEn: 'Ecuadorian' },

@@ -914,7 +914,7 @@ const TalentsPage = {};
             // de la charger à chaque visite. capHumaLoadScriptOnce() dédoublonne les
             // clics rapprochés.
             try {
-                await capHumaLoadScriptOnce('shared/vendor/xlsx-0.18.5.js');
+                await capHumaLoadScriptOnce('shared/vendor/xlsx.core.min.js');
             } catch (err) {
                 alert("Impossible de charger le module d'export Excel (vérifiez la connexion réseau) et réessayez.");
                 return;

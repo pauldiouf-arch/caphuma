@@ -378,7 +378,7 @@ async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
  * l'usage est déclenché par une action explicite de la personne — jamais pour
  * un script dont dépend le rendu initial de la page.
  *
- * @param {string} src  Chemin relatif du script (ex. "shared/vendor/xlsx-0.18.5.js")
+ * @param {string} src  Chemin relatif du script (ex. "shared/vendor/xlsx.core.min.js")
  * @returns {Promise<void>} Résolue une fois le script chargé et exécuté (ou
  *        immédiatement si déjà chargé) ; rejetée si le chargement échoue —
  *        à la charge de l'appelant d'afficher une erreur, cette fonction
