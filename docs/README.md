@@ -19,6 +19,10 @@ Si vous découvrez ce dépôt sans contexte, cette page est le bon point de dép
 | `templates/` | Le modèle Excel d'import en masse de talents |
 | `docs/` | Cette page, et les documents destinés à une reprise du projet |
 
+> **Si vous êtes du service IT et que vous évaluez l'adoption de cet outil**,
+> commencez par **[`REPRISE_IT.md`](REPRISE_IT.md)** — une page, cinq minutes de
+> lecture, qui décrit ce que la reprise coûte en temps, en argent et en décisions.
+
 Le site est **100 % statique** : pas de framework, pas de build, pas de serveur
 à faire tourner. Les données, l'authentification et la sécurité sont assurées
 par un projet **Supabase** (Postgres + Auth + Storage + Edge Functions).
@@ -28,7 +32,7 @@ par un projet **Supabase** (Postgres + Auth + Storage + Edge Functions).
 - **La documentation technique complète** — choix volontaire : elle décrit en
   détail le schéma de base, les policies de sécurité et les fragilités connues
   du système, ce qui n'a pas sa place dans un dépôt public.
-- **Le code des 3 Edge Functions** (`manage-users`, `ai-proxy`,
+- **Le code des 4 Edge Functions** (`manage-users`, `ai-proxy`, `sensitive-reads`,
   `monthly-maintenance`), qui vit dans le projet Supabase.
 - **Les secrets** (clé `service_role`, clé API du modèle d'IA, secret du Cron),
   qui ne sont stockés que dans les Secrets des Edge Functions Supabase et dans
@@ -58,10 +62,11 @@ Elle comprend :
 | `DOSSIER_PASSATION_TECHNIQUE.md` | La référence technique exhaustive : schéma de base table par table, policies de sécurité, code des Edge Functions, inventaire fichier par fichier, fragilités connues |
 | `GUIDE_ARCHITECTURE_ET_MAINTENANCE.md` | Les procédures récurrentes : checklist avant modification, checklist mensuelle, rotation des clés, déploiement pas à pas |
 | `FINAL_MASTER_CONTEXT.md` | Le contexte, les règles de méthode et les chantiers ouverts — le document à lire en premier pour comprendre *pourquoi* le projet est fait comme il est fait |
-| `Cap_Huma_Presentation_Generale.docx` | La présentation fonctionnelle, pour un lecteur non technique |
+| `Cap_Huma_Presentation_Equipe.docx` | La présentation fonctionnelle, pour l'équipe (lecteur non technique) |
+| `Cap_Huma_Presentation_IT_SIRH.docx` | Le dossier de reprise technique, à destination du service IT |
 | Scripts SQL exécutés en base | Historique des modifications de la base de données |
 
-**Dernière synchronisation de ce renvoi : 18/08/2026.**
+**Dernière synchronisation de ce renvoi : 19/09/2026.**
 
 ## Contact
 

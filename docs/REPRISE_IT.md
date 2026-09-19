@@ -229,4 +229,11 @@ ouverts.
 **Contact pendant la transition :** la personne ayant construit et maintenu
 l'outil au sein d'ALIMA, joignable via le service IT.
 
-*Page rédigée le 18/08/2026.*
+*Page rédigée le 18/08/2026. Session du 11/09/2026 : refonte emojis → icônes
+SVG sur tout le site (détail dans FINAL_MASTER_CONTEXT.md) — aucun impact
+sur la sécurité, la base de données ou l'architecture décrites ci-dessus.
+Session du 19/09/2026 : nouvelle vérification de sécurité indépendante
+(aucune anomalie critique ni importante, trois corrections mineures
+appliquées par précaution) ; évolution du schéma de base pour le suivi du
+personnel national et des détachements (voir dossier de passation technique)
+— aucun impact sur les cinq actions de reprise décrites ci-dessus.*
