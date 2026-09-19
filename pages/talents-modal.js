@@ -405,7 +405,7 @@
         function openCreateModal(forceNational) {
             editingTalentId = null;
             talentForm.reset();
-            const creatingNational = forceNational === true || TalentsPage.isNationalScope;
+            const creatingNational = forceNational === true;
             TalentsPage.creatingNationalStaff = creatingNational;
             applyStaffTypeFieldVisibility(creatingNational);
             if (creatingNational && TalentsPage.currentPoolId) {

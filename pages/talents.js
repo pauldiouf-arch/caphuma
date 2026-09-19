@@ -24,12 +24,11 @@ const TalentsPage = {};
 
         const urlParams = new URLSearchParams(window.location.search);
         TalentsPage.currentPoolId = urlParams.get('pool');
-        TalentsPage.isNationalScope = urlParams.get('scope') === 'national';
 
         // Le formulaire pool/national se configure à chaque ouverture de modale
         // (openCreateModal/openEditModal dans talents-modal.js), pas ici : un staff
-        // national peut être créé depuis la page d'un pool, sans changer de scope.
-        if (TalentsPage.currentPoolId && !TalentsPage.isNationalScope) {
+        // national peut être créé depuis la page d'un pool.
+        if (TalentsPage.currentPoolId) {
             document.getElementById('newNationalStaffLink').classList.remove('hidden');
         }
 
@@ -61,16 +60,13 @@ const TalentsPage = {};
                 // Confort d'affichage : la policy RLS sur talents (insert) est la vraie
                 // barrière.
                 document.getElementById('newTalentBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');
-                if (TalentsPage.isNationalScope) {
-                    document.getElementById('newTalentBtn').textContent = '＋ Nouveau staff national';
-                }
                 if (TalentsPage.currentUserRole !== 'visitor') {
                     await populateTrackingPoolOptions();
                 }
 
                 appBody.style.display = '';
                 await loadPoolInfo();
-                if (!TalentsPage.isNationalScope && TalentsPage.currentPoolId) {
+                if (TalentsPage.currentPoolId) {
                     await loadTrackedNationalStaff();
                 }
                 await loadTalents();
@@ -122,7 +118,6 @@ const TalentsPage = {};
 
         async function loadPoolInfo() {
             const subtitle = document.getElementById('poolSubtitle');
-            if (TalentsPage.isNationalScope) { subtitle.textContent = 'Staffs nationaux'; return; }
             if (!TalentsPage.currentPoolId) { subtitle.textContent = 'Tous les pools'; return; }
             try {
                 const { data } = await CapHumaData.getPools(TalentsPage.supabaseClient, {
@@ -202,8 +197,7 @@ const TalentsPage = {};
                 // du select resterait silencieusement vide à l'édition.
                 const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {
                     orderBy: 'last_name',
-                    filters: TalentsPage.isNationalScope ? { staff_type: 'national' } :
-                        (TalentsPage.currentPoolId ? { pool: TalentsPage.currentPoolId } : { staff_type: 'expat' })
+                    filters: TalentsPage.currentPoolId ? { pool: TalentsPage.currentPoolId } : { staff_type: 'expat' }
                 });
                 if (error) throw error;
                 TalentsPage.allTalents = data || [];
@@ -243,8 +237,7 @@ const TalentsPage = {};
                         .order(sortColumn, { ascending })
                         .range(from, to);
 
-                    if (TalentsPage.isNationalScope) query = query.eq('staff_type', 'national');
-                    else if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
+                    if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                     else query = query.eq('staff_type', 'expat');
                     if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
 
@@ -944,8 +937,7 @@ const TalentsPage = {};
                         // jamais à TalentsPage.openEditModal() qui a besoin de la ligne
                         // complète via Object.keys(talent).
                         let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality_code, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa').order(sortColumn, { ascending });
-                        if (TalentsPage.isNationalScope) query = query.eq('staff_type', 'national');
-                        else if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
+                        if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                         else query = query.eq('staff_type', 'expat');
                         if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
                         return query;

@@ -106,6 +106,7 @@
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
                     <p>Liste des talents du pool sélectionné, avec recherche (nom, prénom, fonction, email) et filtres avancés (statut, disponibilité, nationalité, langue, visa Schengen, contextes/zones d'intervention).</p>
                     <p>Cliquez sur un talent pour ouvrir sa fiche complète.</p>
+                    <p>Un staff national suivi par ce pool sans poste actif apparaît mis en avant en tête de liste, avec le nombre de mois écoulés depuis sa sortie de poste.</p>
                 </div>
             </details>
 
@@ -124,7 +125,7 @@
                     <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5 13.2 13.2 8.5 15.5l2.3-4.7Z"/></svg> Postes d'un pool</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
                 </summary>
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
-                    <p>Liste des postes du pool (vacant, en recrutement, occupé), avec pour chacun le pays, le desk, le type de candidat (expatrié/national), l'occupant actuel et le futur occupant prévu s'il y en a un.</p>
+                    <p>Liste des postes du pool (vacant, en recrutement, occupé), avec pour chacun le pays, le desk, le type de candidat (expatrié/national/détachement), l'occupant actuel et le futur occupant prévu s'il y en a un.</p>
                 </div>
             </details>
 
@@ -193,6 +194,7 @@
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
                     <p><strong>Commenter</strong> — champ toujours visible en bas de fiche. Vous pouvez modifier ou supprimer uniquement vos propres commentaires.</p>
                     <p><strong>Dévalider / Réintégrer</strong> — voir la section "Suivi de validité" ci-dessous pour la logique complète.</p>
+                    <p><strong>Passer en expat</strong> — visible uniquement sur la fiche d'un staff national : voir la section "Staff national et détachement" ci-dessous.</p>
                     <p><strong>Liste Rouge</strong> — signaler un talent depuis sa fiche (motif obligatoire, sans document justificatif) ou depuis la page Liste Rouge elle-même (motif + au moins un document justificatif requis).</p>
                     <p><strong>Changer de pool</strong> — déplace le talent vers un autre pool métier ; l'historique de missions est conservé.</p>
                     <p><strong>Partager</strong> — génère un lien public temporaire (30 jours par défaut, ou date précise) vers une version simplifiée de la fiche (sans commentaires ni évaluations internes), utile pour un partenaire externe. Les liens actifs sont listés et révocables individuellement à tout moment.</p>
@@ -215,10 +217,23 @@
                     <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5 13.2 13.2 8.5 15.5l2.3-4.7Z"/></svg> Gestion des postes</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
                 </summary>
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
-                    <p><strong>Créer / modifier un poste</strong> — titre, pays, lieu, type de candidat (expatrié/national), desk, statut, occupant actuel, dates de contrat, et futur occupant prévu si une rotation est planifiée.</p>
+                    <p><strong>Créer / modifier un poste</strong> — titre, pays, lieu, type de candidat (expatrié/national/détachement), desk, statut, occupant actuel, type de fin de contrat (date précise, CDI, ou sans fin prévue), dates de contrat, et futur occupant prévu si une rotation est planifiée.</p>
                     <p><strong>Rotation d'occupant</strong> — quand un occupant sort (changement, fin de contrat, suppression du poste), ses évaluations sont automatiquement archivées dans l'historique de sa fiche talent, et son compteur de disponibilité mis à jour.</p>
                     <p><strong>Évaluations</strong> — depuis un poste occupé, ajoutez une évaluation (contexte, points forts, axes d'amélioration, note sur 10). Vous ne pouvez modifier/supprimer que vos propres évaluations.</p>
                     <p><strong>Analyse IA du pool</strong> — bouton dédié sur cette page : synthèse et recommandations générées à la demande à partir des statistiques agrégées du pool (jamais de données nominatives envoyées à l'IA).</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"/></svg> Staff national et détachement</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p><strong>Staff national</strong> — un statut de la personne, pas seulement du poste : un professionnel recruté localement, distinct d'un expatrié. Bouton "+ Nouveau staff national" depuis la liste d'un pool pour en créer un.</p>
+                    <p><strong>Suivi sans poste</strong> — un staff national qui n'a plus de poste actif reste rattaché à un pool de suivi et apparaît mis en avant en tête de la liste de ce pool, avec le nombre de mois écoulés depuis sa sortie, pour ne pas le perdre de vue entre deux missions.</p>
+                    <p><strong>Passer en expat</strong> — depuis sa fiche, si son parcours l'amène à devenir expatrié : choisissez le pool d'intégration, son historique (parcours, détachements passés) reste conservé.</p>
+                    <p><strong>Détachement</strong> — un 3ᵉ type de poste, à côté d'Expatrié et National : un staff déjà en poste national envoyé temporairement sur un autre poste (souvent un projet, hors de son pays). Un détachement se termine automatiquement si le poste national d'origine du staff se termine.</p>
+                    <p>Sur la fiche d'un staff qui occupe à la fois un poste national et un détachement, les deux postes s'affichent distinctement — y compris sur un lien de partage public le concernant.</p>
                 </div>
             </details>
 
@@ -289,6 +304,10 @@
                         <p class="font-semibold text-slate-700">J'ai oublié mon mot de passe.</p>
                         <p>Demande à un administrateur de te générer un nouveau code d'accès depuis la page Comptes.</p>
                     </div>
+                    <div>
+                        <p class="font-semibold text-slate-700">Un message de confirmation inhabituel apparaît en enregistrant un poste.</p>
+                        <p>C'est un avertissement, pas un blocage — par exemple si la nationalité de l'occupant choisi ne correspond pas au pays du poste, ou si un détachement est enregistré sans poste national actif derrière. Si la situation est volontaire, tu peux continuer.</p>
+                    </div>
                 </div>
             </details>
         </section>
@@ -329,6 +348,7 @@
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
                     <p><strong>Commenter</strong> — champ toujours visible en bas de fiche. Vous pouvez modifier ou supprimer n'importe quel commentaire, pas seulement les vôtres.</p>
                     <p><strong>Dévalider / Réintégrer</strong> — voir la section "Suivi de validité" ci-dessous pour la logique complète.</p>
+                    <p><strong>Passer en expat</strong> — visible uniquement sur la fiche d'un staff national : voir la section "Staff national et détachement" ci-dessous.</p>
                     <p><strong>Liste Rouge</strong> — signaler un talent depuis sa fiche (motif obligatoire, sans document justificatif) ou depuis la page Liste Rouge elle-même (motif + au moins un document justificatif requis).</p>
                     <p><strong>Changer de pool</strong> — déplace le talent vers un autre pool métier ; l'historique de missions est conservé.</p>
                     <p><strong>Partager</strong> — génère un lien public temporaire (30 jours par défaut, ou date précise) vers une version simplifiée de la fiche (sans commentaires ni évaluations internes), utile pour un partenaire externe. Les liens actifs sont listés et révocables individuellement à tout moment.</p>
@@ -352,10 +372,23 @@
                     <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5 13.2 13.2 8.5 15.5l2.3-4.7Z"/></svg> Gestion des postes</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
                 </summary>
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
-                    <p><strong>Créer / modifier un poste</strong> — titre, pays, lieu, type de candidat (expatrié/national), desk, statut, occupant actuel, dates de contrat, et futur occupant prévu si une rotation est planifiée.</p>
+                    <p><strong>Créer / modifier un poste</strong> — titre, pays, lieu, type de candidat (expatrié/national/détachement), desk, statut, occupant actuel, type de fin de contrat (date précise, CDI, ou sans fin prévue), dates de contrat, et futur occupant prévu si une rotation est planifiée.</p>
                     <p><strong>Rotation d'occupant</strong> — quand un occupant sort (changement, fin de contrat, suppression du poste), ses évaluations sont automatiquement archivées dans l'historique de sa fiche talent, et son compteur de disponibilité mis à jour.</p>
                     <p><strong>Évaluations</strong> — depuis un poste occupé, ajoutez une évaluation (contexte, points forts, axes d'amélioration, note sur 10). Vous pouvez modifier ou supprimer n'importe quelle évaluation, pas seulement les vôtres.</p>
                     <p><strong>Analyse IA du pool</strong> — bouton dédié sur cette page : synthèse et recommandations générées à la demande à partir des statistiques agrégées du pool (jamais de données nominatives envoyées à l'IA).</p>
+                </div>
+            </details>
+
+            <details class="bg-white border border-slate-200 rounded-2xl p-5 group">
+                <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between">
+                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"/></svg> Staff national et détachement</span><span class="text-slate-400 group-open:rotate-180 transition-transform">⌄</span>
+                </summary>
+                <div class="mt-3 text-sm text-slate-600 space-y-2">
+                    <p><strong>Staff national</strong> — un statut de la personne, pas seulement du poste : un professionnel recruté localement, distinct d'un expatrié. Bouton "+ Nouveau staff national" depuis la liste d'un pool pour en créer un.</p>
+                    <p><strong>Suivi sans poste</strong> — un staff national qui n'a plus de poste actif reste rattaché à un pool de suivi et apparaît mis en avant en tête de la liste de ce pool, avec le nombre de mois écoulés depuis sa sortie, pour ne pas le perdre de vue entre deux missions.</p>
+                    <p><strong>Passer en expat</strong> — depuis sa fiche, si son parcours l'amène à devenir expatrié : choisissez le pool d'intégration, son historique (parcours, détachements passés) reste conservé.</p>
+                    <p><strong>Détachement</strong> — un 3ᵉ type de poste, à côté d'Expatrié et National : un staff déjà en poste national envoyé temporairement sur un autre poste (souvent un projet, hors de son pays). Un détachement se termine automatiquement si le poste national d'origine du staff se termine.</p>
+                    <p>Sur la fiche d'un staff qui occupe à la fois un poste national et un détachement, les deux postes s'affichent distinctement — y compris sur un lien de partage public le concernant.</p>
                 </div>
             </details>
 
@@ -453,6 +486,10 @@
                     <div>
                         <p class="font-semibold text-slate-700">J'ai supprimé définitivement une fiche par erreur.</p>
                         <p>Cette action est irréversible, il n'existe pas de corbeille. Vérifie toujours le nom affiché dans la fenêtre de confirmation avant de valider une suppression définitive.</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-700">Un message de confirmation inhabituel apparaît en enregistrant un poste.</p>
+                        <p>C'est un avertissement, pas un blocage — par exemple si la nationalité de l'occupant choisi ne correspond pas au pays du poste, ou si un détachement est enregistré sans poste national actif derrière. Si la situation est volontaire, tu peux continuer.</p>
                     </div>
                 </div>
             </details>

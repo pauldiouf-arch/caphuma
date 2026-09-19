@@ -241,7 +241,7 @@ const IdCardPage = {};
 
             document.getElementById('back-btn-text').textContent = effectivePool ? `Retour au pool ${effectivePool}` : 'Retour';
             document.getElementById('back-btn').onclick = () => {
-                window.location.href = effectivePool ? `talents.html?pool=${encodeURIComponent(effectivePool)}` : 'talents.html?scope=national';
+                window.location.href = effectivePool ? `talents.html?pool=${encodeURIComponent(effectivePool)}` : 'dashboard.html';
             };
 
             document.getElementById('talent-fullname').textContent = `${fName} ${lName}`.trim() || "N/A";
