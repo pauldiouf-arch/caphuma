@@ -130,19 +130,13 @@ const IdCardPage = {};
                             throw et;
                         }
 
+                        // (Repli sur la colonne "_id" retiré le 21/09/2026 : cette colonne
+                        // n'existe pas dans le schéma `talents` — PK(id) uniquement, voir
+                        // schema_snapshot §5 — cette 2e requête échouait donc toujours et
+                        // ne faisait qu'ajouter un aller-retour réseau inutile avant
+                        // d'afficher le même message d'erreur. Audit code mort.)
                         if (!t) {
-                            const { data: tAlt, error: etAlt } = await capHumaWithRetry(() =>
-                                IdCardPage.supabaseClient
-                                    .from('talents')
-                                    .select('*')
-                                    .eq('_id', IdCardPage.talentId)
-                                    .maybeSingle()
-                            );
-
-                            if (etAlt || !tAlt) {
-                                throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
-                            }
-                            return tAlt;
+                            throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
                         }
                         return t;
                     })(),

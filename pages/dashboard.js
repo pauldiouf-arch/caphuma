@@ -81,7 +81,9 @@
         // Seuil lu depuis get_validity_thresholds() côté base (source unique,
         // partagée avec get_pool_talent_stats()) — voir DEVALIDATION_AT_RISK_MONTHS
         // dans caphuma-utils.js pour la copie JS (volontairement séparée, cf. guide).
-        const NOTIF_CONTRACT_WINDOWS = [30, 60, 90]; // jours
+        // (NOTIF_CONTRACT_WINDOWS a été retiré le 21/09/2026 : jamais lu nulle part,
+        // les fenêtres 30/60/90 jours sont calculées côté serveur par
+        // get_notification_alerts() — voir audit code mort.)
 
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,

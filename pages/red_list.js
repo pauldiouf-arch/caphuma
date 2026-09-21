@@ -16,7 +16,9 @@
         let supabaseClient = null;
         let redListTalents = [];
         let redListPage = 1;
-        const REDLIST_PAGE_SIZE = 20;
+        // (REDLIST_PAGE_SIZE a été retiré le 21/09/2026 : jamais lu nulle part — la
+        // taille de page réelle est décidée côté Edge Function sensitive-reads,
+        // voir loadRedList() ci-dessous. Audit code mort.)
         let pendingConfirmAction = null;
         let currentUserRole = null;
         let currentUserId = null;
