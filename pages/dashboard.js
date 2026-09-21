@@ -58,9 +58,15 @@
             return FALLBACK_POOLS;
         }
 
-        // Seuil "à risque" dupliqué côté base : la fonction SQL get_pool_talent_stats()
-        // a sa propre copie figée (DEVALIDATION_MAX_MONTHS dans caphuma-utils.js côté JS) —
-        // à changer aux deux endroits si ce seuil évolue.
+        // Seuil "à risque" centralisé côté base dans get_validity_thresholds()
+        // (source unique pour get_pool_talent_stats() ET get_notification_alerts()).
+        // Valeur actuelle : 20 mois, alignée sur DEVALIDATION_AT_RISK_MONTHS ici
+        // côté JS (shared/caphuma-utils.js). Les deux côtés (JS et SQL) gardent
+        // volontairement leur propre copie du nombre (cf. GUIDE_ARCHITECTURE_ET_MAINTENANCE.md,
+        // option retenue) : si ce seuil évolue, il faut mettre à jour
+        // DEVALIDATION_AT_RISK_MONTHS ici ET la fonction get_validity_thresholds()
+        // côté SQL — mais il n'y a plus qu'un seul endroit à changer de chaque côté
+        // (avant : 2 fonctions SQL divergentes ; maintenant : 1 seule source SQL).
 
         let currentPools = [];
         let poolStats = {};
@@ -72,8 +78,9 @@
         // Notifications dans l'app uniquement (aucun email). Jamais affiché pour un
         // visitor. pool_scope null = tous les pools de l'utilisateur.
         let notifPrefs = { enabled: true, pool_scope: null };
-        // Seuil dupliqué côté base (get_notification_alerts() a sa propre copie figée) —
-        // voir DEVALIDATION_AT_RISK_MONTHS dans caphuma-utils.js.
+        // Seuil lu depuis get_validity_thresholds() côté base (source unique,
+        // partagée avec get_pool_talent_stats()) — voir DEVALIDATION_AT_RISK_MONTHS
+        // dans caphuma-utils.js pour la copie JS (volontairement séparée, cf. guide).
         const NOTIF_CONTRACT_WINDOWS = [30, 60, 90]; // jours
 
         const logAuditAction = capHumaMakeAuditLogger(
