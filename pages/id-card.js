@@ -267,40 +267,42 @@ const IdCardPage = {};
             }
         }
 
+        // Calcul (dévalidé/en pause/mois/pourcentage) délégué à
+        // capHumaGetValidityStatus() (shared/caphuma-utils.js) — même calcul que
+        // talents-modal.js, seule la présentation ci-dessous (couleurs, libellés,
+        // cible DOM) reste propre à cette page. Avant cette centralisation
+        // (2026-09), ce calcul était réécrit ici indépendamment de
+        // talents-modal.js, avec un risque de divergence si un seuil changeait
+        // dans un seul des deux fichiers.
         function renderTalentValidityBar() {
-            const isInvalid = talent.isValid === false || talent.is_valid === false;
-            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
-            const isPaused = !isInvalid && (isCurrentlyOnMission || talent.status === 'En poste ALIMA');
-            const totalMonths = isInvalid ? DEVALIDATION_MAX_MONTHS : calculateMonthsWithoutMission(talent);
-            const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
-            const percent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
+            const v = capHumaGetValidityStatus(talent);
 
             const vCounter = document.getElementById('validity-counter');
             const vLabel = document.getElementById('validity-label');
             const vBar = document.getElementById('validity-bar');
             const vSub = document.getElementById('validity-subtext');
 
-            vBar.style.width = `${percent}%`;
+            vBar.style.width = `${v.progressPercent}%`;
 
-            if (isInvalid) {
+            if (v.isInvalid) {
                 vLabel.textContent = "Statut : Dévalidé du pool";
                 vLabel.className = "text-red-600 font-bold";
                 vCounter.textContent = `${DEVALIDATION_MAX_MONTHS} / ${DEVALIDATION_MAX_MONTHS} mois`;
                 vBar.className = "h-full bg-red-600 rounded-full";
                 vSub.textContent = "Ce professionnel est inactif et doit faire l'objet d'une réintégration manuelle.";
-            } else if (isPaused) {
+            } else if (v.isPaused) {
                 vLabel.textContent = "Compteur suspendu (Actif)";
                 vLabel.className = "text-blue-600 font-bold";
-                vCounter.textContent = `${totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois`;
+                vCounter.textContent = `${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois`;
                 vBar.className = "h-full bg-blue-500 rounded-full opacity-60";
                 vSub.textContent = "En cours de mission ALIMA — le compteur est gelé.";
             } else {
-                vCounter.textContent = `${totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois`;
-                if (totalMonths >= DEVALIDATION_CRITICAL_MONTHS) {
+                vCounter.textContent = `${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois`;
+                if (v.totalMonths >= DEVALIDATION_CRITICAL_MONTHS) {
                     vLabel.textContent = "Validité pool : Critique (Action urgente)";
                     vLabel.className = "text-red-500 font-bold";
                     vBar.className = "h-full bg-red-500 rounded-full";
-                } else if (totalMonths >= DEVALIDATION_AT_RISK_MONTHS) {
+                } else if (v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS) {
                     vLabel.textContent = "Validité pool : À risque";
                     vLabel.className = "text-orange-500 font-bold";
                     vBar.className = "h-full bg-orange-400 rounded-full";
@@ -309,11 +311,10 @@ const IdCardPage = {};
                     vLabel.className = "text-green-600 font-bold";
                     vBar.className = "h-full bg-green-500 rounded-full";
                 }
-                const refDate = talent.last_mission_end_date || talent.pool_integration_date || talent.poolIntegrationDate;
-                vSub.textContent = `Date de référence du calcul : ${refDate ? new Date(refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
+                vSub.textContent = `Date de référence du calcul : ${v.refDate ? new Date(v.refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
             }
 
-            return isInvalid;
+            return v.isInvalid;
         }
 
         function populateTalentInfoFields() {

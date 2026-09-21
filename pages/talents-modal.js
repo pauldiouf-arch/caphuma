@@ -195,25 +195,72 @@
             }
         }
 
+        // getValidityData() applique la palette de couleurs/textes propre à cette
+        // page par-dessus le calcul partagé capHumaGetValidityStatus() (shared/
+        // caphuma-utils.js) — même calcul que id-card.js, mais chaque page garde
+        // sa propre présentation (voir capHumaGetValidityStatus pour le détail).
         function getValidityData(talent) {
-            const isInvalid = talent.is_valid === false;
-            const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
-            const isPaused = !isInvalid && (isCurrentlyOnMission || talent.status === 'En poste ALIMA');
-            const totalMonths = isInvalid ? DEVALIDATION_MAX_MONTHS : calculateMonthsWithoutMission(talent);
-            const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
-            const progressPercent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
-            const remainingMonths = Math.max(0, DEVALIDATION_MAX_MONTHS - totalMonths);
+            const status = capHumaGetValidityStatus(talent);
 
             let barColor, textColor;
-            if (isInvalid || totalMonths >= DEVALIDATION_MAX_MONTHS) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
-            else if (totalMonths >= DEVALIDATION_CRITICAL_MONTHS) { barColor = 'bg-red-50'; textColor = 'text-red-600'; }
-            else if (totalMonths >= DEVALIDATION_AT_RISK_MONTHS) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
+            if (status.isInvalid || status.totalMonths >= DEVALIDATION_MAX_MONTHS) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
+            else if (status.totalMonths >= DEVALIDATION_CRITICAL_MONTHS) { barColor = 'bg-red-50'; textColor = 'text-red-600'; }
+            else if (status.totalMonths >= DEVALIDATION_AT_RISK_MONTHS) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
             else { barColor = 'bg-green-500'; textColor = 'text-slate-500'; }
 
-            const refDate = talent.last_mission_end_date || talent.pool_integration_date;
-            const refLabel = talent.last_mission_end_date ? 'Fin dernière mission' : 'Intégration pool';
+            return { ...status, barColor, textColor };
+        }
 
-            return { isInvalid, isPaused, totalMonths, cappedMonths, progressPercent, remainingMonths, barColor, textColor, refDate, refLabel };
+        // Construit le libellé + texte complémentaire de l'indicateur de validité,
+        // partagé par renderInlineValidityBar() (liste compacte) et
+        // renderValidityIndicator() (modale complète) — seules la taille du texte
+        // et la présence de la date de référence changent entre les deux
+        // (variant 'inline' | 'full'). Avant cette fusion (2026-09), ces ~25
+        // lignes étaient dupliquées telles quelles dans les deux fonctions.
+        function buildValidityLabelHtml(v, variant) {
+            const isFull = variant === 'full';
+            const gapClass = 'flex items-center gap-1';
+
+            if (v.isInvalid) {
+                const labelHtml = `<span class="text-red-600 font-bold ${gapClass}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg> Dévalidé</span><span class="text-red-600 font-bold">${DEVALIDATION_MAX_MONTHS} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
+                return { labelHtml, bottomHtml: '' };
+            }
+
+            if (v.isPaused) {
+                const labelHtml = `<span class="text-blue-600 font-bold ${gapClass}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg> Compteur suspendu</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
+                const pausedNoteClass = isFull ? 'text-xs text-blue-500 mt-1' : 'text-[11px] text-blue-500 mt-0.5';
+                const bottomHtml = `<p class="${pausedNoteClass}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg> En mission ALIMA — compteur en pause</p>`;
+                return { labelHtml, bottomHtml };
+            }
+
+            const riskLabel = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS ? 'Validité pool' : (v.totalMonths >= DEVALIDATION_CRITICAL_MONTHS ? 'Critique' : 'À risque');
+            const riskIcon = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS
+                ? CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')
+                : CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0');
+            // NB : avant cette fusion, ce span n'avait PAS "flex items-center gap-1"
+            // dans renderValidityIndicator() (modale complète) — seule
+            // renderInlineValidityBar() (liste compacte) l'avait. Ajouté ici pour que
+            // l'icône et le texte s'alignent pareil aux deux endroits — seul
+            // changement visuel de cette fusion, purement cosmétique (alignement).
+            const labelHtml = `<span class="font-bold ${v.textColor} ${gapClass}">${riskIcon} ${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
+
+            const remainingText = v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS
+                ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
+                : '';
+
+            let bottomHtml;
+            if (isFull) {
+                bottomHtml = `<div class="flex items-center justify-between text-xs text-slate-500 mt-1">
+                    <span class="font-medium ${v.textColor}">${remainingText}</span>
+                    <span class="italic">${v.refLabel} : ${v.refDate ? new Date(v.refDate).toLocaleDateString('fr-FR') : 'N/A'}</span>
+                </div>`;
+            } else {
+                bottomHtml = remainingText
+                    ? `<p class="text-[11px] font-medium ${v.textColor} mt-0.5">${remainingText}</p>`
+                    : '';
+            }
+
+            return { labelHtml, bottomHtml };
         }
 
         // Même contenu que renderValidityIndicator() ci-dessous, mais retourne une
@@ -221,25 +268,7 @@
         // une fois par ligne dans la liste des talents.
         function renderInlineValidityBar(talent) {
             const v = getValidityData(talent);
-            let labelHtml, bottomHtml;
-
-            if (v.isInvalid) {
-                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg> Dévalidé</span><span class="text-red-600 font-bold">${DEVALIDATION_MAX_MONTHS} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                bottomHtml = '';
-            } else if (v.isPaused) {
-                labelHtml = `<span class="text-blue-600 font-bold flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg> Compteur suspendu</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                bottomHtml = `<p class="text-[11px] text-blue-500 mt-0.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg> En mission ALIMA — compteur en pause</p>`;
-            } else {
-                const riskLabel = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS ? 'Validité pool' : (v.totalMonths >= DEVALIDATION_CRITICAL_MONTHS ? 'Critique' : 'À risque');
-                const riskIcon = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS ? CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0') : CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0');
-                labelHtml = `<span class="font-bold ${v.textColor} flex items-center gap-1">${riskIcon} ${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                const remainingText = v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS
-                    ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
-                    : '';
-                bottomHtml = remainingText
-                    ? `<p class="text-[11px] font-medium ${v.textColor} mt-0.5">${remainingText}</p>`
-                    : '';
-            }
+            const { labelHtml, bottomHtml } = buildValidityLabelHtml(v, 'inline');
 
             return `
                 <div class="mt-2">
@@ -255,25 +284,7 @@
             const v = getValidityData(talent);
             box.classList.remove('hidden');
 
-            let labelHtml, bottomHtml;
-
-            if (v.isInvalid) {
-                labelHtml = `<span class="text-red-600 font-bold flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg> Dévalidé</span><span class="text-red-600 font-bold">${DEVALIDATION_MAX_MONTHS} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                bottomHtml = '';
-            } else if (v.isPaused) {
-                labelHtml = `<span class="text-blue-600 font-bold flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg> Compteur suspendu</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                bottomHtml = `<p class="text-xs text-blue-500 mt-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg> En mission ALIMA — compteur en pause</p>`;
-            } else {
-                const riskLabel = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS ? `${CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Validité pool` : (v.totalMonths >= DEVALIDATION_CRITICAL_MONTHS ? `${CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} Critique` : `${CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')} À risque`);
-                labelHtml = `<span class="font-bold ${v.textColor}">${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
-                const remainingText = v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS
-                    ? (v.remainingMonths === 0 ? 'Dévalidation imminente !' : `${v.remainingMonths} mois restant${v.remainingMonths > 1 ? 's' : ''} avant éjection du pool`)
-                    : '';
-                bottomHtml = `<div class="flex items-center justify-between text-xs text-slate-500 mt-1">
-                    <span class="font-medium ${v.textColor}">${remainingText}</span>
-                    <span class="italic">${v.refLabel} : ${v.refDate ? new Date(v.refDate).toLocaleDateString('fr-FR') : 'N/A'}</span>
-                </div>`;
-            }
+            const { labelHtml, bottomHtml } = buildValidityLabelHtml(v, 'full');
 
             box.innerHTML = `
                 <div class="flex items-center justify-between text-xs mb-1.5">${labelHtml}</div>

@@ -157,6 +157,42 @@ function calculateMonthsWithoutMission(talent) {
 }
 
 /**
+ * Calcule les données de base de l'indicateur de validité d'un talent :
+ * dévalidé/en pause, nombre de mois sans mission, progression (0-100) et
+ * date de référence. Ne décide d'AUCUNE couleur ni libellé — l'affichage
+ * reste propre à chaque page (talents-modal.js, id-card.js), qui peuvent
+ * le présenter différemment. Seul ce calcul (et les seuils DEVALIDATION_*
+ * qu'il compare) est centralisé ici, pour qu'il n'y ait plus qu'un seul
+ * endroit où une divergence peut apparaître entre pages.
+ *
+ * Avant cette centralisation (2026-09), ce calcul était réécrit à
+ * l'identique dans talents-modal.js (getValidityData) ET dans id-card.js
+ * (renderTalentValidityBar) — deux copies indépendantes du même calcul.
+ *
+ * @param {Object} talent  Un enregistrement de la table `talents`. Les deux
+ *        variantes de casse (is_valid/isValid, pool_integration_date/
+ *        poolIntegrationDate...) sont acceptées, certaines pages recevant
+ *        des objets talent en camelCase.
+ * @returns {{isInvalid:boolean, isPaused:boolean, totalMonths:number,
+ *   cappedMonths:number, progressPercent:number, remainingMonths:number,
+ *   refDate:string|null, refLabel:string}}
+ */
+function capHumaGetValidityStatus(talent) {
+    const isInvalid = talent.is_valid === false || talent.isValid === false;
+    const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
+    const isPaused = !isInvalid && (isCurrentlyOnMission || talent.status === 'En poste ALIMA');
+    const totalMonths = isInvalid ? DEVALIDATION_MAX_MONTHS : calculateMonthsWithoutMission(talent);
+    const cappedMonths = Math.min(totalMonths, DEVALIDATION_MAX_MONTHS);
+    const progressPercent = (cappedMonths / DEVALIDATION_MAX_MONTHS) * 100;
+    const remainingMonths = Math.max(0, DEVALIDATION_MAX_MONTHS - totalMonths);
+
+    const refDate = talent.last_mission_end_date || talent.pool_integration_date || talent.poolIntegrationDate;
+    const refLabel = talent.last_mission_end_date ? 'Fin dernière mission' : 'Intégration pool';
+
+    return { isInvalid, isPaused, totalMonths, cappedMonths, progressPercent, remainingMonths, refDate, refLabel };
+}
+
+/**
  * Affiche une notification temporaire en bas à droite de l'écran.
  * @param {string} msg   Le texte à afficher
  * @param {string} [type="success"]  "success" (vert) ou toute autre valeur (rouge)
