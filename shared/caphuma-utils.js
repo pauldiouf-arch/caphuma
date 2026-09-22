@@ -16,6 +16,28 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
+// Un texte qui commence par =, +, -, @, tabulation ou retour chariot peut être
+// interprété comme une formule par Excel à l'ouverture du fichier, y compris
+// dans un vrai .xlsx (OWASP "CSV Injection", pas limité au format .csv). Le
+// préfixe apostrophe force l'affichage en texte, invisible à la lecture.
+const EXCEL_FORMULA_TRIGGER_CHARS = new Set(['=', '+', '-', '@', '\t', '\r']);
+
+function capHumaSanitizeExcelCell(value) {
+    if (typeof value !== 'string' || value.length === 0) return value;
+    return EXCEL_FORMULA_TRIGGER_CHARS.has(value[0]) ? `'${value}` : value;
+}
+
+// À appeler juste avant XLSX.utils.json_to_sheet() sur toute donnée pouvant
+// contenir du texte libre saisi par un utilisateur, quelle que soit son
+// origine (import en masse ou saisie manuelle depuis un formulaire).
+function capHumaSanitizeExportRows(rows) {
+    return rows.map(row => {
+        const sanitized = {};
+        Object.keys(row).forEach(key => { sanitized[key] = capHumaSanitizeExcelCell(row[key]); });
+        return sanitized;
+    });
+}
+
 function capHumaStripControlChars(value) {
     if (typeof value !== 'string') return value;
     return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
@@ -250,6 +272,36 @@ function captureError(kind, detail) {
 
     if (typeof toastMessage === 'function') {
         toastMessage("Une erreur inattendue s'est produite. Rechargez la page si le problème persiste.", "error");
+    }
+
+    persistErrorLog(kind, detail);
+}
+
+/**
+ * Envoie une copie de l'erreur dans la table client_error_logs, pour que
+ * l'IT puisse consulter les erreurs rencontrées par les utilisateurs sans
+ * dépendre de leur console navigateur (voir sql/create_client_error_logs.sql
+ * et le Guide de Maintenance pour où et comment les consulter).
+ *
+ * Best-effort : n'importe quel échec (pas de session, pas de réseau, table
+ * absente...) est silencieusement ignoré — la journalisation d'erreurs ne
+ * doit jamais elle-même provoquer une erreur visible par la personne.
+ */
+async function persistErrorLog(kind, detail) {
+    try {
+        const client = capHumaGetSupabaseClient();
+        const { data: { session } } = await client.auth.getSession();
+        if (!session) return;
+
+        await client.from('client_error_logs').insert({
+            kind,
+            detail: String(detail).slice(0, 2000),
+            page: location.pathname,
+            user_id: session.user.id,
+            user_email: session.user.email
+        });
+    } catch (_) {
+        // Silencieux et volontaire — voir commentaire ci-dessus.
     }
 }
 
