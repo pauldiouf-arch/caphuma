@@ -1,5 +1,4 @@
-// showError(title, message) reste ici local et masque volontairement le
-// showError(msg) de caphuma-utils.js — signature différente, page ciblée différente.
+// showError() local, volontairement différent de celui de caphuma-utils.js.
 (() => {
         const supabaseClient = capHumaGetSupabaseClient();
 
@@ -35,8 +34,6 @@
             talent_not_found: ["Profil introuvable", "Le profil associé à ce lien n'est plus disponible."]
         };
 
-        // Informations professionnelles uniquement, jamais les commentaires/
-        // évaluations internes (page publique, sans authentification).
         function renderActiveMissionEntry(mission) {
             const startStr = mission.contract_start_date
                 ? new Date(mission.contract_start_date).toLocaleDateString('fr-FR')
@@ -163,9 +160,6 @@
             }
 
             try {
-                // Page publique sans session : les visiteurs externes sur connexion
-                // instable bénéficient d'autant plus du retry, sans le réflexe
-                // "recharger" d'un utilisateur habitué au site.
                 const { data, error } = await capHumaWithRetry(() =>
                     supabaseClient.rpc('get_shared_talent', { p_token: token })
                 );

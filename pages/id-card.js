@@ -33,12 +33,7 @@ const IdCardPage = {};
             })
         );
 
-        // Deux formats coexistent dans talents.archived_position_passages : un
-        // ancien (dates en epoch ms, commentaire unique par passage, champs
-        // camelCase) et un nouveau, créé par missions.html (dates ISO, plusieurs
-        // commentaires par passage, champs snake_case). Ces fonctions lisent les
-        // deux indifféremment pour l'affichage, sans jamais réécrire les anciennes
-        // entrées en base.
+        // Deux formats coexistent dans archived_position_passages : ancien (camelCase, epoch ms) et nouveau (snake_case, ISO).
         function passageDateMs(value) {
             if (value === null || value === undefined || value === '') return null;
             if (typeof value === 'number') return value;
@@ -114,8 +109,6 @@ const IdCardPage = {};
 
         async function loadTalentData() {
             try {
-                // talent et poste occupé ne dépendent pas l'un de l'autre — lancés en
-                // parallèle plutôt qu'en 2 allers-retours réseau séquentiels.
                 const [talentResult, missionResult] = await Promise.all([
                     (async () => {
                         const { data: t, error: et } = await capHumaWithRetry(() =>
@@ -131,11 +124,6 @@ const IdCardPage = {};
                             throw et;
                         }
 
-                        // (Repli sur la colonne "_id" retiré le 21/09/2026 : cette colonne
-                        // n'existe pas dans le schéma `talents` — PK(id) uniquement, voir
-                        // schema_snapshot §5 — cette 2e requête échouait donc toujours et
-                        // ne faisait qu'ajouter un aller-retour réseau inutile avant
-                        // d'afficher le même message d'erreur. Audit code mort.)
                         if (!t) {
                             throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
                         }
@@ -156,13 +144,6 @@ const IdCardPage = {};
                 }
 
                 talent = talentResult;
-                // Un talent peut occuper un poste national/expatrié et un détachement en
-                // même temps (garde-fou 1 de missions-crud.js) : les deux coexistent parmi
-                // les missions "occupied", distingués par candidate_type. Rien ne bloque
-                // encore en base un second détachement simultané (contrairement au poste
-                // national/expat, protégé par ce même garde-fou 1) — most-recent-d'abord
-                // pour rester déterministe si ce cas survient, même logique que la
-                // sous-requête ORDER BY ... LIMIT 1 de get_shared_talent().
                 const occupiedMissions = missionResult.data || [];
                 activeMission = mostRecentByContractStart(occupiedMissions.filter(m => m.candidate_type !== 'detache'));
                 activeDetachment = mostRecentByContractStart(occupiedMissions.filter(m => m.candidate_type === 'detache'));
@@ -228,9 +209,6 @@ const IdCardPage = {};
             const fFunction = talent.current_function || talent.currentFunction || "N/A";
             const expAlima = talent.experience_months_alima || talent.experienceMonthsAlima || 0;
 
-            // Un staff national n'a jamais de talent.pool (NULL par construction) —
-            // le pool de suivi (tracking_pool) prend le relais pour "d'où revenir" et
-            // quoi afficher, sans jamais écrire dans talent.pool lui-même.
             const effectivePool = talent.pool || talent.tracking_pool || null;
             const poolLabel = talent.pool ? talent.pool : (talent.tracking_pool ? `${talent.tracking_pool} (suivi)` : null);
 
@@ -262,13 +240,6 @@ const IdCardPage = {};
             }
         }
 
-        // Calcul (dévalidé/en pause/mois/pourcentage) délégué à
-        // capHumaGetValidityStatus() (shared/caphuma-utils.js) — même calcul que
-        // talents-modal.js, seule la présentation ci-dessous (couleurs, libellés,
-        // cible DOM) reste propre à cette page. Avant cette centralisation
-        // (2026-09), ce calcul était réécrit ici indépendamment de
-        // talents-modal.js, avec un risque de divergence si un seuil changeait
-        // dans un seul des deux fichiers.
         function renderTalentValidityBar() {
             const v = capHumaGetValidityStatus(talent);
 
@@ -487,8 +458,6 @@ const IdCardPage = {};
             btnManageMissions.href = 'missions.html?pool=' + encodeURIComponent(talent.pool || talent.tracking_pool || '');
 
             if (isNational) {
-                // Ni pool à changer, ni dévalidation/prolongation : ce cycle de vie ne
-                // s'applique qu'à partir du passage en expat (bouton dédié ci-dessous).
                 btnDevalidate.classList.add('hidden');
                 btnRevalidate.classList.add('hidden');
                 document.getElementById('btn-change-pool').classList.add('hidden');
@@ -548,9 +517,6 @@ const IdCardPage = {};
             };
         }
 
-        // Interrupteur FR|EN : ne déclenche aucune génération, se contente de
-        // mémoriser le choix (capHumaSetExportLang) lu au clic sur "Fiche PDF"
-        // ci-dessus. Un clic sur la langue déjà active ne fait rien d'observable.
         function bindPdfLangToggle() {
             const btnFr = document.getElementById('pdf-lang-fr');
             const btnEn = document.getElementById('pdf-lang-en');
@@ -584,8 +550,6 @@ const IdCardPage = {};
         }
 
         function bindCommentButton() {
-            // Pas de modale : le champ est visible en permanence sur la fiche, le
-            // suivi démarre une seule fois au chargement de la page.
             let currentCommentDraftKey = null;
 
             function collectCommentDraft() {
@@ -879,8 +843,6 @@ const IdCardPage = {};
                     });
                     if (histError) throw histError;
 
-                    // Pas de logAuditAction() : trg_audit_talents loggue déjà ce cas via
-                    // sa branche "changement de pool" (NEW.pool distinct de OLD.pool).
                     const { data, error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
                                 staff_type: 'expat',
                                 pool: newPool,
@@ -920,10 +882,7 @@ const IdCardPage = {};
                 if (!confirm(`Confirmation finale : ${fullName} sera supprimé(e) de façon permanente. Continuer ?`)) return;
 
                 try {
-                    // Nettoyage des documents Storage AVANT le reste (même logique que
-                    // devalidated.js) : aucune cascade possible entre talents et le bucket
-                    // Storage, contrairement aux tables Postgres ci-dessous. Best-effort :
-                    // un échec ici ne doit jamais bloquer la suppression elle-même.
+                    // Pas de cascade vers Storage : documents supprimés d'abord, un échec ne bloque pas la suppression.
                     if (Array.isArray(talent.red_list_documents) && talent.red_list_documents.length > 0) {
                         try {
                             const { error: removeErr } = await IdCardPage.supabaseClient.storage

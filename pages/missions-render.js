@@ -1,16 +1,8 @@
-// Rendu de la liste des postes, barre de KPIs, statistiques détaillées des
-// contrats. Voir missions.js (chargé AVANT ce fichier) pour l'explication de
-// MissionsPage, l'objet d'état partagé entre les 4 fichiers de cette page.
 (() => {
-        // DOM propres à ce fichier : pas besoin de les faire transiter par
-        // MissionsPage, contrairement à l'état métier mutable.
         const missionsGrid = document.getElementById('missionsGrid');
         const missionsEmpty = document.getElementById('missionsEmpty');
         const kpiBar = document.getElementById('kpiBar');
 
-        // Expatrié reste en gris neutre — c'est la norme du site, pas la peine de le
-        // signaler. National et détachement sortent de cette norme, chacun avec sa
-        // propre couleur.
         const CANDIDATE_TYPE_BADGE_CLASSES = {
             expat: 'bg-slate-100 text-slate-600',
             nat: 'bg-amber-100 text-amber-800',
@@ -56,11 +48,8 @@
             document.getElementById('kpiAvgDuration').textContent = avgDuration;
         }
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.updateKpiBar = updateKpiBar;
 
-        // Calculées côté client à partir des postes déjà chargés
-        // (MissionsPage.currentMissions) — pas de requête Supabase supplémentaire.
         function updateDetailedContractStats() {
             const card = document.getElementById('detailedStatsCard');
             if (MissionsPage.currentMissions.length === 0) {
@@ -90,8 +79,6 @@
                 ? Math.round((renewable / withContracts.length) * 100)
                 : 0;
 
-            // Cumulatif : "fin dans 3 mois" inclut ce qui finit dans le mois qui
-            // vient, ce n'est pas une tranche exclusive 1-3 mois.
             const endsWithin = (maxDate) => MissionsPage.currentMissions.filter(m => {
                 if (!m.contract_end_date) return false;
                 const t = new Date(m.contract_end_date).getTime();
@@ -107,7 +94,6 @@
             document.getElementById('statEnding3m').textContent = endsWithin(threeMonthsLater);
             document.getElementById('statEnding6m').textContent = endsWithin(sixMonthsLater);
 
-            // Répartition par pays
             const byCountry = {};
             MissionsPage.currentMissions.forEach(m => {
                 const c = CapHumaCountries.getCountryName(m.country_code) || 'Non précisé';
@@ -145,7 +131,6 @@
                 `).join('');
         }
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.updateDetailedContractStats = updateDetailedContractStats;
 
         function renderMissions() {
@@ -159,9 +144,6 @@
             }
             missionsEmpty.classList.add('hidden');
 
-            // Pagination côté affichage uniquement : le pool entier reste chargé en
-            // mémoire (statistiques et rotation automatique des contrats en ont besoin),
-            // ceci évite seulement de construire des centaines de cartes DOM d'un coup.
             const totalPages = Math.max(1, Math.ceil(MissionsPage.currentMissions.length / MissionsPage.MISSIONS_PAGE_SIZE));
             if (MissionsPage.currentPage > totalPages) MissionsPage.currentPage = totalPages;
             const start = (MissionsPage.currentPage - 1) * MissionsPage.MISSIONS_PAGE_SIZE;
@@ -169,8 +151,6 @@
 
             const canEdit = MissionsPage.currentUserRole === 'admin' || MissionsPage.currentUserRole === 'user';
 
-            // DocumentFragment (hors DOM) puis un seul appendChild final, plutôt
-            // qu'un appendChild par carte.
             const fragment = document.createDocumentFragment();
 
             pageMissions.forEach(mission => {
@@ -178,8 +158,6 @@
                 const occupantName = mission.occupant_id ? (MissionsPage.talentNameById[mission.occupant_id] || 'Talent introuvable') : null;
                 const futureName = mission.future_talent_id ? (MissionsPage.talentNameById[mission.future_talent_id] || 'Talent introuvable') : null;
 
-                // Signalement visuel uniquement : processExpiredMissions() n'écrit
-                // réellement que si contract_status === 'ending'.
                 const isExpiredUnconfirmed = mission.status === 'occupied'
                     && mission.contract_end_date
                     && new Date(mission.contract_end_date).getTime() < Date.now()
@@ -236,12 +214,8 @@
                 ?.addEventListener('click', () => goToMissionsPage(MissionsPage.currentPage - 1));
             paginationEl.querySelector('[data-page-nav="next"]')
                 ?.addEventListener('click', () => goToMissionsPage(MissionsPage.currentPage + 1));
-            // .editMissionBtn/.deleteMissionBtn/.evaluationsBtn/.resyncOccupantBtn ne
-            // sont pas rebranchés ici : un seul écouteur délégué sur missionsGrid s'en charge.
         }
 
-        // Remet à zéro le compteur de l'occupant actuel sans avoir besoin de
-        // changer d'occupant pour déclencher la synchronisation automatique.
         async function resyncOccupant(missionId) {
             const mission = MissionsPage.currentMissions.find(m => m.id === missionId);
             if (!mission || !mission.occupant_id) return;
@@ -268,7 +242,6 @@
             return d.toLocaleDateString('fr-FR');
         }
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.renderMissions = renderMissions;
         MissionsPage.resyncOccupant = resyncOccupant;
         MissionsPage.formatDate = formatDate;

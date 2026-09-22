@@ -24,9 +24,6 @@ const TalentsPage = {};
         const urlParams = new URLSearchParams(window.location.search);
         TalentsPage.currentPoolId = urlParams.get('pool');
 
-        // Le formulaire pool/national se configure à chaque ouverture de modale
-        // (openCreateModal/openEditModal dans talents-modal.js), pas ici : un staff
-        // national peut être créé depuis la page d'un pool.
         if (TalentsPage.currentPoolId) {
             document.getElementById('newNationalStaffLink').classList.remove('hidden');
         }
@@ -56,8 +53,6 @@ const TalentsPage = {};
                 TalentsPage.currentUserRole = s.role;
 
                 document.getElementById('user-display-name').textContent = TalentsPage.currentUserEmail;
-                // Confort d'affichage : la policy RLS sur talents (insert) est la vraie
-                // barrière.
                 document.getElementById('newTalentBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');
                 if (TalentsPage.currentUserRole !== 'visitor') {
                     await populateTrackingPoolOptions();
@@ -83,8 +78,6 @@ const TalentsPage = {};
             window.location.href = 'login.html';
         });
 
-        // Options du menu "Pool de suivi", scope national uniquement. Peuplé une
-        // fois au chargement — la liste des pools ne change pas pendant une session.
         async function populateTrackingPoolOptions() {
             const select = document.getElementById('field-tracking-pool');
             try {
@@ -98,9 +91,6 @@ const TalentsPage = {};
             }
         }
 
-        // Effectif attendu faible, non paginé — chargé une fois, filtré et fusionné
-        // dans renderTalents() à chaque rendu, avec le même filtre de validité que
-        // la liste principale.
         async function loadTrackedNationalStaff() {
             try {
                 const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {
@@ -132,24 +122,12 @@ const TalentsPage = {};
             document.getElementById('modalPoolBadge').textContent = TalentsPage.currentPoolId || '—';
         }
 
-        // Deux modes, choisis à chaque appel de loadTalents() selon les filtres actifs :
-        //   - Paginé (par défaut) : une seule page de PAGE_SIZE talents demandée à
-        //     Supabase (.range()), filtrée/triée côté serveur (statut + tri simple).
-        //   - Liste complète : dès qu'une recherche par mot-clé ou un filtre avancé est
-        //     actif (voir computeIsFullListMode), tout le pool est chargé une fois (mis
-        //     en cache dans TalentsPage.allTalents) puis filtré/trié côté client —
-        //     nécessaire car la recherche par mot-clé fouille aussi l'historique de
-        //     missions archivées, non traduisible en requête Supabase paginée.
-        TalentsPage.allTalents = null; // null = pas encore chargé (chargement paresseux)
+        TalentsPage.allTalents = null;
         const PAGE_SIZE = 20;
         TalentsPage.currentPage = 0;
         TalentsPage.totalCount = 0;
         TalentsPage.isFullListMode = false;
 
-        // Affichage progressif en mode "liste complète" (recherche/filtre avancé),
-        // pour éviter de créer d'un coup plusieurs centaines de nœuds DOM sur un
-        // pool qui grossirait beaucoup. Sans effet en mode paginé normal
-        // (PAGE_SIZE = 20, déjà petit) — voir renderTalents() plus bas.
         const RENDER_BATCH_SIZE = 25;
         TalentsPage.renderedTalentsCount = 0;
 
@@ -157,9 +135,6 @@ const TalentsPage = {};
             const f = TalentsPage.searchFilters;
             if (f.searchQuery) return true;
             if (f.keywordFilter) return true;
-            // Le tri "Disponibilité" combine 3 colonnes (availability_type/
-            // availability_date/availability_months), pas traduisible en un simple
-            // .order() Supabase.
             if (f.sortBy === 'availability') return true;
             if (f.minExpAlima || f.minExpHumanitarian) return true;
             if (f.availableFrom || f.availableTo) return true;
@@ -187,13 +162,7 @@ const TalentsPage = {};
             const listEl = document.getElementById('talentsList');
             const errorEl = document.getElementById('listError');
             try {
-                // La construction de la requête est déplacée dans la fonction passée à
-                // capHumaWithRetry(), pour qu'un retry reconstruise un query builder tout
-                // neuf plutôt que de réutiliser un objet déjà attendu une 1re fois.
-                // Volontairement select('*'), pas resserré comme statistics.js/
-                // missions.js : ces lignes alimentent TalentsPage.openEditModal()
-                // (talents-modal.js) via Object.keys(talent) — une colonne absente
-                // du select resterait silencieusement vide à l'édition.
+                // select('*') volontaire : openEditModal() lit la ligne complète via Object.keys().
                 const { data, error } = await CapHumaData.getTalents(TalentsPage.supabaseClient, {
                     orderBy: 'last_name',
                     filters: TalentsPage.currentPoolId ? { pool: TalentsPage.currentPoolId } : { staff_type: 'expat' }
@@ -225,11 +194,8 @@ const TalentsPage = {};
                 const from = TalentsPage.currentPage * PAGE_SIZE;
                 const to = from + PAGE_SIZE - 1;
 
-                // Même principe que fetchAllTalents() : la requête entière est
-                // reconstruite à chaque tentative de capHumaWithRetry().
                 const { data, error, count } = await capHumaWithRetry(() => {
-                    // Même raison que fetchAllTalents() : ces lignes alimentent aussi
-                    // TalentsPage.openEditModal() en mode paginé par défaut.
+                    // select('*') volontaire, voir fetchAllTalents().
                     let query = TalentsPage.supabaseClient
                         .from('talents')
                         .select('*', { count: 'exact' })
@@ -240,10 +206,6 @@ const TalentsPage = {};
                     else query = query.eq('staff_type', 'expat');
                     if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
 
-                    // Répété ici côté serveur (filterTalents() ne couvre que le mode
-                    // "liste complète") : "actif" = is_valid pas explicitement false et
-                    // is_red_listed pas explicitement true, tolérant NULL comme le fait
-                    // le filtre client.
                     if (TalentsPage.searchFilters.validityFilter === 'active') {
                         query = query.or('is_valid.is.null,is_valid.eq.true')
                                      .or('is_red_listed.is.null,is_red_listed.eq.false');
@@ -270,8 +232,7 @@ const TalentsPage = {};
             }
         }
 
-        // Nom volontairement différent de renderPaginationControls() (shared/caphuma-utils.js) :
-        // signature et logique différentes, un même nom écraserait silencieusement l'une des deux.
+        // Ne pas renommer en renderPaginationControls() : écraserait la version partagée.
         function updateTalentsPaginationControls() {
             const controls = document.getElementById('paginationControls');
             const totalPages = Math.max(1, Math.ceil(TalentsPage.totalCount / PAGE_SIZE));
@@ -302,8 +263,6 @@ const TalentsPage = {};
             }
         });
 
-        // Ajoute le lot suivant à la liste déjà affichée (append = true), sans tout
-        // reconstruire.
         document.getElementById('talentsShowMoreBtn')?.addEventListener('click', () => {
             renderTalents(TalentsPage.currentFilteredTalents, true);
         });
@@ -318,9 +277,7 @@ const TalentsPage = {};
             return map[status] || 'bg-slate-100 text-slate-500 border-slate-200';
         }
 
-        // Un seul élément DOM réutilisé et repositionné à chaque survol. #talentHoverCard
-        // est placé dans le HTML après la balise <script> : une capture au chargement
-        // (const = ...) retournerait toujours null, d'où cette récupération à la demande.
+        // Récupéré à la demande : #talentHoverCard est placé après le <script> dans le HTML.
         function getHoverCardEl() {
             return document.getElementById('talentHoverCard');
         }
@@ -349,22 +306,15 @@ const TalentsPage = {};
             getHoverCardEl().classList.add('hidden');
         }
 
-        // Sinon la carte resterait affichée au-dessus d'une ligne qui n'est plus la bonne.
         document.querySelector('main').addEventListener('scroll', hideHoverCard);
         window.addEventListener('resize', hideHoverCard);
 
-        // Ligne pour un staff national suivi par ce pool — même interaction que les
-        // lignes normales (édition, lien vers la fiche), mais jamais de jauge de
-        // validité ni d'actions dévalider/prolonger, qui n'ont pas de sens pour lui.
         function monthsWithoutNationalPost(sinceDate) {
             const since = new Date(sinceDate);
             const now = new Date();
             return Math.max(0, (now.getUTCFullYear() - since.getUTCFullYear()) * 12 + (now.getUTCMonth() - since.getUTCMonth()));
         }
 
-        // national_inactive_since ne couvre que la sortie d'un poste national déjà
-        // occupé. Un staff nat jamais affecté n'a pas d'autre date de référence :
-        // on retombe sur sa date de création.
         function nationalInactiveSinceDate(t) {
             if (t.national_inactive_since) return t.national_inactive_since;
             if (!t.is_currently_on_mission) return t.created_at;
@@ -413,8 +363,6 @@ const TalentsPage = {};
             return row;
         }
 
-        // Cumule 3 signaux indépendants (dévalidé / à arbitrer / prolongation active)
-        // sur un badge unique — au plus un des trois s'affiche, dans cet ordre de priorité.
         function computeTalentRowBadge(t, isDevalidated, eligible) {
             if (isDevalidated) {
                 return '<span class="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg> Dévalidé</span>';
@@ -472,9 +420,6 @@ const TalentsPage = {};
             `;
         }
 
-        // Au survol/focus du nom seulement (aperçu sans ouvrir la fiche) ; les 2
-        // boutons de prolongation/dévalidation ne sont posés que si affichés
-        // (eligible && canManage) — absents du DOM sinon.
         function bindTalentRowEvents(row, t, { eligible, canManage }) {
             const nameEl = row.querySelector('.talent-name-hover');
             if (nameEl) {
@@ -484,8 +429,6 @@ const TalentsPage = {};
                 nameEl.addEventListener('blur', hideHoverCard);
             }
 
-            // Seul le nom (lien ci-dessus) est aussi cliquable sur la ligne, donc
-            // pas besoin de e.stopPropagation() ici.
             const editBtn = row.querySelector('.edit-btn');
             if (editBtn) {
                 editBtn.addEventListener('click', () => {
@@ -507,9 +450,7 @@ const TalentsPage = {};
             const row = document.createElement('div');
             const eligible = TalentsPage.isDevalidationEligible(t);
             const isDevalidated = t.is_valid === false;
-            // idKey déjà propre (UUID Postgres), encodé par précaution.
             const idKey = t.id || t._id;
-            // Confort d'affichage : la vraie barrière est la policy RLS côté Postgres.
             const canManage = TalentsPage.currentUserRole !== 'visitor';
 
             row.className = "bg-white border rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-sm transition-all " +
@@ -530,10 +471,6 @@ const TalentsPage = {};
                 listEl.innerHTML = '';
                 TalentsPage.renderedTalentsCount = 0;
 
-                // Fusionnés ici, une seule fois par rendu complet (jamais en pagination
-                // "Afficher plus") : mêmes filtres de validité que la liste principale,
-                // pour que le filtre déjà en place s'applique aussi à eux plutôt que
-                // d'avoir leur propre logique séparée.
                 const tracked = (TalentsPage.trackedNationalStaff || []).filter(t => {
                     if (TalentsPage.searchFilters.validityFilter === 'active') return t.is_valid !== false;
                     if (TalentsPage.searchFilters.validityFilter === 'devalidated') return t.is_valid === false;
@@ -553,13 +490,8 @@ const TalentsPage = {};
             }
             emptyEl.classList.add('hidden');
 
-            // Seul le prochain lot (RENDER_BATCH_SIZE éléments) est construit ici, pas
-            // tout le tableau — le reste attend un clic sur "Afficher plus".
             const batch = talents.slice(TalentsPage.renderedTalentsCount, TalentsPage.renderedTalentsCount + RENDER_BATCH_SIZE);
 
-            // DocumentFragment plutôt qu'un appendChild par ligne. Les écouteurs par
-            // ligne restent posés sur chaque `row` avant son ajout au fragment —
-            // inutile que l'élément soit déjà dans le DOM pour ça.
             const fragment = document.createDocumentFragment();
 
             batch.forEach(t => {
@@ -590,8 +522,6 @@ const TalentsPage = {};
             showMoreBtn.classList.toggle('hidden', TalentsPage.renderedTalentsCount >= talents.length);
         }
 
-        // Filtrage (filterTalents) et tri (sortTalents) appliqués en mémoire sur
-        // TalentsPage.allTalents (déjà chargé pour ce pool), pas de nouvelle requête réseau.
         TalentsPage.searchFilters = {
             searchQuery: '',
             keywordFilter: '',
@@ -615,7 +545,6 @@ const TalentsPage = {};
         };
         const defaultSearchFilters = { ...TalentsPage.searchFilters };
 
-        // À partir de availability_type ('none' | 'asap' | 'notice' | 'date').
         function getAvailabilityTimestamp(t) {
             const type = t.availability_type;
             if (type === 'date' && t.availability_date) {
@@ -630,14 +559,10 @@ const TalentsPage = {};
             return null;
         }
 
-        // Compatible ancien format camelCase/epoch et nouveau format snake_case
-        // (même logique que normalizePassageComment sur id-card.html).
         function keywordMatches(t, kw) {
             const skills = t.key_skills || [];
             if (skills.some(s => String(s).toLowerCase().includes(kw))) return true;
 
-            // Un recruteur qui décrit cette expérience en texte libre sans cocher la
-            // case correspondante reste ainsi visible à la recherche.
             const freeTextFields = [
                 t.mission_opening_comments,
                 t.emergency_mission_comments,
@@ -679,9 +604,6 @@ const TalentsPage = {};
                 filtered = filtered.filter(t => t.status === f.statusFilter);
             }
 
-            // 'active' masque dévalidés ET Liste Rouge (les deux restent en base pour
-            // faciliter leur suivi). 'devalidated' isole les dévalidés (Liste Rouge ou
-            // non). '' (Tous) désactive le filtre.
             if (f.validityFilter === 'active') {
                 filtered = filtered.filter(t => t.is_valid !== false && !t.is_red_listed);
             } else if (f.validityFilter === 'devalidated') {
@@ -833,8 +755,6 @@ const TalentsPage = {};
             document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasAnyFilter);
         }
 
-        // Repart de la page 1 ; loadTalents() décide lui-même du mode (paginé ou
-        // liste complète) à appliquer.
         function onFiltersChanged() {
             TalentsPage.currentPage = 0;
             loadTalents();
@@ -902,9 +822,6 @@ const TalentsPage = {};
         }
 
         document.getElementById('exportPoolExcelBtn').addEventListener('click', async () => {
-            // Chargée à la demande : la bibliothèque ne sert qu'à ce bouton, inutile
-            // de la charger à chaque visite. capHumaLoadScriptOnce() dédoublonne les
-            // clics rapprochés.
             try {
                 await capHumaLoadScriptOnce('shared/vendor/xlsx.core.min.js');
             } catch (err) {
@@ -912,9 +829,6 @@ const TalentsPage = {};
                 return;
             }
 
-            // En mode paginé, TalentsPage.currentFilteredTalents ne contient que la page
-            // affichée — on récupère toujours l'intégralité du pool filtré avant
-            // d'exporter, pour ne jamais produire un fichier tronqué silencieusement.
             let rowsToExport;
             if (TalentsPage.isFullListMode) {
                 rowsToExport = TalentsPage.currentFilteredTalents;
@@ -929,12 +843,6 @@ const TalentsPage = {};
                     const sortColumn = sortColumnMap[TalentsPage.searchFilters.sortBy] || 'pool_integration_date';
                     const ascending = TalentsPage.searchFilters.sortOrder === 'asc';
                     const { data, error } = await capHumaWithRetry(() => {
-                        // Resserré à la liste exacte des colonnes lues par le mapping
-                        // d'export (rows.map) et formatAvailabilityLabel() — sûr ici,
-                        // contrairement aux deux select('*') de fetchAllTalents/
-                        // fetchPagedTalents : ces lignes ne servent qu'au mapping Excel,
-                        // jamais à TalentsPage.openEditModal() qui a besoin de la ligne
-                        // complète via Object.keys(talent).
                         let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality_code, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa').order(sortColumn, { ascending });
                         if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                         else query = query.eq('staff_type', 'expat');
@@ -989,8 +897,6 @@ const TalentsPage = {};
                 const fileSlug = (TalentsPage.currentPoolId || 'pool').toLowerCase();
                 XLSX.writeFile(wb, `talents-${fileSlug}-${today}.xlsx`);
 
-                // Traçabilité RGPD des exports. rowsToExport.length reflète le nombre
-                // réel de lignes exportées, filtres compris.
                 await logAuditAction('export', 'talent', null, `Pool ${TalentsPage.currentPoolId || '—'}`,
                     `${rowsToExport.length} talent(s) exporté(s)`);
             } catch (err) {
@@ -999,6 +905,5 @@ const TalentsPage = {};
             }
         });
 
-        // Exposé sur TalentsPage pour appel depuis l'autre fichier de la page
         TalentsPage.loadTalents = loadTalents;
 })();

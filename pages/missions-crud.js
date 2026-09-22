@@ -1,5 +1,3 @@
-// Modale création/modification de poste, suppression de poste. Voir
-// missions.js (chargé AVANT ce fichier) pour l'explication de MissionsPage.
 (() => {
         const createMissionBtn = document.getElementById('createMissionBtn');
 
@@ -30,8 +28,6 @@
 
         fieldPoolLevel.addEventListener('change', toggleProjectNameField);
 
-        // Masqué si le statut n'est pas "Occupé" — en cohérence avec le garde-fou
-        // plus bas qui force occupant_id à null dans ce cas.
         const fieldStatus = document.getElementById('fieldStatus');
         const occupantField = document.getElementById('occupantField');
         const currentContractFields = document.getElementById('currentContractFields');
@@ -62,9 +58,6 @@
 
         fieldContractEndType.addEventListener('change', toggleContractEndDateField);
 
-        // Confort d'usage (voir getEligibleTalents() dans missions.js) : recalculé à
-        // chaque changement d'un des 3 critères dont dépendent les 5 combinaisons du
-        // tableau du plan (§1.3) — type de poste, niveau de pool, pays du poste.
         function refreshOccupantDropdowns() {
             MissionsPage.populateTalentDropdown('fieldOccupant');
             MissionsPage.populateTalentDropdown('fieldFutureOccupant');
@@ -103,9 +96,7 @@
             document.getElementById('fieldProjectName').value = mission.project_name || '';
             document.getElementById('fieldCandidateType').value = mission.candidate_type || '';
             document.getElementById('fieldDesk').value = mission.desk || '';
-            // Options du menu occupant reconstruites AVANT de leur assigner une valeur :
-            // l'occupant réel (un staff national par ex.) doit déjà exister dans la
-            // liste au moment de l'affectation, sinon elle échoue silencieusement.
+            // Options reconstruites avant l'affectation, sinon la valeur est perdue sans erreur.
             refreshOccupantDropdowns();
             document.getElementById('fieldOccupant').value = mission.occupant_id || '';
             document.getElementById('fieldContractStart').value = toDateInputValue(mission.contract_start_date);
@@ -132,11 +123,6 @@
             missionModal.classList.add('hidden');
         }
 
-        // Garde-fou 1 : l'occupant choisi est-il déjà occupant d'un autre poste de la
-        // même catégorie ? Poste national/expatrié et détachement ne se bloquent jamais
-        // entre eux (le staff garde son poste national en parallèle de son détachement),
-        // mais deux détachements simultanés ne sont pas plus autorisés que deux postes
-        // nationaux/expatriés simultanés.
         function checkOccupantConflict(payload, missionId) {
             if (payload.status !== 'occupied' || !payload.occupant_id) {
                 return { proceed: true, conflictMissionToVacate: null };
@@ -158,9 +144,6 @@
             return { proceed: confirmed, conflictMissionToVacate: confirmed ? conflict : null };
         }
 
-        // Garde-fou 2, purement informatif (pas d'action automatique contrairement au
-        // 1) : chevauchement entre la date de début prévue ici et la date de sortie du
-        // futur occupant sur son poste actuel ?
         function checkFutureOccupantOverlap(payload, missionId) {
             if (!payload.future_talent_id) return true;
             const futureConflict = MissionsPage.currentMissions.find(m =>
@@ -181,8 +164,6 @@
             );
         }
 
-        // Garde-fou 3, non bloquant (§1.3 du plan) : un poste national niveau projet
-        // accepte un expat sans la nationalité du pays, mais on le signale.
         function checkNationalityMismatch(payload) {
             if (payload.candidate_type !== 'nat' || payload.pool_level !== 'project'
                 || payload.status !== 'occupied' || !payload.occupant_id) {
@@ -200,9 +181,6 @@
             );
         }
 
-        // Garde-fou 4, non bloquant : le poste national du staff peut appartenir à un
-        // autre pool que celui affiché ici, d'où la requête dédiée plutôt qu'une
-        // recherche dans MissionsPage.currentMissions comme les 3 précédents.
         async function checkDetachmentDuration(payload) {
             if (payload.candidate_type !== 'detache' || payload.pool_level !== 'project'
                 || payload.status !== 'occupied' || !payload.occupant_id) {
@@ -256,11 +234,8 @@
                 location: document.getElementById('fieldLocation').value.trim(),
                 project_name: document.getElementById('fieldProjectName').value.trim() || null,
                 candidate_type: candidateType,
-                // is_expat maintenue en cohérence automatique avec candidate_type pour éviter
-                // qu'elle devienne une colonne fantôme jamais alimentée.
                 is_expat: candidateType ? candidateType === 'expat' : null,
                 desk: document.getElementById('fieldDesk').value || null,
-                // Garde-fou : un poste qui n'est plus "occupied" ne peut pas conserver d'occupant affiché.
                 occupant_id: selectedStatus === 'occupied' ? selectedOccupantId : null,
                 contract_start_date: document.getElementById('fieldContractStart').value || null,
                 contract_end_type: document.getElementById('fieldContractEndType').value || 'date',
@@ -279,9 +254,6 @@
             return null;
         }
 
-        // Regroupe les 4 garde-fous (voir leurs définitions ci-dessus) dans l'ordre où
-        // le formulaire les vérifiait : proceed=false dès que l'un d'eux est refusé,
-        // en s'arrêtant là sans enchaîner les suivants.
         async function runMissionSaveGuards(payload, missionId) {
             const occupantCheck = checkOccupantConflict(payload, missionId);
             if (!occupantCheck.proceed) return { proceed: false };
@@ -325,9 +297,6 @@
             );
             if (error) throw error;
 
-            // Pas d'appel à logAuditAction('update', ...) : couvert par le trigger
-            // Postgres trg_audit_missions, fiable même hors de cette page.
-
             if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
                 await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
             }
@@ -337,15 +306,11 @@
 
         async function createNewMission(payload) {
             payload.created_by = MissionsPage.currentUserId;
-            // Pas de capHumaWithRetry() : missions n'a aucune contrainte UNIQUE,
-            // une relance après perte de réponse dupliquerait silencieusement le poste.
+            // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait le poste.
             const { error } = await MissionsPage.supabaseClient
                 .from('missions')
                 .insert(payload);
             if (error) throw error;
-
-            // Pas d'appel à logAuditAction('create', ...) : couvert par le trigger
-            // Postgres trg_audit_missions.
 
             if (payload.occupant_id) {
                 await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
@@ -355,7 +320,6 @@
         }
 
         async function saveMissionPayload(missionId, payload, conflictMissionToVacate) {
-            // Conflit confirmé (garde-fou 1) : même traitement qu'une sortie normale.
             if (conflictMissionToVacate) {
                 await vacateConflictingMission(conflictMissionToVacate);
             }
@@ -403,7 +367,6 @@
                     await MissionsPage.loadMissions();
                 } catch (error) {
                     console.error("Erreur d'enregistrement du poste :", error);
-                    // PostgrestError n'est pas une instance native d'Error : on teste .message directement.
                     formError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
                     formError.classList.remove('hidden');
                 }
@@ -412,7 +375,6 @@
 
         missionForm.addEventListener('submit', handleMissionFormSubmit);
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.openEditModal = openEditModal;
 
         async function deleteMission(missionId) {
@@ -424,14 +386,10 @@
             }
 
             try {
-                // Fait sortir l'occupant, comme un changement de statut, avant de supprimer.
                 if (mission && mission.occupant_id) {
                     await MissionsPage.archiveOutgoingOccupant(mission);
                 }
 
-                // Contrairement aux suppressions ailleurs sur le site, cette page ne
-                // vérifie pas le nombre de lignes affectées après coup — pas de contrôle
-                // RLS à rendre ambigu par une relance, donc sûr à envelopper.
                 const { error } = await capHumaWithRetry(() =>
                     MissionsPage.supabaseClient
                         .from('missions')
@@ -441,8 +399,6 @@
 
                 if (error) throw error;
 
-                // Pas d'appel à logAuditAction('delete', ...) : couvert par le trigger
-                // Postgres trg_audit_missions.
                 toastMessage('Poste supprimé.', 'success');
                 await MissionsPage.loadMissions();
 
@@ -452,6 +408,5 @@
             }
         }
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.deleteMission = deleteMission;
 })();

@@ -1,8 +1,3 @@
-// Fiche talent — onglets de la modale, champs "tags" réutilisables, affichage
-// conditionnel, compteur de validité, arbitrage (prolonger/dévalider),
-// formations ALIMA, brouillon local, ouverture/fermeture et enregistrement de
-// la modale. Voir talents.js (chargé AVANT ce fichier) pour l'explication de
-// TalentsPage.
 (() => {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -29,7 +24,6 @@
 
         function createTagField(containerId, fieldName, label, maxTags) {
             const container = document.getElementById(containerId);
-            // Dérivé de fieldName pour associer le label généré à son champ via for=/id=.
             const inputId = `tagfield-input-${fieldName.replace(/_/g, '-')}`;
             container.innerHTML = `
                 <label class="text-xs font-bold text-slate-500 uppercase" for="${inputId}">${label}</label>
@@ -103,10 +97,7 @@
         }
         hadAlimaMissionCb.addEventListener('change', syncMissionFields);
 
-        // DEVALIDATION_MAX_MONTHS/AT_RISK_MONTHS/CRITICAL_MONTHS viennent de
-        // shared/caphuma-utils.js, seul endroit du site où ces seuils sont définis —
-        // ne pas les redéclarer ici : un second "const" du même nom dans une autre
-        // balise <script> de la même page casserait tout le script.
+        // Seuils définis dans caphuma-utils.js : ne pas les redéclarer ici, un const en double casse la page.
         function hasActiveExtension(talent) {
             if (!talent.devalidation_extension_until) return false;
             return new Date(talent.devalidation_extension_until).getTime() > Date.now();
@@ -139,7 +130,7 @@
 
             const untilDate = new Date();
             untilDate.setMonth(untilDate.getMonth() + months);
-            const untilStr = untilDate.toISOString().slice(0, 10); // colonne "date"
+            const untilStr = untilDate.toISOString().slice(0, 10);
 
             try {
                 const { error } = await CapHumaData.updateTalent(TalentsPage.supabaseClient, talentPendingArbitration.id, {
@@ -152,8 +143,6 @@
 
                 if (error) throw error;
 
-                // Journalisé automatiquement par le trigger Postgres trg_audit_talents
-                // (détecte la prolongation via devalidation_extension_until).
                 prolongModal.classList.add('hidden');
                 toastMessage(`Prolongation de ${months} mois accordée.`);
                 talentPendingArbitration = null;
@@ -164,8 +153,6 @@
             }
         });
 
-        // Aucun email n'est envoyé automatiquement : le recruteur/admin doit avoir
-        // contacté le talent lui-même avant de confirmer ici.
         async function devalidateTalentFromList(talent) {
             const fullName = `${talent.first_name || ''} ${talent.last_name || ''}`.trim();
             const confirmed = confirm(
@@ -186,7 +173,6 @@
 
                 if (error) throw error;
 
-                // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 toastMessage(`${fullName} a été dévalidé(e).`);
                 await TalentsPage.loadTalents();
             } catch (err) {
@@ -195,10 +181,6 @@
             }
         }
 
-        // getValidityData() applique la palette de couleurs/textes propre à cette
-        // page par-dessus le calcul partagé capHumaGetValidityStatus() (shared/
-        // caphuma-utils.js) — même calcul que id-card.js, mais chaque page garde
-        // sa propre présentation (voir capHumaGetValidityStatus pour le détail).
         function getValidityData(talent) {
             const status = capHumaGetValidityStatus(talent);
 
@@ -211,12 +193,6 @@
             return { ...status, barColor, textColor };
         }
 
-        // Construit le libellé + texte complémentaire de l'indicateur de validité,
-        // partagé par renderInlineValidityBar() (liste compacte) et
-        // renderValidityIndicator() (modale complète) — seules la taille du texte
-        // et la présence de la date de référence changent entre les deux
-        // (variant 'inline' | 'full'). Avant cette fusion (2026-09), ces ~25
-        // lignes étaient dupliquées telles quelles dans les deux fonctions.
         function buildValidityLabelHtml(v, variant) {
             const isFull = variant === 'full';
             const gapClass = 'flex items-center gap-1';
@@ -237,11 +213,6 @@
             const riskIcon = v.totalMonths < DEVALIDATION_AT_RISK_MONTHS
                 ? CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0')
                 : CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0');
-            // NB : avant cette fusion, ce span n'avait PAS "flex items-center gap-1"
-            // dans renderValidityIndicator() (modale complète) — seule
-            // renderInlineValidityBar() (liste compacte) l'avait. Ajouté ici pour que
-            // l'icône et le texte s'alignent pareil aux deux endroits — seul
-            // changement visuel de cette fusion, purement cosmétique (alignement).
             const labelHtml = `<span class="font-bold ${v.textColor} ${gapClass}">${riskIcon} ${riskLabel}</span><span class="font-bold ${v.textColor}">${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois</span>`;
 
             const remainingText = v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS
@@ -263,9 +234,6 @@
             return { labelHtml, bottomHtml };
         }
 
-        // Même contenu que renderValidityIndicator() ci-dessous, mais retourne une
-        // chaîne HTML autonome au lieu d'injecter dans #validityIndicator — utilisable
-        // une fois par ligne dans la liste des talents.
         function renderInlineValidityBar(talent) {
             const v = getValidityData(talent);
             const { labelHtml, bottomHtml } = buildValidityLabelHtml(v, 'inline');
@@ -326,12 +294,6 @@
             })).filter(t => t.name);
         }
 
-        // Clé propre à chaque cas (draft:talent:new en création, draft:talent:edit:<id>
-        // en édition), pour qu'un brouillon ne s'applique jamais à une autre fiche.
-        // collectTalentDraft()/restoreTalentDraft() réutilisent getTagValues()/
-        // setTagValues()/getTrainingsValues() plutôt que de dupliquer leur logique :
-        // tags et formations ne sont pas couverts par la collecte par défaut de
-        // caphuma-form-draft.js (chips et lignes dynamiques sans name=).
         let currentTalentDraftKey = null;
         let currentTalentDraftBinding = null;
 
@@ -359,9 +321,7 @@
                 data.__trainings.forEach(tr => addTrainingRow(tr));
             }
 
-            // Une affectation .value/.checked programmatique ne déclenche jamais les
-            // écouteurs 'change' : ces champs conditionnels doivent être resynchronisés
-            // à la main après restauration du brouillon.
+            // Une affectation .value ne déclenche pas 'change' : champs conditionnels resynchronisés à la main.
             const availabilityTypeField = talentForm.querySelector('[name="availability_type"]');
             if (availabilityTypeField) {
                 document.getElementById('availabilityMonthsWrap').classList.toggle('hidden', availabilityTypeField.value !== 'notice');
@@ -373,9 +333,6 @@
             });
         }
 
-        // Appelé en toute fin de openCreateModal()/openEditModal(), une fois le
-        // formulaire entièrement rempli, pour que l'offre de restauration ne porte
-        // que sur ce que l'utilisateur avait tapé en plus.
         function startTalentDraftTracking(draftKey) {
             stopTalentDraftTracking();
             currentTalentDraftKey = draftKey;
@@ -383,8 +340,6 @@
             currentTalentDraftBinding = capHumaAttachDraftAutosave(talentForm, draftKey, { collect: collectTalentDraft });
         }
 
-        // Arrête seulement l'autosave, sans effacer le brouillon (voir
-        // shared/caphuma-form-draft.js pour la règle complète).
         function stopTalentDraftTracking() {
             if (currentTalentDraftBinding) {
                 currentTalentDraftBinding.stop();
@@ -392,7 +347,6 @@
             }
         }
 
-        // Appelé uniquement après un enregistrement réussi.
         function discardTalentDraft() {
             stopTalentDraftTracking();
             if (currentTalentDraftKey) {
@@ -405,9 +359,6 @@
         const formError = document.getElementById('formError');
         let editingTalentId = null;
 
-        // Appelé à chaque ouverture de modale (création ou édition), jamais une
-        // seule fois au chargement de la page : un staff national suivi par un pool
-        // peut être créé ou édité depuis la page de ce pool, sans changer de scope.
         function applyStaffTypeFieldVisibility(isNational) {
             document.querySelectorAll('.pool-only-field').forEach(el => el.classList.toggle('hidden', isNational));
             document.querySelectorAll('.national-only-field').forEach(el => el.classList.toggle('hidden', !isNational));
@@ -440,13 +391,6 @@
             talentModal.classList.remove('hidden');
         }
 
-        // openEditModal() est décomposée en 5 fonctions par responsabilité, chacune
-        // peuplant une zone distincte de la modale, composées séquentiellement dans
-        // openEditModal ci-dessous. Toutes locales à ce fichier : aucune n'est
-        // exposée sur TalentsPage.
-
-        // Onglets 1-2 : champs simples, peuplés génériquement depuis les clés de
-        // l'objet talent.
         function populateBasicFields(talent) {
             Object.keys(talent).forEach(key => {
                 const field = talentForm.querySelector(`[name="${key}"]`);
@@ -457,7 +401,6 @@
             });
         }
 
-        // setTagValues() vide déjà le conteneur avant de le repeupler.
         function resetTagFields(talent) {
             setTagValues('languages', talent.languages);
             setTagValues('other_languages', talent.other_languages);
@@ -466,14 +409,11 @@
             setTagValues('key_skills', talent.key_skills);
         }
 
-        // Onglet 3 : liste des formations ALIMA.
         function populateTrainingFields(talent) {
             document.getElementById('trainingsList').innerHTML = '';
             (talent.alima_trainings || []).forEach(tr => addTrainingRow(tr));
         }
 
-        // Onglet 4 : disponibilité + indicateur de validité, calculé après que ces
-        // champs soient posés.
         function populateMissionAndValidityFields(talent) {
             document.getElementById('availabilityMonthsWrap').classList.toggle('hidden', talent.availability_type !== 'notice');
             document.getElementById('availabilityDateWrap').classList.toggle('hidden', talent.availability_type !== 'date');
@@ -490,8 +430,6 @@
             });
         }
 
-        // Onglets 5-6 : Liste Rouge et Historique, en lecture seule dans cette
-        // modale (gérés exclusivement depuis Admin).
         function populateReadonlyPanels(talent) {
             if (talent.is_red_listed) {
                 document.getElementById('redListReadonly').innerHTML = `
@@ -530,7 +468,7 @@
         function openEditModal(talent) {
             editingTalentId = talent.id;
             talentForm.reset();
-            TalentsPage.creatingNationalStaff = false; // ne concerne que la création
+            TalentsPage.creatingNationalStaff = false;
             applyStaffTypeFieldVisibility(talent.staff_type === 'national');
             document.getElementById('modalTitle').textContent = `${talent.first_name} ${talent.last_name}`;
 
@@ -560,9 +498,6 @@
         document.getElementById('saveTalentBtn').addEventListener('click', async function () {
             formError.classList.add('hidden');
 
-            // Capture immédiate avant validation, sans attendre le debounce : la
-            // fenêtre entre le clic et la fin de l'enregistrement est justement le
-            // moment où un crash serait le plus coûteux à perdre.
             if (currentTalentDraftBinding) currentTalentDraftBinding.saveNow();
 
             const formData = new FormData(talentForm);
@@ -600,7 +535,6 @@
                 if (editingTalentId) {
                     const { error } = await CapHumaData.updateTalent(TalentsPage.supabaseClient, editingTalentId, payload);
                     if (error) throw error;
-                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 } else {
                     if (TalentsPage.creatingNationalStaff) {
                         payload.pool = null;
@@ -610,11 +544,9 @@
                     }
                     payload.created_by = TalentsPage.currentUserId;
                     payload.is_valid = true;
-                    // Pas de capHumaWithRetry() : talents n'a aucune contrainte UNIQUE,
-                    // une relance après perte de réponse dupliquerait la fiche créée.
+                    // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait la fiche.
                     const { error } = await CapHumaData.createTalent(TalentsPage.supabaseClient, payload);
                     if (error) throw error;
-                    // Journalisé automatiquement par le trigger Postgres trg_audit_talents.
                 }
                 talentModal.classList.add('hidden');
                 discardTalentDraft();
@@ -629,7 +561,6 @@
             }
         });
 
-        // Exposé sur TalentsPage pour appel depuis l'autre fichier de la page
         TalentsPage.openEditModal = openEditModal;
         TalentsPage.openProlongModal = openProlongModal;
         TalentsPage.devalidateTalentFromList = devalidateTalentFromList;

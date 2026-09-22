@@ -1,17 +1,5 @@
-// Génération de la fiche PDF (jsPDF). Fichier autonome : talent et poste sont
-// reçus en paramètres de exportTalentCardPDF(), pas via l'état de page —
-// seuls passageDateMs()/normalizePassageComment() passent par IdCardPage
-// (définis dans id-card.js, voir ce fichier pour l'explication de IdCardPage).
-//
-// Bilingue FR/EN depuis le 12/09/2026 : chaque fonction de dessin reçoit `L`
-// (le dictionnaire de langue courant, voir shared/caphuma-export-i18n.js),
-// jamais de texte français en dur. La langue vient du bouton FR|EN de
-// id-card.html, mémorisée par capHumaGetExportLang() (navigateur, pas en
-// base — voir shared/caphuma-export-i18n.js pour le choix de conception).
 (() => {
-        // Aucune donnée "availability"/"project_status" : ces champs ne sont pas
-        // dans le schéma/formulaire validés.
-        const PDF_ALIMA_BLUE = [29, 78, 216]; // #1d4ed8 — primary Cap Huma
+        const PDF_ALIMA_BLUE = [29, 78, 216];
 
         function pdfFormatMissions(count) {
             const map = { three_plus: "3+", two: "2", one: "1", none: "0" };
@@ -88,7 +76,6 @@
             return y;
         }
 
-        // Dessine une rangée de badges (retour à la ligne automatique)
         function pdfDrawBadgeRow(doc, items, y, pageW, fill, stroke, textColor, fontSize) {
             let bx = 14;
             const bPaddingX = 3;
@@ -116,8 +103,6 @@
             return y + bHeight + 4;
         }
 
-        // Chaque section reçoit `y` en paramètre et renvoie le `y` mis à jour,
-        // composées séquentiellement dans exportTalentCardPDF() plus bas.
         function pdfDrawGeneralInfoSection(doc, L, y, talent, COL_LEFT, COL_MID) {
             y = pdfDrawSectionTitle(doc, L.sectionGeneralInfo, y);
             const l1 = pdfDrawField(doc, L.fieldEmail, talent.email || "N/A", COL_LEFT, y, 85);
@@ -270,7 +255,7 @@
                         if (c.positivePoints) neededH += 12;
                         if (c.negativePoints) neededH += 12;
                         if (c.legacyContent) neededH += 10;
-                        neededH += 6; // ligne "Évaluation par ..." de chaque commentaire
+                        neededH += 6;
                     });
                     y = pdfEnsureSpace(doc, y, neededH);
 
@@ -425,7 +410,6 @@
             return y;
         }
 
-        // lang : 'fr' (défaut) ou 'en' — voir shared/caphuma-export-i18n.js.
         function exportTalentCardPDF(talent, currentPosition, currentDetachment, lang = 'fr') {
             const L = PDF_I18N[lang] || PDF_I18N.fr;
             const { jsPDF } = window.jspdf;
@@ -434,7 +418,6 @@
             const COL_LEFT = 14;
             const COL_MID = pageW / 2 + 4;
 
-            // Lecture robuste snake_case/camelCase, cohérente avec IdCardPage.renderTalentCard().
             const fName = talent.first_name || talent.firstName || "";
             const lName = talent.last_name || talent.lastName || "";
             const fFunction = talent.current_function || talent.currentFunction || "N/A";
@@ -466,6 +449,5 @@
             doc.save(fileName);
         }
 
-        // Exposé sur IdCardPage pour appel depuis un autre fichier de la page
         IdCardPage.exportTalentCardPDF = exportTalentCardPDF;
 })();

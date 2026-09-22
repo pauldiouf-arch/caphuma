@@ -31,8 +31,6 @@ const MissionsPage = {};
         const navTalents = document.getElementById('navTalents');
         const missionsGrid = document.getElementById('missionsGrid');
 
-        // Un seul écouteur délégué ici plutôt que N écouteurs re-attachés à chaque
-        // rendu dans MissionsPage.renderMissions().
         missionsGrid.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.editMissionBtn');
             if (editBtn) { MissionsPage.openEditModal(editBtn.dataset.id); return; }
@@ -50,7 +48,6 @@ const MissionsPage = {};
         const readOnlyNotice = document.getElementById('readOnlyNotice');
         const createMissionBtn = document.getElementById('createMissionBtn');
 
-        // Récupération du pool depuis l'URL (ex. missions.html?pool=COLOG)
         const urlParams = new URLSearchParams(window.location.search);
         MissionsPage.currentPoolId = (urlParams.get('pool') || urlParams.get('pool_id') || '').toUpperCase();
 
@@ -70,16 +67,10 @@ const MissionsPage = {};
         MissionsPage.currentMissions = [];
         MissionsPage.currentPage = 1;
         MissionsPage.MISSIONS_PAGE_SIZE = 12;
-        // Utilisée par les 2 endroits qui chargent la liste complète du pool
-        // (loadMissions() et le rafraîchissement dans processExpiredMissions()),
-        // pour qu'ils restent synchronisés : un champ manquant s'ajoute ici, une
-        // seule fois, plutôt que dans les deux requêtes séparément.
         MissionsPage.MISSIONS_COLUMNS = 'id, title, pool, pool_level, status, country, country_code, location, project_name, candidate_type, desk, occupant_id, contract_start_date, contract_end_date, contract_end_type, contract_status, future_talent_id, future_contract_start_date, future_contract_end_date';
-        MissionsPage.poolTalents = []; // talents du pool, pour les listes déroulantes occupant / futur occupant
+        MissionsPage.poolTalents = [];
         MissionsPage.talentNameById = {};
 
-        // Pas d'instrumentation sur les évaluations individuelles (create/update/delete) :
-        // trop bruyant pour peu de valeur RGPD, seules les actions sur les postes le sont.
         const logAuditAction = capHumaMakeAuditLogger(
             () => MissionsPage.supabaseClient,
             () => ({
@@ -163,10 +154,6 @@ const MissionsPage = {};
 
         async function loadPoolTalents() {
             try {
-                // Colonnes strictement nécessaires (pas de select('*')). Les staffs nat
-                // suivis par ce pool (tracking_pool) sont chargés en plus des expats du
-                // pool (pool) — deux requêtes distinctes, staff_type et nationality_code
-                // gardés pour le filtrage dynamique de populateTalentDropdown().
                 const [expatsRes, nationalRes] = await Promise.all([
                     CapHumaData.getTalents(MissionsPage.supabaseClient, {
                         select: 'id, first_name, last_name, pool, staff_type, nationality_code, is_red_listed, is_valid, status',
@@ -183,10 +170,7 @@ const MissionsPage = {};
                 if (expatsRes.error) throw expatsRes.error;
                 if (nationalRes.error) throw nationalRes.error;
 
-                // Ni un talent en Liste Rouge, ni un talent dévalidé ne doivent être
-                // proposables comme occupant — filtré ici plutôt que par .eq(), pour
-                // les mêmes raisons (is_red_listed vaut NULL pour la plupart des
-                // talents, NULL = false ne matche pas en SQL).
+                // Filtré côté client : is_red_listed vaut souvent NULL, que .eq(false) exclurait.
                 MissionsPage.poolTalents = [...(expatsRes.data || []), ...(nationalRes.data || [])]
                     .filter(t => !t.is_red_listed && t.is_valid !== false);
                 MissionsPage.talentNameById = {};
@@ -202,10 +186,6 @@ const MissionsPage = {};
             }
         }
 
-        // Confort d'usage, pas une barrière — le vrai garde-fou est en base (trigger
-        // trg_enforce_missions_occupant_staff_type). Applique les 5 combinaisons
-        // candidate_type x pool_level du plan (§1.3) : pool_level 'mission'
-        // correspond au niveau coordo, 'project' au niveau projet.
         function getEligibleTalents() {
             const all = MissionsPage.poolTalents || [];
             const candidateType = document.getElementById('fieldCandidateType').value;
@@ -213,26 +193,15 @@ const MissionsPage = {};
             const countryCode = document.getElementById('fieldCountry').value;
 
             if (candidateType === 'expat' || !candidateType) {
-                // Un expat de la même nationalité que le pays du poste n'a pas sa place
-                // ici — "expatrié" suppose d'être hors de son pays, quel que soit le
-                // niveau (mission ou projet).
                 return all.filter(t => t.staff_type !== 'national' && t.nationality_code !== countryCode);
             }
             if (candidateType === 'nat') {
-                // Même règle quel que soit le niveau : un poste national ne peut être
-                // pris que par quelqu'un de la nationalité du pays du poste, expat ou
-                // staff nat confondus.
                 return all.filter(t => t.nationality_code === countryCode);
             }
             if (candidateType === 'detache') {
                 if (poolLevel === 'project') {
-                    // Un détachement niveau projet suppose un poste national actif
-                    // derrière (voir le contrôle de durée à la sauvegarde) — "déjà en
-                    // position" ici, sans être de la nationalité du pays du poste.
                     return all.filter(t => t.staff_type === 'national' && t.nationality_code !== countryCode && t.status === 'En poste ALIMA');
                 }
-                // Niveau coordo : expats et staffs nat, jamais de la nationalité du
-                // pays du poste — pas de condition de position ici.
                 return all.filter(t => t.nationality_code !== countryCode);
             }
             return all;
@@ -249,10 +218,6 @@ const MissionsPage = {};
                 opt.textContent = `${t.first_name || ''} ${t.last_name || ''}`.trim() + (t.staff_type === 'national' ? ' (staff national)' : '');
                 select.appendChild(opt);
             });
-            // La valeur actuelle peut ne plus être éligible après un changement de
-            // filtre (ex. on passe le poste en "Expatrié" alors qu'un staff national
-            // était sélectionné) — dans ce cas, laissée vide plutôt que de garder une
-            // valeur qui n'est plus dans le menu, silencieusement invisible.
             select.value = eligible.some(t => t.id === currentValue) ? currentValue : '';
         }
 
@@ -273,9 +238,6 @@ const MissionsPage = {};
                 MissionsPage.currentMissions = missions || [];
                 MissionsPage.currentPage = 1;
 
-                // Contrats expirés avec statut confirmé "Se termine" : traitement
-                // automatique (voir processExpiredMissions ci-dessous). Les autres
-                // restent occupés, simple signalement visuel dans MissionsPage.renderMissions().
                 if (MissionsPage.currentUserRole === 'admin' || MissionsPage.currentUserRole === 'user') {
                     await processExpiredMissions();
                 }
@@ -292,13 +254,6 @@ const MissionsPage = {};
             }
         }
 
-        // Un poste national qui se termine libère aussi le détachement rattaché au
-        // même staff, où qu'il soit (potentiellement un autre pool, d'où la requête
-        // dédiée) : rester en détachement sans poste national actif derrière n'a pas
-        // de sens. Sa date de fin est reportée à celle du poste national qui vient
-        // d'expirer plutôt que de garder une date dans le futur qui n'aurait plus de
-        // sens. Sans effet si le poste n'est pas national ou si aucun détachement
-        // occupé n'est trouvé pour ce staff.
         async function releaseLinkedDetachment(mission) {
             if (mission.candidate_type !== 'nat' || !mission.occupant_id) return;
 
@@ -324,11 +279,6 @@ const MissionsPage = {};
             if (vacateError) throw vacateError;
         }
 
-        // Un contrat expiré (contract_end_date dépassée) ne signifie pas forcément que
-        // le talent est réellement sorti — il peut avoir été renouvelé sans que ce soit
-        // encore saisi. Seul contract_status === 'ending' (confirmé "Se termine")
-        // déclenche un traitement automatique ; tout autre cas reste inchangé, simple
-        // signalement visuel dans MissionsPage.renderMissions().
         function findMissionsWithConfirmedExpiredContract(missions) {
             const now = Date.now();
             return missions.filter(m =>
@@ -340,8 +290,7 @@ const MissionsPage = {};
             );
         }
 
-        // contract_status remis explicitement à null : une rotation ne doit jamais
-        // hériter silencieusement du "Se termine" de l'ancien contrat.
+        // Remis à null : ne pas hériter du « Se termine » de l'ancien contrat.
         async function rotateToFutureOccupant(mission) {
             const { data, error } = await capHumaWithRetry(() =>
                 MissionsPage.supabaseClient
@@ -378,7 +327,6 @@ const MissionsPage = {};
             return !!(data && data.length > 0);
         }
 
-        // Une erreur sur un poste ne doit pas bloquer le traitement des autres.
         async function processEachExpiredMission(missions) {
             let rotatedCount = 0;
             let vacatedCount = 0;
@@ -431,14 +379,8 @@ const MissionsPage = {};
             }
         }
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.loadMissions = loadMissions;
 
-        // exitDate : la date de sortie réelle, pas nécessairement celle du contrat.
-        // Passée explicitement par l'appelant pour une expiration automatique
-        // (processExpiredMissions, releaseLinkedDetachment — contract_end_date fait foi),
-        // sinon la date du jour pour une action manuelle (changement d'occupant,
-        // passage à vacant, suppression), quelle que soit la date de contrat saisie.
         function resolveExitDate(explicitExitDate) {
             return explicitExitDate || new Date().toISOString().substring(0, 10);
         }
@@ -454,8 +396,6 @@ const MissionsPage = {};
             return data || [];
         }
 
-        // Titre préfixé pour un détachement, pour qu'on comprenne à la lecture de
-        // l'historique qu'il ne s'agissait pas du poste national.
         function buildArchivedPassage(mission, exitDate, evaluations) {
             const isDetachment = mission.candidate_type === 'detache';
             return {
@@ -501,8 +441,6 @@ const MissionsPage = {};
             }
         }
 
-        // Systématique, avec ou sans évaluation : l'historique des postes d'un talent
-        // ne doit jamais dépendre du fait qu'une évaluation ait été saisie ou non.
         async function archivePositionPassage(mission, exitDate, evaluations) {
             const passage = buildArchivedPassage(mission, exitDate, evaluations);
             const { isNational, existingPassages } = await fetchOccupantArchiveContext(mission.occupant_id);
@@ -510,8 +448,6 @@ const MissionsPage = {};
             return isNational;
         }
 
-        // Uniquement s'il y avait quelque chose à supprimer. Aucun contrôle de lignes
-        // affectées après coup ici — idempotent, sûr à envelopper dans capHumaWithRetry().
         async function clearMissionEvaluations(missionId, evaluations) {
             if (!evaluations || evaluations.length === 0) return;
             const { error } = await capHumaWithRetry(() =>
@@ -523,8 +459,6 @@ const MissionsPage = {};
             if (error) throw error;
         }
 
-        // Départ affiché en base uniquement pour un staff national : sert de point de
-        // départ au décompte des 2 ans sans poste avant purge.
         function buildOccupantExitPayload(exitDate, occupantIsNational) {
             const payload = {
                 is_currently_on_mission: false,
@@ -544,10 +478,6 @@ const MissionsPage = {};
             }
         }
 
-        // À la sortie d'un occupant (changement d'occupant, passage à vacant/recruiting,
-        // ou suppression du poste) : archive ses évaluations dans
-        // talents.archived_position_passages, puis met à jour son suivi de
-        // disponibilité (is_currently_on_mission, last_mission_end_date, status).
         async function archiveOutgoingOccupant(mission, explicitExitDate = null) {
             if (!mission.occupant_id) return;
 
@@ -558,19 +488,11 @@ const MissionsPage = {};
             const occupantIsNational = await archivePositionPassage(mission, exitDate, evaluations);
             await clearMissionEvaluations(mission.id, evaluations);
 
-            // Jamais pour un détachement : le staff reste actif sur son poste national
-            // sous-jacent, en sortir le détachement ne doit pas le déclarer "en attente
-            // de poste".
             if (isDetachment) return;
 
             await updateOccupantAvailabilityAfterExit(mission.occupant_id, exitDate, occupantIsNational);
         }
 
-        // À l'entrée d'un talent sur un poste (nouvelle affectation ou rotation) : ses
-        // compteurs repartent à zéro et le décompte des mois sans mission est gelé tant
-        // qu'il reste occupant. Neutralisée pour un détachement (candidateType), et le
-        // compteur de missions ALIMA n'avance que sur un poste expat — un poste
-        // national ou un détachement n'en sont pas une au sens de ce compteur.
         async function markIncomingOccupant(talentId, candidateType) {
             if (!talentId || candidateType === 'detache') return;
 
@@ -583,8 +505,6 @@ const MissionsPage = {};
             };
 
             if (candidateType === 'expat') {
-                // number_of_alima_missions n'est pas un simple incrément numérique mais
-                // une progression par palier : none → one → two → three_plus.
                 const { data: currentTalent, error: readErr } = await capHumaWithRetry(() =>
                     MissionsPage.supabaseClient
                         .from('talents')
@@ -606,7 +526,6 @@ const MissionsPage = {};
             }
         }
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.markIncomingOccupant = markIncomingOccupant;
         MissionsPage.archiveOutgoingOccupant = archiveOutgoingOccupant;
         MissionsPage.populateTalentDropdown = populateTalentDropdown;

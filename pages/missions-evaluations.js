@@ -1,5 +1,3 @@
-// Évaluations de l'occupant courant (modale, CRUD, brouillon local). Voir
-// missions.js (chargé avant ce fichier) pour l'explication de MissionsPage.
 (() => {
         const evaluationsModal = document.getElementById('evaluationsModal');
         const evaluationsList = document.getElementById('evaluationsList');
@@ -11,24 +9,18 @@
 
         let currentEvaluationMission = null;
 
-        // Brouillon local (evaluationForm) : création uniquement, jamais en édition
-        // d'une évaluation existante — ce même <form> sert aux deux cas, voir
-        // collectEvaluationDraft() plus bas. Une clé par mission.
         let currentEvaluationDraftKey = null;
         let currentEvaluationDraftBinding = null;
 
-        // Évite d'écrire un brouillon entièrement vide en sessionStorage (qui
-        // proposerait ensuite de "restaurer" un formulaire sans contenu). Sert au
-        // filtre de collectEvaluationDraft() et au garde-fou local plus bas.
         function isEvaluationDraftNonEmpty(data) {
             return Object.entries(data).some(([key, value]) => {
-                if (key === 'evaluationId') return false; // champ technique (hidden), jamais un contenu saisi
+                if (key === 'evaluationId') return false;
                 return typeof value === 'string' ? value.trim() !== '' : !!value;
             });
         }
 
         function collectEvaluationDraft() {
-            if (document.getElementById('evaluationId').value) return undefined; // en édition
+            if (document.getElementById('evaluationId').value) return undefined;
             const data = capHumaDefaultDraftCollect(evaluationForm);
             if (!isEvaluationDraftNonEmpty(data)) return undefined;
             return data;
@@ -38,8 +30,6 @@
             capHumaDefaultDraftRestore(evaluationForm, data);
         }
 
-        // Appelé en fin de openEvaluationsModal(), juste après resetEvaluationForm()
-        // (donc #evaluationId est garanti vide ici).
         function startEvaluationDraftTracking(missionId) {
             stopEvaluationDraftTracking();
             currentEvaluationDraftKey = `draft:evaluation:${missionId}`;
@@ -54,8 +44,6 @@
             }
         }
 
-        // Appelé uniquement après une création réussie, jamais après une
-        // modification (qui n'a rien à voir avec un brouillon de création en attente).
         function discardEvaluationDraft() {
             stopEvaluationDraftTracking();
             if (currentEvaluationDraftKey) {
@@ -69,10 +57,8 @@
             stopEvaluationDraftTracking();
         });
 
-        // Formulaire redevenu entièrement vide (saisie effacée sans valider) : on
-        // efface le brouillon tout de suite plutôt que d'attendre l'autosave différé.
         evaluationForm.addEventListener('input', () => {
-            if (document.getElementById('evaluationId').value) return; // en édition
+            if (document.getElementById('evaluationId').value) return;
             if (currentEvaluationDraftKey && !isEvaluationDraftNonEmpty(capHumaDefaultDraftCollect(evaluationForm))) {
                 capHumaDraftClear(currentEvaluationDraftKey);
             }
@@ -105,9 +91,6 @@
 
         async function loadEvaluations(missionId) {
             try {
-                // Colonnes restreintes à celles réellement utilisées. is_moderated /
-                // is_red_list_trigger / legacy_content / comment_text volontairement
-                // ignorées : usage non documenté à ce jour.
                 const { data: evaluations, error } = await capHumaWithRetry(() =>
                     MissionsPage.supabaseClient
                         .from('evaluations')
@@ -173,8 +156,6 @@
             });
         }
 
-        // Remplie à chaque loadEvaluations(), pour retrouver les valeurs à éditer
-        // sans refaire une requête réseau.
         let currentEvaluationsCache = [];
 
         function startEditEvaluation(evaluationId) {
@@ -236,7 +217,6 @@
 
             if (!currentEvaluationMission) return;
 
-            // Capture immédiate avant validation, sans attendre le debounce.
             if (currentEvaluationDraftBinding) currentEvaluationDraftBinding.saveNow();
 
             const evaluationId = document.getElementById('evaluationId').value;
@@ -260,7 +240,6 @@
 
             try {
                 if (evaluationId) {
-                    // mission_id/talent_id/author_id/author_email ne changent jamais en modification.
                     const { error } = await capHumaWithRetry(() =>
                         MissionsPage.supabaseClient
                             .from('evaluations')
@@ -274,14 +253,13 @@
                     payload.talent_id = currentEvaluationMission.occupant_id;
                     payload.author_id = MissionsPage.currentUserId;
                     payload.author_email = MissionsPage.currentUserEmail;
-                    // Pas de capHumaWithRetry() : evaluations n'a aucune contrainte UNIQUE,
-                    // une relance après perte de réponse dupliquerait l'évaluation ajoutée.
+                    // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait l'évaluation.
                     const { error } = await MissionsPage.supabaseClient
                         .from('evaluations')
                         .insert(payload);
                     if (error) throw error;
                     toastMessage('Évaluation ajoutée.', 'success');
-                    discardEvaluationDraft(); // création réussie : le brouillon n'a plus lieu d'être
+                    discardEvaluationDraft();
                 }
 
                 resetEvaluationForm();
@@ -297,6 +275,5 @@
             }
         });
 
-        // Exposé sur MissionsPage pour appel depuis les autres fichiers de la page
         MissionsPage.openEvaluationsModal = openEvaluationsModal;
 })();

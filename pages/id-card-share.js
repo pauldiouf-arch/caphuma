@@ -1,10 +1,6 @@
-// Liens de partage public de la fiche talent : génération, liste, révocation.
-// Voir id-card.js (chargé avant ce fichier) pour l'explication de IdCardPage.
 (() => {
         function buildShareUrl(token) {
-            // Reconstruction à partir du dossier de la page actuelle (jamais
-            // window.location.origin seul), pour rester valide en hébergement GitHub
-            // Pages "project site".
+            // Pas window.location.origin seul : le site est servi depuis un sous-dossier.
             const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
             return `${window.location.origin}${basePath}shared-talent.html?token=${encodeURIComponent(token)}`;
         }
@@ -105,7 +101,6 @@
             if (!confirmed) return;
 
             try {
-                // UPDATE par id, idempotent : sûr à envelopper dans capHumaWithRetry().
                 const { data, error } = await capHumaWithRetry(() =>
                     IdCardPage.supabaseClient
                         .from('share_tokens')
@@ -119,8 +114,6 @@
                     throw new Error("La révocation n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // Journalisé automatiquement par le trigger Postgres trg_audit_share_tokens,
-                // pas d'appel explicite à logAuditAction ici.
                 toastMessage("Lien révoqué.", "success");
                 await loadShareLinks();
             } catch (err) {
@@ -139,7 +132,6 @@
             if (duration === 'custom') {
                 const dateVal = document.getElementById('share-links-custom-date').value;
                 if (!dateVal) return { error: "Choisissez une date d'expiration précise." };
-                // Fin de journée (23:59:59) du jour choisi, en heure locale.
                 const expiresAt = new Date(dateVal + 'T23:59:59');
                 if (expiresAt.getTime() <= Date.now()) {
                     return { error: "La date d'expiration doit être dans le futur." };
@@ -162,16 +154,8 @@
 
             btn.disabled = true;
             try {
-                // crypto.randomUUID(), pas Math.random() : ce jeton donne accès à une
-                // fiche talent confidentielle sans compte, Math.random() est prévisible.
+                // Jeton d'accès sans compte : jamais Math.random(), prévisible.
                 const token = 'st_' + crypto.randomUUID();
-                // created_at absent du payload (DEFAULT now() côté base). expires_at en
-                // ISO string (colonne "timestamp with time zone"), jamais en timestamp
-                // JS numérique.
-                // token déjà calculé (pas régénéré à chaque tentative) et `token` porte une
-                // contrainte UNIQUE : une relance après perte de réponse retombe proprement
-                // sur une violation de contrainte plutôt que de créer un second lien — sûr
-                // à envelopper dans capHumaWithRetry().
                 const { error } = await capHumaWithRetry(() =>
                     IdCardPage.supabaseClient.from('share_tokens').insert({
                         token,
@@ -188,7 +172,6 @@
 
                 await navigator.clipboard.writeText(buildShareUrl(token));
                 toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
-                // Journalisé automatiquement par le trigger Postgres trg_audit_share_tokens.
                 await loadShareLinks();
             } catch (err) {
                 console.error(err);
@@ -198,6 +181,5 @@
             }
         });
 
-        // Exposé sur IdCardPage pour appel depuis un autre fichier de la page
         IdCardPage.openShareLinksModal = openShareLinksModal;
 })();
