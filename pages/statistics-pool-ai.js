@@ -1,5 +1,5 @@
 (() => {
-        function updatePoolAiAnalysisVisibility(selectorValue, talentsForPool, mData) {
+        function updatePoolAiAnalysisVisibility(selectorValue) {
             const card = document.getElementById('pool-ai-analysis-card');
 
             if (StatisticsPage.currentUserRole === 'visitor') {

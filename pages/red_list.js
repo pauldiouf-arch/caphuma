@@ -17,7 +17,6 @@
         let redListTalents = [];
         let redListPage = 1;
         let pendingConfirmAction = null;
-        let currentUserRole = null;
         let currentUserId = null;
         let currentUserEmail = null;
         let currentUserName = null;
@@ -69,7 +68,6 @@
                 currentUserName = s.name;
 
                 capHumaStartIdleTimeout(supabaseClient);
-                currentUserRole = s.role;
                 appBody.style.display = '';
 
                 const allowed = (s.role === 'admin' || s.role === 'user');

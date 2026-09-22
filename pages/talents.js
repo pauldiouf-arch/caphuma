@@ -29,7 +29,6 @@ const TalentsPage = {};
         }
 
         const appBody = document.getElementById('appBody');
-        const talentForm = document.getElementById('talentForm');
         TalentsPage.currentUserId = null;
         TalentsPage.currentUserEmail = null;
         TalentsPage.currentUserRole = null;

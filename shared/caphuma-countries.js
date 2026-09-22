@@ -218,10 +218,6 @@ const CapHumaCountries = (() => {
         return LIST.slice().sort((a, b) => normalize(a.nameFr).localeCompare(normalize(b.nameFr)));
     }
 
-    function getByCode(code) {
-        return BY_CODE[code] || null;
-    }
-
     function getCountryName(code, lang = 'fr') {
         const c = BY_CODE[code];
         if (!c) return null;
@@ -246,5 +242,5 @@ const CapHumaCountries = (() => {
         return hit ? hit.code : null;
     }
 
-    return { getAll, getByCode, getCountryName, getNationality, findCodeByText };
+    return { getAll, getCountryName, getNationality, findCodeByText };
 })();

@@ -7,12 +7,6 @@ const CapHumaData = (() => {
         return capHumaWithRetry(() => q);
     }
 
-    async function getPoolByCode(sb, poolId, select = 'id, pool_id, full_name, level') {
-        return capHumaWithRetry(() =>
-            sb.from('pools').select(select).eq('pool_id', poolId).single()
-        );
-    }
-
     async function updatePool(sb, id, payload) {
         return capHumaWithRetry(() => sb.from('pools').update(payload).eq('id', id));
     }
@@ -26,12 +20,6 @@ const CapHumaData = (() => {
         for (const [key, val] of Object.entries(filters)) q = q.eq(key, val);
         if (orderBy) { const [col, asc] = Array.isArray(orderBy) ? orderBy : [orderBy, true]; q = q.order(col, { ascending: asc }); }
         return capHumaWithRetry(() => q);
-    }
-
-    async function getTalentById(sb, id, select = '*') {
-        return capHumaWithRetry(() =>
-            sb.from('talents').select(select).eq('id', id).single()
-        );
     }
 
     async function updateTalent(sb, id, payload, returning = null) {
@@ -51,7 +39,7 @@ const CapHumaData = (() => {
     }
 
     return {
-        getPools, getPoolByCode, updatePool, createPool,
-        getTalents, getTalentById, updateTalent, createTalent, deleteTalent
+        getPools, updatePool, createPool,
+        getTalents, updateTalent, createTalent, deleteTalent
     };
 })();

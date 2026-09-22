@@ -68,7 +68,7 @@
             updateDiversityCharts(activeTalentsForDiversity);
 
             updateDetailedContractStats(selectorValue, mData);
-            StatisticsPage.updatePoolAiAnalysisVisibility(selectorValue, talents, mData);
+            StatisticsPage.updatePoolAiAnalysisVisibility(selectorValue);
         }
 
         function updateDetailedContractStats(selectorValue, mData) {
