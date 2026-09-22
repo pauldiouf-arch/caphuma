@@ -1,7 +1,7 @@
 // showError(title, message) reste ici local et masque volontairement le
 // showError(msg) de caphuma-utils.js — signature différente, page ciblée différente.
 (() => {
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = capHumaGetSupabaseClient();
 
         function renderBadges(containerId, list) {
             const container = document.getElementById(containerId);

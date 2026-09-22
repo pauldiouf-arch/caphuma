@@ -21,8 +21,7 @@ const MissionsPage = {};
             window.location.replace('index.html');
         }
 
-        const { createClient } = supabase;
-        MissionsPage.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        MissionsPage.supabaseClient = capHumaGetSupabaseClient();
 
         const appBody = document.getElementById('appBody');
         const userSubtitle = document.getElementById('userSubtitle');

@@ -3,8 +3,7 @@
 
         async function boot() {
             try {
-                const { createClient } = supabase;
-                const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const client = capHumaGetSupabaseClient();
                 const { data, error } = await client.auth.getSession();
                 if (error) throw error;
 

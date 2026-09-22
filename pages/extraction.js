@@ -14,8 +14,7 @@
             window.location.replace('index.html');
         }
 
-        const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = capHumaGetSupabaseClient();
 
         const appBody = document.getElementById('appBody');
         const pageError = document.getElementById('pageError');

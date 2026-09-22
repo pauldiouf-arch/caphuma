@@ -19,8 +19,7 @@ const TalentsPage = {};
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY) window.location.replace('index.html');
 
-        const { createClient } = supabase;
-        TalentsPage.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        TalentsPage.supabaseClient = capHumaGetSupabaseClient();
 
         const urlParams = new URLSearchParams(window.location.search);
         TalentsPage.currentPoolId = urlParams.get('pool');

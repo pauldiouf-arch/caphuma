@@ -66,7 +66,7 @@ const IdCardPage = {};
         }
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            IdCardPage.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            IdCardPage.supabaseClient = capHumaGetSupabaseClient();
         }
 
         async function checkSession() {

@@ -26,7 +26,7 @@ const StatisticsPage = {};
         // détient seule la clé côté serveur.
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            StatisticsPage.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            StatisticsPage.supabaseClient = capHumaGetSupabaseClient();
         }
 
         const logAuditAction = capHumaMakeAuditLogger(

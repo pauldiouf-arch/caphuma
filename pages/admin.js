@@ -16,7 +16,7 @@
         let currentUserName = null;
 
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            supabaseClient = capHumaGetSupabaseClient();
         }
 
         const logAuditAction = capHumaMakeAuditLogger(
