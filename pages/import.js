@@ -95,7 +95,7 @@
         const IMPORT_ALLOWED_EXTENSION = '.xlsx';
         const IMPORT_MAX_FILE_SIZE_MB = 10;
         const IMPORT_MAX_FILE_SIZE_BYTES = IMPORT_MAX_FILE_SIZE_MB * 1024 * 1024;
-        const IMPORT_MAX_ROWS = 5000;
+        const IMPORT_MAX_ROWS = 300;
         const IMPORT_MAX_TEXT_LENGTH = 200;
         const IMPORT_MAX_LIST_ITEM_LENGTH = 300;
         const IMPORT_MIN_YEAR = 1950;
