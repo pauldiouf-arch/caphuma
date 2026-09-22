@@ -157,12 +157,8 @@
             return d.toISOString().slice(0, 10);
         }
 
-        // Combine les deux défenses contre un texte libre importé : caractères de
-        // contrôle invisibles retirés, puis neutralisation d'une éventuelle formule
-        // Excel (voir capHumaSanitizeExcelCell, shared/caphuma-utils.js) — ce texte
-        // finira par ressortir dans un futur export.
         function sanitizeFreeText(raw) {
-            return capHumaSanitizeExcelCell(capHumaStripControlChars(raw));
+            return capHumaStripControlChars(raw);
         }
 
         function checkTextLength(value, fieldLabel, maxLen, errors) {

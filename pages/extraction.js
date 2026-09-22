@@ -304,7 +304,7 @@
                         ? buildListesProsRows(filteredTalents)
                         : [{ 'Info': 'Aucun talent trouvé pour les pools sélectionnés.' }];
                     const poolNames = Array.from(talentPoolsSelected).join('+');
-                    const ws = XLSX.utils.json_to_sheet(capHumaSanitizeExportRows(rows));
+                    const ws = XLSX.utils.json_to_sheet(rows);
                     XLSX.utils.book_append_sheet(wb, ws, safeSheetName(`Listes pros (${poolNames})`));
                 }
 
@@ -330,7 +330,7 @@
                     let rows = [];
                     poolMissions.forEach(m => { rows = rows.concat(buildMissionRows(m, talentsById)); });
                     if (rows.length === 0) rows = [{ 'Info': 'Aucun poste pour ce pool.' }];
-                    const ws = XLSX.utils.json_to_sheet(capHumaSanitizeExportRows(rows));
+                    const ws = XLSX.utils.json_to_sheet(rows);
                     XLSX.utils.book_append_sheet(wb, ws, safeSheetName(`Postes ${poolId}`));
                 });
 

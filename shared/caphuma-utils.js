@@ -16,28 +16,6 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-// Un texte qui commence par =, +, -, @, tabulation ou retour chariot peut être
-// interprété comme une formule par Excel à l'ouverture du fichier, y compris
-// dans un vrai .xlsx (OWASP "CSV Injection", pas limité au format .csv). Le
-// préfixe apostrophe force l'affichage en texte, invisible à la lecture.
-const EXCEL_FORMULA_TRIGGER_CHARS = new Set(['=', '+', '-', '@', '\t', '\r']);
-
-function capHumaSanitizeExcelCell(value) {
-    if (typeof value !== 'string' || value.length === 0) return value;
-    return EXCEL_FORMULA_TRIGGER_CHARS.has(value[0]) ? `'${value}` : value;
-}
-
-// À appeler juste avant XLSX.utils.json_to_sheet() sur toute donnée pouvant
-// contenir du texte libre saisi par un utilisateur, quelle que soit son
-// origine (import en masse ou saisie manuelle depuis un formulaire).
-function capHumaSanitizeExportRows(rows) {
-    return rows.map(row => {
-        const sanitized = {};
-        Object.keys(row).forEach(key => { sanitized[key] = capHumaSanitizeExcelCell(row[key]); });
-        return sanitized;
-    });
-}
-
 function capHumaStripControlChars(value) {
     if (typeof value !== 'string') return value;
     return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
