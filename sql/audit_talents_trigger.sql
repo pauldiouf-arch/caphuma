@@ -1,26 +1,7 @@
--- ============================================================================
--- audit_talents_trigger.sql
--- ----------------------------------------------------------------------------
--- Trigger d'audit fiable sur "talents" (chantier A5), le plus complexe des
--- 3 : détecte automatiquement l'intention métier (dévalidation, réintégration,
--- ajout/retrait Liste Rouge, prolongation, changement de pool) à partir des
--- colonnes qui changent, pour conserver les mêmes libellés qu'avant (dont
--- dépend le filtre d'audit_logs.html) et les mêmes textes explicatifs.
--- Remplace 14 appels logAuditAction('...', 'talent', ...) répartis sur
--- talents.html, id-card.html, red_list.html et devalidated.html, retirés le
--- même jour.
---
--- Testé sur les 9 scénarios réels (create, update classique, update
--- prolongation, devalidate, reintegrate, add_to_red_list avec motif,
--- remove_from_red_list, delete talent actif, delete talent dévalidé) — tous
--- confirmés identiques au comportement précédent.
---
--- Exécuté en base le : 18-19/08/2026 (session A5, avec 2 corrections après
--- tests le 19/08 : texte "Pool : X" manquant à la création, distinction
--- actif/dévalidé manquante à la suppression).
--- Versionné dans ce fichier le : 19/08/2026 — écart honnête, voir règle 31 et
--- audit_missions_trigger.sql.
--- ============================================================================
+-- Trigger d'audit sur talents : déduit l'action métier (dévalidation, réintégration, Liste Rouge,
+-- prolongation, changement de pool) à partir des colonnes modifiées.
+-- Les libellés d'action doivent rester stables : le filtre de audit_logs.html en dépend.
+-- Exécuté en base les 18 et 19/08/2026.
 
 create or replace function public.audit_talents_changes()
 returns trigger
@@ -101,8 +82,6 @@ create trigger trg_audit_talents
 after insert or update or delete on public.talents
 for each row execute function public.audit_talents_changes();
 
--- ----------------------------------------------------------------------------
--- Rollback (règle 10) :
+-- Rollback :
 -- drop trigger trg_audit_talents on public.talents;
 -- drop function public.audit_talents_changes();
--- ----------------------------------------------------------------------------

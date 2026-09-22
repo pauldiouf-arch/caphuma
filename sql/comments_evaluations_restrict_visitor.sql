@@ -1,22 +1,7 @@
--- ============================================================================
--- comments_evaluations_restrict_visitor.sql
--- ----------------------------------------------------------------------------
--- Policies RESTRICTIVE empêchant le rôle "visitor" de lire, via l'API, les
--- commentaires et évaluations rattachés à un talent en Liste Rouge ou
--- dévalidé. Même logique que talents_restrict_visitor.sql (juillet 2026),
--- étendue à ces deux tables (ancien backlog n°2, traité le 14/08/2026).
---
--- Une ligne reste visible pour "visitor" si talent_id est vide (rien de
--- sensible à protéger derrière), ou si le talent lié n'est ni en Liste Rouge
--- ni dévalidé. Combinée en ET logique avec les policies PERMISSIVE
--- existantes (comments_select_all_connected / evaluations_select_authenticated)
--- sans les modifier.
---
--- Exécuté en base le : 14/08/2026
--- Versionné dans ce fichier le : 18/08/2026 (chantier A4) — reconstitué
--- fidèlement depuis pg_policies (jamais sauvegardé en fichier au moment de
--- l'exécution, voir Dossier de passation, Annexe B, écart noté honnêtement).
--- ============================================================================
+-- Policies RESTRICTIVE : un visitor ne lit pas les commentaires et évaluations d'un talent
+-- en Liste Rouge ou dévalidé. Une ligne sans talent_id reste visible.
+-- Combinées en ET avec les policies existantes, sans les modifier.
+-- Exécuté en base le 14/08/2026.
 
 create policy comments_select_restrict_visitor_sensitive_rows
 on public.comments
@@ -54,8 +39,6 @@ using (
     )
 );
 
--- ----------------------------------------------------------------------------
--- Rollback (règle 10) :
+-- Rollback :
 -- drop policy comments_select_restrict_visitor_sensitive_rows on public.comments;
 -- drop policy evaluations_select_restrict_visitor_sensitive_rows on public.evaluations;
--- ----------------------------------------------------------------------------

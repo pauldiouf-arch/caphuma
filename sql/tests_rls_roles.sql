@@ -1,86 +1,27 @@
--- =====================================================================
--- sql/tests_rls_roles.sql
--- Cap Huma — Test des policies RLS par role (visitor / user / admin)
--- Master Context §7, chantier A3
--- =====================================================================
+-- Test des policies RLS par role (visitor / user / admin) sur talents, comments, evaluations,
+-- share_tokens, audit_logs et users.
 --
--- OBJECTIF : simuler chaque role applicatif (visitor, user, admin) et
--- tenter les actions interdites sur talents, comments, evaluations,
--- share_tokens, audit_logs, users.
+-- Execution : coller ce fichier en entier dans l'editeur SQL Supabase, sans rien ajouter autour,
+-- puis Run. Tout tient dans un seul bloc do $$ : l'editeur ne garantit pas une connexion unique
+-- entre deux instructions.
 --
--- ARCHITECTURE (v2 — reecrite le 18/08/2026) : TOUT le test tient dans
--- UN SEUL bloc "do $$ ... $$;", c'est-a-dire UNE SEULE instruction SQL.
--- Ce choix n'est pas cosmetique : l'editeur SQL de Supabase ne garantit
--- pas qu'un script colle en une fois s'execute sur une seule connexion
--- continue a la base (verifie en conditions reelles le 18/08/2026 :
--- meme un script de 3 lignes triviales — CREATE TEMP TABLE / INSERT /
--- SELECT — echoue avec "relation does not exist" sur le SELECT). Un
--- bloc unique elimine ce risque : par definition, une seule instruction
--- ne peut pas etre coupee entre plusieurs connexions.
+-- Lecture : le bloc finit TOUJOURS par une erreur rouge volontaire, qui annule toutes les
+-- ecritures de test. Le bilan est dans ce message (l'editeur n'affiche pas les RAISE NOTICE) :
+--   - "A3 BILAN : TOUS LES TESTS ONT REUSSI" : rien a faire ;
+--   - "A3 BILAN : N ECHEC(S)" : chercher les lignes "A3-XX ECHEC" plus bas ;
+--   - "A3-06 IGNORE" : test non executable, ni succes ni echec.
 --
--- SECURITE / ROLLBACK : PostgreSQL enveloppe automatiquement toute
--- instruction unique dans sa propre transaction implicite. Ce bloc
--- provoque TOUJOURS une erreur volontaire a la toute fin (raise
--- exception), qu'il y ait des tests en echec ou non — c'est le seul
--- moyen fiable de forcer l'annulation de toutes les ecritures de test
--- (talents/commentaires/evaluations/jetons crees pour le test) sans
--- dependre d'un BEGIN/ROLLBACK ecrit comme instruction a part (qui
--- recreerait le probleme initial). CONSEQUENCE VISIBLE : le dernier
--- message affiche par l'editeur sera TOUJOURS une erreur rouge, meme
--- quand tout va bien. Ce n'est pas un bug.
---
--- COMMENT EXECUTER : coller ce fichier en entier (uniquement ce bloc,
--- rien avant ni apres — pas de "begin;"/"rollback;" ajoute autour) dans
--- l'editeur SQL Supabase et cliquer "Run".
---
--- COMMENT LIRE LE RESULTAT : l'editeur SQL Supabase n'affiche PAS de
--- facon fiable les RAISE NOTICE/WARNING (verifie le 18/08/2026, aucun
--- onglet "Messages" equivalent a pgAdmin) — donc TOUT le detail est
--- regroupe dans le texte du message d'erreur rouge final lui-meme.
--- Lire ce message en entier (pas juste sa premiere ligne) :
---   - 1ere ligne "A3 BILAN : TOUS LES TESTS ONT REUSSI (N/N, ...)"  →
---     tout est bon, le reste du message (detail des 34 tests) est
---     informatif mais rien a corriger.
---   - 1ere ligne "A3 BILAN : N ECHEC(S) sur T tests (...)" → chercher
---     plus bas dans le meme message les lignes "A3-XX ECHEC" pour voir
---     lesquels ont echoue.
---   - Une ligne "A3-06 IGNORE" est neutre (ni succes ni echec) : le
---     test n'a pas pu s'executer, voir le detail sur la ligne.
---
--- IDENTIFIANTS UTILISES (v3 — reecrit le 12/09/2026, chantier PII-1) :
--- Ce fichier ne contient plus aucun UUID, nom ou email reel. Au lieu de
--- cibler des comptes et des fiches talents specifiques codes en dur, le
--- bloc SETUP ci-dessous :
---   - retrouve dynamiquement le premier compte de chaque role (admin,
---     user, visitor) present dans la table users ;
---   - cree lui-meme 3 fiches talents factices (Liste Rouge / devalidee /
---     temoin) au lieu de basculer temporairement des fiches reelles.
--- Consequence pratique : un compte de test du role "visitor" doit
--- exister dans la base pour que ce script fonctionne (le role "visitor"
--- n'etant pas garanti d'avoir un titulaire reel en permanence). S'il
--- n'en existe pas, le script s'arrete proprement des le SETUP avec un
--- message explicite plutot que d'echouer plus loin de facon confuse.
---
--- LIMITES ASSUMEES :
---   - `evaluations` : insertion de test protegee par gestion d'erreur,
---     la nullabilite de mission_id n'etant pas confirmee ; en cas
---     d'echec, le test A3-06 associe passe en IGNORE plutot que de
---     faire echouer tout le bloc.
---   - `users` : aucune tentative de DELETE reelle, meme annulee (table
---     liee a auth.users) — la protection est deja confirmee sur pieces
---     via pg_policies (aucune policy DELETE = blocage total).
--- =====================================================================
+-- Prerequis : un compte de chaque role, dont un visitor, doit exister dans users.
+-- Aucun identifiant reel n'est code en dur, les fiches de test sont factices.
+-- Limites : insertion d'evaluation protegee (nullabilite de mission_id non confirmee) ;
+-- pas de DELETE reel sur users (protection confirmee via pg_policies).
 
 do $$
 declare
-    -- role de la session qui execute ce bloc (typiquement 'postgres',
-    -- bypass RLS par defaut) — utilise pour revenir en mode "admin
-    -- technique" entre deux simulations de role applicatif
+    -- role de session (bypass RLS), pour revenir en admin technique entre deux simulations
     v_admin_role text;
 
-    -- compteurs de bilan et rapport texte (voir note plus haut : c'est
-    -- le seul canal fiable pour faire remonter du texte dans l'editeur
-    -- SQL Supabase, qui n'affiche pas RAISE NOTICE/WARNING)
+    -- compteurs de bilan et rapport texte
     v_ok   int := 0;
     v_fail int := 0;
     v_skip int := 0;
@@ -88,8 +29,7 @@ declare
     v_report text := '';
     v_final_message text;
 
-    -- comptes utilises pour simuler chaque role, resolus dynamiquement
-    -- au debut du SETUP (voir bloc S0 ci-dessous) — jamais codes en dur
+    -- comptes resolus dynamiquement en S0, jamais codes en dur
     v_admin_id      uuid;
     v_admin_email   text;
     v_user_id       uuid;
@@ -97,8 +37,7 @@ declare
     v_visitor_id    uuid;
     v_visitor_email text;
 
-    -- talents factices crees pour le test (voir S1/S2/S3) — jamais de
-    -- fiche reelle manipulee
+    -- talents factices (S1/S2/S3)
     v_talent_redlisted_id   uuid;
     v_talent_devalidated_id uuid;
     v_talent_control_id     uuid;
@@ -121,13 +60,9 @@ declare
 begin
     select session_user into v_admin_role;
 
-    -- =================================================================
-    -- SETUP — execute sous le role de session (bypass RLS)
-    -- =================================================================
+    -- Setup, sous le role de session (bypass RLS)
 
-    -- S0 : resolution dynamique d'un compte de chaque role. Le premier
-    -- compte trouve par role est utilise ; peu importe qui il est,
-    -- seul son role compte pour ce test.
+    -- S0 : premier compte trouve pour chaque role
     select id, email into v_admin_id, v_admin_email
         from users where role = 'admin' order by created_at limit 1;
     select id, email into v_user_id, v_user_email
@@ -140,9 +75,7 @@ begin
             (v_admin_id is null), (v_user_id is null), (v_visitor_id is null);
     end if;
 
-    -- S1/S2/S3 : trois talents factices dedies au test, crees ici et
-    -- detruits par le rollback force en fin de bloc — jamais de fiche
-    -- reelle manipulee, contrairement a la v2 de ce script.
+    -- S1/S2/S3 : talents factices, detruits par le rollback force final
     insert into talents (first_name, last_name, pool, is_red_listed, red_list_reason)
     values ('TEST-A3', 'REDLISTED', 'COLOG', true, 'TEST RLS temporaire (A3)')
     returning id into v_talent_redlisted_id;
@@ -201,13 +134,11 @@ begin
 
     v_report := v_report || 'Setup termine (comptes resolus par role, 3 talents factices, talent d''ecriture, 3 commentaires, jetons de partage, evaluation si possible)' || chr(10);
 
-    -- =================================================================
-    -- TESTS EN TANT QUE VISITOR
-    -- =================================================================
+    -- Tests en tant que visitor
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_visitor_id), true);
     perform set_config('role', 'authenticated', true);
 
-    -- --- talents : visibilite ---
+    -- talents : visibilite
     select count(*) into v_count from talents where id = v_talent_redlisted_id;
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-01 OK - visitor ne voit pas le talent Liste Rouge' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-01 ECHEC - visitor voit %s ligne(s) du talent Liste Rouge (attendu 0)', v_count) || chr(10); end if;
@@ -220,7 +151,7 @@ begin
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-03 OK - visitor voit bien le talent temoin (sanity check)' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-03 ECHEC - visitor voit %s ligne(s) du talent temoin (attendu 1)', v_count) || chr(10); end if;
 
-    -- --- comments : visibilite ---
+    -- comments : visibilite
     select count(*) into v_count from comments where id = v_comment_redlisted_id;
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-04 OK - visitor ne voit pas le commentaire lie au talent Liste Rouge' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-04 ECHEC - visitor voit %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
@@ -229,7 +160,7 @@ begin
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-05 OK - visitor voit le commentaire lie au talent temoin' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-05 ECHEC - visitor voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
 
-    -- --- evaluations : visibilite ---
+    -- evaluations : visibilite
     if v_eval_setup_ok then
         select count(*) into v_count from evaluations where id = v_eval_devalidated_id;
         if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-06 OK - visitor ne voit pas l''evaluation liee au talent devalide' || chr(10);
@@ -239,7 +170,7 @@ begin
         v_report := v_report || 'A3-06 IGNORE - insertion de test evaluations impossible au setup (voir message ci-dessus)' || chr(10);
     end if;
 
-    -- --- talents : ecriture interdite ---
+    -- talents : ecriture interdite
     begin
         insert into talents (first_name, last_name, pool) values ('TEST-A3', 'VISITOR INSERT', 'COLOG');
         v_fail := v_fail + 1; v_report := v_report || 'A3-07 ECHEC - visitor a reussi a inserer un talent' || chr(10);
@@ -265,7 +196,7 @@ begin
         v_ok := v_ok + 1; v_report := v_report || 'A3-09 OK - DELETE bloque au niveau GRANT (permission denied)' || chr(10);
     end;
 
-    -- --- comments : ecriture interdite ---
+    -- comments : ecriture interdite
     begin
         insert into comments (talent_id, user_id, content, author_email)
         values (v_talent_control_id, v_visitor_id,
@@ -284,7 +215,7 @@ begin
         v_ok := v_ok + 1; v_report := v_report || 'A3-11 OK - DELETE bloque au niveau GRANT (permission denied)' || chr(10);
     end;
 
-    -- --- share_tokens : visibilite et ecriture ---
+    -- share_tokens : visibilite et ecriture
     select count(*) into v_count from share_tokens where id in (v_token_admin_id, v_token_user_id);
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-12 OK - visitor ne voit aucun jeton de partage' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-12 ECHEC - visitor voit %s jeton(s) (attendu 0)', v_count) || chr(10); end if;
@@ -298,7 +229,7 @@ begin
         v_ok := v_ok + 1; v_report := v_report || 'A3-13 OK - UPDATE bloque au niveau GRANT (permission denied)' || chr(10);
     end;
 
-    -- --- audit_logs : lecture interdite, insertion restreinte a soi-meme ---
+    -- audit_logs : lecture interdite, insertion restreinte a soi-meme
     select count(*) into v_count from audit_logs;
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-14 OK - visitor ne voit aucune ligne d''audit_logs' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-14 ECHEC - visitor voit %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
@@ -319,7 +250,7 @@ begin
         v_ok := v_ok + 1; v_report := v_report || 'A3-16 OK - usurpation bloquee comme attendu' || chr(10);
     end;
 
-    -- --- users : visibilite restreinte a soi-meme, ecriture interdite ---
+    -- users : visibilite restreinte a soi-meme, ecriture interdite
     select count(*) into v_count from users;
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-17 OK - visitor voit uniquement sa propre fiche' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-17 ECHEC - visitor voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
@@ -340,9 +271,7 @@ begin
         v_ok := v_ok + 1; v_report := v_report || 'A3-19 OK - INSERT bloque comme attendu' || chr(10);
     end;
 
-    -- =================================================================
-    -- TESTS EN TANT QUE USER
-    -- =================================================================
+    -- Tests en tant que user
     perform set_config('role', v_admin_role, true);
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
     perform set_config('role', 'authenticated', true);
@@ -411,9 +340,7 @@ begin
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-29 OK - user voit uniquement sa propre fiche' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-29 ECHEC - user voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
 
-    -- =================================================================
-    -- TESTS EN TANT QUE ADMIN
-    -- =================================================================
+    -- Tests en tant que admin
     perform set_config('role', v_admin_role, true);
 
     -- Vrai total actuel, mesure ici en bypass RLS (donc fiable quel que
@@ -464,9 +391,7 @@ begin
         end;
     end if;
 
-    -- =================================================================
-    -- BILAN + ROLLBACK FORCE
-    -- =================================================================
+    -- Bilan et rollback force
     perform set_config('role', v_admin_role, true);
 
     v_total := v_ok + v_fail + v_skip;
@@ -477,13 +402,6 @@ begin
         v_final_message := format('A3 BILAN : TOUS LES TESTS ONT REUSSI (%s/%s, %s IGNORE)', v_ok, v_total, v_skip);
     end if;
 
-    -- Bilan en premiere ligne (le plus important, visible meme si le
-    -- message est tronque quelque part), puis le detail complet des 34
-    -- tests en dessous. C'est le SEUL canal qui fait remonter ce texte
-    -- jusqu'a l'ecran : RAISE NOTICE/WARNING n'apparaissent nulle part
-    -- dans l'editeur SQL Supabase (verifie le 18/08/2026), seul un
-    -- message d'erreur (RAISE EXCEPTION) est affiche. D'ou le choix
-    -- d'accumuler tout dans v_report et de le faire sortir ici, dans le
-    -- rollback force qui doit de toute facon se produire a la fin.
+    -- Seul un RAISE EXCEPTION est affiche par l'editeur : bilan en premiere ligne, detail ensuite.
     raise exception E'%\n\n--- Detail des 34 tests ---\n%', v_final_message, v_report;
 end $$;

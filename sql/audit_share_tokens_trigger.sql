@@ -1,18 +1,6 @@
--- ============================================================================
--- audit_share_tokens_trigger.sql
--- ----------------------------------------------------------------------------
--- Trigger d'audit fiable sur "share_tokens" (chantier A5). Même principe que
--- audit_missions_trigger.sql. Comble aussi un trou qui existait avant : la
--- suppression en cascade des liens de partage (lors d'une suppression RGPD
--- d'un talent) n'était journalisée nulle part côté client — elle l'est
--- désormais automatiquement. Remplace les 2 appels logAuditAction('create'/
--- 'update', 'share_link', ...) qui existaient dans id-card.html, retirés le
--- même jour.
---
--- Exécuté en base le : 18/08/2026 (session A5)
--- Versionné dans ce fichier le : 19/08/2026 — écart honnête, voir règle 31 et
--- audit_missions_trigger.sql.
--- ============================================================================
+-- Trigger d'audit sur share_tokens, même principe que audit_missions_trigger.sql.
+-- Journalise aussi la suppression en cascade des liens lors d'une suppression RGPD d'un talent.
+-- Exécuté en base le 18/08/2026.
 
 create or replace function public.audit_share_tokens_changes()
 returns trigger
@@ -64,8 +52,6 @@ create trigger trg_audit_share_tokens
 after insert or update or delete on public.share_tokens
 for each row execute function public.audit_share_tokens_changes();
 
--- ----------------------------------------------------------------------------
--- Rollback (règle 10) :
+-- Rollback :
 -- drop trigger trg_audit_share_tokens on public.share_tokens;
 -- drop function public.audit_share_tokens_changes();
--- ----------------------------------------------------------------------------

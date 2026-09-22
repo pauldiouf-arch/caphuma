@@ -1,24 +1,6 @@
--- ============================================================================
--- staff_national_detachement_etape5_get_shared_talent_detachement.sql
--- ----------------------------------------------------------------------------
--- Étape 5 point 3 du chantier staff national / détachement.
---
--- get_shared_talent() ne remontait qu'un seul poste "en cours" (le plus
--- récent par contract_start_date), en excluant de fait un détachement quand
--- le talent occupe aussi un poste national ou expatrié en parallèle — cas
--- normal depuis le garde-fou 1 de missions-crud.js. La fiche interne
--- (id-card.js) a le même problème, corrigé dans ce même lot en dehors de la
--- base.
---
--- La sous-requête existante est désormais filtrée sur candidate_type
--- différent de 'detache' (poste national/expatrié), et une seconde
--- sous-requête identique, filtrée sur candidate_type = 'detache', alimente
--- une nouvelle clé 'detachment' dans le JSON retourné. Structure de
--- 'mission' et de 'detachment' identique. is_admin() n'est pas touchée.
---
--- Rédigé le : 18/09/2026
--- Exécuté en base le : [À COMPLÉTER]
--- ============================================================================
+-- get_shared_talent() : le poste « en cours » exclut désormais les détachements,
+-- et une clé 'detachment' renvoie le détachement occupé en parallèle.
+-- Exécuté en base le 18/09/2026.
 
 create or replace function public.get_shared_talent(p_token text)
  returns jsonb
@@ -115,9 +97,4 @@ BEGIN
 END;
 $function$;
 
--- ----------------------------------------------------------------------------
--- Rollback (règle 10) : recréer get_shared_talent() avec le corps précédent
--- (sans la sous-requête 'detachment' ni le filtre candidate_type), tel que
--- documenté dans sql/functions_is_admin_get_shared_talent.sql avant cette
--- migration.
--- ----------------------------------------------------------------------------
+-- Rollback : recréer get_shared_talent() sans la clé 'detachment' ni le filtre sur candidate_type.

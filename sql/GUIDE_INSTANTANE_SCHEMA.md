@@ -32,7 +32,7 @@ redécouvrir en lisant le code.
 
 1. Ouvrir l'éditeur SQL du projet Supabase Cap Huma.
 2. Coller et exécuter la requête combinée ci-dessous. Lecture seule
-   (`select`), aucun risque pour les données — elle rassemble les 9
+   (`select`), aucun risque pour les données — elle rassemble les 10
    informations en une seule fois, sous forme d'un unique bloc JSON.
 3. Copier le résultat (un clic droit sur la cellule → copier, ou
    `Download CSV`/`Copy` selon l'interface).
@@ -105,11 +105,18 @@ select jsonb_pretty(jsonb_build_object(
       where connamespace = 'public'::regnamespace and contype = 'c'
         and conname not like '%\_not\_null'
       order by table_name, conname
+  ) t),
+  'cles_etrangeres_detail', (select jsonb_agg(t) from (
+      select conrelid::regclass::text as table_name, conname as constraint_name,
+             pg_get_constraintdef(oid) as definition
+      from pg_constraint
+      where connamespace = 'public'::regnamespace and contype = 'f'
+      order by table_name, conname
   ) t)
 )) as instantane_schema;
 ```
 
-## Détail des 9 requêtes d'origine (si besoin de les relancer séparément)
+## Détail des 10 requêtes d'origine (si besoin de les relancer séparément)
 
 Utile seulement si la requête combinée pose problème (résultat tronqué par
 l'éditeur sur un très gros schéma, par exemple) — sinon, ignorer cette
@@ -187,10 +194,19 @@ where connamespace = 'public'::regnamespace and contype = 'c'
 order by table_name, conname;
 ```
 
+**10) Texte exact des clés étrangères, avec leur règle ON DELETE**
+```sql
+select conrelid::regclass as table_name, conname as constraint_name,
+       pg_get_constraintdef(oid) as definition
+from pg_constraint
+where connamespace = 'public'::regnamespace and contype = 'f'
+order by table_name, conname;
+```
+
 ## Ce que je n'ai pas pu faire à votre place
 
 Je n'ai pas d'accès à votre projet Supabase réel, donc je ne peux pas
 exécuter ces requêtes moi-même ni produire l'instantané d'aujourd'hui à
-votre place. Si vous collez ici les résultats des 9 requêtes, je peux en
-revanche les mettre en forme dans un fichier `schema_snapshot_2026-09-12.sql`
+votre place. Si vous collez ici le résultat de la requête combinée, je peux en
+revanche les mettre en forme dans un fichier `schema_snapshot_AAAA-MM-JJ.sql`
 prêt à committer, dans le même format que celui du 18/08/2026.
