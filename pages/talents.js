@@ -981,7 +981,7 @@ const TalentsPage = {};
                     };
                 });
 
-                const ws = XLSX.utils.json_to_sheet(rows);
+                const ws = XLSX.utils.json_to_sheet(capHumaSanitizeExportRows(rows));
                 const wb = XLSX.utils.book_new();
                 const sheetName = `Talents ${TalentsPage.currentPoolId || 'pool'}`.substring(0, 31);
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);

@@ -92,6 +92,28 @@
         const HAS_VISA_LABEL_TO_BOOL = { 'Oui': true, 'Non': false };
         const EXAMPLE_ROW_EMAIL = 'awa.ndiaye@example.com';
 
+        const IMPORT_ALLOWED_EXTENSION = '.xlsx';
+        const IMPORT_MAX_FILE_SIZE_MB = 10;
+        const IMPORT_MAX_FILE_SIZE_BYTES = IMPORT_MAX_FILE_SIZE_MB * 1024 * 1024;
+        const IMPORT_MAX_ROWS = 5000;
+        const IMPORT_MAX_TEXT_LENGTH = 200;
+        const IMPORT_MAX_LIST_ITEM_LENGTH = 300;
+        const IMPORT_MIN_YEAR = 1950;
+        const IMPORT_MAX_YEAR = new Date().getFullYear() + 15;
+
+        // Le sélecteur (accept=".xlsx") ne bloque qu'à la sélection dans
+        // l'explorateur de fichiers — un fichier renommé le contourne. Revérifié
+        // ici, avant toute lecture, en plus de la taille.
+        function validateImportFile(file) {
+            if (!file.name.toLowerCase().endsWith(IMPORT_ALLOWED_EXTENSION)) {
+                return `Format non autorisé — seul ${IMPORT_ALLOWED_EXTENSION} est accepté.`;
+            }
+            if (file.size > IMPORT_MAX_FILE_SIZE_BYTES) {
+                return `Le fichier dépasse la taille maximale autorisée (${IMPORT_MAX_FILE_SIZE_MB} Mo).`;
+            }
+            return null;
+        }
+
         // Correspond exactement à la ligne 2 (noms techniques) du modèle livré —
         // ne pas modifier sans mettre à jour le modèle Excel en parallèle.
         const IMPORT_COLUMNS = [
@@ -133,6 +155,29 @@
 
         function toISODate(d) {
             return d.toISOString().slice(0, 10);
+        }
+
+        // Combine les deux défenses contre un texte libre importé : caractères de
+        // contrôle invisibles retirés, puis neutralisation d'une éventuelle formule
+        // Excel (voir capHumaSanitizeExcelCell, shared/caphuma-utils.js) — ce texte
+        // finira par ressortir dans un futur export.
+        function sanitizeFreeText(raw) {
+            return capHumaSanitizeExcelCell(capHumaStripControlChars(raw));
+        }
+
+        function checkTextLength(value, fieldLabel, maxLen, errors) {
+            if (value && value.length > maxLen) errors.push(`${fieldLabel} dépasse ${maxLen} caractères`);
+        }
+
+        function checkListLengths(list, fieldLabel, maxLen, errors) {
+            list.forEach(item => checkTextLength(item, fieldLabel, maxLen, errors));
+        }
+
+        function isPlausibleDate(date, fieldLabel, errors) {
+            const year = date.getFullYear();
+            if (year < IMPORT_MIN_YEAR || year > IMPORT_MAX_YEAR) {
+                errors.push(`${fieldLabel} peu plausible (année ${year})`);
+            }
         }
 
         // absent → null sans erreur ; présent et reconnu → valeur normalisée ; présent
@@ -253,6 +298,7 @@
             if (availabilityType === 'date') {
                 availDate = parseDateCell(raw['availability_date']);
                 if (!availDate) errors.push('Date de disponibilité requise (type = Date précise)');
+                else isPlausibleDate(availDate, 'Date de disponibilité', errors);
             }
 
             let availMonths = null;
@@ -272,7 +318,8 @@
         function resolvePoolIntegrationDate(raw, errors) {
             if (!raw['pool_integration_date']) return null;
             const date = parseDateCell(raw['pool_integration_date']);
-            if (!date) errors.push("Date d'intégration invalide");
+            if (!date) { errors.push("Date d'intégration invalide"); return null; }
+            isPlausibleDate(date, "Date d'intégration", errors);
             return date;
         }
 
@@ -312,6 +359,17 @@
             const status = get('status');
             validateStatus(status, errors);
 
+            checkTextLength(firstName, 'Prénom', IMPORT_MAX_TEXT_LENGTH, errors);
+            checkTextLength(lastName, 'Nom', IMPORT_MAX_TEXT_LENGTH, errors);
+            checkTextLength(get('current_function'), 'Fonction actuelle', IMPORT_MAX_TEXT_LENGTH, errors);
+            checkTextLength(get('education_specialty'), "Spécialité d'études", IMPORT_MAX_TEXT_LENGTH, errors);
+            checkTextLength(get('country_of_residence'), 'Pays de résidence', IMPORT_MAX_TEXT_LENGTH, errors);
+            checkListLengths(splitMultiValue(get('languages')), 'Langue', IMPORT_MAX_LIST_ITEM_LENGTH, errors);
+            checkListLengths(splitMultiValue(get('other_languages')), 'Autre langue', IMPORT_MAX_LIST_ITEM_LENGTH, errors);
+            checkListLengths(splitMultiValue(get('key_skills')), 'Compétence clé', IMPORT_MAX_LIST_ITEM_LENGTH, errors);
+            checkListLengths(splitMultiValue(get('intervention_contexts')), "Contexte d'intervention", IMPORT_MAX_LIST_ITEM_LENGTH, errors);
+            checkListLengths(splitMultiValue(get('intervention_zones')), "Zone d'intervention", IMPORT_MAX_LIST_ITEM_LENGTH, errors);
+
             const enumResults = resolveOptionalEnumFields(get, errors);
             const nationalityCode = resolveNationality(get, errors);
             const { availDate, availMonths } = resolveAvailability(get, raw, enumResults.availability_type, errors);
@@ -320,23 +378,23 @@
             const expHum = resolveNumericField(get('experience_months_humanitarian'), 'Expérience humanitaire (mois)', errors);
 
             const normalized = {
-                first_name: firstName || null,
-                last_name: lastName || null,
+                first_name: sanitizeFreeText(firstName) || null,
+                last_name: sanitizeFreeText(lastName) || null,
                 email: email || null,
                 pool: staffType === 'national' ? null : (pool ? String(pool).toUpperCase() : null),
                 staff_type: staffType,
                 tracking_pool: staffType === 'national' ? trackingPool : null,
                 gender: gender || null,
                 nationality_code: nationalityCode,
-                country_of_residence: get('country_of_residence') || null,
-                current_function: get('current_function') || null,
+                country_of_residence: sanitizeFreeText(get('country_of_residence')) || null,
+                current_function: sanitizeFreeText(get('current_function')) || null,
                 education_level: enumResults.education_level,
-                education_specialty: get('education_specialty') || null,
-                languages: splitMultiValue(get('languages')),
-                other_languages: splitMultiValue(get('other_languages')),
-                key_skills: splitMultiValue(get('key_skills')),
-                intervention_contexts: splitMultiValue(get('intervention_contexts')),
-                intervention_zones: splitMultiValue(get('intervention_zones')),
+                education_specialty: sanitizeFreeText(get('education_specialty')) || null,
+                languages: splitMultiValue(get('languages')).map(sanitizeFreeText),
+                other_languages: splitMultiValue(get('other_languages')).map(sanitizeFreeText),
+                key_skills: splitMultiValue(get('key_skills')).map(sanitizeFreeText),
+                intervention_contexts: splitMultiValue(get('intervention_contexts')).map(sanitizeFreeText),
+                intervention_zones: splitMultiValue(get('intervention_zones')).map(sanitizeFreeText),
                 has_visa: enumResults.has_visa,
                 pool_integration_date: poolIntegrationDate ? toISODate(poolIntegrationDate) : null,
                 experience_months_alima: expAlima,
@@ -371,6 +429,10 @@
             }
 
             const dataRows = rows.slice(2); // données à partir de la ligne 3 (index 2)
+            if (dataRows.length > IMPORT_MAX_ROWS) {
+                return { error: `Fichier trop volumineux — ${dataRows.length} lignes, maximum ${IMPORT_MAX_ROWS}.` };
+            }
+
             const parsed = [];
             const seenEmailsInFile = new Set();
             let excelRowNum = 3;
@@ -641,7 +703,8 @@
         function resolveMissionContractDate(rawValue, fieldLabel, errors) {
             if (!rawValue) return null;
             const date = parseDateCell(rawValue);
-            if (!date) errors.push(fieldLabel);
+            if (!date) { errors.push(fieldLabel); return null; }
+            isPlausibleDate(date, 'Date de contrat', errors);
             return date;
         }
 
@@ -662,6 +725,10 @@
             const countryCode = resolveMissionCountryCode(country, errors);
             validateMissionLocation(location, errors);
 
+            checkTextLength(title, 'Titre', IMPORT_MAX_TEXT_LENGTH, errors);
+            checkTextLength(location, 'Lieu', IMPORT_MAX_TEXT_LENGTH, errors);
+            checkTextLength(get('project_name'), 'Nom du projet', IMPORT_MAX_TEXT_LENGTH, errors);
+
             const poolLevel = resolveMissionPoolLevel(get('pool_level'), errors);
             const status = resolveMissionStatus(get('status'), errors);
             const enumResults = resolveMissionOptionalEnumFields(get, errors);
@@ -669,13 +736,13 @@
             const contractEnd = resolveMissionContractDate(get('contract_end_date'), 'Date fin contrat invalide', errors);
 
             const normalized = {
-                title: title || null,
+                title: sanitizeFreeText(title) || null,
                 pool: pool ? String(pool).toUpperCase() : null,
                 pool_level: poolLevel,
                 status: status,
                 country_code: countryCode,
-                location: location || null,
-                project_name: get('project_name') || null,
+                location: sanitizeFreeText(location) || null,
+                project_name: sanitizeFreeText(get('project_name')) || null,
                 candidate_type: enumResults.candidate_type,
                 // is_expat maintenue en cohérence avec candidate_type, comme le formulaire
                 // manuel de missions.html.
@@ -710,6 +777,10 @@
             }
 
             const dataRows = rows.slice(2);
+            if (dataRows.length > IMPORT_MAX_ROWS) {
+                return { error: `Fichier trop volumineux — ${dataRows.length} lignes, maximum ${IMPORT_MAX_ROWS}.` };
+            }
+
             const parsed = [];
             let excelRowNum = 3;
 
@@ -877,6 +948,13 @@
             document.getElementById('previewCardMissions').classList.add('hidden');
             if (!file) { statusMsg.textContent = ''; return; }
 
+            const fileError = validateImportFile(file);
+            if (fileError) {
+                statusMsg.textContent = fileError;
+                statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
+                return;
+            }
+
             statusMsg.textContent = 'Lecture du fichier en cours...';
             statusMsg.className = 'text-xs text-slate-500 mt-2';
 
@@ -909,6 +987,13 @@
             const statusMsg = document.getElementById('fileStatusMsg');
             document.getElementById('previewCard').classList.add('hidden');
             if (!file) { statusMsg.textContent = ''; return; }
+
+            const fileError = validateImportFile(file);
+            if (fileError) {
+                statusMsg.textContent = fileError;
+                statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
+                return;
+            }
 
             statusMsg.textContent = 'Lecture du fichier en cours...';
             statusMsg.className = 'text-xs text-slate-500 mt-2';
