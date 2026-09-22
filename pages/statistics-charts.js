@@ -1,7 +1,3 @@
-// Statistiques et graphiques "simples" (KPIs, statut/expat, diversité, contrats
-// détaillés par pool) — tout ce qui est calculé et rendu 100% côté client, sans
-// appel réseau IA. Voir statistics.js (chargé AVANT ce fichier) pour
-// l'explication de StatisticsPage.
 (() => {
         function updateStatistics() {
             const selectorValue = document.getElementById('pool-selector').value;
@@ -9,7 +5,6 @@
             let talents = [...StatisticsPage.rawTalents];
             let mData = [...StatisticsPage.rawMissions];
 
-            // pool pour talents, pool_id pour missions — noms de colonnes différents.
             if (selectorValue !== 'global') {
                 talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
                 mData = mData.filter(m => {
@@ -47,9 +42,6 @@
 
             renderStatusChart([occupiedPositions, recruitingPositions, vacantPositions]);
 
-            // Distingue "colonne absente" (aucun poste n'a la clé) de "colonne présente
-            // mais vide", pour ne jamais afficher un graphique silencieusement faux
-            // (100% "Non défini" sans avertissement).
             const hasCandidateTypeColumn = mData.some(m => 'candidate_type' in m || 'candidateType' in m);
 
             if (!hasCandidateTypeColumn) {
@@ -68,9 +60,6 @@
                 renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
             }
 
-            // Mêmes "talents actifs" (valides, non Liste Rouge) que buildPoolAnalysisStats()
-            // plus bas, pour que le graphique et le texte de l'analyse IA du même pool
-            // racontent toujours la même chose.
             const activeTalentsForDiversity = talents.filter(t => {
                 const isVal = t.isValid !== false && t.is_valid !== false;
                 const isRed = t.isRedListed || t.is_red_listed;
@@ -79,13 +68,9 @@
             updateDiversityCharts(activeTalentsForDiversity);
 
             updateDetailedContractStats(selectorValue, mData);
-            // updatePoolAiAnalysisVisibility() vit dans statistics-pool-ai.js, chargé
-            // après ce fichier.
             StatisticsPage.updatePoolAiAnalysisVisibility(selectorValue, talents, mData);
         }
 
-        // N'apparaît jamais sur la vue globale, seulement quand un pool précis est
-        // sélectionné — le Hub Statistique global n'est pas concerné.
         function updateDetailedContractStats(selectorValue, mData) {
             const card = document.getElementById('detailed-stats-card');
 
@@ -119,7 +104,6 @@
                 ? Math.round((renewable / withContracts.length) * 100)
                 : 0;
 
-            // Cumulatif : "fin dans 3 mois" inclut ce qui finit dans le mois qui vient.
             const endsWithin = (maxDate) => mData.filter(m => {
                 if (!m.contract_end_date) return false;
                 const t = new Date(m.contract_end_date).getTime();
@@ -218,7 +202,6 @@
             });
         }
 
-        // Comptages agrégés uniquement, jamais une ligne "talent par talent" affichée.
         const NATIONALITY_CHART_TOP_N = 8;
 
         function updateDiversityCharts(activeTalents) {
@@ -238,8 +221,6 @@
             document.getElementById('nationalityChart').classList.remove('hidden');
             document.getElementById('nationalityChartEmptyState').classList.add('hidden');
 
-            // Mêmes 3 catégories que buildPoolAnalysisStats (H / F / non renseigné),
-            // 'gender' ne portant que ces valeurs dans le schéma réel.
             const genderDist = { hommes: 0, femmes: 0, nonRenseigne: 0 };
             activeTalents.forEach(t => {
                 if (t.gender === 'H') genderDist.hommes++;
@@ -248,8 +229,6 @@
             });
             renderGenderChart(genderDist);
 
-            // Nationalité regroupée par code (shared/caphuma-countries.js) plutôt que
-            // par texte brut : plus de fragmentation entre variantes d'orthographe.
             const counts = {};
             let nonRenseigne = 0;
             activeTalents.forEach(t => {
@@ -303,9 +282,7 @@
             StatisticsPage.nationalityChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    // Pas d'escapeHtml() ici : Chart.js dessine sur un <canvas> (pas
-                    // d'innerHTML), aucun risque XSS — escapeHtml() afficherait à tort des
-                    // entités littérales (ex. "Côte d&#039;Ivoire").
+                    // Pas d'escapeHtml() : Chart.js dessine sur un canvas, pas via innerHTML.
                     labels: labels,
                     datasets: [{
                         label: 'Talents',
@@ -324,6 +301,5 @@
             });
         }
 
-        // Exposé sur StatisticsPage pour appel depuis statistics.js
         StatisticsPage.updateStatistics = updateStatistics;
 })();

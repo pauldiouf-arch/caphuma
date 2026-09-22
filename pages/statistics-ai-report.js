@@ -1,12 +1,4 @@
-// Rapport IA global du Hub (payload anonymisé consolidé, rendu Markdown, appel
-// à l'Edge Function ai-proxy). renderMarkdownToHtml() est réutilisée telle
-// quelle par statistics-pool-ai.js, d'où son exposition sur StatisticsPage en
-// bas de fichier. Voir statistics.js (chargé avant ce fichier) pour
-// l'explication de StatisticsPage.
 (() => {
-        // Agrégat anonymisé (comptages uniquement) pour le pool ou l'ensemble
-        // désigné par selectorValue — talents/mData sont déjà filtrés par l'appelant
-        // quand selectorValue n'est pas 'global'.
         function computeGlobalPayload(selectorValue, talents, mData) {
             return {
                 pool: selectorValue,
@@ -30,13 +22,7 @@
             };
         }
 
-        // Vue globale uniquement : computeGlobalPayload() ci-dessus ne renvoie que
-        // des totaux fusionnés, l'IA n'a alors aucune donnée par pool à nommer ou
-        // comparer. Uniquement des comptages et le nom du pool sont ajoutés ici —
-        // jamais genre/nationalités/langues par pool : ces répartitions restent
-        // réservées à l'analyse d'un pool précis, soumise au seuil
-        // AI_DIVERSITY_MIN_ACTIVE_TALENTS. Les ajouter ici reviendrait à contourner ce
-        // seuil pour les 7 pools d'un seul appel — ne pas compléter par symétrie.
+        // Comptages seuls : ventiler genre/nationalités par pool contournerait AI_DIVERSITY_MIN_ACTIVE_TALENTS.
         function computePoolBreakdown() {
             return StatisticsPage.poolList.map(p => {
                 const code = (p.pool_id || p.poolId || '').toUpperCase();
@@ -92,11 +78,6 @@
                     payload.repartitionParPool = poolsVentiles;
                 }
 
-                // Un seul agrégat global, jamais ventilé par pool — protège la
-                // nationalité de quelqu'un dans un petit pool même en vue globale.
-                // Même seuil d'anonymat que l'analyse par pool
-                // (StatisticsPage.AI_DIVERSITY_MIN_ACTIVE_TALENTS), appliqué ici à
-                // l'effectif actif total de l'organisation.
                 const activeTalentsGlobal = StatisticsPage.computeActiveTalents(talents);
                 if (activeTalentsGlobal.length >= StatisticsPage.AI_DIVERSITY_MIN_ACTIVE_TALENTS) {
                     const repartitionNationalites = {};
@@ -112,35 +93,25 @@
             return payload;
         }
 
-        // Convertisseur basique Markdown pour rendu premium de l'analyse IA
         function renderMarkdownToHtml(text) {
             if (!text) return "";
             let html = text;
 
-            // Échappement basique contre les injections
             html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-            // Formatage des titres (###)
             html = html.replace(/^### (.*$)/gim, '<h4 class="text-sm font-bold text-slate-900 mt-4 mb-2 flex items-center gap-1.5">🔸 $1</h4>');
             html = html.replace(/^## (.*$)/gim, '<h3 class="text-base font-bold text-primary mt-6 mb-3 border-b border-slate-200 pb-1">$1</h3>');
             html = html.replace(/^# (.*$)/gim, '<h2 class="text-lg font-bold text-slate-900 mt-8 mb-4">$1</h2>');
 
-            // Formatage du gras (**)
             html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
 
-            // Liste à puces (* ou -)
             html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li class="list-disc ml-5 mt-1.5 text-slate-700">$1</li>');
 
-            // Retours chariots
             html = html.replace(/\n/g, '<br>');
 
             return html;
         }
 
-        // Construit le prompt envoyé à l'IA pour le rapport global du Hub — même
-        // pattern que buildPoolAnalysisPrompt() (statistics-pool-ai.js) : fonction
-        // pure, prend les données déjà calculées et la question éventuelle, renvoie
-        // le texte du prompt.
         function buildGlobalReportPrompt(statsSummary, finalQuery) {
             const systemContext = `Tu es l'analyste stratégique RH senior pour ALIMA.
 Analyse les données statistiques consolidées suivantes de manière professionnelle, courte et structurée (puces et gras). Ne mentionne aucun nom ni e-mail individuel.
@@ -157,11 +128,6 @@ Données consolidées du pool (${statsSummary.pool}) :
 - Postes Expatriés : ${statsSummary.proportionExpat}
 - Postes Nationaux : ${statsSummary.proportionNational}`;
 
-            // Ventilation par pool — vue globale uniquement. Sans ce bloc, l'IA ne
-            // dispose que de totaux fusionnés et ne peut ni citer un pool par son nom
-            // ni en comparer deux. Rendue sous forme de tableau lisible plutôt qu'en
-            // JSON brut : le reste de ce prompt est déjà en texte, et un format
-            // homogène donne de meilleures réponses qu'un mélange des deux.
             let ventilationBloc = "";
             if (Array.isArray(statsSummary.repartitionParPool) && statsSummary.repartitionParPool.length > 0) {
                 const lignes = statsSummary.repartitionParPool.map(p =>
@@ -175,9 +141,6 @@ Données consolidées du pool (${statsSummary.pool}) :
                     `quand tu compares ou désignes un pool précis) :\n${lignes}`;
             }
 
-            // Agrégat global de nationalités — voir buildAnonymizedPayload() pour le
-            // pourquoi (seuil d'anonymat, jamais ventilé par pool). Absent du payload
-            // si le seuil n'est pas atteint ou si personne n'a de nationalité renseignée.
             let nationalitesBloc = "";
             if (statsSummary.repartitionNationalites && Object.keys(statsSummary.repartitionNationalites).length > 0) {
                 const lignesNat = Object.entries(statsSummary.repartitionNationalites)
@@ -189,9 +152,6 @@ Données consolidées du pool (${statsSummary.pool}) :
                     `effectifs) : ${lignesNat}`;
             }
 
-            // La question passe EN TÊTE du prompt — pesée plus lourd que le reste du
-            // cadrage, pour éviter des réponses trop proches d'une question à l'autre.
-            // Sans question saisie, la consigne générale ci-dessous est utilisée.
             const objectif = finalQuery
                 ? `Question à traiter en priorité : ${finalQuery}\n\n` +
                   `Réponds à cette question en t'appuyant sur les données ci-dessous. ` +
@@ -218,16 +178,13 @@ Données consolidées du pool (${statsSummary.pool}) :
             const fullPrompt = buildGlobalReportPrompt(statsSummary, finalQuery);
 
             try {
-                // ai-proxy vérifie le rôle côté serveur (visitor exclu) et détient seule
-                // la clé IA.
                 const { data: { session } } = await StatisticsPage.supabaseClient.auth.getSession();
                 if (!session) {
                     window.location.href = 'login.html';
                     return;
                 }
 
-                // Pas de capHumaWithRetry() : palier gratuit limité chez le fournisseur
-                // d'IA, même raison qu'ailleurs sur cette page (statistics-pool-ai.js).
+                // Pas de capHumaWithRetry() : quota IA limité.
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
                     method: 'POST',
                     headers: {
@@ -238,8 +195,6 @@ Données consolidées du pool (${statsSummary.pool}) :
                     body: JSON.stringify({ prompt: fullPrompt })
                 });
 
-                // Un 401/403 ne doit jamais rester un simple message d'erreur affiché
-                // dans le panneau de résultat — l'utilisateur doit être renvoyé se reconnecter.
                 if (response.status === 401 || response.status === 403) {
                     await StatisticsPage.supabaseClient.auth.signOut();
                     window.location.href = 'login.html';
@@ -277,6 +232,5 @@ Données consolidées du pool (${statsSummary.pool}) :
             });
         });
 
-        // Exposé sur StatisticsPage : réutilisé par statistics-pool-ai.js
         StatisticsPage.renderMarkdownToHtml = renderMarkdownToHtml;
 })();

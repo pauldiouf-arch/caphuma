@@ -22,10 +22,6 @@ const StatisticsPage = {};
         StatisticsPage.currentUserRole = null;
         StatisticsPage.currentUserName = null;
 
-        // La clé IA ne vit jamais côté client (ni localStorage, ni variable visible
-        // en console) : l'appel passe par l'Edge Function sécurisée ai-proxy, qui
-        // détient seule la clé côté serveur.
-
         if (SUPABASE_URL && SUPABASE_ANON_KEY) {
             StatisticsPage.supabaseClient = capHumaGetSupabaseClient();
         }
@@ -61,10 +57,6 @@ const StatisticsPage = {};
                 capHumaStartIdleTimeout(StatisticsPage.supabaseClient);
                 StatisticsPage.currentUserRole = s.role;
 
-                // ai-proxy refuse déjà ce rôle côté serveur (403) — masquer ces blocs
-                // évite qu'un visitor découvre l'erreur seulement après avoir cliqué.
-                // updatePoolAiAnalysisVisibility() (statistics-pool-ai.js) porte le même
-                // garde-fou pour la carte par pool.
                 if (StatisticsPage.currentUserRole === 'visitor') {
                     document.getElementById('aiStrategicHub').classList.add('hidden');
                     document.getElementById('aiVisitorNotice').classList.remove('hidden');
@@ -95,7 +87,6 @@ const StatisticsPage = {};
 
                 await loadRawData();
 
-                // Détecter le paramètre d'URL (dashboard.html envoie ?pool=ID)
                 const urlParams = new URLSearchParams(window.location.search);
                 const queryPool = urlParams.get('pool') || urlParams.get('pool_id');
 
@@ -110,7 +101,6 @@ const StatisticsPage = {};
                     }
                 }
 
-                // updateStatistics() vit dans statistics-charts.js, chargé avant ce fichier.
                 StatisticsPage.updateStatistics();
 
                 selector.addEventListener('change', () => {
@@ -124,11 +114,6 @@ const StatisticsPage = {};
         }
 
         async function loadRawData() {
-            // Colonnes explicites plutôt que select('*') : uniquement celles utilisées
-            // par les KPIs, les 4 graphiques, les stats de contrats et l'analyse IA.
-            // `candidate_type` confirmé présent en base (colonne existante, jamais
-            // absente) : la détection "colonne absente vs vide" plus bas
-            // (hasCandidateTypeColumn) continue de fonctionner à l'identique.
             const { data: talents, error: et } = await CapHumaData.getTalents(StatisticsPage.supabaseClient, {
                 select: 'pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality_code, languages',
                 filters: { staff_type: 'expat' }
