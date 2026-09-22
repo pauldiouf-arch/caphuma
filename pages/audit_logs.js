@@ -310,6 +310,13 @@
             }
 
             try {
+                await capHumaLoadScriptOnce('shared/vendor/xlsx.core.min.js');
+            } catch (err) {
+                alert("Impossible de charger le module d'export Excel (vérifiez la connexion réseau) et réessayez.");
+                return;
+            }
+
+            try {
                 const filters = buildLogsFilterParams();
                 const result = await fetchSensitiveRead(supabaseClient, 'audit_logs', { mode: 'export', filters });
                 const filtered = result.data || [];

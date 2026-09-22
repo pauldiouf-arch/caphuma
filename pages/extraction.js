@@ -295,6 +295,13 @@
             generateBtnLabel.textContent = 'Génération...';
 
             try {
+                try {
+                    await capHumaLoadScriptOnce('shared/vendor/xlsx.core.min.js');
+                } catch (err) {
+                    setStatus("Impossible de charger le module d'export Excel (vérifiez la connexion réseau) et réessayez.", true);
+                    return;
+                }
+
                 const wb = XLSX.utils.book_new();
 
                 if (talentPoolsSelected.size > 0) {
