@@ -16,9 +16,6 @@
         let supabaseClient = null;
         let redListTalents = [];
         let redListPage = 1;
-        // (REDLIST_PAGE_SIZE a été retiré le 21/09/2026 : jamais lu nulle part — la
-        // taille de page réelle est décidée côté Edge Function sensitive-reads,
-        // voir loadRedList() ci-dessous. Audit code mort.)
         let pendingConfirmAction = null;
         let currentUserRole = null;
         let currentUserId = null;
@@ -29,9 +26,6 @@
         let selectedTalentForRedlist = null;
         let selectedRedlistFiles = [];
 
-        // Correspond à l'attribut accept="..." du champ de sélection dans
-        // red_list.html — cet attribut n'est qu'indicatif côté navigateur,
-        // contournable en glisser-déposer, d'où ce contrôle en plus côté JS.
         const REDLIST_ALLOWED_MIME_TYPES = [
             'application/pdf',
             'application/msword',
@@ -119,8 +113,6 @@
             btn.disabled = !(selectedTalentForRedlist && reasonVal && selectedRedlistFiles.length > 0);
         }
 
-        // Ni espaces ni caractères spéciaux, qui peuvent poser problème dans une
-        // URL signée.
         function sanitizeFileName(name) {
             return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                 .replace(/[^a-zA-Z0-9.\-]/g, '_');
@@ -149,8 +141,6 @@
 
         document.getElementById('modal-redlist-add-files').addEventListener('change', (e) => {
             if (e.target.files && e.target.files.length > 0) {
-                // Filtré avant l'envoi plutôt qu'au moment de l'upload — en complément
-                // des policies du bucket, jamais en remplacement.
                 const incoming = Array.from(e.target.files);
                 const accepted = [];
                 const rejected = [];
@@ -171,21 +161,17 @@
                 }
 
                 selectedRedlistFiles = selectedRedlistFiles.concat(accepted);
-                e.target.value = ''; // permet de resélectionner le même fichier si retiré par erreur
+                e.target.value = '';
                 renderSelectedFilesList();
                 updateModalConfirmState();
             }
         });
 
-        // Upload séquentiel, pas en parallèle : en cas d'échec, on s'arrête net
-        // plutôt que de laisser une partie des documents orphelins sans savoir
-        // lesquels ont réussi.
+        // Envoi séquentiel : en cas d'échec, on sait exactement quels documents sont passés.
         async function uploadRedlistDocuments(talentId, files) {
             const paths = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                // Défense en profondeur, revérifié ici même si déjà filtré à la
-                // sélection plus haut.
                 if (!REDLIST_ALLOWED_MIME_TYPES.includes(file.type)) {
                     throw new Error(`Type de fichier non autorisé : "${file.name}".`);
                 }
@@ -193,9 +179,7 @@
                     throw new Error(`"${file.name}" dépasse la taille maximale autorisée (${REDLIST_MAX_FILE_SIZE_MB} Mo).`);
                 }
                 const path = `${talentId}/${Date.now()}_${i}_${sanitizeFileName(file.name)}`;
-                // path calculé une seule fois (pas régénéré à chaque tentative) et
-                // aucun { upsert: true } passé : une relance tombe proprement sur une
-                // erreur "déjà existant" plutôt que d'écraser silencieusement.
+                // Chemin calculé une fois, sans upsert : une relance échoue au lieu d'écraser.
                 const { error } = await capHumaWithRetry(() =>
                     supabaseClient
                         .storage
@@ -226,8 +210,7 @@
             selectTalent.disabled = true;
 
             try {
-                // is_red_listed est nullable : .is('is_red_listed', false) exclurait
-                // les NULL, filtré côté client pour couvrir null et false.
+                // Filtré côté client : is_red_listed vaut souvent NULL, que .is(false) exclurait.
                 const { data, error } = await CapHumaData.getTalents(supabaseClient, {
                     select: 'id, first_name, last_name, is_red_listed',
                     filters: { pool: poolCode },
@@ -259,7 +242,6 @@
             updateModalConfirmState();
         }
 
-        // Réinitialise l'état (pool/talent/motif/fichiers) à chaque ouverture.
         function openRedlistAddModal() {
             selectedTalentForRedlist = null;
             selectedRedlistFiles = [];
@@ -296,8 +278,6 @@
                 const documentPaths = await uploadRedlistDocuments(selectedTalentForRedlist.id, selectedRedlistFiles);
 
                 label.textContent = 'Inscription...';
-                // Format ISO (pas toLocaleDateString) : la colonne est un timestamptz,
-                // un format DD/MM/YYYY serait ambigu à la relecture.
                 const { error } = await CapHumaData.updateTalent(supabaseClient, selectedTalentForRedlist.id, {
                     is_red_listed: true,
                     red_list_date: new Date().toISOString(),
@@ -309,9 +289,6 @@
 
                 if (error) throw error;
 
-                // Pas d'appel à logAuditAction('add_to_red_list', ...) ici : couvert
-                // par le trigger Postgres trg_audit_talents (reprend le motif via
-                // red_list_reason).
                 document.getElementById('redlist-add-modal').classList.add('hidden');
                 toastMessage("Talent inscrit en Liste Rouge avec succès.");
 
@@ -394,8 +371,7 @@
                     : '—';
                 const docCount = Array.isArray(t.red_list_documents) ? t.red_list_documents.length : 0;
 
-                // encodeURIComponent(t.id) ci-dessous, pas escapeHtml() : ce lien
-                // construit une URL, escapeHtml() protège du HTML, pas d'une URL.
+                // URL : encodeURIComponent(), pas escapeHtml().
 
                 return `
                 <tr class="text-slate-700">
@@ -419,8 +395,6 @@
                     </td>
                 </tr>`;
             }).join('');
-            // .btn-view-reason/.btn-remove-redlist ne sont pas rebranchés ici : un
-            // seul écouteur délégué s'en charge (voir plus bas).
         }
 
         async function showReasonModal(talentId) {
@@ -438,8 +412,6 @@
 
             if (paths.length === 0) return;
 
-            // Bucket privé : URLs générées à la demande (signées, expiration courte),
-            // jamais stockées en clair ni rendues publiques.
             try {
                 const links = await Promise.all(paths.map(async (path, idx) => {
                     const { data, error } = await capHumaWithRetry(() =>
@@ -449,8 +421,6 @@
                             .createSignedUrl(path, 300) // 5 minutes, largement suffisant pour un clic
                     );
                     if (error || !data) {
-                        // console.error() par chemin en échec, pas un throw : les autres
-                        // documents du même talent doivent continuer à s'afficher normalement.
                         console.error(`[Liste Rouge] createSignedUrl a échoué pour "${path}" :`, error || 'réponse vide, sans erreur explicite');
                         return null;
                     }
@@ -470,12 +440,7 @@
             document.getElementById('modal-reason').classList.add('hidden');
         });
 
-        // Client direct, pas besoin d'Edge Function : action réservée par les
-        // policies RLS aux admins/recruteurs déjà authentifiés. Nettoyage Storage
-        // fait en best-effort, avant le retrait effectif — sinon un talent réinscrit
-        // plus tard depuis id-card.html hériterait d'une référence de documents
-        // orpheline. Un échec ici ne doit jamais bloquer le retrait lui-même, donc
-        // jamais de throw depuis ce bloc, seulement un log.
+        // Documents Storage nettoyés avant le retrait, sans jamais bloquer celui-ci.
         async function onRemoveFromRedList(talentId, talentName) {
             openConfirmModal({
                 title: "Retirer de la liste rouge",
@@ -508,8 +473,6 @@
                         red_list_documents: null
                     });
                     if (error) throw error;
-                    // Pas d'appel à logAuditAction('remove_from_red_list', ...) ici :
-                    // couvert par le trigger Postgres trg_audit_talents.
                     toastMessage("Talent retiré de la liste rouge.");
                     await loadRedList();
                 }
@@ -549,9 +512,6 @@
             }
         });
 
-        // Écouteur délégué posé une fois ici plutôt que ré-attaché à chaque rendu
-        // de renderRedList() : #redlist-tbody est un élément statique du HTML,
-        // jamais recréé.
         document.getElementById('redlist-tbody').addEventListener('click', (e) => {
             const reasonBtn = e.target.closest('.btn-view-reason');
             if (reasonBtn) { showReasonModal(reasonBtn.dataset.id); return; }

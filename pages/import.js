@@ -1,6 +1,4 @@
 (() => {
-        // pageHeaderTitle garde son id pour rester réécrivable en JS selon l'onglet
-        // actif (voir setImportMode() plus bas).
         renderPageLayout({
             icon: CapHumaIcons.get('inboxDown', 'w-5 h-5'),
             title: 'Import en masse',
@@ -79,9 +77,6 @@
         tabBtnTalents.addEventListener('click', () => setImportMode('talents'));
         tabBtnMissions.addEventListener('click', () => setImportMode('missions'));
 
-        // Cette section ne fait que lire et valider le fichier — aucune écriture en
-        // base : l'insertion réelle est une étape distincte, déclenchée par un clic
-        // sur le bouton d'import (voir runImport() plus bas).
         let cachedPools = [];
         let cachedExistingEmails = new Set();
         let lastParsedRows = [];
@@ -101,9 +96,6 @@
         const IMPORT_MIN_YEAR = 1950;
         const IMPORT_MAX_YEAR = new Date().getFullYear() + 15;
 
-        // Le sélecteur (accept=".xlsx") ne bloque qu'à la sélection dans
-        // l'explorateur de fichiers — un fichier renommé le contourne. Revérifié
-        // ici, avant toute lecture, en plus de la taille.
         function validateImportFile(file) {
             if (!file.name.toLowerCase().endsWith(IMPORT_ALLOWED_EXTENSION)) {
                 return `Format non autorisé — seul ${IMPORT_ALLOWED_EXTENSION} est accepté.`;
@@ -114,8 +106,7 @@
             return null;
         }
 
-        // Correspond exactement à la ligne 2 (noms techniques) du modèle livré —
-        // ne pas modifier sans mettre à jour le modèle Excel en parallèle.
+        // Doit correspondre à la ligne 2 (noms techniques) du modèle Excel.
         const IMPORT_COLUMNS = [
             'first_name', 'last_name', 'email', 'pool', 'staff_type', 'tracking_pool', 'gender', 'nationality',
             'country_of_residence', 'current_function', 'education_level', 'education_specialty',
@@ -176,9 +167,6 @@
             }
         }
 
-        // absent → null sans erreur ; présent et reconnu → valeur normalisée ; présent
-        // et non reconnu → erreur, avec la valeur brute conservée pour un Set (cohérent
-        // avec gender/education_level) ou null pour une table de correspondance.
         function validateOptionalEnumField(rawValue, allowedValues, fieldLabel) {
             if (!rawValue) return { value: null, error: null };
             const isSet = allowedValues instanceof Set;
@@ -189,10 +177,6 @@
             return { value: isSet ? rawValue : allowedValues[rawValue], error: null };
         }
 
-        // absent → pas d'erreur, code null ; présent et reconnu par le référentiel
-        // (shared/caphuma-countries.js) → code ISO ; présent et non reconnu → erreur
-        // nommant la valeur refusée. Même sémantique que validateOptionalEnumField()
-        // ci-dessus, mais résolu dynamiquement plutôt que contre une liste fixe.
         function validateOptionalCountryField(rawValue, fieldLabel) {
             if (!rawValue) return { value: null, error: null };
             const code = CapHumaCountries.findCodeByText(rawValue);
@@ -200,8 +184,6 @@
             return { value: code, error: null };
         }
 
-        // invertLabelMap est déclarée plus bas dans ce fichier (déclaration de fonction,
-        // hissée — utilisable ici sans souci d'ordre).
         const STAFF_TYPE_LABEL_TO_ENUM = invertLabelMap(STAFF_TYPE_LABELS);
 
         const TALENT_OPTIONAL_ENUM_FIELDS = [
@@ -211,8 +193,6 @@
             { key: 'availability_type', label: 'Disponibilité', allowed: AVAILABILITY_LABEL_TO_ENUM }
         ];
 
-        // Reprend les valeurs du filtre "Statut" de talents.html — aucune liste
-        // centralisée dans caphuma-utils.js pour ce champ précis.
         const TALENT_STATUS_VALID = new Set([
             'En poste ALIMA', 'En attente de poste', 'En poste autre ONG', 'En poste hors humanitaire'
         ]);
@@ -224,8 +204,6 @@
             else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email au format invalide');
         }
 
-        // Vide -> expat (comportement par défaut, identique à avant l'ajout de cette
-        // colonne — rétrocompatible avec un fichier qui ne la remplit pas).
         function resolveStaffType(staffTypeRaw, errors) {
             if (!staffTypeRaw) return 'expat';
             const staffType = STAFF_TYPE_LABEL_TO_ENUM[staffTypeRaw];
@@ -319,8 +297,6 @@
             return date;
         }
 
-        // NaN volontairement renvoyé tel quel si invalide (comme avant) : sans
-        // effet, la ligne est de toute façon rejetée par ses erreurs.
         function resolveNumericField(rawValue, fieldLabel, errors) {
             if (rawValue === '' || rawValue == null) return null;
             const n = Number(rawValue);
@@ -442,7 +418,6 @@
                     raw[col] = colIndex[col] !== undefined ? r[colIndex[col]] : '';
                 });
 
-                // Ignore silencieusement la ligne d'exemple si elle n'a pas été supprimée
                 if (String(raw.email).trim().toLowerCase() === EXAMPLE_ROW_EMAIL) {
                     excelRowNum++;
                     return;
@@ -522,8 +497,6 @@
             }
         }
 
-        // Par lots de 25 lignes. Les lignes en erreur (déjà filtrées avant l'appel)
-        // ne sont jamais envoyées.
         const IMPORT_BATCH_SIZE = 25;
 
         async function runImport(validRows) {
@@ -540,15 +513,13 @@
             btn.classList.add('opacity-50', 'cursor-not-allowed');
 
             let successCount = 0;
-            const failures = []; // { rowNumber, name, message }
+            const failures = [];
 
             for (let i = 0; i < validRows.length; i += IMPORT_BATCH_SIZE) {
                 const batch = validRows.slice(i, i + IMPORT_BATCH_SIZE);
                 statusEl.textContent = `Import en cours... ${Math.min(i + IMPORT_BATCH_SIZE, validRows.length)} / ${validRows.length}`;
 
-                // Un défaut Postgres ne s'applique que si la colonne est absente de
-                // l'INSERT, jamais si elle est envoyée explicitement à null — on retire
-                // donc la clé status plutôt que d'envoyer null quand elle est vide.
+                // Clé retirée plutôt que null : le défaut Postgres ne s'applique qu'à une colonne absente.
                 const payload = batch.map(r => {
                     const row = { ...r.normalized, created_by: currentUserId };
                     if (!row.status) delete row.status;
@@ -556,17 +527,12 @@
                 });
 
                 try {
-                    // Pas de capHumaWithRetry() : lot de jusqu'à 25 talents sans aucune
-                    // contrainte UNIQUE, une relance après perte de réponse dupliquerait
-                    // silencieusement jusqu'à 25 fiches d'un coup.
+                    // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait tout le lot.
                     const { data, error } = await CapHumaData.createTalent(supabaseClient, payload, 'id');
                     if (error) throw error;
                     successCount += (data || []).length;
                 } catch (err) {
                     console.error('[Import] Échec sur un lot :', err);
-                    // Le lot entier a échoué (ex. contrainte violée) : journalisé en bloc,
-                    // un échec de lot ne permet pas de savoir quelle ligne précise a posé
-                    // problème sans le rejouer ligne par ligne.
                     batch.forEach(r => failures.push({
                         rowNumber: r.rowNumber,
                         name: `${r.normalized.first_name || ''} ${r.normalized.last_name || ''}`.trim(),
@@ -601,13 +567,6 @@
             `;
         }
 
-        // Miroir du module talents ci-dessus, pour la table `missions`. Un poste
-        // importé n'a jamais d'occupant à ce stade (occupant_id toujours null, statut
-        // limité à vacant/recruiting) — le rattachement d'un talent à un poste reste
-        // une action manuelle depuis missions.html. Colonnes vérifiées contre
-        // pages/missions.js (MISSIONS_COLUMNS) : `pool` (pas `pool_id`),
-        // `occupant_id`/`future_talent_id`.
-
         const MISSION_IMPORT_COLUMNS = [
             'title', 'pool', 'pool_level', 'status', 'country', 'location',
             'project_name', 'candidate_type', 'desk',
@@ -624,12 +583,8 @@
         const CANDIDATE_TYPE_LABEL_TO_ENUM = invertLabelMap(CANDIDATE_TYPE_LABELS);
         const CONTRACT_STATUS_LABEL_TO_ENUM = invertLabelMap(CONTRACT_STATUS_LABELS);
 
-        // pool_level n'est pas centralisé dans caphuma-utils.js, contrairement aux
-        // énumérations ci-dessus.
         const POOL_LEVEL_LABEL_TO_ENUM = { 'Mission': 'mission', 'Projet': 'project' };
 
-        // Volontairement SANS "Occupé" — un poste importé ne peut être créé qu'en Vacant
-        // ou En recrutement, voir bandeau d'avertissement affiché sur la page.
         const MISSION_STATUS_LABEL_TO_ENUM = { 'Vacant': 'vacant', 'En recrutement': 'recruiting' };
 
         let cachedMissionRows = [];
@@ -684,8 +639,6 @@
             return MISSION_STATUS_LABEL_TO_ENUM[statusRaw];
         }
 
-        // Mêmes 3 champs "optionnel, valeur parmi une liste connue" que côté talent
-        // — réduits via validateOptionalEnumField() ci-dessus.
         function resolveMissionOptionalEnumFields(get, errors) {
             const enumResults = {};
             MISSION_OPTIONAL_ENUM_FIELDS.forEach(({ key, label, allowed }) => {
@@ -740,8 +693,6 @@
                 location: sanitizeFreeText(location) || null,
                 project_name: sanitizeFreeText(get('project_name')) || null,
                 candidate_type: enumResults.candidate_type,
-                // is_expat maintenue en cohérence avec candidate_type, comme le formulaire
-                // manuel de missions.html.
                 is_expat: enumResults.candidate_type ? enumResults.candidate_type === 'expat' : null,
                 desk: enumResults.desk,
                 occupant_id: null,
@@ -890,9 +841,7 @@
                 const payload = batch.map(r => ({ ...r.normalized }));
 
                 try {
-                    // Pas de capHumaWithRetry(), même raison que l'import de talents :
-                    // lot sans contrainte UNIQUE sur missions, un retry après perte de
-                    // réponse dupliquerait silencieusement jusqu'à 25 postes d'un coup.
+                    // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait tout le lot.
                     const { data, error } = await supabaseClient.from('missions').insert(payload).select('id');
                     if (error) throw error;
                     successCount += (data || []).length;
@@ -910,9 +859,6 @@
             statusEl.textContent = '';
             btn.textContent = 'Import terminé';
 
-            // Le trigger Postgres trg_audit_missions journalise déjà chaque insertion
-            // individuellement — ce log-ci ne fait qu'ajouter une synthèse de
-            // l'opération globale, cohérent avec l'import talents.
             await logAuditAction(
                 'create', 'mission', null, 'Import en masse',
                 `${successCount} poste(s) importé(s), ${failures.length} échec(s) sur ${validRows.length} ligne(s) tentée(s)`

@@ -35,7 +35,6 @@
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
 
-                // N'échoue jamais bruyamment : un problème de log ne doit pas bloquer la connexion.
                 try {
                     await supabaseClient.from('audit_logs').insert({
                         user_id: data && data.user ? data.user.id : null,

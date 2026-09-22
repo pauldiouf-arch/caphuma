@@ -65,8 +65,7 @@
             }
         }
 
-        // Le header 'apikey' est OBLIGATOIRE en plus de 'Authorization', sinon 401
-        // systématique côté gateway avant même d'atteindre le code de la fonction.
+        // Le header apikey est obligatoire en plus d'Authorization, sinon 401 dès la passerelle.
         async function callManageUsers(action, payload = {}) {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (!session) {
@@ -84,10 +83,7 @@
                 body: JSON.stringify({ action, ...payload })
             });
 
-            // Retry uniquement sur "create" et "delete" : ils échouent proprement à un
-            // 2e appel (email déjà utilisé, compte déjà supprimé), alors que
-            // reset_password réussit deux fois de suite sans protection — un double
-            // appel génère un second code d'accès et une seconde ligne d'audit.
+            // Pas de relance pour reset_password : un 2e appel générerait un second code d'accès.
             const response = (action === 'create' || action === 'delete')
                 ? await capHumaWithRetry(doFetch)
                 : await doFetch();
@@ -146,8 +142,6 @@
             table.classList.remove('hidden');
             empty.classList.add('hidden');
 
-            // "user" est libellé "Recruteur" côté métier, mais la valeur stockée en
-            // base reste "user", jamais "recruteur".
             const roleLabels = {
                 admin: CapHumaIcons.get('shield', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0') + ' Admin',
                 user: CapHumaIcons.get('user', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0') + ' Recruteur',
@@ -190,8 +184,6 @@
             }).join('');
         }
 
-        // Client direct sur is_active, pas besoin d'Edge Function (contrairement à
-        // create/delete/reset_password).
         async function onToggleActive(userId, currentlyActive) {
             const nextState = !currentlyActive;
             openConfirmModal({
@@ -225,11 +217,7 @@
                 icon: CapHumaIcons.get('key', 'w-10 h-10 mx-auto text-slate-400'),
                 onConfirm: async () => {
                     const result = await callManageUsers('reset_password', { userId });
-                    // Pas de logAuditAction ici : manage-users l'écrit lui-même côté
-                    // serveur, garanti quel que soit le chemin d'appel.
                     showAccessCodeModal(result.accessCode);
-                    // manage-users peut renvoyer un avertissement même en cas de succès
-                    // (ex. révocation des sessions actives échouée).
                     if (result.warning) {
                         toastMessage(result.warning, "error");
                     } else {
@@ -247,8 +235,6 @@
                 icon: CapHumaIcons.get('trash', 'w-10 h-10 mx-auto text-red-500'),
                 onConfirm: async () => {
                     const result = await callManageUsers('delete', { userId });
-                    // Pas de logAuditAction ici : manage-users l'écrit lui-même côté
-                    // serveur, avant même la suppression de la ligne 'users'.
                     if (result.warning) {
                         toastMessage(result.warning, "error");
                     } else {
@@ -259,7 +245,6 @@
             });
         }
 
-        // Création de compte
         document.getElementById('btn-open-create-account').addEventListener('click', () => {
             document.getElementById('input-new-name').value = '';
             document.getElementById('input-new-email').value = '';
@@ -284,9 +269,7 @@
             btn.disabled = true;
             spinner.classList.remove('hidden');
             try {
-                // fullName est mappé sur la colonne 'name' en base.
                 const result = await callManageUsers('create', { email, role, fullName });
-                // Pas de logAuditAction ici : manage-users l'écrit lui-même côté serveur.
                 document.getElementById('modal-create-account').classList.add('hidden');
                 showAccessCodeModal(result.accessCode);
                 toastMessage("Compte créé avec succès.");
@@ -387,7 +370,6 @@
             });
         }
 
-        // Insert direct, pas besoin d'Edge Function ici.
         document.getElementById('btn-open-create-pool').addEventListener('click', () => {
             document.getElementById('input-pool-code').value = '';
             document.getElementById('input-pool-fullname').value = '';
@@ -413,9 +395,6 @@
             btn.disabled = true;
             spinner.classList.remove('hidden');
             try {
-                // name reçoit le code court (colonne NOT NULL en base).
-                // pools.pool_id porte une contrainte UNIQUE : un retry est sûr,
-                // contrairement aux inserts sur talents (voir CapHumaData.createPool).
                 const { error } = await CapHumaData.createPool(supabaseClient, {
                     pool_id: code,
                     name: code,
@@ -504,11 +483,6 @@
             });
         });
 
-        // Un seul écouteur délégué par tableau ici, plutôt que dans
-        // renderAccounts()/renderPools() : les <tbody> ciblés sont des éléments
-        // statiques du HTML (jamais recréés, seul leur contenu est réécrit via
-        // innerHTML), donc un écouteur posé ici une fois reste valide sur tous les
-        // rendus suivants.
         document.getElementById('accounts-tbody').addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('.btn-toggle-active');
             if (toggleBtn) { onToggleActive(toggleBtn.dataset.id, toggleBtn.dataset.active === 'true'); return; }

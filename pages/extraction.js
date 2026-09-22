@@ -26,9 +26,9 @@
         let currentUserId = null;
         let currentUserEmail = null;
         let currentUserName = null;
-        let pools = [];               // [{ pool_id, name, full_name }]
-        let allTalents = [];          // tous les talents (toutes colonnes)
-        let allMissions = [];         // tous les postes (toutes colonnes)
+        let pools = [];
+        let allTalents = [];
+        let allMissions = [];
         const talentPoolsSelected = new Set();
         const positionPoolsSelected = new Set();
 
@@ -83,8 +83,6 @@
             return String(name || 'Feuille').replace(/[:\\/?*\[\]]/g, '-').substring(0, 31);
         }
 
-        // `pools` reste en accès direct (faible sensibilité) ; talents/missions
-        // passent par fetchSensitiveRead (dump complet, plus sensible).
         async function loadData() {
             try {
                 const [poolsRes, extractionData] = await Promise.all([
@@ -94,7 +92,6 @@
 
                 if (poolsRes.error) throw poolsRes.error;
 
-                // Pools archivés exclus, comme sur dashboard.html
                 pools = (poolsRes.data || []).filter(p => !p.is_archived);
                 allTalents = extractionData.talents || [];
                 allMissions = extractionData.missions || [];
@@ -132,8 +129,6 @@
             pools.forEach(pool => {
                 const count = countFn(pool.pool_id);
                 const checked = selectedSet.has(pool.pool_id);
-                // <label> plutôt que <div> : relaie nativement le clic ET la touche
-                // Espace vers la checkbox, qui redevient focusable au clavier.
                 const row = document.createElement('label');
                 row.className = `pool-row flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'selected border-primary bg-primary-light' : 'border-slate-200 hover:bg-slate-50'}`;
                 row.innerHTML = `
@@ -314,8 +309,6 @@
                     XLSX.utils.book_append_sheet(wb, ws, safeSheetName(`Listes pros (${poolNames})`));
                 }
 
-                // Une feuille par pool sélectionné ; talents référencés (occupant/futur
-                // occupant) rassemblés à part pour construire les noms/emails.
                 const poolMissionsMap = {};
                 Array.from(positionPoolsSelected).forEach(poolId => {
                     poolMissionsMap[poolId] = allMissions.filter(m => m.pool === poolId);
@@ -349,7 +342,6 @@
 
                 setStatus("Fichier Excel généré et téléchargé avec succès.", false);
 
-                // Traçabilité RGPD : décrit précisément quelles feuilles ont été générées.
                 const exportedParts = [];
                 if (talentPoolsSelected.size > 0) {
                     exportedParts.push(`Listes pros (${Array.from(talentPoolsSelected).join('+')})`);

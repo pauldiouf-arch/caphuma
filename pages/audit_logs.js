@@ -98,9 +98,6 @@
             await Promise.all([loadHeaderStats(), fetchPage()]);
         }
 
-        // "Utilisateurs actifs"/"Types d'actions" sont calculés sur une fenêtre bornée
-        // des 7 derniers jours, indépendamment des filtres du tableau ci-dessous — des
-        // KPI stables, pas un résumé de la vue filtrée actuelle.
         async function loadHeaderStats() {
             try {
                 const { count: totalCount, error: totalErr } = await capHumaWithRetry(() =>
@@ -126,17 +123,9 @@
                 document.getElementById('statTypes').textContent = new Set(recent.map(l => l.action).filter(Boolean)).size;
             } catch (err) {
                 console.error("Erreur de chargement des statistiques d'audit :", err);
-                // Non bloquant : un échec des cartes KPI n'empêche pas la consultation du tableau.
             }
         }
 
-        // Cette page est réservée admin uniquement (contrairement à red_list/extraction,
-        // admin+user) : service_role contourne RLS, un simple "visitor exclu" comme sur
-        // les 2 autres ressources sensibles n'aurait pas suffi ici — contrôle appliqué
-        // côté serveur, dans l'Edge Function.
-
-        // Objet de filtres réutilisé pour la page courante ET l'export Excel, pour ne
-        // jamais avoir deux logiques de filtre à maintenir en parallèle.
         function buildLogsFilterParams() {
             const actionFilter = document.getElementById('filterAction').value;
             const entityTypeFilter = document.getElementById('filterEntityType').value;
@@ -145,7 +134,6 @@
             const exactBounds = exactDateBounds(exactDateFilter);
             const periodStart = exactBounds ? null : periodStartDate(periodFilter);
 
-            // Le filtre "Jour précis" prend le pas sur "Période" s'il est renseigné.
             document.getElementById('exactDateHint').classList.toggle('hidden', !exactBounds);
             document.getElementById('filterPeriod').disabled = !!exactBounds;
 
@@ -169,8 +157,6 @@
             try {
                 const filters = buildLogsFilterParams();
 
-                // page courante 0-indexée (currentPage) → convertie en 1-indexée pour
-                // l'Edge Function, même convention que red_list/extraction.
                 const result = await fetchSensitiveRead(supabaseClient, 'audit_logs', { mode: 'page', page: currentPage + 1, filters });
 
                 currentPageLogs = result.data;
@@ -209,8 +195,6 @@
             return null;
         }
 
-        // "Jour précis" : bornes [00:00, 23:59:59.999] du jour choisi, en heure locale
-        // du navigateur — cohérent avec l'affichage des dates (toLocaleString('fr-FR')).
         function exactDateBounds(dateStr) {
             if (!dateStr) return null;
             const [year, month, day] = dateStr.split('-').map(Number);
@@ -219,8 +203,7 @@
             return { start, end };
         }
 
-        // Nom volontairement différent de renderPaginationControls() (shared/caphuma-utils.js) :
-        // signature et logique différentes, un même nom écraserait silencieusement l'une des deux.
+        // Ne pas renommer en renderPaginationControls() : écraserait la version partagée.
         function updateAuditLogsPaginationControls() {
             const controls = document.getElementById('logsPaginationControls');
             const totalPages = Math.max(1, Math.ceil(currentFilteredCount / PAGE_SIZE));
@@ -344,8 +327,6 @@
                 const stamp = now.toISOString().slice(0, 16).replace('T', '_').replace(':', 'h');
                 XLSX.writeFile(wb, `logs_audit_${stamp}.xlsx`);
 
-                // Traçabilité RGPD des exports : savoir qui a extrait des données, pas
-                // seulement qui les a créées/modifiées.
                 await logAuditAction('export', 'system', null, `Journal d'audit (${filtered.length} ligne(s))`,
                     Object.keys(filters).length > 0 ? 'Filtres actifs : ' + JSON.stringify(filters) : 'Aucun filtre');
             } catch (err) {

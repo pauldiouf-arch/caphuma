@@ -20,8 +20,6 @@
         const pageError = document.getElementById('pageError');
         const emptyState = document.getElementById('emptyState');
 
-        // Contrairement à TalentsPage/MissionsPage, cette page n'a jamais été
-        // scindée en plusieurs fichiers : pas besoin de sortir cet état de l'IIFE.
         const pageState = {};
 
         pageState.currentUserId = null;
@@ -29,8 +27,6 @@
         pageState.currentUserRole = null;
         pageState.currentUserEmail = null;
 
-        // Délègue à capHumaLogAudit() (shared/caphuma-auth.js) directement plutôt que
-        // via capHumaMakeAuditLogger(), cette page n'ayant qu'un seul point d'appel.
         async function logAuditAction(action, entityType, entityId, entityName, details) {
             const userName = typeof pageState.currentUserName !== 'undefined' ? pageState.currentUserName : null;
             await capHumaLogAudit(
@@ -72,18 +68,11 @@
             window.location.href = 'login.html';
         });
 
-        // Deux modes : aucun filtre actif → pagination réelle côté requête (20/page),
-        // liste plate ; un filtre actif (pool et/ou dates) → chargement complet des
-        // talents dévalidés, regroupés par pool (le filtrage par date n'est pas
-        // traduisible simplement en requête paginée combinée à un regroupement visuel).
         pageState.allPools = [];
-        pageState.allDevalidatedTalents = []; // uniquement rempli en mode "filtre actif"
+        pageState.allDevalidatedTalents = [];
         pageState.devalidatedPage = 1;
         const DEVALIDATED_PAGE_SIZE = 20;
 
-        // pageState.devalidatedPoolSections garde une référence à chaque section de
-        // pool déjà construite, pour que "Afficher plus" y ajoute des lignes au lieu
-        // d'en dupliquer une pour le même pool (voir renderGroupedByPool()).
         const RENDER_BATCH_SIZE = 25;
         pageState.devalidatedFilteredTalents = [];
         pageState.devalidatedRenderedCount = 0;
@@ -109,7 +98,6 @@
 
         async function loadDevalidatedTalents(page) {
             try {
-                // Liste des pools chargée une seule fois (sert au filtre + aux libellés).
                 if (pageState.allPools.length === 0) {
                     const poolsRes = await CapHumaData.getPools(supabaseClient, { select: 'pool_id, name, full_name', orderBy: 'name' });
                     if (poolsRes.error) throw poolsRes.error;
@@ -134,8 +122,6 @@
         async function loadAndRenderPaged(page) {
             pageState.devalidatedPage = page;
 
-            // Efface l'état du mode filtré, pour ne pas laisser un bouton/compteur
-            // d'une session de filtre précédente affiché par erreur.
             pageState.devalidatedFilteredTalents = [];
             pageState.devalidatedRenderedCount = 0;
             updateDevalidatedShowMoreControls();
@@ -184,9 +170,6 @@
             applyFiltersAndRender();
         }
 
-        // Ensemble des pools existants, pas seulement ceux représentés parmi les
-        // dévalidés — reste disponible même en mode paginé, où l'ensemble complet
-        // des talents dévalidés n'est pas chargé en mémoire.
         function populatePoolFilterOptions() {
             if (filterPoolSelect.dataset.populated === 'true') return;
 
@@ -230,7 +213,6 @@
 
             emptyState.classList.add('hidden');
 
-            // Repart de zéro (nouveau filtre = nouveau résultat).
             pageState.devalidatedFilteredTalents = filtered;
             pageState.devalidatedRenderedCount = 0;
             pageState.devalidatedPoolSections = {};
@@ -238,8 +220,6 @@
             renderMoreDevalidated();
         }
 
-        // Ajoute le prochain lot aux sections de pool déjà à l'écran (append = true
-        // dès le 2ᵉ lot) plutôt que de reconstruire toute la page.
         function renderMoreDevalidated() {
             const isFirstBatch = pageState.devalidatedRenderedCount === 0;
             const batch = pageState.devalidatedFilteredTalents.slice(pageState.devalidatedRenderedCount, pageState.devalidatedRenderedCount + RENDER_BATCH_SIZE);
@@ -294,8 +274,6 @@
             });
 
             Object.keys(grouped).forEach(poolId => {
-                // Section déjà créée pour ce pool (lot précédent) ? On y ajoute les
-                // nouvelles lignes plutôt que d'en créer une 2ᵉ dupliquée.
                 let existing = pageState.devalidatedPoolSections[poolId];
                 let list;
                 let countBadge;
@@ -325,7 +303,6 @@
                     existing = pageState.devalidatedPoolSections[poolId];
                 }
 
-                // DocumentFragment (hors DOM) puis un seul appendChild final.
                 const fragment = document.createDocumentFragment();
                 grouped[poolId].forEach(t => {
                     fragment.appendChild(renderTalentRow(t));
@@ -393,10 +370,7 @@
             if (!confirmed) return;
 
             try {
-                // La jauge "mois sans mission" doit repartir de zéro à partir
-                // d'aujourd'hui : last_mission_end_date est prioritaire sur
-                // pool_integration_date dans calculateMonthsWithoutMission(), donc
-                // la vider est nécessaire pour que ce soit bien le cas.
+                // last_mission_end_date vidée : sinon elle prime sur pool_integration_date et la jauge ne repart pas de zéro.
                 const { error } = await CapHumaData.updateTalent(supabaseClient, t.id, {
                             is_valid: true,
                             devalidation_date: null,
@@ -412,8 +386,6 @@
 
                 if (error) throw error;
 
-                // Pas d'appel à logAuditAction('reintegrate', ...) : couvert par le
-                // trigger Postgres trg_audit_talents.
                 await loadDevalidatedTalents();
 
             } catch (error) {
@@ -427,7 +399,6 @@
         const redListModalError = document.getElementById('redListModalError');
         const redListModalTalentName = document.getElementById('redListModalTalentName');
 
-        // Un seul champ (motif), clé par talent (t.id).
         pageState.currentRedListDraftKey = null;
         pageState.currentRedListDraftBinding = null;
 
@@ -493,8 +464,6 @@
 
                 if (error) throw error;
 
-                // Pas d'appel à logAuditAction('add_to_red_list', ...) : couvert par le
-                // trigger Postgres trg_audit_talents (reprend le motif via red_list_reason).
                 closeRedListModal();
                 discardRedListDraft();
                 await loadDevalidatedTalents();
@@ -519,12 +488,7 @@
             if (!doubleCheck) return;
 
             try {
-                // Nettoyage des documents Storage AVANT le reste : contrairement à
-                // evaluations/comments/share_tokens (tables Postgres), il n'existe aucun
-                // mécanisme de cascade entre talents et le bucket Storage — sans ce
-                // nettoyage explicite les documents resteraient dans le bucket sans plus
-                // aucune ligne pour savoir qu'ils appartenaient à quelqu'un. Best-effort :
-                // un échec ici ne doit jamais bloquer la suppression elle-même.
+                // Pas de cascade vers Storage : documents supprimés d'abord, un échec ne bloque pas la suppression.
                 if (Array.isArray(t.red_list_documents) && t.red_list_documents.length > 0) {
                     try {
                         const { error: removeErr } = await supabaseClient.storage
@@ -538,18 +502,12 @@
                     }
                 }
 
-                // La règle ON DELETE de ces FK vers talents.id n'a jamais été vérifiée :
-                // suppression défensive plutôt que de compter sur une cascade non confirmée.
+                // Suppression défensive : la règle ON DELETE de ces clés étrangères n'a jamais été vérifiée.
                 await capHumaWithRetry(() => supabaseClient.from('evaluations').delete().eq('talent_id', t.id));
                 await capHumaWithRetry(() => supabaseClient.from('comments').delete().eq('talent_id', t.id));
                 await capHumaWithRetry(() => supabaseClient.from('share_tokens').delete().eq('talent_id', t.id));
 
-                // Pas de capHumaWithRetry() ici : le contrôle juste en dessous
-                // (data.length === 0 → throw) détecte un DELETE bloqué par une policy
-                // RLS. Avec un retry automatique, ce signal deviendrait ambigu — il
-                // pourrait aussi vouloir dire "1re tentative réussie, réponse perdue,
-                // 2e tentative ne retrouve plus rien à supprimer", et ferait afficher à
-                // tort une erreur RLS après une suppression en réalité déjà effective.
+                // Pas de capHumaWithRetry() : fausserait le contrôle « 0 ligne » qui détecte un blocage RLS.
                 const { data, error } = await CapHumaData.deleteTalent(supabaseClient, t.id);
 
                 if (error) throw error;
@@ -558,8 +516,6 @@
                     throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
                 }
 
-                // Pas d'appel à logAuditAction('delete', ...) : couvert par le trigger
-                // Postgres trg_audit_talents.
                 await loadDevalidatedTalents();
 
             } catch (error) {

@@ -16,8 +16,6 @@
         let currentUserName = null;
         let currentUserRole = null;
 
-        // Un seul des 3 blocs est affiché, celui qui correspond au rôle réel de la
-        // personne connectée — pas de sélecteur manuel.
         const ROLE_SECTIONS = {
             visitor: { blockId: 'guideVisitor', label: 'Visiteur', icon: CapHumaIcons.get('eye', 'w-5 h-5') },
             user: { blockId: 'guideRecruteur', label: 'Recruteur', icon: CapHumaIcons.get('pencil', 'w-5 h-5') },
