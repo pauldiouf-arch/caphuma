@@ -4,6 +4,7 @@ const IdCardPage = {};
         renderPageLayout({
             icon: CapHumaIcons.get('compass', 'w-5 h-5'),
             title: 'Fiche talent',
+            titleTag: 'span',
             backButton: true,
             variant: 'scroll-page',
             stickyZ: 40,

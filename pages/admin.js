@@ -2,6 +2,7 @@
         renderPageLayout({
             icon: CapHumaIcons.get('shield', 'w-5 h-5'),
             title: 'Administration',
+            titleTag: 'span',
             iconGradient: 'from-primary to-primary-dark',
             variant: 'scroll-page'
         });

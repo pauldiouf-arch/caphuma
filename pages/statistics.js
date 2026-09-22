@@ -3,6 +3,7 @@ const StatisticsPage = {};
         renderPageLayout({
             icon: CapHumaIcons.get('barChart', 'w-5 h-5'),
             title: 'Hub Statistique & IA',
+            titleTag: 'span',
             iconGradient: 'from-primary to-primary-dark',
             variant: 'scroll-page'
         });

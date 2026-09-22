@@ -53,7 +53,8 @@ function capHumaEnsureSkipLink() {
  * @param {string} options.icon          (obligatoire) emoji affiché dans le badge coloré
  * @param {string} options.title         (obligatoire) titre affiché à côté de l'icône
  * @param {string} [options.subtitle='Cap Huma — ALIMA']
- * @param {string} [options.titleId]     id à poser sur le <span> titre, pour les pages
+ * @param {string} [options.titleTag='h1']  'span' pour une page qui a déjà son propre <h1>
+ * @param {string} [options.titleId]     id à poser sur le titre, pour les pages
  *        qui le réécrivent en JS au runtime (ex. missions.js une fois le pool chargé)
  * @param {string} [options.subtitleId]  id à poser sur le <span> sous-titre, même usage
  * @param {string} [options.backHref='dashboard.html']
@@ -76,6 +77,7 @@ function renderPageLayout(options) {
         icon,
         title,
         subtitle = 'Cap Huma — ALIMA',
+        titleTag = 'h1',
         titleId = null,
         subtitleId = null,
         backHref = 'dashboard.html',
@@ -108,6 +110,7 @@ function renderPageLayout(options) {
         ? 'flex justify-between h-16 items-center'
         : 'flex items-center justify-between gap-4 flex-wrap';
 
+    const titleTagName = titleTag === 'span' ? 'span' : 'h1';
     const titleAttr = titleId ? ` id="${titleId}"` : '';
     const subtitleAttr = subtitleId ? ` id="${subtitleId}"` : '';
     const logoutClass = 'text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded-full transition-all' + (logoutBtnExtraClass ? ` ${logoutBtnExtraClass}` : '');
@@ -133,7 +136,7 @@ function renderPageLayout(options) {
                             <span class="text-xl">${icon}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-lg text-slate-800"${titleAttr}>${escapeHtml(title)}</span>
+                            <${titleTagName} class="font-bold text-lg text-slate-800"${titleAttr}>${escapeHtml(title)}</${titleTagName}>
                             <span class="text-xs block text-slate-500"${subtitleAttr}>${escapeHtml(subtitle)}</span>
                         </div>
                     </div>
