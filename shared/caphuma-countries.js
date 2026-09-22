@@ -1,7 +1,5 @@
 const CapHumaCountries = (() => {
-
     const LIST = [
-        // Afrique
         { code: 'ZA', nameFr: 'Afrique du Sud', nameEn: 'South Africa', nationalityFr: 'sud-africaine', nationalityEn: 'South African' },
         { code: 'DZ', nameFr: 'Algérie', nameEn: 'Algeria', nationalityFr: 'algérienne', nationalityEn: 'Algerian' },
         { code: 'AO', nameFr: 'Angola', nameEn: 'Angola', nationalityFr: 'angolaise', nationalityEn: 'Angolan' },
@@ -14,9 +12,7 @@ const CapHumaCountries = (() => {
         { code: 'CF', nameFr: 'République centrafricaine', nameEn: 'Central African Republic', nationalityFr: 'centrafricaine', nationalityEn: 'Central African' },
         { code: 'KM', nameFr: 'Comores', nameEn: 'Comoros', nationalityFr: 'comorienne', nationalityEn: 'Comoran' },
         { code: 'CG', nameFr: 'Congo', nameEn: 'Congo', nationalityFr: 'congolaise', nationalityEn: 'Congolese' },
-        // Distingué de CG : les deux pays partagent le même gentilé en usage
-        // courant, ce qui rendait "congolaise" ambigu pour la correspondance
-        // nationalité -> code.
+        // Distingué de CG : même gentilé « congolaise ».
         { code: 'CD', nameFr: 'République démocratique du Congo', nameEn: 'DR Congo', nationalityFr: 'congolaise RD', nationalityEn: 'Congolese (DRC)' },
         { code: 'CI', nameFr: "Côte d'Ivoire", nameEn: 'Ivory Coast', nationalityFr: 'ivoirienne', nationalityEn: 'Ivorian' },
         { code: 'DJ', nameFr: 'Djibouti', nameEn: 'Djibouti', nationalityFr: 'djiboutienne', nationalityEn: 'Djiboutian' },
@@ -60,7 +56,6 @@ const CapHumaCountries = (() => {
         { code: 'ZM', nameFr: 'Zambie', nameEn: 'Zambia', nationalityFr: 'zambienne', nationalityEn: 'Zambian' },
         { code: 'ZW', nameFr: 'Zimbabwe', nameEn: 'Zimbabwe', nationalityFr: 'zimbabwéenne', nationalityEn: 'Zimbabwean' },
 
-        // Amériques
         { code: 'AG', nameFr: 'Antigua-et-Barbuda', nameEn: 'Antigua and Barbuda', nationalityFr: 'antiguaise-et-barbudienne', nationalityEn: 'Antiguan and Barbudan' },
         { code: 'AR', nameFr: 'Argentine', nameEn: 'Argentina', nationalityFr: 'argentine', nationalityEn: 'Argentine' },
         { code: 'BS', nameFr: 'Bahamas', nameEn: 'Bahamas', nationalityFr: 'bahamienne', nationalityEn: 'Bahamian' },
@@ -73,8 +68,7 @@ const CapHumaCountries = (() => {
         { code: 'CO', nameFr: 'Colombie', nameEn: 'Colombia', nationalityFr: 'colombienne', nationalityEn: 'Colombian' },
         { code: 'CR', nameFr: 'Costa Rica', nameEn: 'Costa Rica', nationalityFr: 'costaricienne', nationalityEn: 'Costa Rican' },
         { code: 'CU', nameFr: 'Cuba', nameEn: 'Cuba', nationalityFr: 'cubaine', nationalityEn: 'Cuban' },
-        // nationalityEn distingué de DO (République dominicaine) : "Dominican" seul
-        // est ambigu en anglais entre les deux pays, même traitement que CG/CD.
+        // nationalityEn distinct de DO : « Dominican » seul est ambigu.
         { code: 'DM', nameFr: 'Dominique', nameEn: 'Dominica', nationalityFr: 'dominiquaise', nationalityEn: 'Dominican (Dominica)' },
         { code: 'DO', nameFr: 'République dominicaine', nameEn: 'Dominican Republic', nationalityFr: 'dominicaine', nationalityEn: 'Dominican' },
         { code: 'EC', nameFr: 'Équateur', nameEn: 'Ecuador', nationalityFr: 'équatorienne', nationalityEn: 'Ecuadorian' },
@@ -99,7 +93,6 @@ const CapHumaCountries = (() => {
         { code: 'UY', nameFr: 'Uruguay', nameEn: 'Uruguay', nationalityFr: 'uruguayenne', nationalityEn: 'Uruguayan' },
         { code: 'VE', nameFr: 'Venezuela', nameEn: 'Venezuela', nationalityFr: 'vénézuélienne', nationalityEn: 'Venezuelan' },
 
-        // Europe
         { code: 'DE', nameFr: 'Allemagne', nameEn: 'Germany', nationalityFr: 'allemande', nationalityEn: 'German' },
         { code: 'AL', nameFr: 'Albanie', nameEn: 'Albania', nationalityFr: 'albanaise', nationalityEn: 'Albanian' },
         { code: 'AD', nameFr: 'Andorre', nameEn: 'Andorra', nationalityFr: 'andorrane', nationalityEn: 'Andorran' },
@@ -120,8 +113,7 @@ const CapHumaCountries = (() => {
         { code: 'IE', nameFr: 'Irlande', nameEn: 'Ireland', nationalityFr: 'irlandaise', nationalityEn: 'Irish' },
         { code: 'IS', nameFr: 'Islande', nameEn: 'Iceland', nationalityFr: 'islandaise', nationalityEn: 'Icelandic' },
         { code: 'IT', nameFr: 'Italie', nameEn: 'Italy', nationalityFr: 'italienne', nationalityEn: 'Italian' },
-        // XK : réservation provisoire hors norme ISO 3166-1 officielle, mais
-        // en usage de fait (UE, SWIFT...) faute de code standard pour le Kosovo.
+        // XK : code hors ISO 3166-1, en usage de fait pour le Kosovo.
         { code: 'XK', nameFr: 'Kosovo', nameEn: 'Kosovo', nationalityFr: 'kosovare', nationalityEn: 'Kosovar' },
         { code: 'LV', nameFr: 'Lettonie', nameEn: 'Latvia', nationalityFr: 'lettone', nationalityEn: 'Latvian' },
         { code: 'LI', nameFr: 'Liechtenstein', nameEn: 'Liechtenstein', nationalityFr: 'liechtensteinoise', nationalityEn: 'Liechtensteiner' },
@@ -149,7 +141,6 @@ const CapHumaCountries = (() => {
         { code: 'CZ', nameFr: 'Tchéquie', nameEn: 'Czechia', nationalityFr: 'tchèque', nationalityEn: 'Czech' },
         { code: 'UA', nameFr: 'Ukraine', nameEn: 'Ukraine', nationalityFr: 'ukrainienne', nationalityEn: 'Ukrainian' },
 
-        // Asie
         { code: 'AF', nameFr: 'Afghanistan', nameEn: 'Afghanistan', nationalityFr: 'afghane', nationalityEn: 'Afghan' },
         { code: 'SA', nameFr: 'Arabie saoudite', nameEn: 'Saudi Arabia', nationalityFr: 'saoudienne', nationalityEn: 'Saudi' },
         { code: 'AM', nameFr: 'Arménie', nameEn: 'Armenia', nationalityFr: 'arménienne', nationalityEn: 'Armenian' },
@@ -199,7 +190,6 @@ const CapHumaCountries = (() => {
         { code: 'VN', nameFr: 'Viêt Nam', nameEn: 'Vietnam', nationalityFr: 'vietnamienne', nationalityEn: 'Vietnamese' },
         { code: 'YE', nameFr: 'Yémen', nameEn: 'Yemen', nationalityFr: 'yéménite', nationalityEn: 'Yemeni' },
 
-        // Océanie
         { code: 'AU', nameFr: 'Australie', nameEn: 'Australia', nationalityFr: 'australienne', nationalityEn: 'Australian' },
         { code: 'FJ', nameFr: 'Fidji', nameEn: 'Fiji', nationalityFr: 'fidjienne', nationalityEn: 'Fijian' },
         { code: 'KI', nameFr: 'Kiribati', nameEn: 'Kiribati', nationalityFr: 'kiribatienne', nationalityEn: 'I-Kiribati' },

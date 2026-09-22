@@ -1,31 +1,3 @@
-/**
- * Source unique pour le header "retour + titre + actions" partagé par les
- * pages de gestion. Fichier chargé en <script> classique (pas de module ES),
- * la fonction vit donc en scope global, comme escapeHtml() dont elle dépend
- * (chargé avant, via shared/caphuma-utils.js).
- *
- * Hors périmètre : dashboard.html a sa propre fonction ci-dessous
- * (structure sans équivalent ailleurs) ; index.html / login.html /
- * shared-talent.html n'ont pas de header authentifié.
- *
- * Usage — dans le HTML de la page, juste après <body ...> :
- *   <div id="layoutHeaderMount"></div>
- *
- * Usage — dans pages/<nom>.js, tout en haut du fichier, avant tout accès à
- * #user-display-name / #logoutBtn et avant checkSession() :
- *   renderPageLayout({ icon: CapHumaIcons.get('bookOpen', 'w-5 h-5'), title: "Guide d'utilisation" });
- */
-
-/**
- * Pose un lien d'évitement ("Aller au contenu principal") comme tout premier
- * enfant de <body>, ciblant le <main> de la page. tabindex="-1" posé sur
- * <main> pour qu'il devienne une cible de focus programmatique valide sans
- * entrer dans l'ordre de tabulation normal.
- *
- * Appelé une fois par renderPageLayout() et renderDashboardLayout().
- * index.html/login.html (hors périmètre) ont leur propre lien statique posé
- * directement dans leur HTML.
- */
 function capHumaEnsureSkipLink() {
     if (document.getElementById('skipToMainLink')) return;
 
@@ -50,27 +22,21 @@ function capHumaEnsureSkipLink() {
 
 /**
  * @param {Object} options
- * @param {string} options.icon          (obligatoire) emoji affiché dans le badge coloré
- * @param {string} options.title         (obligatoire) titre affiché à côté de l'icône
+ * @param {string} options.icon          HTML de l'icône (CapHumaIcons.get)
+ * @param {string} options.title
  * @param {string} [options.subtitle='Cap Huma — ALIMA']
- * @param {string} [options.titleTag='h1']  'span' pour une page qui a déjà son propre <h1>
- * @param {string} [options.titleId]     id à poser sur le titre, pour les pages
- *        qui le réécrivent en JS au runtime (ex. missions.js une fois le pool chargé)
- * @param {string} [options.subtitleId]  id à poser sur le <span> sous-titre, même usage
+ * @param {string} [options.titleTag='h1']  'span' si la page a déjà son propre <h1>
+ * @param {string} [options.titleId]     pour réécrire le titre en JS
+ * @param {string} [options.subtitleId]  pour réécrire le sous-titre en JS
  * @param {string} [options.backHref='dashboard.html']
- * @param {string} [options.iconGradient='from-primary to-accent']  classes Tailwind du dégradé du badge icône
- * @param {string} [options.variant='app-shell']
- *        'app-shell'   : header non collant, pages à coquille flex-col hauteur fixe
- *        'scroll-page' : header collant (sticky top-0), pages à scroll de page normal
- * @param {number} [options.stickyZ=50]  z-index du header en variante 'scroll-page'
- * @param {string} [options.maxWidth='max-w-7xl']  largeur max du conteneur en variante 'scroll-page'
- * @param {string} [options.extraHeaderClass='']  classes ajoutées à la fin du className du <header>
- * @param {boolean} [options.backButton=false]  si true, génère un <button id="back-btn">
- *        au lieu du <a href> statique habituel, pour les pages qui réassignent la
- *        cible en JS au runtime (ex. id-card.js selon le contexte de la fiche)
- * @param {string} [options.logoutBtnExtraClass='']  classes ajoutées au bouton logout
- * @param {string} [options.actionsHtml='']  HTML des boutons spécifiques à la page,
- *        inséré juste avant le badge utilisateur + le bouton de déconnexion
+ * @param {string} [options.iconGradient='from-primary to-accent']
+ * @param {string} [options.variant='app-shell']  'app-shell' (header fixe) ou 'scroll-page' (header collant)
+ * @param {number} [options.stickyZ=50]
+ * @param {string} [options.maxWidth='max-w-7xl']
+ * @param {string} [options.extraHeaderClass='']
+ * @param {boolean} [options.backButton=false]  <button id="back-btn"> au lieu d'un lien, cible définie en JS
+ * @param {string} [options.logoutBtnExtraClass='']
+ * @param {string} [options.actionsHtml='']  boutons propres à la page, avant le badge utilisateur
  */
 function renderPageLayout(options) {
     const {
@@ -156,17 +122,6 @@ function renderPageLayout(options) {
     mount.replaceWith(header);
 }
 
-/**
- * Header de dashboard.html uniquement : nav complète (liens conditionnels
- * par rôle) + cloche de notifications avec panneau déroulant, structure sans
- * équivalent ailleurs sur le site — pas de paramètres, le balisage reprend
- * exactement les mêmes id que l'ancien <header> pour que pages/dashboard.js
- * continue de fonctionner sans changement.
- *
- * Usage — dans pages/dashboard.js, tout en haut du fichier, avant tout accès
- * à #userSubtitle / #adminNavGroup / #notifBellBtn / #logoutBtn etc. :
- *   renderDashboardLayout();
- */
 function renderDashboardLayout() {
     const mount = document.getElementById('layoutHeaderMount');
     if (!mount) {

@@ -1,12 +1,3 @@
-/**
- * Traductions et préférence de langue pour les documents exportés (PDF,
- * puis exports Excel dans un second temps). Aucune dépendance à Supabase :
- * ce fichier peut être inclus tel quel sur n'importe quelle page qui
- * génère un export. La préférence est mémorisée dans le navigateur
- * (localStorage), jamais en base — la langue d'un export dépend de qui le
- * reçoit, pas d'un réglage de compte figé.
- */
-
 const CAPHUMA_EXPORT_LANG_KEY = 'capHumaExportLang';
 
 function capHumaGetExportLang() {
@@ -22,13 +13,9 @@ function capHumaSetExportLang(lang) {
     try {
         localStorage.setItem(CAPHUMA_EXPORT_LANG_KEY, (lang === 'en') ? 'en' : 'fr');
     } catch (e) {
-        // Stockage indisponible (navigation privée stricte, quota) : la
-        // langue retombera sur le défaut FR au prochain export, sans
-        // bloquer l'action en cours.
     }
 }
 
-// Formate "X ans Y mois" / "X yrs Y mo" à partir d'un nombre de mois.
 function capHumaFormatExpDuration(months, lang) {
     const m = Number(months) || 0;
     const y = Math.floor(m / 12);

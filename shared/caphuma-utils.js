@@ -1,10 +1,3 @@
-/**
- * Fonctions utilitaires partagées par toutes les pages de Cap Huma. Aucune
- * dépendance à Supabase ni à l'état d'une page précise : ce fichier peut
- * être inclus tel quel sur n'importe quelle page, avant le <script> de la
- * page qui l'utilise.
- */
-
 // Échappe aussi le contexte attribut (data-id="${...}"), pas seulement le texte.
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
@@ -14,28 +7,6 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
-}
-
-// Un texte qui commence par =, +, -, @, tabulation ou retour chariot peut être
-// interprété comme une formule par Excel à l'ouverture du fichier, y compris
-// dans un vrai .xlsx (OWASP "CSV Injection", pas limité au format .csv). Le
-// préfixe apostrophe force l'affichage en texte, invisible à la lecture.
-const EXCEL_FORMULA_TRIGGER_CHARS = new Set(['=', '+', '-', '@', '\t', '\r']);
-
-function capHumaSanitizeExcelCell(value) {
-    if (typeof value !== 'string' || value.length === 0) return value;
-    return EXCEL_FORMULA_TRIGGER_CHARS.has(value[0]) ? `'${value}` : value;
-}
-
-// À appeler juste avant XLSX.utils.json_to_sheet() sur toute donnée pouvant
-// contenir du texte libre saisi par un utilisateur, quelle que soit son
-// origine (import en masse ou saisie manuelle depuis un formulaire).
-function capHumaSanitizeExportRows(rows) {
-    return rows.map(row => {
-        const sanitized = {};
-        Object.keys(row).forEach(key => { sanitized[key] = capHumaSanitizeExcelCell(row[key]); });
-        return sanitized;
-    });
 }
 
 function capHumaStripControlChars(value) {
@@ -89,22 +60,7 @@ const MISSION_COUNT_LABELS = {
     none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +"
 };
 
-/**
- * Charge une page de résultats depuis Supabase avec comptage exact.
- *
- * Ne fait aucune hypothèse sur la table ou les filtres : la page appelante
- * construit sa requête (avec ses propres .eq()/.ilike()/.order()...) et la
- * passe ici sous forme de fonction "queryBuilderFn". Ce helper se contente
- * d'ajouter la fenêtre .range() et de retourner (données, total, hasMore).
- *
- * @param {Function} queryBuilderFn  (supabaseClient) => PostgrestFilterBuilder
- *        Doit retourner une requête Supabase déjà filtrée/triée, SANS .range().
- *        Exemple : (c) => c.from('talents').select('*', { count: 'exact' }).eq('pool_id', poolId).order('name')
- * @param {Object} supabaseClient
- * @param {number} page       Page courante, 1-indexée
- * @param {number} pageSize   Nombre de lignes par page
- * @returns {Promise<{data: Array, count: number, page: number, pageSize: number, totalPages: number}>}
- */
+// queryBuilderFn doit renvoyer une requête sans .range(), ajoutée ici.
 async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -126,18 +82,7 @@ async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
     };
 }
 
-/**
- * Génère le HTML des contrôles de pagination (◀ Page X / Y ▶). Purement
- * visuel : les boutons portent data-page-nav="prev"/"next" mais ne sont pas
- * câblés ici — à la page appelante de retrouver ces boutons dans le
- * conteneur qu'elle vient de remplir et d'y attacher ses propres
- * addEventListener juste après l'assignation de innerHTML.
- *
- * @param {number} page
- * @param {number} totalPages
- * @param {number} count
- * @returns {string} HTML prêt à injecter dans un conteneur
- */
+// Boutons non câblés : la page appelante ajoute ses écouteurs après innerHTML.
 function renderPaginationControls(page, totalPages, count) {
     const prevDisabled = page <= 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : '';
     const nextDisabled = page >= totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : '';
@@ -158,14 +103,6 @@ const DEVALIDATION_AT_RISK_MONTHS = 20;   // seuil visuel "à risque" (orange)
 const DEVALIDATION_CRITICAL_MONTHS = 22;  // seuil visuel "critique" (rouge clair)
 const DEVALIDATION_MAX_MONTHS = 24;       // seuil dur : éligible à l'arbitrage dévalider/prolonger
 
-/**
- * Calcule le nombre de mois calendaires écoulés depuis la fin de la dernière
- * mission (ou l'entrée en pool si aucune mission), pour un talent qui n'est
- * pas actuellement en poste.
- *
- * @param {Object} talent  Un enregistrement de la table `talents`
- * @returns {number} Nombre de mois (0 si en poste ALIMA ou si aucune date de référence)
- */
 function calculateMonthsWithoutMission(talent) {
     const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
     const status = talent.status;
@@ -183,27 +120,6 @@ function calculateMonthsWithoutMission(talent) {
     return Math.max(0, diffMonths);
 }
 
-/**
- * Calcule les données de base de l'indicateur de validité d'un talent :
- * dévalidé/en pause, nombre de mois sans mission, progression (0-100) et
- * date de référence. Ne décide d'AUCUNE couleur ni libellé — l'affichage
- * reste propre à chaque page (talents-modal.js, id-card.js), qui peuvent
- * le présenter différemment. Seul ce calcul (et les seuils DEVALIDATION_*
- * qu'il compare) est centralisé ici, pour qu'il n'y ait plus qu'un seul
- * endroit où une divergence peut apparaître entre pages.
- *
- * Avant cette centralisation (2026-09), ce calcul était réécrit à
- * l'identique dans talents-modal.js (getValidityData) ET dans id-card.js
- * (renderTalentValidityBar) — deux copies indépendantes du même calcul.
- *
- * @param {Object} talent  Un enregistrement de la table `talents`. Les deux
- *        variantes de casse (is_valid/isValid, pool_integration_date/
- *        poolIntegrationDate...) sont acceptées, certaines pages recevant
- *        des objets talent en camelCase.
- * @returns {{isInvalid:boolean, isPaused:boolean, totalMonths:number,
- *   cappedMonths:number, progressPercent:number, remainingMonths:number,
- *   refDate:string|null, refLabel:string}}
- */
 function capHumaGetValidityStatus(talent) {
     const isInvalid = talent.is_valid === false || talent.isValid === false;
     const isCurrentlyOnMission = talent.is_currently_on_mission || talent.isCurrentlyOnAlimaMission;
@@ -219,11 +135,6 @@ function capHumaGetValidityStatus(talent) {
     return { isInvalid, isPaused, totalMonths, cappedMonths, progressPercent, remainingMonths, refDate, refLabel };
 }
 
-/**
- * Affiche une notification temporaire en bas à droite de l'écran.
- * @param {string} msg   Le texte à afficher
- * @param {string} [type="success"]  "success" (vert) ou toute autre valeur (rouge)
- */
 function toastMessage(msg, type = "success") {
     const toast = document.createElement('div');
     toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
@@ -240,11 +151,6 @@ function toastMessage(msg, type = "success") {
     }, 3500);
 }
 
-/**
- * Affiche la bannière d'erreur générique (#error-banner / #error-message)
- * et fait remonter la page en haut pour garantir sa visibilité.
- * @param {string} msg  Le message d'erreur à afficher
- */
 function showError(msg) {
     const banner = document.getElementById('error-banner');
     const txt = document.getElementById('error-message');
@@ -277,16 +183,6 @@ function captureError(kind, detail) {
     persistErrorLog(kind, detail);
 }
 
-/**
- * Envoie une copie de l'erreur dans la table client_error_logs, pour que
- * l'IT puisse consulter les erreurs rencontrées par les utilisateurs sans
- * dépendre de leur console navigateur (voir sql/create_client_error_logs.sql
- * et le Guide de Maintenance pour où et comment les consulter).
- *
- * Best-effort : n'importe quel échec (pas de session, pas de réseau, table
- * absente...) est silencieusement ignoré — la journalisation d'erreurs ne
- * doit jamais elle-même provoquer une erreur visible par la personne.
- */
 async function persistErrorLog(kind, detail) {
     try {
         const client = capHumaGetSupabaseClient();
@@ -301,7 +197,7 @@ async function persistErrorLog(kind, detail) {
             user_email: session.user.email
         });
     } catch (_) {
-        // Silencieux et volontaire — voir commentaire ci-dessus.
+        // Volontairement silencieux.
     }
 }
 
@@ -311,11 +207,6 @@ window.addEventListener('unhandledrejection', (e) => captureError('Promesse reje
 window.addEventListener('offline', () => toastMessage("Connexion perdue — vos actions seront bloquées jusqu'au retour du réseau.", "error"));
 window.addEventListener('online', () => toastMessage("Connexion rétablie.", "success"));
 
-/**
- * Rend les modaux (<div role="dialog">) accessibles au clavier : piège
- * Tab/Maj+Tab, ferme sur Échap, mémorise puis restitue le focus.
- * À appeler une seule fois par page, après le rendu du layout.
- */
 function capHumaInitModalA11y() {
     const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -385,17 +276,11 @@ function capHumaInitModalA11y() {
 }
 
 /**
- * Retente un appel Supabase/fetch() sur échec réseau uniquement — jamais si
- * l'appel se résout normalement avec un { error } rempli.
- *
- * @param {Function} callFn  () => Promise — DOIT reconstruire l'appel à
- *        chaque invocation (ne jamais passer une Promise déjà créée).
+ * Retente uniquement sur échec réseau, jamais si l'appel renvoie un { error }.
+ * @param {Function} callFn  () => Promise, qui doit reconstruire l'appel à chaque invocation
  * @param {Object} [options]
  * @param {number} [options.attempts=2]
  * @param {number} [options.delayMs=1500]
- * @returns {Promise} Le résultat de callFn() (données + erreur métier
- *        éventuelle, inchangés) — ou relance l'exception réseau d'origine
- *        si toutes les tentatives ont échoué.
  */
 async function capHumaWithRetry(callFn, { attempts = 2, delayMs = 1500 } = {}) {
     for (let i = 0; i < attempts; i++) {
@@ -433,17 +318,6 @@ document.addEventListener('click', async (e) => {
     }
 });
 
-/**
- * Appelle l'Edge Function "sensitive-reads" plutôt que Supabase directement.
- *
- * @param {Object} supabaseClient
- * @param {string} resource  "red_list" | "extraction" | "audit_logs"
- * @param {Object} [extra]   Champs additionnels envoyés tels quels au corps
- *        de la requête (ex. { page } pour red_list/extraction, ou
- *        { mode, page, filters } pour audit_logs).
- * @returns {Promise<Object>} La réponse JSON de la fonction — sa forme
- *        dépend de la ressource demandée, voir le code de l'Edge Function.
- */
 async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) throw new Error("Session expirée, veuillez vous reconnecter.");
@@ -465,18 +339,6 @@ async function fetchSensitiveRead(supabaseClient, resource, extra = {}) {
     return json;
 }
 
-/**
- * Injecte un <script src="..."> à la demande, une seule fois même appelée
- * plusieurs fois de suite. À utiliser uniquement pour une bibliothèque dont
- * l'usage est déclenché par une action explicite de la personne — jamais pour
- * un script dont dépend le rendu initial de la page.
- *
- * @param {string} src  Chemin relatif du script (ex. "shared/vendor/xlsx.core.min.js")
- * @returns {Promise<void>} Résolue une fois le script chargé et exécuté (ou
- *        immédiatement si déjà chargé) ; rejetée si le chargement échoue —
- *        à la charge de l'appelant d'afficher une erreur, cette fonction
- *        reste générique et ne le fait pas elle-même.
- */
 const CAP_HUMA_SCRIPT_PROMISES = {};
 function capHumaLoadScriptOnce(src) {
     if (CAP_HUMA_SCRIPT_PROMISES[src]) return CAP_HUMA_SCRIPT_PROMISES[src];
