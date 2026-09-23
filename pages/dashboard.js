@@ -234,8 +234,27 @@
             }
         }
 
+        async function loadAccessCodeRequests() {
+            if (currentUserRole !== 'admin') return [];
+            try {
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('access_code_requests')
+                        .select('email, requested_at')
+                        .is('resolved_at', null)
+                        .order('requested_at', { ascending: true })
+                );
+                if (error) throw error;
+                return data || [];
+            } catch (err) {
+                console.error("[Notifications] Erreur de récupération des demandes de code d'accès :", err);
+                return [];
+            }
+        }
+
         async function loadNotificationAlerts(poolScope) {
-            const alerts = { contracts: [], available: [], atRisk: [], vacancies: [] };
+            const alerts = { accessRequests: [], contracts: [], available: [], atRisk: [], vacancies: [] };
+            const accessRequestsPromise = loadAccessCodeRequests();
             try {
                 const { data: rows, error } = await capHumaWithRetry(() =>
                     supabaseClient.rpc('get_notification_alerts', {
@@ -258,11 +277,12 @@
             } catch (err) {
                 console.error('[Notifications] Erreur de récupération des alertes :', err);
             }
+            alerts.accessRequests = await accessRequestsPromise;
             return alerts;
         }
 
         function notifTotalCount(alerts) {
-            return alerts.contracts.length + alerts.available.length + alerts.atRisk.length + alerts.vacancies.length;
+            return alerts.accessRequests.length + alerts.contracts.length + alerts.available.length + alerts.atRisk.length + alerts.vacancies.length;
         }
 
         function renderNotifBadgeAndList(alerts) {
@@ -289,6 +309,7 @@
             }
 
             const sections = [
+                { key: 'accessRequests', icon: CapHumaIcons.get('key', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: "Demandes de nouveau code d'accès", render: a => `${escapeHtml(a.email)} — ${new Date(a.requested_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} — <a href="admin.html" class="font-semibold text-primary hover:underline">traiter</a>` },
                 { key: 'contracts', icon: CapHumaIcons.get('calendar', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: 'Contrats arrivant à échéance', render: a => `Pool ${escapeHtml(a.pool)} — fin dans ${a.daysLeft} jour${a.daysLeft > 1 ? 's' : ''} (≤ ${a.window}j)` },
                 { key: 'available', icon: CapHumaIcons.get('checkCircle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: 'Talents disponibles', render: a => `Pool ${escapeHtml(a.pool)} — talent disponible dès maintenant` },
                 { key: 'atRisk', icon: CapHumaIcons.get('alertTriangle', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0'), title: 'Risque de dévalidation (≥20 mois)', render: a => `Pool ${escapeHtml(a.pool)} — talent à risque` },
@@ -328,7 +349,7 @@
             renderNotifPoolChecklist();
         }
 
-        let notifAlertsCache = { contracts: [], available: [], atRisk: [], vacancies: [] };
+        let notifAlertsCache = { accessRequests: [], contracts: [], available: [], atRisk: [], vacancies: [] };
 
         async function initNotifications() {
             await loadNotificationPrefs();

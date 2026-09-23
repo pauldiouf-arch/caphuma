@@ -10,6 +10,7 @@
         const appBody = document.getElementById('appBody');
         const supabaseClient = capHumaGetSupabaseClient();
         let accountsList = [];
+        let accessRequestsList = [];
         let poolsList = [];
         let pendingConfirmAction = null;
         let currentUserId = null;
@@ -50,7 +51,7 @@
                 }
 
                 document.getElementById('admin-content').classList.remove('hidden');
-                await Promise.all([loadAccounts(), loadPools()]);
+                await Promise.all([loadAccounts(), loadAccessCodeRequests(), loadPools()]);
             } catch (e) {
                 console.error(e);
                 showError("Erreur d'authentification ou problème réseau.");
@@ -112,6 +113,7 @@
                 if (error) throw error;
                 accountsList = data || [];
                 renderAccounts();
+                renderAccessRequests();
             } catch (e) {
                 console.error(e);
                 showError("Impossible de charger la liste des comptes : " + e.message);
@@ -177,6 +179,78 @@
             }).join('');
         }
 
+        async function loadAccessCodeRequests() {
+            try {
+                const { data, error } = await capHumaWithRetry(() =>
+                    supabaseClient
+                        .from('access_code_requests')
+                        .select('id, email, requested_at')
+                        .is('resolved_at', null)
+                        .order('requested_at', { ascending: true })
+                );
+                if (error) throw error;
+                accessRequestsList = data || [];
+                renderAccessRequests();
+            } catch (e) {
+                console.error(e);
+                showError("Impossible de charger les demandes de nouveau code d'accès : " + e.message);
+            }
+        }
+
+        function findAccountByEmail(email) {
+            const normalized = (email || '').toLowerCase();
+            return accountsList.find(u => (u.email || '').toLowerCase() === normalized) || null;
+        }
+
+        function renderAccessRequests() {
+            const card = document.getElementById('access-requests-card');
+            const list = document.getElementById('access-requests-list');
+
+            card.classList.toggle('hidden', accessRequestsList.length === 0);
+
+            list.innerHTML = accessRequestsList.map(r => {
+                const account = findAccountByEmail(r.email);
+                const requestedAt = new Date(r.requested_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+
+                return `
+                <li class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="text-sm">
+                        <span class="font-medium text-slate-800">${escapeHtml(account ? account.name || '—' : 'Compte introuvable')}</span>
+                        <span class="text-slate-500">— ${escapeHtml(r.email)}</span>
+                        <span class="block text-xs text-slate-500">Demandé le ${requestedAt}</span>
+                    </div>
+                    <div class="flex gap-1.5">
+                        ${account ? `<button class="btn-reset-password text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all" data-id="${account.id}">
+                            Réinitialiser
+                        </button>` : ''}
+                        <button class="btn-dismiss-request text-xs font-semibold text-slate-600 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition-all" data-id="${r.id}">
+                            Ignorer
+                        </button>
+                    </div>
+                </li>`;
+            }).join('');
+        }
+
+        async function onDismissAccessRequest(requestId) {
+            const request = accessRequestsList.find(r => r.id === requestId);
+            if (!request) return;
+            const account = findAccountByEmail(request.email);
+
+            openConfirmModal({
+                title: "Ignorer la demande",
+                message: `La demande de ${request.email} sera retirée de la liste, sans générer de nouveau code.`,
+                actionLabel: "Ignorer",
+                icon: CapHumaIcons.get('xCircle', 'w-10 h-10 mx-auto text-slate-400'),
+                onConfirm: async () => {
+                    const { error } = await supabaseClient.rpc('dismiss_access_code_request', { p_id: requestId });
+                    if (error) throw error;
+                    await logAuditAction('update', 'user', account ? account.id : null, request.email, "Demande de nouveau code d'accès ignorée");
+                    toastMessage("Demande ignorée.");
+                    await loadAccessCodeRequests();
+                }
+            });
+        }
+
         async function onToggleActive(userId, currentlyActive) {
             const nextState = !currentlyActive;
             openConfirmModal({
@@ -212,6 +286,7 @@
                     } else {
                         toastMessage("Code d'accès réinitialisé avec succès.");
                     }
+                    await loadAccessCodeRequests();
                 }
             });
         }
@@ -481,6 +556,14 @@
 
             const deleteBtn = e.target.closest('.btn-delete-account');
             if (deleteBtn) { onDeleteAccount(deleteBtn.dataset.id, deleteBtn.dataset.email); return; }
+        });
+
+        document.getElementById('access-requests-list').addEventListener('click', (e) => {
+            const resetBtn = e.target.closest('.btn-reset-password');
+            if (resetBtn) { onResetPassword(resetBtn.dataset.id); return; }
+
+            const dismissBtn = e.target.closest('.btn-dismiss-request');
+            if (dismissBtn) { onDismissAccessRequest(dismissBtn.dataset.id); return; }
         });
 
         document.getElementById('pools-tbody').addEventListener('click', (e) => {
