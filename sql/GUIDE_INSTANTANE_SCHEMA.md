@@ -1,212 +1,76 @@
-# Instantané du schéma — procédure sans build ni outil à installer
+# Schéma de référence — le produire et le tenir à jour sans outil à installer
 
-## Pourquoi cette méthode plutôt que des migrations avec un CLI
+## Ce que c'est
 
-Cap Huma est un site 100% statique, volontairement sans build ni framework
-— contrainte réelle liée aux droits d'administration des postes ALIMA, pas
-une préférence de style. Un outil en ligne de commande (CLI Supabase, npm,
-Node.js) irait contre cette contrainte : il faudrait l'installer sur un
-poste, ce qui n'est pas toujours possible.
+`sql/schema_reference.sql` est un script exécutable qui recrée toute la
+structure de la base : tables, contraintes, index, fonctions, déclencheurs,
+Row Level Security, policies (y compris celles du Storage), droits sur les
+tables, séquences et fonctions, et buckets Storage.
 
-La méthode ci-dessous ne demande rien d'autre qu'un navigateur : copier des
-requêtes SQL en lecture seule dans l'éditeur SQL Supabase (le même outil
-déjà utilisé pour tout le reste), et coller le résultat dans un fichier.
-C'est exactement la méthode qui a produit `schema_snapshot_2026-08-18.sql`
-— ses propres requêtes de génération sont reproduites plus bas.
+Il est produit par une requête en lecture seule, `sql/generer_schema_reference.sql`,
+exécutée dans l'éditeur SQL de Supabase. Aucun outil à installer (CLI
+Supabase, Node.js, `pg_dump`) : les postes ALIMA ne le permettent pas
+toujours, et la méthode ne demande qu'un navigateur.
 
-**Ce que cette méthode n'est pas** : un remplacement du backup mensuel
-automatique (fonction `monthly-maintenance`), qui sauvegarde les *données*.
-Ici, il s'agit de la *structure* de la base (tables, policies, fonctions)
-— utile à un futur repreneur pour comprendre le système sans devoir tout
-redécouvrir en lisant le code.
+Les anciens instantanés `schema_snapshot_AAAA-MM-JJ.sql` restent dans le
+dépôt comme archives datées. Ils ne sont pas exécutables et ne sont plus
+produits.
 
-## Quand en prendre un
+## Quand le régénérer
 
-- Aujourd'hui, pour avoir une version à jour avant la reprise IT.
-- Après toute modification du schéma (nouvelle table, nouvelle policy,
-  nouvelle fonction, etc.) — remplace alors l'instantané précédent.
-- À défaut de changement, une fois par trimestre suffit largement pour un
-  outil à ce rythme d'évolution.
+- Le jour même de tout changement de schéma (table, colonne, contrainte,
+  index, fonction, déclencheur, policy, droit, bucket), dans le même dépôt
+  que le script de changement.
+- Sinon une fois par trimestre : comparer avec la version précédente dans
+  l'historique Git fait apparaître tout changement fait hors procédure.
 
-## Comment procéder (une seule requête)
+## Comment le régénérer
 
-1. Ouvrir l'éditeur SQL du projet Supabase Cap Huma.
-2. Coller et exécuter la requête combinée ci-dessous. Lecture seule
-   (`select`), aucun risque pour les données — elle rassemble les 10
-   informations en une seule fois, sous forme d'un unique bloc JSON.
-3. Copier le résultat (un clic droit sur la cellule → copier, ou
-   `Download CSV`/`Copy` selon l'interface).
-4. Coller ce résultat ici, ou l'enregistrer tel quel dans un nouveau
-   fichier `sql/schema_snapshot_AAAA-MM-JJ.sql` (date du jour).
-5. Committer ce nouveau fichier. L'ancien reste dans l'historique Git, pas
-   besoin de le supprimer.
-6. Si quelque chose d'inattendu apparaît (une info qui ne correspond pas à
-   la documentation existante), ajouter une note libre à la fin du
-   fichier — voir la section 8 de l'instantané du 18/08/2026 pour un
-   exemple de ce type de note.
+1. Ouvrir `sql/generer_schema_reference.sql` dans un éditeur de texte et
+   copier tout son contenu.
+2. Dans Supabase : **SQL Editor** → **+ New query** → coller → **Run**.
+   Résultat attendu : une seule cellule, colonne `schema_reference`, dont le
+   texte commence par `begin;`.
+3. Récupérer le texte : **Export** → **Download CSV**. Dans le fichier CSV,
+   supprimer la première ligne (`schema_reference`), le guillemet `"` du
+   tout début et celui de la toute fin, puis remplacer chaque `""` par `"`.
+4. Remplacer dans `sql/schema_reference.sql` tout ce qui suit l'en-tête de
+   commentaires par ce texte, et mettre à jour la date de l'en-tête.
+5. Lire la dernière rubrique du script, « Contrôle : objets non reproduits
+   par ce script ». Elle doit indiquer `-- Aucun.` Sinon, l'objet cité existe
+   en base mais le script ne sait pas le recréer : le documenter, ou étendre
+   la requête.
+6. Déposer le fichier dans le dépôt.
 
-**Aucune urgence à le faire aujourd'hui** : ce guide reste dans le dépôt,
-l'IT pourra faire exactement cette opération seul au moment de la reprise.
+La requête ne doit jamais contenir en toutes lettres un verbe de création
+ou d'insertion suivi d'un nom de table, même dans une chaîne ou un
+commentaire : l'éditeur SQL Supabase les repère et tente d'agir sur la table
+citée, ce qui fait échouer la requête. C'est pourquoi ces verbes y sont
+passés en argument de `format()`.
 
-## La requête combinée
+## Ce que le script couvre, et ce qu'il ne couvre pas
 
-```sql
-select jsonb_pretty(jsonb_build_object(
-  'colonnes', (select jsonb_agg(t) from (
-      select table_name, column_name, data_type, is_nullable, column_default, ordinal_position
-      from information_schema.columns
-      where table_schema = 'public'
-      order by table_name, ordinal_position
-  ) t),
-  'contraintes', (select jsonb_agg(t) from (
-      select tc.table_name, tc.constraint_name, tc.constraint_type, kcu.column_name,
-             ccu.table_name as references_table, ccu.column_name as references_column
-      from information_schema.table_constraints tc
-      left join information_schema.key_column_usage kcu
-          on kcu.constraint_name = tc.constraint_name and kcu.table_schema = tc.table_schema
-      left join information_schema.constraint_column_usage ccu
-          on ccu.constraint_name = tc.constraint_name and ccu.table_schema = tc.table_schema
-      where tc.table_schema = 'public' and tc.constraint_type in ('PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE', 'CHECK')
-      order by tc.table_name, tc.constraint_type, kcu.ordinal_position
-  ) t),
-  'policies_rls', (select jsonb_agg(t) from (
-      select schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
-      from pg_policies where schemaname = 'public' order by tablename, policyname
-  ) t),
-  'rls_active', (select jsonb_agg(t) from (
-      select relname as table_name, relrowsecurity as rls_enabled
-      from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'
-      order by relname
-  ) t),
-  'grants', (select jsonb_agg(t) from (
-      select table_name, grantee, privilege_type
-      from information_schema.role_table_grants
-      where table_schema = 'public' order by table_name, grantee, privilege_type
-  ) t),
-  'fonctions', (select jsonb_agg(t) from (
-      select p.proname as function_name, pg_get_functiondef(p.oid) as definition
-      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' order by p.proname
-  ) t),
-  'triggers', (select jsonb_agg(t) from (
-      select event_object_table as table_name, trigger_name, action_timing,
-             event_manipulation, action_statement
-      from information_schema.triggers where trigger_schema = 'public'
-      order by event_object_table, trigger_name
-  ) t),
-  'index', (select jsonb_agg(t) from (
-      select tablename, indexname, indexdef
-      from pg_indexes where schemaname = 'public' order by tablename, indexname
-  ) t),
-  'contraintes_check_detail', (select jsonb_agg(t) from (
-      select conrelid::regclass::text as table_name, conname as constraint_name,
-             pg_get_constraintdef(oid) as definition
-      from pg_constraint
-      where connamespace = 'public'::regnamespace and contype = 'c'
-        and conname not like '%\_not\_null'
-      order by table_name, conname
-  ) t),
-  'cles_etrangeres_detail', (select jsonb_agg(t) from (
-      select conrelid::regclass::text as table_name, conname as constraint_name,
-             pg_get_constraintdef(oid) as definition
-      from pg_constraint
-      where connamespace = 'public'::regnamespace and contype = 'f'
-      order by table_name, conname
-  ) t)
-)) as instantane_schema;
-```
+Couvert : extensions installées dans `public`, séquences, tables et
+colonnes, contraintes, index, fonctions, déclencheurs (y compris ceux posés
+hors `public` qui appellent une fonction de `public`), RLS, policies de
+`public` et de `storage`, droits, buckets.
 
-## Détail des 10 requêtes d'origine (si besoin de les relancer séparément)
+Les droits sont d'abord tous retirés puis redonnés exactement : un projet
+Supabase neuf accorde par défaut des droits larges à `anon` et
+`authenticated`, qui ne correspondent pas à ceux de Cap Huma.
 
-Utile seulement si la requête combinée pose problème (résultat tronqué par
-l'éditeur sur un très gros schéma, par exemple) — sinon, ignorer cette
-section et n'utiliser que la requête combinée ci-dessus.
+Non couvert : comptes et réglages Auth, réglages du projet (URL autorisées,
+e-mails, clés), code et secrets des Edge Functions, tâches planifiées, et
+les données elles-mêmes (sauvegarde mensuelle dans le bucket `backups`).
 
-**1) Colonnes de toutes les tables**
-```sql
-select table_name, column_name, data_type, is_nullable, column_default, ordinal_position
-from information_schema.columns
-where table_schema = 'public'
-order by table_name, ordinal_position;
-```
+## Recréer la base sur un projet neuf
 
-**2) Contraintes (PK, FK, UNIQUE, CHECK)**
-```sql
-select tc.table_name, tc.constraint_name, tc.constraint_type, kcu.column_name,
-       ccu.table_name as references_table, ccu.column_name as references_column
-from information_schema.table_constraints tc
-left join information_schema.key_column_usage kcu
-    on kcu.constraint_name = tc.constraint_name and kcu.table_schema = tc.table_schema
-left join information_schema.constraint_column_usage ccu
-    on ccu.constraint_name = tc.constraint_name and ccu.table_schema = tc.table_schema
-where tc.table_schema = 'public' and tc.constraint_type in ('PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE', 'CHECK')
-order by tc.table_name, tc.constraint_type, kcu.ordinal_position;
-```
-
-**3) Policies RLS**
-```sql
-select schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
-from pg_policies where schemaname = 'public' order by tablename, policyname;
-```
-
-**4) RLS activé/désactivé par table**
-```sql
-select relname as table_name, relrowsecurity as rls_enabled
-from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'
-order by relname;
-```
-
-**5) GRANT par table et par rôle**
-```sql
-select table_name, grantee, privilege_type
-from information_schema.role_table_grants
-where table_schema = 'public' order by table_name, grantee, privilege_type;
-```
-
-**6) Code source des fonctions**
-```sql
-select p.proname as function_name, pg_get_functiondef(p.oid) as definition
-from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public' order by p.proname;
-```
-
-**7) Triggers**
-```sql
-select event_object_table as table_name, trigger_name, action_timing,
-       event_manipulation, action_statement
-from information_schema.triggers where trigger_schema = 'public'
-order by event_object_table, trigger_name;
-```
-
-**8) Index**
-```sql
-select tablename, indexname, indexdef
-from pg_indexes where schemaname = 'public' order by tablename, indexname;
-```
-
-**9) Texte exact des contraintes CHECK nommées**
-```sql
-select conrelid::regclass as table_name, conname as constraint_name,
-       pg_get_constraintdef(oid) as definition
-from pg_constraint
-where connamespace = 'public'::regnamespace and contype = 'c'
-  and conname not like '%\_not\_null'
-order by table_name, conname;
-```
-
-**10) Texte exact des clés étrangères, avec leur règle ON DELETE**
-```sql
-select conrelid::regclass as table_name, conname as constraint_name,
-       pg_get_constraintdef(oid) as definition
-from pg_constraint
-where connamespace = 'public'::regnamespace and contype = 'f'
-order by table_name, conname;
-```
-
-## Ce que je n'ai pas pu faire à votre place
-
-Je n'ai pas d'accès à votre projet Supabase réel, donc je ne peux pas
-exécuter ces requêtes moi-même ni produire l'instantané d'aujourd'hui à
-votre place. Si vous collez ici le résultat de la requête combinée, je peux en
-revanche les mettre en forme dans un fichier `schema_snapshot_AAAA-MM-JJ.sql`
-prêt à committer, dans le même format que celui du 18/08/2026.
+1. Créer le projet Supabase.
+2. Exécuter `sql/schema_reference.sql`. Le script tient en un seul bloc :
+   en cas d'erreur, rien n'est créé. Si l'éditeur SQL le refuse, l'exécuter
+   avec `psql "<chaîne de connexion>" -f sql/schema_reference.sql` (chaîne
+   de connexion : Project Settings → Database).
+3. Vérifier : relancer `sql/generer_schema_reference.sql` sur le nouveau
+   projet. Le résultat doit être identique au fichier, en-tête mis à part.
+4. Restaurer les données depuis la dernière sauvegarde du bucket `backups`,
+   redéployer les Edge Functions et leurs secrets, recréer les comptes.
