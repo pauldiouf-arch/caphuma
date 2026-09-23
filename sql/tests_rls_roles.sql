@@ -1,5 +1,5 @@
--- Test des policies RLS par role (visitor / user / admin) sur talents, comments, evaluations,
--- share_tokens, audit_logs et users.
+-- Test des policies RLS par role (visitor / user / admin, puis compte suspendu) sur talents, comments,
+-- evaluations, share_tokens, audit_logs et users.
 --
 -- Execution : coller ce fichier en entier dans l'editeur SQL Supabase, sans rien ajouter autour,
 -- puis Run. Tout tient dans un seul bloc do $$ : l'editeur ne garantit pas une connexion unique
@@ -11,7 +11,7 @@
 --   - "A3 BILAN : N ECHEC(S)" : chercher les lignes "A3-XX ECHEC" plus bas ;
 --   - "A3-06 IGNORE" : test non executable, ni succes ni echec.
 --
--- Prerequis : un compte de chaque role, dont un visitor, doit exister dans users.
+-- Prerequis : un compte actif de chaque role, dont un visitor, doit exister dans users.
 -- Aucun identifiant reel n'est code en dur, les fiches de test sont factices.
 -- Limites : insertion d'evaluation protegee (nullabilite de mission_id non confirmee) ;
 -- pas de DELETE reel sur users (protection confirmee via pg_policies).
@@ -64,11 +64,11 @@ begin
 
     -- S0 : premier compte trouve pour chaque role
     select id, email into v_admin_id, v_admin_email
-        from users where role = 'admin' order by created_at limit 1;
+        from users where role = 'admin' and is_active is not false order by created_at limit 1;
     select id, email into v_user_id, v_user_email
-        from users where role = 'user' order by created_at limit 1;
+        from users where role = 'user' and is_active is not false order by created_at limit 1;
     select id, email into v_visitor_id, v_visitor_email
-        from users where role = 'visitor' order by created_at limit 1;
+        from users where role = 'visitor' and is_active is not false order by created_at limit 1;
 
     if v_admin_id is null or v_user_id is null or v_visitor_id is null then
         raise exception 'A3 SETUP IMPOSSIBLE : au moins un compte de chaque role (admin, user, visitor) doit exister dans la table users pour lancer ce test. Manquant -> admin:%, user:%, visitor:%',
@@ -391,6 +391,45 @@ begin
         end;
     end if;
 
+    -- Tests en tant que user puis admin suspendus (suspension annulee par le rollback force)
+    perform set_config('role', v_admin_role, true);
+    update users set is_active = false where id in (v_user_id, v_admin_id);
+
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
+    perform set_config('role', 'authenticated', true);
+
+    select count(*) into v_count from talents;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-35 OK - user suspendu ne voit aucun talent' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-35 ECHEC - user suspendu voit %s talent(s) (attendu 0)', v_count) || chr(10); end if;
+
+    select count(*) into v_count from comments;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-36 OK - user suspendu ne voit aucun commentaire' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-36 ECHEC - user suspendu voit %s commentaire(s) (attendu 0)', v_count) || chr(10); end if;
+
+    update talents set last_name = last_name where id = v_talent_control_id;
+    get diagnostics v_rows = row_count;
+    if v_rows = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-37 OK - user suspendu ne modifie aucun talent' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-37 ECHEC - user suspendu a modifie %s talent(s) (attendu 0)', v_rows) || chr(10); end if;
+
+    begin
+        insert into talents (first_name, last_name) values ('TEST-A3', 'SUSPENDU');
+        v_fail := v_fail + 1; v_report := v_report || 'A3-38 ECHEC - user suspendu a cree un talent' || chr(10);
+    exception when insufficient_privilege then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-38 OK - user suspendu ne peut pas creer de talent' || chr(10);
+    end;
+
+    select count(*) into v_count from users;
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-39 OK - user suspendu voit encore sa propre fiche (message Compte desactive)' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-39 ECHEC - user suspendu voit %s ligne(s) dans users (attendu 1)', v_count) || chr(10); end if;
+
+    perform set_config('role', v_admin_role, true);
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_admin_id), true);
+    perform set_config('role', 'authenticated', true);
+
+    select count(*) into v_count from audit_logs;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-40 OK - admin suspendu ne voit plus audit_logs' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-40 ECHEC - admin suspendu voit %s ligne(s) d''audit_logs (attendu 0)', v_count) || chr(10); end if;
+
     -- Bilan et rollback force
     perform set_config('role', v_admin_role, true);
 
@@ -403,5 +442,5 @@ begin
     end if;
 
     -- Seul un RAISE EXCEPTION est affiche par l'editeur : bilan en premiere ligne, detail ensuite.
-    raise exception E'%\n\n--- Detail des 34 tests ---\n%', v_final_message, v_report;
+    raise exception E'%\n\n--- Detail des 40 tests ---\n%', v_final_message, v_report;
 end $$;
