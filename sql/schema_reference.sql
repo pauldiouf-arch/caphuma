@@ -239,6 +239,10 @@ alter table public.notification_preferences add constraint notification_preferen
 alter table public.pools add constraint pools_pool_id_key UNIQUE (pool_id);
 alter table public.share_tokens add constraint shared_links_token_key UNIQUE (token);
 alter table public.users add constraint users_email_key UNIQUE (email);
+alter table public.audit_logs add constraint audit_logs_action_known CHECK ((action = ANY (ARRAY['create'::text, 'update'::text, 'delete'::text, 'login'::text, 'logout'::text, 'export'::text, 'add_to_red_list'::text, 'remove_from_red_list'::text, 'devalidate'::text, 'reintegrate'::text])));
+alter table public.audit_logs add constraint audit_logs_details_length CHECK ((char_length(details) <= 2000));
+alter table public.audit_logs add constraint audit_logs_entity_id_length CHECK ((char_length(entity_id) <= 100));
+alter table public.audit_logs add constraint audit_logs_entity_name_length CHECK ((char_length(entity_name) <= 1000));
 alter table public.client_error_logs add constraint client_error_logs_detail_length CHECK ((char_length(detail) <= 2000));
 alter table public.client_error_logs add constraint client_error_logs_kind_length CHECK ((char_length(kind) <= 100));
 alter table public.client_error_logs add constraint client_error_logs_page_length CHECK ((char_length(page) <= 500));
@@ -774,18 +778,45 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.has_active_role(VARIADIC p_roles text[])
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+        select exists (
+            select 1
+            from public.users
+            where id = auth.uid()
+              and is_active is not false
+              and role = any (p_roles)
+        );
+    $function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_active_user()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+        select exists (
+            select 1
+            from public.users
+            where id = auth.uid()
+              and is_active is not false
+        );
+    $function$
+;
+
 CREATE OR REPLACE FUNCTION public.is_admin()
  RETURNS boolean
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-    SELECT EXISTS (
-        SELECT 1 FROM public.users
-        WHERE id = auth.uid()
-        AND role = 'admin'
-    );
-$function$
+        select public.has_active_role('admin');
+    $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.set_author_from_session()
@@ -818,6 +849,14 @@ AS $function$
         elsif tg_table_name = 'pool_history' then
             new.changed_by := v_uid;
             new.changed_by_name := v_name;
+        elsif tg_table_name = 'audit_logs' then
+            new.created_at := now();
+            new.user_email := v_email;
+            new.user_name := v_name;
+            if pg_trigger_depth() = 1
+               and not public.check_and_record_rate_limit(v_uid, 'audit_logs', 60, 200) then
+                return null;
+            end if;
         elsif tg_table_name = 'client_error_logs' then
             -- created_at imposé : une date passée contournerait le quota sur 24 h.
             new.created_at := now();
@@ -836,6 +875,7 @@ AS $function$
 
 -- Déclencheurs
 
+CREATE TRIGGER trg_set_author_audit_logs BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
 CREATE TRIGGER trg_set_author_client_error_logs BEFORE INSERT ON public.client_error_logs FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
 CREATE TRIGGER trg_set_author_comments BEFORE INSERT OR UPDATE ON public.comments FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
 CREATE TRIGGER trg_set_author_evaluations BEFORE INSERT OR UPDATE ON public.evaluations FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
@@ -866,9 +906,7 @@ create policy audit_logs_insert_own_action on public.audit_logs as permissive fo
     with check ((( SELECT auth.uid() AS uid) = user_id));
 
 create policy audit_logs_select_admin_only on public.audit_logs as permissive for select to authenticated
-    using ((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::text)))));
+    using (( SELECT is_admin() AS is_admin));
 
 create policy "Admin can read error logs" on public.client_error_logs as permissive for select to authenticated
     using (is_admin());
@@ -877,19 +915,13 @@ create policy "Insert own error log" on public.client_error_logs as permissive f
     with check ((user_id = auth.uid()));
 
 create policy comments_delete_admin_or_owner on public.comments as permissive for delete to authenticated
-    using (((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::text)))) OR ((( SELECT auth.uid() AS uid) = user_id) AND (EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'user'::text)))))));
+    using ((( SELECT is_admin() AS is_admin) OR ((( SELECT auth.uid() AS uid) = user_id) AND ( SELECT has_active_role(VARIADIC ARRAY['user'::text]) AS has_active_role))));
 
 create policy comments_insert_admin_user on public.comments as permissive for insert to authenticated
-    with check (((( SELECT auth.uid() AS uid) = user_id) AND (EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::text, 'user'::text])))))));
+    with check (((( SELECT auth.uid() AS uid) = user_id) AND ( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role)));
 
 create policy comments_select_all_connected on public.comments as permissive for select to authenticated
-    using (true);
+    using (( SELECT is_active_user() AS is_active_user));
 
 create policy comments_select_restrict_visitor_sensitive_rows on public.comments as restrictive for select to authenticated
     using (((( SELECT users.role
@@ -899,31 +931,17 @@ create policy comments_select_restrict_visitor_sensitive_rows on public.comments
   WHERE ((t.id = comments.talent_id) AND (COALESCE(t.is_red_listed, false) = false) AND (COALESCE(t.is_valid, true) = true)))))));
 
 create policy comments_update_admin_or_owner on public.comments as permissive for update to authenticated
-    using (((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::text)))) OR ((( SELECT auth.uid() AS uid) = user_id) AND (EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'user'::text)))))))
-    with check (((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::text)))) OR ((( SELECT auth.uid() AS uid) = user_id) AND (EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'user'::text)))))));
+    using ((( SELECT is_admin() AS is_admin) OR ((( SELECT auth.uid() AS uid) = user_id) AND ( SELECT has_active_role(VARIADIC ARRAY['user'::text]) AS has_active_role))))
+    with check ((( SELECT is_admin() AS is_admin) OR ((( SELECT auth.uid() AS uid) = user_id) AND ( SELECT has_active_role(VARIADIC ARRAY['user'::text]) AS has_active_role))));
 
 create policy evaluations_delete_own_or_admin on public.evaluations as permissive for delete to authenticated
-    using (((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'admin'::text)))) OR ((author_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'user'::text)))))));
+    using ((( SELECT is_admin() AS is_admin) OR ((author_id = ( SELECT auth.uid() AS uid)) AND ( SELECT has_active_role(VARIADIC ARRAY['user'::text]) AS has_active_role))));
 
 create policy evaluations_insert_own on public.evaluations as permissive for insert to authenticated
-    with check (((author_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = ANY (ARRAY['admin'::text, 'user'::text])))))));
+    with check (((author_id = ( SELECT auth.uid() AS uid)) AND ( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role)));
 
 create policy evaluations_select_authenticated on public.evaluations as permissive for select to authenticated
-    using (true);
+    using (( SELECT is_active_user() AS is_active_user));
 
 create policy evaluations_select_restrict_visitor_sensitive_rows on public.evaluations as restrictive for select to authenticated
     using (((( SELECT users.role
@@ -933,37 +951,21 @@ create policy evaluations_select_restrict_visitor_sensitive_rows on public.evalu
   WHERE ((t.id = evaluations.talent_id) AND (COALESCE(t.is_red_listed, false) = false) AND (COALESCE(t.is_valid, true) = true)))))));
 
 create policy evaluations_update_own_or_admin on public.evaluations as permissive for update to authenticated
-    using (((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'admin'::text)))) OR ((author_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'user'::text)))))))
-    with check (((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'admin'::text)))) OR ((author_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'user'::text)))))));
+    using ((( SELECT is_admin() AS is_admin) OR ((author_id = ( SELECT auth.uid() AS uid)) AND ( SELECT has_active_role(VARIADIC ARRAY['user'::text]) AS has_active_role))))
+    with check ((( SELECT is_admin() AS is_admin) OR ((author_id = ( SELECT auth.uid() AS uid)) AND ( SELECT has_active_role(VARIADIC ARRAY['user'::text]) AS has_active_role))));
 
 create policy missions_delete_admin_user on public.missions as permissive for delete to authenticated
-    using ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = ANY (ARRAY['admin'::text, 'user'::text]))))));
+    using (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role));
 
 create policy missions_insert_admin_user on public.missions as permissive for insert to authenticated
-    with check ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = ANY (ARRAY['admin'::text, 'user'::text]))))));
+    with check (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role));
 
 create policy missions_select_authenticated on public.missions as permissive for select to authenticated
-    using (true);
+    using (( SELECT is_active_user() AS is_active_user));
 
 create policy missions_update_admin_user on public.missions as permissive for update to authenticated
-    using ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = ANY (ARRAY['admin'::text, 'user'::text]))))))
-    with check ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = ANY (ARRAY['admin'::text, 'user'::text]))))));
+    using (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role))
+    with check (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role));
 
 create policy notification_preferences_insert_own on public.notification_preferences as permissive for insert to authenticated
     with check ((user_id = ( SELECT auth.uid() AS uid)));
@@ -976,61 +978,45 @@ create policy notification_preferences_update_own on public.notification_prefere
     with check ((user_id = ( SELECT auth.uid() AS uid)));
 
 create policy pool_history_insert_admin_user on public.pool_history as permissive for insert to authenticated
-    with check ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = ANY (ARRAY['admin'::text, 'user'::text]))))));
+    with check (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role));
 
 create policy pool_history_select_authenticated on public.pool_history as permissive for select to authenticated
-    using (true);
+    using (( SELECT is_active_user() AS is_active_user));
 
 create policy pools_delete_admin on public.pools as permissive for delete to authenticated
-    using ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'admin'::text)))));
+    using (( SELECT is_admin() AS is_admin));
 
 create policy pools_insert_admin on public.pools as permissive for insert to authenticated
-    with check ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'admin'::text)))));
+    with check (( SELECT is_admin() AS is_admin));
 
 create policy pools_select_authenticated on public.pools as permissive for select to authenticated
-    using (true);
+    using (( SELECT is_active_user() AS is_active_user));
 
 create policy pools_update_admin on public.pools as permissive for update to authenticated
-    using ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'admin'::text)))))
-    with check ((EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = 'admin'::text)))));
+    using (( SELECT is_admin() AS is_admin))
+    with check (( SELECT is_admin() AS is_admin));
 
 create policy share_tokens_delete_admin on public.share_tokens as permissive for delete to authenticated
     using (( SELECT is_admin() AS is_admin));
 
 create policy share_tokens_insert_admin_user on public.share_tokens as permissive for insert to authenticated
-    with check (((created_by = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1
-   FROM users
-  WHERE ((users.id = ( SELECT auth.uid() AS uid)) AND (users.role = ANY (ARRAY['admin'::text, 'user'::text])))))));
+    with check (((created_by = ( SELECT auth.uid() AS uid)) AND ( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role)));
 
 create policy share_tokens_select_own_or_admin on public.share_tokens as permissive for select to authenticated
-    using ((( SELECT is_admin() AS is_admin) OR (created_by = ( SELECT auth.uid() AS uid))));
+    using ((( SELECT is_admin() AS is_admin) OR ((created_by = ( SELECT auth.uid() AS uid)) AND ( SELECT is_active_user() AS is_active_user))));
 
 create policy share_tokens_update_admin_or_creator on public.share_tokens as permissive for update to authenticated
-    using ((is_admin() OR (created_by = ( SELECT auth.uid() AS uid))))
-    with check ((is_admin() OR (created_by = ( SELECT auth.uid() AS uid))));
+    using ((( SELECT is_admin() AS is_admin) OR ((created_by = ( SELECT auth.uid() AS uid)) AND ( SELECT is_active_user() AS is_active_user))))
+    with check ((( SELECT is_admin() AS is_admin) OR ((created_by = ( SELECT auth.uid() AS uid)) AND ( SELECT is_active_user() AS is_active_user))));
 
 create policy talents_delete_admin_only on public.talents as permissive for delete to authenticated
-    using ((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = 'admin'::text)))));
+    using (( SELECT is_admin() AS is_admin));
 
 create policy talents_insert_admin_user on public.talents as permissive for insert to authenticated
-    with check ((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::text, 'user'::text]))))));
+    with check (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role));
 
 create policy talents_select_all_connected on public.talents as permissive for select to authenticated
-    using (true);
+    using (( SELECT is_active_user() AS is_active_user));
 
 create policy talents_select_restrict_visitor_sensitive_rows on public.talents as restrictive for select to authenticated
     using (((( SELECT users.role
@@ -1038,12 +1024,8 @@ create policy talents_select_restrict_visitor_sensitive_rows on public.talents a
   WHERE (users.id = ( SELECT auth.uid() AS uid))) IS DISTINCT FROM 'visitor'::text) OR ((COALESCE(is_red_listed, false) = false) AND (COALESCE(is_valid, true) = true))));
 
 create policy talents_update_admin_user on public.talents as permissive for update to authenticated
-    using ((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::text, 'user'::text]))))))
-    with check ((EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = ( SELECT auth.uid() AS uid)) AND (u.role = ANY (ARRAY['admin'::text, 'user'::text]))))));
+    using (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role))
+    with check (( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role));
 
 create policy users_can_read_own_profile on public.users as permissive for select to authenticated
     using ((( SELECT auth.uid() AS uid) = id));
@@ -1051,24 +1033,14 @@ create policy users_can_read_own_profile on public.users as permissive for selec
 create policy users_select_admin_all on public.users as permissive for select to authenticated
     using (( SELECT is_admin() AS is_admin));
 
-create policy users_update_admin_all on public.users as permissive for update to authenticated
-    using (( SELECT is_admin() AS is_admin))
-    with check (( SELECT is_admin() AS is_admin));
-
 create policy red_list_docs_delete_admin_user on storage.objects as permissive for delete to authenticated
-    using (((bucket_id = 'red-list-documents'::text) AND (EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = auth.uid()) AND (u.role = ANY (ARRAY['admin'::text, 'user'::text])))))));
+    using (((bucket_id = 'red-list-documents'::text) AND ( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role)));
 
 create policy red_list_docs_insert_admin_user on storage.objects as permissive for insert to authenticated
-    with check (((bucket_id = 'red-list-documents'::text) AND (EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = auth.uid()) AND (u.role = ANY (ARRAY['admin'::text, 'user'::text])))))));
+    with check (((bucket_id = 'red-list-documents'::text) AND ( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role)));
 
 create policy red_list_docs_select_admin_user on storage.objects as permissive for select to authenticated
-    using (((bucket_id = 'red-list-documents'::text) AND (EXISTS ( SELECT 1
-   FROM users u
-  WHERE ((u.id = auth.uid()) AND (u.role = ANY (ARRAY['admin'::text, 'user'::text])))))));
+    using (((bucket_id = 'red-list-documents'::text) AND ( SELECT has_active_role(VARIADIC ARRAY['admin'::text, 'user'::text]) AS has_active_role)));
 
 -- Droits sur les tables et séquences
 
@@ -1112,7 +1084,7 @@ grant delete, insert, maintain, references, select, trigger, truncate, update on
 grant delete, insert, maintain, references, select, trigger, update on table public.talents to authenticated;
 revoke all on table public.users from public, anon, authenticated, service_role;
 grant delete, insert, maintain, references, select, trigger, truncate, update on table public.users to service_role;
-grant maintain, references, select, trigger, update on table public.users to authenticated;
+grant maintain, references, select, trigger on table public.users to authenticated;
 
 -- Droits d'exécution des fonctions
 
@@ -1138,6 +1110,10 @@ grant execute on function public.get_shared_talent(p_token text) to anon;
 grant execute on function public.get_shared_talent(p_token text) to authenticated;
 revoke all on function public.get_validity_thresholds() from public, anon, authenticated, service_role;
 grant execute on function public.get_validity_thresholds() to public;
+revoke all on function public.has_active_role(VARIADIC p_roles text[]) from public, anon, authenticated, service_role;
+grant execute on function public.has_active_role(VARIADIC p_roles text[]) to authenticated;
+revoke all on function public.is_active_user() from public, anon, authenticated, service_role;
+grant execute on function public.is_active_user() to authenticated;
 revoke all on function public.is_admin() from public, anon, authenticated, service_role;
 grant execute on function public.is_admin() to authenticated;
 revoke all on function public.set_author_from_session() from public, anon, authenticated, service_role;
