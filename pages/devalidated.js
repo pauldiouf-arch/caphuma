@@ -484,32 +484,9 @@
             if (!doubleCheck) return;
 
             try {
-                // Pas de cascade vers Storage : documents supprimés d'abord, un échec ne bloque pas la suppression.
-                if (Array.isArray(t.red_list_documents) && t.red_list_documents.length > 0) {
-                    try {
-                        const { error: removeErr } = await supabaseClient.storage
-                            .from('red-list-documents')
-                            .remove(t.red_list_documents);
-                        if (removeErr) {
-                            console.error('[Suppression définitive] Échec de la suppression des documents Storage (suppression maintenue) :', removeErr);
-                        }
-                    } catch (e) {
-                        console.error('[Suppression définitive] Erreur pendant le nettoyage des documents Storage (suppression maintenue) :', e);
-                    }
-                }
-
-                // Suppression défensive : la règle ON DELETE de ces clés étrangères n'a jamais été vérifiée.
-                await capHumaWithRetry(() => supabaseClient.from('evaluations').delete().eq('talent_id', t.id));
-                await capHumaWithRetry(() => supabaseClient.from('comments').delete().eq('talent_id', t.id));
-                await capHumaWithRetry(() => supabaseClient.from('share_tokens').delete().eq('talent_id', t.id));
-
-                // Pas de capHumaWithRetry() : fausserait le contrôle « 0 ligne » qui détecte un blocage RLS.
-                const { data, error } = await CapHumaData.deleteTalent(supabaseClient, t.id);
-
-                if (error) throw error;
-
-                if (!data || data.length === 0) {
-                    throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
+                const { documentsRemoved } = await CapHumaData.deleteTalentPermanently(supabaseClient, t.id);
+                if (!documentsRemoved) {
+                    toastMessage(`Fiche supprimée, mais ses documents de liste rouge sont restés dans le stockage (dossier ${t.id}).`, "error");
                 }
 
                 await loadDevalidatedTalents();

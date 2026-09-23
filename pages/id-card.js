@@ -874,33 +874,15 @@ const IdCardPage = {};
                 if (!confirm(`Confirmation finale : ${fullName} sera supprimé(e) de façon permanente. Continuer ?`)) return;
 
                 try {
-                    // Pas de cascade vers Storage : documents supprimés d'abord, un échec ne bloque pas la suppression.
-                    if (Array.isArray(talent.red_list_documents) && talent.red_list_documents.length > 0) {
-                        try {
-                            const { error: removeErr } = await IdCardPage.supabaseClient.storage
-                                .from('red-list-documents')
-                                .remove(talent.red_list_documents);
-                            if (removeErr) {
-                                console.error('[Suppression définitive] Échec de la suppression des documents Storage (suppression maintenue) :', removeErr);
-                            }
-                        } catch (e) {
-                            console.error('[Suppression définitive] Erreur pendant le nettoyage des documents Storage (suppression maintenue) :', e);
-                        }
+                    const { documentsRemoved } = await CapHumaData.deleteTalentPermanently(IdCardPage.supabaseClient, IdCardPage.talentId);
+
+                    if (documentsRemoved) {
+                        toastMessage("Talent supprimé définitivement.", "success");
+                        setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
+                    } else {
+                        toastMessage(`Talent supprimé, mais ses documents de liste rouge sont restés dans le stockage (dossier ${IdCardPage.talentId}).`, "error");
+                        setTimeout(() => { window.location.href = 'talents.html'; }, 6000);
                     }
-
-                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('evaluations').delete().eq('talent_id', IdCardPage.talentId));
-                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('comments').delete().eq('talent_id', IdCardPage.talentId));
-                    await capHumaWithRetry(() => IdCardPage.supabaseClient.from('share_tokens').delete().eq('talent_id', IdCardPage.talentId));
-
-                    const { data, error } = await CapHumaData.deleteTalent(IdCardPage.supabaseClient, IdCardPage.talentId);
-
-                    if (error) throw error;
-                    if (!data || data.length === 0) {
-                        throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
-                    }
-
-                    toastMessage("Talent supprimé définitivement.", "success");
-                    setTimeout(() => { window.location.href = 'talents.html'; }, 1200);
                 } catch (err) {
                     console.error(err);
                     toastMessage("Échec de la suppression : " + (err && err.message ? err.message : 'erreur inconnue.'), "error");

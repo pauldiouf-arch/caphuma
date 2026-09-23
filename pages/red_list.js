@@ -430,7 +430,6 @@
             document.getElementById('modal-reason').classList.add('hidden');
         });
 
-        // Documents Storage nettoyés avant le retrait, sans jamais bloquer celui-ci.
         async function onRemoveFromRedList(talentId, talentName) {
             openConfirmModal({
                 title: "Retirer de la liste rouge",
@@ -441,29 +440,24 @@
                     const talent = redListTalents.find(t => t.id === talentId);
                     const existingPaths = (talent && Array.isArray(talent.red_list_documents)) ? talent.red_list_documents : [];
 
-                    if (existingPaths.length > 0) {
-                        try {
-                            const { error: removeErr } = await supabaseClient.storage
-                                .from('red-list-documents')
-                                .remove(existingPaths);
-                            if (removeErr) {
-                                console.error('[Liste Rouge] Échec de la suppression des documents Storage (retrait maintenu) :', removeErr);
-                            }
-                        } catch (e) {
-                            console.error('[Liste Rouge] Erreur pendant le nettoyage des documents Storage (retrait maintenu) :', e);
-                        }
-                    }
-
-                    const { error } = await CapHumaData.updateTalent(supabaseClient, talentId, {
+                    const { data, error } = await CapHumaData.updateTalent(supabaseClient, talentId, {
                         is_red_listed: false,
                         red_list_date: null,
                         red_list_reason: null,
                         red_list_added_by: null,
                         red_list_added_by_name: null,
                         red_list_documents: null
-                    });
+                    }, 'id');
                     if (error) throw error;
-                    toastMessage("Talent retiré de la liste rouge.");
+                    if (!data || data.length === 0) {
+                        throw new Error("Le retrait n'a affecté aucune ligne (policy RLS ?).");
+                    }
+
+                    if (await CapHumaData.removeRedListDocuments(supabaseClient, existingPaths)) {
+                        toastMessage("Talent retiré de la liste rouge.");
+                    } else {
+                        toastMessage(`Talent retiré de la liste rouge, mais ses documents sont restés dans le stockage (dossier ${talentId}).`, "error");
+                    }
                     await loadRedList();
                 }
             });

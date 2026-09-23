@@ -34,12 +34,33 @@ const CapHumaData = (() => {
         return returning ? q.select(returning) : q;
     }
 
-    async function deleteTalent(sb, id, returning = 'id') {
-        return sb.from('talents').delete().eq('id', id).select(returning);
+    async function removeRedListDocuments(sb, paths) {
+        if (!Array.isArray(paths) || paths.length === 0) return true;
+        try {
+            const { data, error } = await sb.storage.from('red-list-documents').remove(paths);
+            if (error) throw error;
+            // Un refus RLS du stockage ne renvoie pas d'erreur, seulement moins de fichiers supprimés.
+            if (!data || data.length < paths.length) throw new Error(`${data ? data.length : 0} fichier(s) supprimé(s) sur ${paths.length}`);
+            return true;
+        } catch (err) {
+            console.error('[Liste rouge] Documents restés dans le stockage :', paths, err);
+            return false;
+        }
+    }
+
+    async function deleteTalentPermanently(sb, id) {
+        // Sans capHumaWithRetry() : une relance après succès renverrait 0 ligne et ferait croire à un blocage RLS.
+        const { data, error } = await sb.from('talents').delete().eq('id', id).select('id, red_list_documents');
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            throw new Error("La suppression n'a affecté aucune ligne (policy RLS ?).");
+        }
+        return { documentsRemoved: await removeRedListDocuments(sb, data[0].red_list_documents) };
     }
 
     return {
         getPools, updatePool, createPool,
-        getTalents, updateTalent, createTalent, deleteTalent
+        getTalents, updateTalent, createTalent,
+        removeRedListDocuments, deleteTalentPermanently
     };
 })();
