@@ -286,50 +286,5 @@ const MissionsPage = {};
 
         MissionsPage.loadMissions = loadMissions;
 
-        async function archiveOutgoingOccupant(mission, explicitExitDate = null) {
-            if (!mission.occupant_id) return;
-
-            const { error } = await MissionsPage.supabaseClient.rpc('archive_mission_occupant', {
-                p_mission_id: mission.id,
-                p_exit_date: explicitExitDate
-            });
-            if (error) throw error;
-        }
-
-        async function markIncomingOccupant(talentId, candidateType) {
-            if (!talentId || candidateType === 'detache') return;
-
-            const payload = {
-                is_currently_on_mission: true,
-                months_without_mission: 0,
-                last_mission_end_date: null,
-                national_inactive_since: null,
-                status: 'En poste ALIMA'
-            };
-
-            if (candidateType === 'expat') {
-                const { data: currentTalent, error: readErr } = await capHumaWithRetry(() =>
-                    MissionsPage.supabaseClient
-                        .from('talents')
-                        .select('number_of_alima_missions')
-                        .eq('id', talentId)
-                        .maybeSingle()
-                );
-                if (readErr) throw readErr;
-
-                const currentCount = (currentTalent && currentTalent.number_of_alima_missions) || 'none';
-                payload.number_of_alima_missions = currentCount === 'none' ? 'one' : (currentCount === 'one' ? 'two' : 'three_plus');
-                payload.had_alima_mission = true;
-            }
-
-            const { data, error } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, talentId, payload, 'id');
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                throw new Error("La mise à jour du talent entrant n'a affecté aucune ligne (policy RLS ?).");
-            }
-        }
-
-        MissionsPage.markIncomingOccupant = markIncomingOccupant;
-        MissionsPage.archiveOutgoingOccupant = archiveOutgoingOccupant;
         MissionsPage.populateTalentDropdown = populateTalentDropdown;
 })();

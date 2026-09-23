@@ -221,7 +221,10 @@
             if (!mission || !mission.occupant_id) return;
 
             try {
-                await MissionsPage.markIncomingOccupant(mission.occupant_id);
+                const { error } = await capHumaWithRetry(() =>
+                    MissionsPage.supabaseClient.rpc('resync_mission_occupant', { p_mission_id: missionId })
+                );
+                if (error) throw error;
                 toastMessage('Compteur du talent resynchronisé.', 'success');
             } catch (error) {
                 console.error("Erreur de resynchronisation :", error);

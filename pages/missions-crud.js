@@ -265,70 +265,16 @@
             return { proceed: true, conflictMissionToVacate: occupantCheck.conflictMissionToVacate };
         }
 
-        async function vacateConflictingMission(conflictMission) {
-            await MissionsPage.archiveOutgoingOccupant(conflictMission);
-
-            const { data, error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('missions')
-                    .update({ status: 'vacant', occupant_id: null })
-                    .eq('id', conflictMission.id)
-                    .select('id')
-            );
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                throw new Error("La libération de l'ancien poste n'a affecté aucune ligne (policy RLS ?).");
-            }
-        }
-
-        async function updateExistingMission(missionId, payload) {
-            const originalMission = MissionsPage.currentMissions.find(m => m.id === missionId);
-            const previousOccupantId = originalMission ? originalMission.occupant_id : null;
-
-            if (originalMission && previousOccupantId && previousOccupantId !== payload.occupant_id) {
-                await MissionsPage.archiveOutgoingOccupant(originalMission);
-            }
-
-            const { error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('missions')
-                    .update(payload)
-                    .eq('id', missionId)
-            );
-            if (error) throw error;
-
-            if (payload.occupant_id && payload.occupant_id !== previousOccupantId) {
-                await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
-            }
-
-            toastMessage('Poste mis à jour.', 'success');
-        }
-
-        async function createNewMission(payload) {
-            payload.created_by = MissionsPage.currentUserId;
-            // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait le poste.
-            const { error } = await MissionsPage.supabaseClient
-                .from('missions')
-                .insert(payload);
-            if (error) throw error;
-
-            if (payload.occupant_id) {
-                await MissionsPage.markIncomingOccupant(payload.occupant_id, payload.candidate_type);
-            }
-
-            toastMessage('Poste créé.', 'success');
-        }
-
         async function saveMissionPayload(missionId, payload, conflictMissionToVacate) {
-            if (conflictMissionToVacate) {
-                await vacateConflictingMission(conflictMissionToVacate);
-            }
+            // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait le poste.
+            const { error } = await MissionsPage.supabaseClient.rpc('save_mission', {
+                p_mission_id: missionId || null,
+                p_payload: payload,
+                p_vacate_mission_id: conflictMissionToVacate ? conflictMissionToVacate.id : null
+            });
+            if (error) throw error;
 
-            if (missionId) {
-                await updateExistingMission(missionId, payload);
-            } else {
-                await createNewMission(payload);
-            }
+            toastMessage(missionId ? 'Poste mis à jour.' : 'Poste créé.', 'success');
         }
 
         async function withSaveButtonDisabled(fn) {
@@ -386,15 +332,8 @@
             }
 
             try {
-                if (mission && mission.occupant_id) {
-                    await MissionsPage.archiveOutgoingOccupant(mission);
-                }
-
                 const { error } = await capHumaWithRetry(() =>
-                    MissionsPage.supabaseClient
-                        .from('missions')
-                        .delete()
-                        .eq('id', missionId)
+                    MissionsPage.supabaseClient.rpc('delete_mission', { p_mission_id: missionId })
                 );
 
                 if (error) throw error;
