@@ -203,9 +203,6 @@ function renderDashboardLayout() {
                     </a>
                 </span>
 
-                <!-- title seul ne suffit pas pour un lecteur d'écran : aria-label
-                     fournit le nom accessible de ces boutons icône-seule, en plus
-                     de title pour l'infobulle au survol de la souris. -->
                 <span class="relative">
                     <button id="notifBellBtn" type="button" class="hidden relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all shrink-0" title="Notifications" aria-label="Notifications" aria-expanded="false">
                         <span class="text-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-4 h-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg></span>
@@ -215,7 +212,7 @@ function renderDashboardLayout() {
                     <div id="notifPanel" class="hidden absolute right-0 top-12 w-96 max-h-[32rem] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50">
                         <div class="p-4 border-b border-slate-100 flex items-center justify-between">
                             <h3 class="font-bold text-slate-800 text-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg> Mes notifications</h3>
-                            <button id="notifSettingsToggleBtn" type="button" class="text-xs font-semibold text-primary hover:underline">Préférences</button>
+                            <button id="notifSettingsToggleBtn" type="button" aria-expanded="false" aria-controls="notifSettingsBlock" class="text-xs font-semibold text-primary hover:underline">Préférences</button>
                         </div>
 
                         <div id="notifSettingsBlock" class="hidden p-4 border-b border-slate-100 bg-slate-50 space-y-3">

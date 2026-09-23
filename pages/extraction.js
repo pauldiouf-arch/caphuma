@@ -198,7 +198,7 @@
                 let html = '';
                 let sheetIndex = 1;
                 if (talentPoolsSelected.size > 0) {
-                    html += `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500 text-white shrink-0">Feuille ${sheetIndex}</span><span>Liste pros combinée — ${escapeHtml(Array.from(talentPoolsSelected).join(', '))} (${talentCount} talents)</span></div>`;
+                    html += `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-700 text-white shrink-0">Feuille ${sheetIndex}</span><span>Liste pros combinée — ${escapeHtml(Array.from(talentPoolsSelected).join(', '))} (${talentCount} talents)</span></div>`;
                     sheetIndex++;
                 }
                 Array.from(positionPoolsSelected).forEach(poolId => {

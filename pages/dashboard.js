@@ -367,8 +367,9 @@
             }
         });
 
-        document.getElementById('notifSettingsToggleBtn').addEventListener('click', () => {
-            notifSettingsBlock.classList.toggle('hidden');
+        document.getElementById('notifSettingsToggleBtn').addEventListener('click', (event) => {
+            const isHidden = notifSettingsBlock.classList.toggle('hidden');
+            event.currentTarget.setAttribute('aria-expanded', String(!isHidden));
         });
 
         document.getElementById('notifScopeAll').addEventListener('change', () => {
@@ -448,15 +449,15 @@
                             </div>
                             <div class="bg-emerald-50 rounded-xl px-1.5 py-2 text-center">
                                 <p class="text-base font-extrabold text-emerald-700">${stats.available}</p>
-                                <p class="text-[10px] font-semibold text-emerald-500 uppercase tracking-wide">Dispo</p>
+                                <p class="text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Dispo</p>
                             </div>
                             <div class="bg-red-50 rounded-xl px-1.5 py-2 text-center">
                                 <p class="text-base font-extrabold text-red-700">${stats.atRisk}</p>
-                                <p class="text-[10px] font-semibold text-red-500 uppercase tracking-wide">À risque</p>
+                                <p class="text-[10px] font-semibold text-red-700 uppercase tracking-wide">À risque</p>
                             </div>
                             <div class="bg-blue-50 rounded-xl px-1.5 py-2 text-center">
                                 <p class="text-base font-extrabold text-primary">${stats.positions}</p>
-                                <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Postes</p>
+                                <p class="text-[10px] font-semibold text-blue-700 uppercase tracking-wide">Postes</p>
                             </div>
                         </div>
                     </div>

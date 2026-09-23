@@ -17,7 +17,7 @@
             } catch (err) {
                 console.error("Erreur de chargement des commentaires :", err);
                 if (container) {
-                    container.innerHTML = `<p class="text-sm text-red-500 italic">Impossible de charger les commentaires.</p>`;
+                    container.innerHTML = `<p class="text-sm text-red-700 italic">Impossible de charger les commentaires.</p>`;
                 }
             }
         }

@@ -266,11 +266,11 @@ const IdCardPage = {};
                 vCounter.textContent = `${v.totalMonths} / ${DEVALIDATION_MAX_MONTHS} mois`;
                 if (v.totalMonths >= DEVALIDATION_CRITICAL_MONTHS) {
                     vLabel.textContent = "Validité pool : Critique (Action urgente)";
-                    vLabel.className = "text-red-500 font-bold";
+                    vLabel.className = "text-red-700 font-bold";
                     vBar.className = "h-full bg-red-500 rounded-full";
                 } else if (v.totalMonths >= DEVALIDATION_AT_RISK_MONTHS) {
                     vLabel.textContent = "Validité pool : À risque";
-                    vLabel.className = "text-orange-500 font-bold";
+                    vLabel.className = "text-orange-700 font-bold";
                     vBar.className = "h-full bg-orange-400 rounded-full";
                 } else {
                     vLabel.textContent = "Validité pool : Stable";

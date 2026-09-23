@@ -428,10 +428,10 @@
                 const validLinks = links.filter(Boolean);
                 docsList.innerHTML = validLinks.length > 0
                     ? validLinks.join('')
-                    : '<p class="text-xs text-red-500">Impossible de générer les liens des documents.</p>';
+                    : '<p class="text-xs text-red-700">Impossible de générer les liens des documents.</p>';
             } catch (e) {
                 console.error(e);
-                docsList.innerHTML = '<p class="text-xs text-red-500">Erreur lors du chargement des documents.</p>';
+                docsList.innerHTML = '<p class="text-xs text-red-700">Erreur lors du chargement des documents.</p>';
             }
         }
         document.getElementById('btn-close-reason').addEventListener('click', () => {

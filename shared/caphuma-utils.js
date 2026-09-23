@@ -282,6 +282,42 @@ function capHumaInitModalA11y() {
  * @param {number} [options.attempts=2]
  * @param {number} [options.delayMs=1500]
  */
+function capHumaInitTabs(tabList, tabs, panelFor, onSelect) {
+    tabList.setAttribute('role', 'tablist');
+
+    function select(activeTab) {
+        tabs.forEach(tab => {
+            const isSelected = tab === activeTab;
+            tab.setAttribute('aria-selected', String(isSelected));
+            tab.tabIndex = isSelected ? 0 : -1;
+            panelFor(tab).classList.toggle('hidden', !isSelected);
+        });
+        if (onSelect) onSelect(activeTab);
+    }
+
+    tabs.forEach((tab, index) => {
+        const panel = panelFor(tab);
+        tab.id = tab.id || `${tabList.id}-tab-${index + 1}`;
+        panel.id = panel.id || `${tab.id}-panel`;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', panel.id);
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('aria-labelledby', tab.id);
+
+        tab.addEventListener('click', () => select(tab));
+        tab.addEventListener('keydown', (event) => {
+            const targetIndex = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 }[event.key];
+            if (targetIndex === undefined) return;
+            event.preventDefault();
+            const target = tabs[(targetIndex + tabs.length) % tabs.length];
+            target.focus();
+            select(target);
+        });
+    });
+
+    return select;
+}
+
 async function capHumaWithRetry(callFn, { attempts = 2, delayMs = 1500 } = {}) {
     for (let i = 0; i < attempts; i++) {
         try {

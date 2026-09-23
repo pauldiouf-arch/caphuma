@@ -394,7 +394,6 @@ const TalentsPage = {};
                         ${escapeHtml((t.first_name || '?')[0])}${escapeHtml((t.last_name || '?')[0])}
                     </div>
                     <div class="min-w-0 flex-1">
-                        <!-- Lien réel (pas un onclick), natif au clavier. -->
                         <a href="id-card.html?id=${encodeURIComponent(idKey)}" class="talent-name-hover block font-bold text-slate-800 hover:text-primary hover:underline truncate">
                             ${escapeHtml(t.first_name || '')} ${escapeHtml(t.last_name || '')} ${t.is_red_listed ? CapHumaIcons.get('flag', 'w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0 text-red-600') : ''}
                         </a>
@@ -775,8 +774,9 @@ const TalentsPage = {};
             onFiltersChanged();
         });
 
-        document.getElementById('toggleAdvancedBtn').addEventListener('click', () => {
-            document.getElementById('advancedFiltersPanel').classList.toggle('hidden');
+        document.getElementById('toggleAdvancedBtn').addEventListener('click', (event) => {
+            const isHidden = document.getElementById('advancedFiltersPanel').classList.toggle('hidden');
+            event.currentTarget.setAttribute('aria-expanded', String(!isHidden));
         });
 
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {

@@ -1,16 +1,14 @@
 (() => {
         const talentForm = document.getElementById('talentForm');
 
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const tabId = btn.dataset.tab;
-                document.querySelectorAll('.tab-panel').forEach(p => {
-                    p.classList.toggle('hidden', p.dataset.panel !== tabId);
-                });
-            });
-        });
+        const talentTabs = Array.from(document.querySelectorAll('.tab-btn'));
+        const selectTalentTab = capHumaInitTabs(
+            document.getElementById('talentFormTabs'),
+            talentTabs,
+            tab => document.querySelector(`.tab-panel[data-panel="${tab.dataset.tab}"]`),
+            activeTab => talentTabs.forEach(tab => tab.classList.toggle('active', tab === activeTab))
+        );
+        selectTalentTab(talentTabs[0]);
 
         const nationalitySelect = document.getElementById('field-nationality');
         nationalitySelect.innerHTML = '<option value="">— Sélectionner —</option>' +
@@ -20,8 +18,7 @@
             }).join('');
 
         function resetTabsToFirst() {
-            document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== '1'));
+            selectTalentTab(talentTabs[0]);
         }
 
         function createTagField(containerId, fieldName, label, maxTags) {
@@ -279,7 +276,7 @@
                 <input aria-label="Date de la formation" class="training-date col-span-3 rounded border border-slate-200 p-1.5 text-xs" type="date" value="${escapeHtml(training.date ? training.date.substring(0,10) : '')}" />
                 <input aria-label="Durée de la formation" class="training-duration col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Durée" value="${escapeHtml(training.duration || '')}" />
                 <input aria-label="Description de la formation" class="training-desc col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Description" value="${escapeHtml(training.description || '')}" />
-                <button type="button" aria-label="Retirer la formation" class="removeTrainingBtn col-span-1 text-red-500 text-lg">&times;</button>
+                <button type="button" aria-label="Retirer la formation" class="removeTrainingBtn col-span-1 text-red-700 text-lg">&times;</button>
             `;
             row.querySelector('.removeTrainingBtn').addEventListener('click', () => row.remove());
             document.getElementById('trainingsList').appendChild(row);

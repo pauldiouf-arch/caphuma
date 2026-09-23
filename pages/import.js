@@ -442,11 +442,11 @@
                 <div class="flex gap-4 mb-4">
                     <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5">
                         <p class="text-lg font-extrabold text-emerald-700">${validRows.length}</p>
-                        <p class="text-[10px] font-semibold text-emerald-500 uppercase">Ligne(s) valide(s)</p>
+                        <p class="text-[10px] font-semibold text-emerald-700 uppercase">Ligne(s) valide(s)</p>
                     </div>
                     <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
                         <p class="text-lg font-extrabold text-red-700">${invalidRows.length}</p>
-                        <p class="text-[10px] font-semibold text-red-500 uppercase">Ligne(s) en erreur</p>
+                        <p class="text-[10px] font-semibold text-red-700 uppercase">Ligne(s) en erreur</p>
                     </div>
                 </div>
                 <div class="max-h-96 overflow-y-auto border border-slate-100 rounded-xl">
@@ -560,7 +560,7 @@
                         <ul class="text-xs text-red-600 space-y-1">
                             ${failures.map(f => `<li>Ligne ${f.rowNumber} (${escapeHtml(f.name)}) — ${escapeHtml(f.message)}</li>`).join('')}
                         </ul>
-                        <p class="text-[11px] text-red-500 mt-2 italic">Ces lignes n'ont pas été importées — corrigez-les dans le fichier et réessayez uniquement pour celles-ci.</p>
+                        <p class="text-[11px] text-red-700 mt-2 italic">Ces lignes n'ont pas été importées — corrigez-les dans le fichier et réessayez uniquement pour celles-ci.</p>
                     </div>
                 ` : ''}
                 <a href="talents.html" class="inline-block mt-3 text-xs font-semibold text-primary hover:underline">Voir les talents →</a>
@@ -764,11 +764,11 @@
                 <div class="flex gap-4 mb-4">
                     <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5">
                         <p class="text-lg font-extrabold text-emerald-700">${validRows.length}</p>
-                        <p class="text-[10px] font-semibold text-emerald-500 uppercase">Ligne(s) valide(s)</p>
+                        <p class="text-[10px] font-semibold text-emerald-700 uppercase">Ligne(s) valide(s)</p>
                     </div>
                     <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
                         <p class="text-lg font-extrabold text-red-700">${invalidRows.length}</p>
-                        <p class="text-[10px] font-semibold text-red-500 uppercase">Ligne(s) en erreur</p>
+                        <p class="text-[10px] font-semibold text-red-700 uppercase">Ligne(s) en erreur</p>
                     </div>
                 </div>
                 <div class="max-h-96 overflow-y-auto border border-slate-100 rounded-xl">
@@ -877,7 +877,7 @@
                         <ul class="text-xs text-red-600 space-y-1">
                             ${failures.map(f => `<li>Ligne ${f.rowNumber} (${escapeHtml(f.name)}) — ${escapeHtml(f.message)}</li>`).join('')}
                         </ul>
-                        <p class="text-[11px] text-red-500 mt-2 italic">Ces lignes n'ont pas été importées — corrigez-les dans le fichier et réessayez uniquement pour celles-ci.</p>
+                        <p class="text-[11px] text-red-700 mt-2 italic">Ces lignes n'ont pas été importées — corrigez-les dans le fichier et réessayez uniquement pour celles-ci.</p>
                     </div>
                 ` : ''}
                 ${singlePool ? `<a href="missions.html?pool=${encodeURIComponent(singlePool)}" class="inline-block mt-3 text-xs font-semibold text-primary hover:underline">Voir les postes du pool ${escapeHtml(singlePool)} →</a>` : ''}
