@@ -276,7 +276,7 @@
                     const endMs = IdCardPage.passageDateMs(passage.endDate);
                     const dateStr = `${startMs !== null ? new Date(startMs).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' }) : '?'} → ${endMs !== null ? new Date(endMs).toLocaleDateString(L.locale, { month: 'short', year: 'numeric' }) : '?'}`;
                     const durationMonths = (startMs !== null && endMs !== null) ? Math.round((endMs - startMs) / (1000 * 60 * 60 * 24 * 30)) : null;
-                    const metaLine = [passage.country || "", dateStr, durationMonths !== null ? L.durationMonths(durationMonths) : ''].filter(Boolean).join("  |  ");
+                    const metaLine = [CapHumaCountries.getPassageCountry(passage, lang) || "", dateStr, durationMonths !== null ? L.durationMonths(durationMonths) : ''].filter(Boolean).join("  |  ");
                     doc.text(metaLine, 18, y + 11);
 
                     const firstRating = comments[0] ? comments[0].rating : null;

@@ -250,101 +250,6 @@ const MissionsPage = {};
             }
         }
 
-        async function releaseLinkedDetachment(mission) {
-            if (mission.candidate_type !== 'nat' || !mission.occupant_id) return;
-
-            const { data: linkedDetachment, error: detachError } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('missions')
-                    .select('id, title, pool, contract_start_date, country_code, desk')
-                    .eq('occupant_id', mission.occupant_id)
-                    .eq('candidate_type', 'detache')
-                    .eq('status', 'occupied')
-                    .maybeSingle()
-            );
-            if (detachError) throw detachError;
-            if (!linkedDetachment) return;
-
-            await MissionsPage.archiveOutgoingOccupant({ ...linkedDetachment, occupant_id: mission.occupant_id, candidate_type: 'detache' }, mission.contract_end_date);
-            const { error: vacateError } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('missions')
-                    .update({ status: 'vacant', occupant_id: null, contract_end_date: mission.contract_end_date })
-                    .eq('id', linkedDetachment.id)
-            );
-            if (vacateError) throw vacateError;
-        }
-
-        function findMissionsWithConfirmedExpiredContract(missions) {
-            const now = Date.now();
-            return missions.filter(m =>
-                m.status === 'occupied' &&
-                m.contract_end_type === 'date' &&
-                m.contract_end_date &&
-                new Date(m.contract_end_date).getTime() < now &&
-                m.contract_status === 'ending'
-            );
-        }
-
-        // Remis à null : ne pas hériter du « Se termine » de l'ancien contrat.
-        async function rotateToFutureOccupant(mission) {
-            const { data, error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('missions')
-                    .update({
-                        status: 'occupied',
-                        occupant_id: mission.future_talent_id,
-                        contract_start_date: mission.future_contract_start_date || null,
-                        contract_end_date: mission.future_contract_end_date || null,
-                        contract_status: null,
-                        future_talent_id: null,
-                        future_contract_start_date: null,
-                        future_contract_end_date: null
-                    })
-                    .eq('id', mission.id)
-                    .select('id')
-            );
-            if (error) throw error;
-            if (!data || data.length === 0) return false;
-
-            await MissionsPage.markIncomingOccupant(mission.future_talent_id, mission.candidate_type);
-            return true;
-        }
-
-        async function vacateExpiredMission(mission) {
-            const { data, error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('missions')
-                    .update({ status: 'vacant', occupant_id: null })
-                    .eq('id', mission.id)
-                    .select('id')
-            );
-            if (error) throw error;
-            return !!(data && data.length > 0);
-        }
-
-        async function processEachExpiredMission(missions) {
-            let rotatedCount = 0;
-            let vacatedCount = 0;
-
-            for (const mission of missions) {
-                try {
-                    await MissionsPage.archiveOutgoingOccupant(mission, mission.contract_end_date);
-                    await releaseLinkedDetachment(mission);
-
-                    if (mission.future_talent_id) {
-                        if (await rotateToFutureOccupant(mission)) rotatedCount++;
-                    } else {
-                        if (await vacateExpiredMission(mission)) vacatedCount++;
-                    }
-                } catch (error) {
-                    console.error("Erreur de traitement automatique du contrat expiré :", mission.id, error);
-                }
-            }
-
-            return { rotatedCount, vacatedCount };
-        }
-
         function notifyExpiredMissionsProcessed(rotatedCount, vacatedCount) {
             const parts = [];
             if (rotatedCount > 0) parts.push(`${rotatedCount} poste(s) automatiquement transféré(s) au futur occupant prévu`);
@@ -364,11 +269,15 @@ const MissionsPage = {};
         }
 
         async function processExpiredMissions() {
-            const toProcess = findMissionsWithConfirmedExpiredContract(MissionsPage.currentMissions);
-            if (toProcess.length === 0) return;
+            const { data, error } = await capHumaWithRetry(() =>
+                MissionsPage.supabaseClient.rpc('process_expired_missions', { p_pool: MissionsPage.currentPoolId })
+            );
+            if (error) {
+                console.error("Erreur de traitement automatique des contrats expirés :", error);
+                return;
+            }
 
-            const { rotatedCount, vacatedCount } = await processEachExpiredMission(toProcess);
-
+            const { rotated_count: rotatedCount, vacated_count: vacatedCount } = (data && data[0]) || {};
             if (rotatedCount > 0 || vacatedCount > 0) {
                 notifyExpiredMissionsProcessed(rotatedCount, vacatedCount);
                 await refreshCurrentMissions();
@@ -377,116 +286,14 @@ const MissionsPage = {};
 
         MissionsPage.loadMissions = loadMissions;
 
-        function resolveExitDate(explicitExitDate) {
-            return explicitExitDate || new Date().toISOString().substring(0, 10);
-        }
-
-        async function fetchMissionEvaluations(missionId) {
-            const { data, error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('evaluations')
-                    .select('context, positive_points, negative_points, rating, author_email, created_at')
-                    .eq('mission_id', missionId)
-            );
-            if (error) throw error;
-            return data || [];
-        }
-
-        function buildArchivedPassage(mission, exitDate, evaluations) {
-            const isDetachment = mission.candidate_type === 'detache';
-            return {
-                positionTitle: (isDetachment ? 'Détachement — ' : '') + mission.title,
-                pool: mission.pool,
-                country: CapHumaCountries.getCountryName(mission.country_code) || null,
-                desk: mission.desk || null,
-                startDate: mission.contract_start_date || null,
-                endDate: exitDate,
-                comments: evaluations.map(e => ({
-                    context: e.context,
-                    positive_points: e.positive_points,
-                    negative_points: e.negative_points,
-                    rating: e.rating,
-                    author_email: e.author_email,
-                    created_at: e.created_at
-                }))
-            };
-        }
-
-        async function fetchOccupantArchiveContext(occupantId) {
-            const { data: talent, error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('talents')
-                    .select('archived_position_passages, staff_type')
-                    .eq('id', occupantId)
-                    .maybeSingle()
-            );
-            if (error) throw error;
-            return {
-                isNational: !!talent && talent.staff_type === 'national',
-                existingPassages: (talent && Array.isArray(talent.archived_position_passages)) ? talent.archived_position_passages : []
-            };
-        }
-
-        async function saveArchivedPassage(occupantId, updatedPassages) {
-            const { data, error } = await CapHumaData.updateTalent(
-                MissionsPage.supabaseClient, occupantId, { archived_position_passages: updatedPassages }, 'id'
-            );
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                throw new Error("La mise à jour de l'historique du talent n'a affecté aucune ligne (policy RLS ?).");
-            }
-        }
-
-        async function archivePositionPassage(mission, exitDate, evaluations) {
-            const passage = buildArchivedPassage(mission, exitDate, evaluations);
-            const { isNational, existingPassages } = await fetchOccupantArchiveContext(mission.occupant_id);
-            await saveArchivedPassage(mission.occupant_id, existingPassages.concat([passage]));
-            return isNational;
-        }
-
-        async function clearMissionEvaluations(missionId, evaluations) {
-            if (!evaluations || evaluations.length === 0) return;
-            const { error } = await capHumaWithRetry(() =>
-                MissionsPage.supabaseClient
-                    .from('evaluations')
-                    .delete()
-                    .eq('mission_id', missionId)
-            );
-            if (error) throw error;
-        }
-
-        function buildOccupantExitPayload(exitDate, occupantIsNational) {
-            const payload = {
-                is_currently_on_mission: false,
-                last_mission_end_date: exitDate,
-                status: 'En attente de poste'
-            };
-            if (occupantIsNational) payload.national_inactive_since = exitDate;
-            return payload;
-        }
-
-        async function updateOccupantAvailabilityAfterExit(occupantId, exitDate, occupantIsNational) {
-            const payload = buildOccupantExitPayload(exitDate, occupantIsNational);
-            const { data, error } = await CapHumaData.updateTalent(MissionsPage.supabaseClient, occupantId, payload, 'id');
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                throw new Error("La mise à jour du statut du talent sortant n'a affecté aucune ligne (policy RLS ?).");
-            }
-        }
-
         async function archiveOutgoingOccupant(mission, explicitExitDate = null) {
             if (!mission.occupant_id) return;
 
-            const isDetachment = mission.candidate_type === 'detache';
-            const exitDate = resolveExitDate(explicitExitDate);
-
-            const evaluations = await fetchMissionEvaluations(mission.id);
-            const occupantIsNational = await archivePositionPassage(mission, exitDate, evaluations);
-            await clearMissionEvaluations(mission.id, evaluations);
-
-            if (isDetachment) return;
-
-            await updateOccupantAvailabilityAfterExit(mission.occupant_id, exitDate, occupantIsNational);
+            const { error } = await MissionsPage.supabaseClient.rpc('archive_mission_occupant', {
+                p_mission_id: mission.id,
+                p_exit_date: explicitExitDate
+            });
+            if (error) throw error;
         }
 
         async function markIncomingOccupant(talentId, candidateType) {

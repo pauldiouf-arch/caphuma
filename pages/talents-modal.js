@@ -451,7 +451,7 @@
                 if (passages.length) {
                     html += '<p class="font-bold text-slate-700 mb-2">Missions passées</p>';
                     passages.forEach(p => {
-                        html += `<div class="mb-2 pb-2 border-b border-slate-200"><p class="font-semibold">${escapeHtml(p.positionTitle || '')} — ${escapeHtml(p.country || '')}</p></div>`;
+                        html += `<div class="mb-2 pb-2 border-b border-slate-200"><p class="font-semibold">${escapeHtml(p.positionTitle || '')} — ${escapeHtml(CapHumaCountries.getPassageCountry(p) || '')}</p></div>`;
                     });
                 }
                 if (history.length) {

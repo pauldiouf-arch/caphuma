@@ -230,6 +230,11 @@ const CapHumaCountries = (() => {
         return lang === 'en' ? c.nationalityEn : c.nationalityFr;
     }
 
+    function getPassageCountry(passage, lang = 'fr') {
+        if (passage.countryCode) return getCountryName(passage.countryCode, lang) || passage.countryCode;
+        return passage.country || null;
+    }
+
     function findCodeByText(text) {
         const n = normalize(text);
         if (!n) return null;
@@ -242,5 +247,5 @@ const CapHumaCountries = (() => {
         return hit ? hit.code : null;
     }
 
-    return { getAll, getCountryName, getNationality, findCodeByText };
+    return { getAll, getCountryName, getNationality, getPassageCountry, findCodeByText };
 })();

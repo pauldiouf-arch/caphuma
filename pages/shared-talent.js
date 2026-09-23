@@ -78,7 +78,7 @@
                             <div class="space-y-1">
                                 <span class="text-xs font-semibold text-slate-500">${startStr} – ${endStr}${durationMonths !== null ? ` (${durationMonths} m)` : ''}</span>
                                 <h4 class="font-bold text-slate-800">${escapeHtml(p.positionTitle)}</h4>
-                                <p class="text-xs text-slate-500">${escapeHtml(p.country || "Mission ALIMA")}</p>
+                                <p class="text-xs text-slate-500">${escapeHtml(CapHumaCountries.getPassageCountry(p) || "Mission ALIMA")}</p>
                             </div>
                         </div>
                     `;
