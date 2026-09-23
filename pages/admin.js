@@ -8,17 +8,13 @@
         });
 
         const appBody = document.getElementById('appBody');
-        let supabaseClient = null;
+        const supabaseClient = capHumaGetSupabaseClient();
         let accountsList = [];
         let poolsList = [];
         let pendingConfirmAction = null;
         let currentUserId = null;
         let currentUserEmail = null;
         let currentUserName = null;
-
-        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            supabaseClient = capHumaGetSupabaseClient();
-        }
 
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
@@ -30,10 +26,6 @@
         );
 
         async function checkSession() {
-            if (!supabaseClient) {
-                showError("Configuration Supabase introuvable (shared/caphuma-config.js manquant ou non chargé).");
-                return;
-            }
             try {
                 let s;
                 try {
@@ -465,20 +457,20 @@
             }
         });
 
-        document.querySelectorAll('.admin-tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.admin-tab-btn').forEach(b => {
-                    b.classList.remove('border-primary', 'text-primary');
-                    b.classList.add('border-transparent', 'text-slate-500');
-                });
-                btn.classList.add('border-primary', 'text-primary');
-                btn.classList.remove('border-transparent', 'text-slate-500');
-
-                document.getElementById('tab-accounts').classList.add('hidden');
-                document.getElementById('tab-pools').classList.add('hidden');
-                document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
-            });
-        });
+        const adminTabs = Array.from(document.querySelectorAll('.admin-tab-btn'));
+        const selectAdminTab = capHumaInitTabs(
+            document.getElementById('adminTabs'),
+            adminTabs,
+            tab => document.getElementById('tab-' + tab.dataset.tab),
+            activeTab => adminTabs.forEach(tab => {
+                const isActive = tab === activeTab;
+                tab.classList.toggle('border-primary', isActive);
+                tab.classList.toggle('text-primary', isActive);
+                tab.classList.toggle('border-transparent', !isActive);
+                tab.classList.toggle('text-slate-500', !isActive);
+            })
+        );
+        selectAdminTab(adminTabs[0]);
 
         document.getElementById('accounts-tbody').addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('.btn-toggle-active');
@@ -500,7 +492,7 @@
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
-            if (supabaseClient) await supabaseClient.auth.signOut();
+            await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });
 

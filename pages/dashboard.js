@@ -1,10 +1,6 @@
 (() => {
         renderDashboardLayout();
 
-        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-            window.location.replace('index.html');
-        }
-
         const supabaseClient = capHumaGetSupabaseClient();
 
         const appBody = document.getElementById('appBody');

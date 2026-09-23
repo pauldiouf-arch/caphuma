@@ -9,7 +9,7 @@ const StatisticsPage = {};
         });
 
         const appBody = document.getElementById('appBody');
-        StatisticsPage.supabaseClient = null;
+        StatisticsPage.supabaseClient = capHumaGetSupabaseClient();
         StatisticsPage.poolList = [];
         StatisticsPage.rawTalents = [];
         StatisticsPage.rawMissions = [];
@@ -22,10 +22,6 @@ const StatisticsPage = {};
         StatisticsPage.currentUserRole = null;
         StatisticsPage.currentUserName = null;
 
-        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            StatisticsPage.supabaseClient = capHumaGetSupabaseClient();
-        }
-
         const logAuditAction = capHumaMakeAuditLogger(
             () => StatisticsPage.supabaseClient,
             () => ({
@@ -36,10 +32,6 @@ const StatisticsPage = {};
         );
 
         async function checkSession() {
-            if (!StatisticsPage.supabaseClient) {
-                showError("Configuration Supabase introuvable (shared/caphuma-config.js manquant ou non chargé).");
-                return;
-            }
             try {
                 let s;
                 try {
@@ -78,7 +70,7 @@ const StatisticsPage = {};
 
                 const selector = document.getElementById('pool-selector');
                 StatisticsPage.poolList.forEach(p => {
-                    const pCode = p.pool_id || p.poolId;
+                    const pCode = p.pool_id;
                     const opt = document.createElement('option');
                     opt.value = pCode;
                     opt.textContent = `${pCode} - ${p.full_name || p.fullName || p.name}`;
@@ -93,11 +85,11 @@ const StatisticsPage = {};
                 if (queryPool) {
                     const normalizedQuery = queryPool.trim().toUpperCase();
                     const matchedPool = StatisticsPage.poolList.find(p => {
-                        const code = (p.pool_id || p.poolId || p.name || "").toUpperCase();
+                        const code = (p.pool_id || p.name || "").toUpperCase();
                         return code === normalizedQuery;
                     });
                     if (matchedPool) {
-                        selector.value = matchedPool.pool_id || matchedPool.poolId;
+                        selector.value = matchedPool.pool_id;
                     }
                 }
 
@@ -132,7 +124,7 @@ const StatisticsPage = {};
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', StatisticsPage.currentUserId, StatisticsPage.currentUserEmail, null);
-            if (StatisticsPage.supabaseClient) await StatisticsPage.supabaseClient.auth.signOut();
+            await StatisticsPage.supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });
 

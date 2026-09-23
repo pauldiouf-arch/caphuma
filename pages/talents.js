@@ -17,8 +17,6 @@ const TalentsPage = {};
             `
         });
 
-        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) window.location.replace('index.html');
-
         TalentsPage.supabaseClient = capHumaGetSupabaseClient();
 
         const urlParams = new URLSearchParams(window.location.search);

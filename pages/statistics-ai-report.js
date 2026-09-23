@@ -3,34 +3,35 @@
             return {
                 pool: selectorValue,
                 totalTalents: talents.length,
-                talentsActifs: talents.filter(t => t.isValid !== false && t.is_valid !== false).length,
+                talentsActifs: talents.filter(t => t.is_valid !== false).length,
                 talentsDisponibles: talents.filter(t => {
-                    const isVal = t.isValid !== false && t.is_valid !== false;
-                    const isRed = t.isRedListed || t.is_red_listed;
+                    const isVal = t.is_valid !== false;
+                    const isRed = t.is_red_listed;
                     return isVal && !isRed && t.status === 'En attente de poste';
                 }).length,
                 talentsARisque: talents.filter(t => {
-                    const isVal = t.isValid !== false && t.is_valid !== false;
+                    const isVal = t.is_valid !== false;
                     return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
                 }).length,
                 totalMissions: mData.length,
                 missionsOccupees: mData.filter(m => m.status === 'occupied').length,
                 missionsEnRecrutement: mData.filter(m => m.status === 'recruiting').length,
                 missionsVacantes: mData.filter(m => m.status === 'vacant').length,
-                proportionExpat: mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length,
-                proportionNational: mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length
+                proportionExpat: mData.filter(m => m.candidate_type === 'expat').length,
+                proportionNational: mData.filter(m => m.candidate_type === 'nat').length,
+                proportionDetachement: mData.filter(m => m.candidate_type === 'detache').length
             };
         }
 
         // Comptages seuls : ventiler genre/nationalités par pool contournerait AI_DIVERSITY_MIN_ACTIVE_TALENTS.
         function computePoolBreakdown() {
             return StatisticsPage.poolList.map(p => {
-                const code = (p.pool_id || p.poolId || '').toUpperCase();
+                const code = (p.pool_id || '').toUpperCase();
                 if (!code) return null;
 
                 const tPool = StatisticsPage.rawTalents.filter(t => (t.pool || '').toUpperCase() === code);
                 const mPool = StatisticsPage.rawMissions.filter(m => {
-                    const mp = (m.pool_id || m.poolId || m.pool || '').toUpperCase();
+                    const mp = (m.pool_id || m.pool || '').toUpperCase();
                     return mp === code;
                 });
 
@@ -38,14 +39,14 @@
                     pool: code,
                     nom: p.full_name || p.name || code,
                     totalTalents: tPool.length,
-                    talentsActifs: tPool.filter(t => t.isValid !== false && t.is_valid !== false).length,
+                    talentsActifs: tPool.filter(t => t.is_valid !== false).length,
                     talentsDisponibles: tPool.filter(t => {
-                        const isVal = t.isValid !== false && t.is_valid !== false;
-                        const isRed = t.isRedListed || t.is_red_listed;
+                        const isVal = t.is_valid !== false;
+                        const isRed = t.is_red_listed;
                         return isVal && !isRed && t.status === 'En attente de poste';
                     }).length,
                     talentsARisque: tPool.filter(t => {
-                        const isVal = t.isValid !== false && t.is_valid !== false;
+                        const isVal = t.is_valid !== false;
                         return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
                     }).length,
                     totalPostes: mPool.length,
@@ -65,7 +66,7 @@
             if (selectorValue !== 'global') {
                 talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
                 mData = mData.filter(m => {
-                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
+                    const mPool = (m.pool_id || m.pool || "").toUpperCase();
                     return mPool === selectorValue.toUpperCase();
                 });
             }

@@ -8,7 +8,7 @@
             if (selectorValue !== 'global') {
                 talents = talents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
                 mData = mData.filter(m => {
-                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
+                    const mPool = (m.pool_id || m.pool || "").toUpperCase();
                     return mPool === selectorValue.toUpperCase();
                 });
             }
@@ -19,16 +19,16 @@
             const recruitingPositions = mData.filter(m => m.status === 'recruiting').length;
 
             const occupancyRate = totalPositions > 0 ? Math.round((occupiedPositions / totalPositions) * 100) : 0;
-            const activeTalents = talents.filter(t => t.isValid !== false && t.is_valid !== false).length;
+            const activeTalents = talents.filter(t => t.is_valid !== false).length;
 
             const availableTalents = talents.filter(t => {
-                const isVal = t.isValid !== false && t.is_valid !== false;
-                const isRed = t.isRedListed || t.is_red_listed;
+                const isVal = t.is_valid !== false;
+                const isRed = t.is_red_listed;
                 return isVal && !isRed && t.status === 'En attente de poste';
             }).length;
 
             const talentsAtRisk = talents.filter(t => {
-                const isVal = t.isValid !== false && t.is_valid !== false;
+                const isVal = t.is_valid !== false;
                 return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
             }).length;
 
@@ -42,9 +42,7 @@
 
             renderStatusChart([occupiedPositions, recruitingPositions, vacantPositions]);
 
-            const hasCandidateTypeColumn = mData.some(m => 'candidate_type' in m || 'candidateType' in m);
-
-            if (!hasCandidateTypeColumn) {
+            if (mData.length === 0) {
                 document.getElementById('expatChart').classList.add('hidden');
                 document.getElementById('expatChartEmptyState').classList.remove('hidden');
                 if (StatisticsPage.expatChartInstance) {
@@ -54,15 +52,16 @@
             } else {
                 document.getElementById('expatChart').classList.remove('hidden');
                 document.getElementById('expatChartEmptyState').classList.add('hidden');
-                const expatCount = mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length;
-                const nationalCount = mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length;
-                const unclassifiedCount = totalPositions - (expatCount + nationalCount);
-                renderExpatChart([expatCount, nationalCount, unclassifiedCount]);
+                const expatCount = mData.filter(m => m.candidate_type === 'expat').length;
+                const nationalCount = mData.filter(m => m.candidate_type === 'nat').length;
+                const detachedCount = mData.filter(m => m.candidate_type === 'detache').length;
+                const unclassifiedCount = totalPositions - (expatCount + nationalCount + detachedCount);
+                renderExpatChart([expatCount, nationalCount, detachedCount, unclassifiedCount]);
             }
 
             const activeTalentsForDiversity = talents.filter(t => {
-                const isVal = t.isValid !== false && t.is_valid !== false;
-                const isRed = t.isRedListed || t.is_red_listed;
+                const isVal = t.is_valid !== false;
+                const isRed = t.is_red_listed;
                 return isVal && !isRed;
             });
             updateDiversityCharts(activeTalentsForDiversity);
@@ -80,7 +79,7 @@
             }
             card.classList.remove('hidden');
 
-            const poolInfo = StatisticsPage.poolList.find(p => (p.pool_id || p.poolId || "").toUpperCase() === selectorValue.toUpperCase());
+            const poolInfo = StatisticsPage.poolList.find(p => (p.pool_id || "").toUpperCase() === selectorValue.toUpperCase());
             document.getElementById('detailed-stats-pool-name').textContent = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
 
             const now = Date.now();
@@ -185,11 +184,11 @@
             StatisticsPage.expatChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['Expatrié', 'Staff national', 'Non défini'],
+                    labels: ['Expatrié', 'Staff national', 'Détachement', 'Non défini'],
                     datasets: [{
                         label: 'Postes',
                         data: dataValues,
-                        backgroundColor: ['#1d4ed8', '#10b981', '#cbd5e1'],
+                        backgroundColor: ['#1d4ed8', '#10b981', '#d97706', '#cbd5e1'],
                         borderRadius: 8
                     }]
                 },

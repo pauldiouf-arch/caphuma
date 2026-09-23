@@ -17,7 +17,7 @@
             document.getElementById('pool-ai-analysis-content').innerHTML = '';
             document.getElementById('pool-ai-analysis-error').classList.add('hidden');
 
-            const poolInfo = StatisticsPage.poolList.find(p => (p.pool_id || p.poolId || "").toUpperCase() === selectorValue.toUpperCase());
+            const poolInfo = StatisticsPage.poolList.find(p => (p.pool_id || "").toUpperCase() === selectorValue.toUpperCase());
             document.getElementById('pool-ai-analysis-pool-name').textContent = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
         }
 
@@ -41,8 +41,9 @@
                 return t > now && t <= sixMonthsLater;
             }).length;
 
-            const expatPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'expat').length;
-            const nationalPositions = mData.filter(m => (m.candidate_type || m.candidateType) === 'nat').length;
+            const expatPositions = mData.filter(m => m.candidate_type === 'expat').length;
+            const nationalPositions = mData.filter(m => m.candidate_type === 'nat').length;
+            const detachedPositions = mData.filter(m => m.candidate_type === 'detache').length;
 
             const positionsByCountry = {};
             mData.forEach(m => {
@@ -70,7 +71,7 @@
                 endingIn3Months: endingWithin(threeMonthsLater),
                 endingIn6Months: endingWithin(sixMonthsLater),
                 renewableContractsSoon: renewableSoon,
-                candidateTypeDistribution: { expatries: expatPositions, nationaux: nationalPositions },
+                candidateTypeDistribution: { expatries: expatPositions, nationaux: nationalPositions, detachements: detachedPositions },
                 positionsByCountry,
                 positionsByDesk,
                 preparationRatePercent: preparationRate
@@ -79,8 +80,8 @@
 
         function computeActiveTalents(talentsForPool) {
             return talentsForPool.filter(t => {
-                const isVal = t.isValid !== false && t.is_valid !== false;
-                const isRed = t.isRedListed || t.is_red_listed;
+                const isVal = t.is_valid !== false;
+                const isRed = t.is_red_listed;
                 return isVal && !isRed;
             });
         }
@@ -108,9 +109,9 @@
         }
 
         function computeRedListAndRiskStats(talentsForPool) {
-            const redListedCount = talentsForPool.filter(t => t.is_red_listed || t.isRedListed).length;
+            const redListedCount = talentsForPool.filter(t => t.is_red_listed).length;
             const atRiskCount = talentsForPool.filter(t => {
-                const isVal = t.isValid !== false && t.is_valid !== false;
+                const isVal = t.is_valid !== false;
                 return isVal && calculateMonthsWithoutMission(t) >= DEVALIDATION_AT_RISK_MONTHS;
             }).length;
             return { redListedCount, atRiskCount };
@@ -274,12 +275,12 @@
 
             try {
                 const mData = StatisticsPage.rawMissions.filter(m => {
-                    const mPool = (m.pool_id || m.poolId || m.pool || "").toUpperCase();
+                    const mPool = (m.pool_id || m.pool || "").toUpperCase();
                     return mPool === selectorValue.toUpperCase();
                 });
                 const talentsForPool = StatisticsPage.rawTalents.filter(t => (t.pool || "").toUpperCase() === selectorValue.toUpperCase());
 
-                const poolInfo = StatisticsPage.poolList.find(p => (p.pool_id || p.poolId || "").toUpperCase() === selectorValue.toUpperCase());
+                const poolInfo = StatisticsPage.poolList.find(p => (p.pool_id || "").toUpperCase() === selectorValue.toUpperCase());
                 const poolLabel = poolInfo ? (poolInfo.full_name || poolInfo.name) : selectorValue;
 
                 const stats = buildPoolAnalysisStats(mData, talentsForPool);

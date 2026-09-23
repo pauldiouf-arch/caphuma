@@ -13,7 +13,7 @@
         });
 
         const appBody = document.getElementById('appBody');
-        let supabaseClient = null;
+        const supabaseClient = capHumaGetSupabaseClient();
         let redListTalents = [];
         let redListPage = 1;
         let pendingConfirmAction = null;
@@ -35,10 +35,6 @@
         const REDLIST_MAX_FILE_SIZE_MB = 10;
         const REDLIST_MAX_FILE_SIZE_BYTES = REDLIST_MAX_FILE_SIZE_MB * 1024 * 1024;
 
-        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            supabaseClient = capHumaGetSupabaseClient();
-        }
-
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
             () => ({
@@ -49,10 +45,6 @@
         );
 
         async function checkSession() {
-            if (!supabaseClient) {
-                showError("Configuration Supabase introuvable dans le localStorage.");
-                return;
-            }
             try {
                 let s;
                 try {
@@ -520,7 +512,7 @@
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
-            if (supabaseClient) await supabaseClient.auth.signOut();
+            await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });
 

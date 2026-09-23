@@ -311,7 +311,7 @@ function capHumaInitTabs(tabList, tabs, panelFor, onSelect) {
             event.preventDefault();
             const target = tabs[(targetIndex + tabs.length) % tabs.length];
             target.focus();
-            select(target);
+            target.click();
         });
     });
 

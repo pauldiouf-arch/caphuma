@@ -9,14 +9,10 @@
         });
 
         const appBody = document.getElementById('appBody');
-        let supabaseClient = null;
+        const supabaseClient = capHumaGetSupabaseClient();
         let currentUserId = null;
         let currentUserEmail = null;
         let currentUserName = null;
-
-        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            supabaseClient = capHumaGetSupabaseClient();
-        }
 
         const logAuditAction = capHumaMakeAuditLogger(
             () => supabaseClient,
@@ -24,10 +20,6 @@
         );
 
         async function checkSession() {
-            if (!supabaseClient) {
-                window.location.replace('login.html');
-                return;
-            }
             try {
                 const s = await capHumaInitSession(supabaseClient);
                 currentUserId = s.userId;
@@ -54,7 +46,7 @@
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
-            if (supabaseClient) await supabaseClient.auth.signOut();
+            await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });
 
@@ -64,18 +56,19 @@
         const missionImportSection = document.getElementById('missionImportSection');
         const pageHeaderTitle = document.getElementById('pageHeaderTitle');
 
-        function setImportMode(mode) {
-            const isTalents = mode === 'talents';
-            talentImportSection.classList.toggle('hidden', !isTalents);
-            missionImportSection.classList.toggle('hidden', isTalents);
-            tabBtnTalents.className = 'import-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition-all ' +
-                (isTalents ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-50');
-            tabBtnMissions.className = 'import-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition-all ' +
-                (!isTalents ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-50');
-            pageHeaderTitle.textContent = isTalents ? 'Import de talents' : 'Import de postes';
-        }
-        tabBtnTalents.addEventListener('click', () => setImportMode('talents'));
-        tabBtnMissions.addEventListener('click', () => setImportMode('missions'));
+        const importTabs = [tabBtnTalents, tabBtnMissions];
+        const selectImportTab = capHumaInitTabs(
+            document.getElementById('importTabs'),
+            importTabs,
+            tab => tab === tabBtnTalents ? talentImportSection : missionImportSection,
+            activeTab => importTabs.forEach(tab => {
+                tab.className = 'import-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition-all ' +
+                    (tab === activeTab ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-50');
+            })
+        );
+        selectImportTab(tabBtnTalents);
+        tabBtnTalents.addEventListener('click', () => { pageHeaderTitle.textContent = 'Import de talents'; });
+        tabBtnMissions.addEventListener('click', () => { pageHeaderTitle.textContent = 'Import de postes'; });
 
         let cachedPools = [];
         let cachedExistingEmails = new Set();

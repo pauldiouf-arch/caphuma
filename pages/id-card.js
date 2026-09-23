@@ -13,7 +13,7 @@ const IdCardPage = {};
         });
 
         const appBody = document.getElementById('appBody');
-        IdCardPage.supabaseClient = null;
+        IdCardPage.supabaseClient = capHumaGetSupabaseClient();
         IdCardPage.talentId = null;
         let talent = null;
         let activeMission = null;
@@ -61,15 +61,7 @@ const IdCardPage = {};
             };
         }
 
-        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-            IdCardPage.supabaseClient = capHumaGetSupabaseClient();
-        }
-
         async function checkSession() {
-            if (!IdCardPage.supabaseClient) {
-                showError("Configuration Supabase introuvable dans le localStorage.");
-                return;
-            }
             try {
                 let s;
                 try {
