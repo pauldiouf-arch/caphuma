@@ -156,13 +156,23 @@
                 `).join('');
         }
 
+        const STATUS_CHART_LABELS = ['Occupé', 'En recrutement', 'Vacant'];
+        const TYPE_CHART_LABELS = ['Expatrié', 'Staff national', 'Détachement', 'Non défini'];
+        const GENDER_CHART_LABELS = ['Femmes', 'Hommes', 'Non renseigné'];
+
+        function describeChart(canvasId, title, labels, values) {
+            const canvas = document.getElementById(canvasId);
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', `${title} : ${labels.map((label, i) => `${label} ${values[i]}`).join(', ')}`);
+        }
+
         function renderStatusChart(dataValues) {
             if (StatisticsPage.statusChartInstance) StatisticsPage.statusChartInstance.destroy();
             const ctx = document.getElementById('statusChart').getContext('2d');
             StatisticsPage.statusChartInstance = new Chart(ctx, {
                 type: 'pie',
                 data: {
-                    labels: ['Occupé', 'En recrutement', 'Vacant'],
+                    labels: STATUS_CHART_LABELS,
                     datasets: [{
                         data: dataValues,
                         backgroundColor: ['#10b981', '#ea580c', '#94a3b8'],
@@ -176,6 +186,7 @@
                     plugins: { legend: { position: 'bottom' } }
                 }
             });
+            describeChart('statusChart', 'Répartition des Postes', STATUS_CHART_LABELS, dataValues);
         }
 
         function renderExpatChart(dataValues) {
@@ -184,7 +195,7 @@
             StatisticsPage.expatChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['Expatrié', 'Staff national', 'Détachement', 'Non défini'],
+                    labels: TYPE_CHART_LABELS,
                     datasets: [{
                         label: 'Postes',
                         data: dataValues,
@@ -199,6 +210,7 @@
                     scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
                 }
             });
+            describeChart('expatChart', 'Répartition des Postes par Type', TYPE_CHART_LABELS, dataValues);
         }
 
         const NATIONALITY_CHART_TOP_N = 8;
@@ -250,12 +262,13 @@
         function renderGenderChart(dist) {
             if (StatisticsPage.genderChartInstance) StatisticsPage.genderChartInstance.destroy();
             const ctx = document.getElementById('genderChart').getContext('2d');
+            const genderValues = [dist.femmes, dist.hommes, dist.nonRenseigne];
             StatisticsPage.genderChartInstance = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Femmes', 'Hommes', 'Non renseigné'],
+                    labels: GENDER_CHART_LABELS,
                     datasets: [{
-                        data: [dist.femmes, dist.hommes, dist.nonRenseigne],
+                        data: genderValues,
                         backgroundColor: ['#ea580c', '#1d4ed8', '#cbd5e1'],
                         borderWidth: 2,
                         borderColor: '#ffffff'
@@ -267,6 +280,7 @@
                     plugins: { legend: { position: 'bottom' } }
                 }
             });
+            describeChart('genderChart', 'Répartition par Genre', GENDER_CHART_LABELS, genderValues);
         }
 
         function renderNationalityChart(topEntries, othersTotal, nonRenseigne) {
@@ -298,6 +312,7 @@
                     scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
                 }
             });
+            describeChart('nationalityChart', 'Répartition par Nationalité', labels, values);
         }
 
         StatisticsPage.updateStatistics = updateStatistics;
