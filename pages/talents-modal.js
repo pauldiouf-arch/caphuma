@@ -51,7 +51,7 @@
             const chip = document.createElement('span');
             chip.className = 'tag-chip';
             chip.dataset.value = value;
-            chip.innerHTML = `${escapeHtml(value)} <button type="button">&times;</button>`;
+            chip.innerHTML = `${escapeHtml(value)} <button type="button" aria-label="Retirer ${escapeHtml(value)}">&times;</button>`;
             chip.querySelector('button').addEventListener('click', () => chip.remove());
             wrap.appendChild(chip);
         }
@@ -275,11 +275,11 @@
             const row = document.createElement('div');
             row.className = 'training-row grid grid-cols-12 gap-2 items-center bg-slate-50 border border-slate-200 rounded-lg p-2';
             row.innerHTML = `
-                <input class="training-name col-span-4 rounded border border-slate-200 p-1.5 text-xs" placeholder="Nom formation" value="${escapeHtml(training.name || '')}" />
-                <input class="training-date col-span-3 rounded border border-slate-200 p-1.5 text-xs" type="date" value="${escapeHtml(training.date ? training.date.substring(0,10) : '')}" />
-                <input class="training-duration col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Durée" value="${escapeHtml(training.duration || '')}" />
-                <input class="training-desc col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Description" value="${escapeHtml(training.description || '')}" />
-                <button type="button" class="removeTrainingBtn col-span-1 text-red-500 text-lg">&times;</button>
+                <input aria-label="Nom de la formation" class="training-name col-span-4 rounded border border-slate-200 p-1.5 text-xs" placeholder="Nom formation" value="${escapeHtml(training.name || '')}" />
+                <input aria-label="Date de la formation" class="training-date col-span-3 rounded border border-slate-200 p-1.5 text-xs" type="date" value="${escapeHtml(training.date ? training.date.substring(0,10) : '')}" />
+                <input aria-label="Durée de la formation" class="training-duration col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Durée" value="${escapeHtml(training.duration || '')}" />
+                <input aria-label="Description de la formation" class="training-desc col-span-2 rounded border border-slate-200 p-1.5 text-xs" placeholder="Description" value="${escapeHtml(training.description || '')}" />
+                <button type="button" aria-label="Retirer la formation" class="removeTrainingBtn col-span-1 text-red-500 text-lg">&times;</button>
             `;
             row.querySelector('.removeTrainingBtn').addEventListener('click', () => row.remove());
             document.getElementById('trainingsList').appendChild(row);

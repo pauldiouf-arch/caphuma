@@ -111,7 +111,7 @@
 
                     textEl.outerHTML = `
                         <div class="space-y-2">
-                            <textarea class="edit-comment-textarea w-full rounded-xl border border-slate-200 p-2 text-sm outline-none focus:border-primary resize-none" rows="3">${escapeHtml(comment.content)}</textarea>
+                            <textarea aria-label="Modifier le commentaire" class="edit-comment-textarea w-full rounded-xl border border-slate-200 p-2 text-sm outline-none focus:border-primary resize-none" rows="3">${escapeHtml(comment.content)}</textarea>
                             <div class="flex justify-end gap-2">
                                 <button class="btn-cancel-edit-comment text-xs font-semibold text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-lg">Annuler</button>
                                 <button class="btn-save-edit-comment text-xs font-semibold text-white bg-primary hover:bg-primary-dark px-3 py-1.5 rounded-lg">Enregistrer</button>
