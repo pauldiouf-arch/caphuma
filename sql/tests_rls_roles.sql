@@ -236,7 +236,7 @@ begin
 
     begin
         insert into audit_logs (user_id, user_email, action, entity_type, entity_name)
-        values (v_visitor_id, v_visitor_email, 'test_a3', 'test', 'test');
+        values (v_visitor_id, 'usurpation-a3@example.com', 'login', 'user', 'TEST-A3-AUTEUR');
         v_ok := v_ok + 1; v_report := v_report || 'A3-15 OK - visitor a bien pu journaliser sa propre action' || chr(10);
     exception when others then
         v_fail := v_fail + 1; v_report := v_report || format('A3-15 ECHEC - INSERT bloque alors qu''il devrait etre autorise (%s)', sqlerrm) || chr(10);
@@ -244,7 +244,7 @@ begin
 
     begin
         insert into audit_logs (user_id, user_email, action, entity_type, entity_name)
-        values (v_admin_id, v_admin_email, 'test_a3_usurpation', 'test', 'test');
+        values (v_admin_id, v_admin_email, 'login', 'user', 'TEST-A3-USURPATION');
         v_fail := v_fail + 1; v_report := v_report || 'A3-16 ECHEC - visitor a reussi a usurper un autre user_id' || chr(10);
     exception when others then
         v_ok := v_ok + 1; v_report := v_report || 'A3-16 OK - usurpation bloquee comme attendu' || chr(10);
@@ -430,8 +430,21 @@ begin
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-40 OK - admin suspendu ne voit plus audit_logs' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-40 ECHEC - admin suspendu voit %s ligne(s) d''audit_logs (attendu 0)', v_count) || chr(10); end if;
 
+    begin
+        insert into audit_logs (user_id, action, entity_type)
+        values (v_admin_id, 'action_inventee', 'user');
+        v_fail := v_fail + 1; v_report := v_report || 'A3-42 ECHEC - admin a journalise une action inconnue' || chr(10);
+    exception when check_violation then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-42 OK - action inconnue refusee par la contrainte' || chr(10);
+    end;
+
     -- Bilan et rollback force
     perform set_config('role', v_admin_role, true);
+
+    select count(*) into v_count from audit_logs
+        where entity_name = 'TEST-A3-AUTEUR' and user_email = v_visitor_email;
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-41 OK - e-mail de l''auteur impose par la base (valeur envoyee ignoree)' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-41 ECHEC - l''e-mail envoye par le client a ete conserve dans audit_logs' || chr(10); end if;
 
     v_total := v_ok + v_fail + v_skip;
 
@@ -442,5 +455,5 @@ begin
     end if;
 
     -- Seul un RAISE EXCEPTION est affiche par l'editeur : bilan en premiere ligne, detail ensuite.
-    raise exception E'%\n\n--- Detail des 40 tests ---\n%', v_final_message, v_report;
+    raise exception E'%\n\n--- Detail des 42 tests ---\n%', v_final_message, v_report;
 end $$;
