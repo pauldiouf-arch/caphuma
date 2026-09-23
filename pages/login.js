@@ -52,7 +52,9 @@
 
                 window.location.href = 'dashboard.html';
             } catch (err) {
-                loginError.textContent = "Identifiants incorrects ou compte inexistant.";
+                loginError.textContent = err && err.code === 'user_banned'
+                    ? "Compte suspendu. Contactez un administrateur ALIMA."
+                    : "Identifiants incorrects ou compte inexistant.";
                 loginError.classList.remove('hidden');
                 submitLoginBtn.disabled = false;
                 submitLoginBtn.textContent = 'Se connecter';

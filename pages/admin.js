@@ -84,9 +84,9 @@
             });
 
             // Pas de relance pour reset_password : un 2e appel générerait un second code d'accès.
-            const response = (action === 'create' || action === 'delete')
-                ? await capHumaWithRetry(doFetch)
-                : await doFetch();
+            const response = action === 'reset_password'
+                ? await doFetch()
+                : await capHumaWithRetry(doFetch);
 
             if (response.status === 401 || response.status === 403) {
                 await supabaseClient.auth.signOut();
@@ -155,6 +155,7 @@
 
             tbody.innerHTML = accountsList.map(u => {
                 const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—';
+                const isOwnAccount = u.id === currentUserId;
                 const statusBadge = u.is_active
                     ? '<span class="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">Actif</span>'
                     : '<span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Suspendu</span>';
@@ -169,15 +170,15 @@
                     <td class="py-3 pr-4 text-slate-500 text-xs">${createdDate}</td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5 flex-wrap">
-                            <button class="btn-toggle-active text-xs font-semibold ${u.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-active="${u.is_active}">
+                            ${isOwnAccount ? '' : `<button class="btn-toggle-active text-xs font-semibold ${u.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-active="${u.is_active}">
                                 ${u.is_active ? 'Suspendre' : 'Réactiver'}
-                            </button>
+                            </button>`}
                             <button class="btn-reset-password text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}">
                                 Réinitialiser
                             </button>
-                            <button class="btn-delete-account text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-email="${escapeHtml(u.email || '')}">
+                            ${isOwnAccount ? '' : `<button class="btn-delete-account text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-email="${escapeHtml(u.email || '')}">
                                 Supprimer
-                            </button>
+                            </button>`}
                         </div>
                     </td>
                 </tr>`;
@@ -194,16 +195,12 @@
                 actionLabel: nextState ? "Réactiver" : "Suspendre",
                 icon: nextState ? CapHumaIcons.get('checkCircle', 'w-10 h-10 mx-auto text-emerald-500') : CapHumaIcons.get('pause', 'w-10 h-10 mx-auto text-amber-500'),
                 onConfirm: async () => {
-                    const { error } = await capHumaWithRetry(() =>
-                        supabaseClient
-                            .from('users')
-                            .update({ is_active: nextState })
-                            .eq('id', userId)
-                    );
-                    if (error) throw error;
-                    const targetAccount = accountsList.find(a => a.id === userId);
-                    await logAuditAction('update', 'user', userId, targetAccount ? (targetAccount.name || targetAccount.email) : userId, nextState ? "Réactivation du compte" : "Suspension du compte");
-                    toastMessage(nextState ? "Compte réactivé." : "Compte suspendu.");
+                    const result = await callManageUsers(nextState ? 'reactivate' : 'suspend', { userId });
+                    if (result.warning) {
+                        toastMessage(result.warning, "error");
+                    } else {
+                        toastMessage(nextState ? "Compte réactivé." : "Compte suspendu.");
+                    }
                     await loadAccounts();
                 }
             });
