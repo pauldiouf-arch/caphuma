@@ -157,7 +157,18 @@ const TalentsPage = {};
             }
         }
 
-        async function fetchAllTalents() {
+        let pendingAllTalentsRequest = null;
+
+        function fetchAllTalents() {
+            if (!pendingAllTalentsRequest) {
+                pendingAllTalentsRequest = requestAllTalents().finally(() => {
+                    pendingAllTalentsRequest = null;
+                });
+            }
+            return pendingAllTalentsRequest;
+        }
+
+        async function requestAllTalents() {
             const listEl = document.getElementById('talentsList');
             const errorEl = document.getElementById('listError');
             try {
@@ -194,7 +205,7 @@ const TalentsPage = {};
                 const to = from + PAGE_SIZE - 1;
 
                 const { data, error, count } = await capHumaWithRetry(() => {
-                    // select('*') volontaire, voir fetchAllTalents().
+                    // select('*') volontaire, voir requestAllTalents().
                     let query = TalentsPage.supabaseClient
                         .from('talents')
                         .select('*', { count: 'exact' })

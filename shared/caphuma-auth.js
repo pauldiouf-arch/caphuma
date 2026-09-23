@@ -55,18 +55,47 @@ function capHumaMakeAuditLogger(getSupabaseClient, getCtx) {
     };
 }
 
+const CAPHUMA_LAST_ACTIVITY_KEY = 'caphuma:last-activity';
+const CAPHUMA_ACTIVITY_WRITE_INTERVAL_MS = 30 * 1000;
+
 function capHumaStartIdleTimeout(supabaseClient, idleMs = 5 * 60 * 60 * 1000) {
     let idleTimer;
+    let lastLocalActivity = -Infinity;
 
-    function resetIdle() {
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(async () => {
-            console.warn('[Idle Timeout] Déconnexion automatique après inactivité.');
-            await supabaseClient.auth.signOut();
-            window.location.href = 'login.html';
-        }, idleMs);
+    function lastActivityAcrossTabs() {
+        try {
+            return Math.max(lastLocalActivity, Number(localStorage.getItem(CAPHUMA_LAST_ACTIVITY_KEY)) || 0);
+        } catch (e) {
+            return lastLocalActivity;
+        }
     }
 
-    ['click', 'keydown', 'mousemove'].forEach(ev => document.addEventListener(ev, resetIdle));
-    resetIdle();
+    function scheduleIdleCheck(delayMs) {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(async () => {
+            const idleForMs = Date.now() - lastActivityAcrossTabs();
+            if (idleForMs < idleMs) {
+                scheduleIdleCheck(idleMs - idleForMs);
+                return;
+            }
+            console.warn('[Idle Timeout] Déconnexion automatique après inactivité.');
+            await supabaseClient.auth.signOut({ scope: 'local' });
+            window.location.href = 'login.html';
+        }, delayMs);
+    }
+
+    function recordActivity() {
+        const now = Date.now();
+        if (now - lastLocalActivity < CAPHUMA_ACTIVITY_WRITE_INTERVAL_MS) return;
+        lastLocalActivity = now;
+        try {
+            localStorage.setItem(CAPHUMA_LAST_ACTIVITY_KEY, String(now));
+        } catch (e) {
+            console.warn('[Idle Timeout] Activité non partagée entre onglets :', e);
+        }
+        scheduleIdleCheck(idleMs);
+    }
+
+    ['click', 'keydown', 'mousemove'].forEach(ev => document.addEventListener(ev, recordActivity));
+    recordActivity();
 }

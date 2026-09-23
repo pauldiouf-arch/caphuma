@@ -12,6 +12,7 @@
             } catch (err) {
                 console.warn('[Session Check] Aucune session active :', err.message);
             }
+            capHumaDraftClearAll();
             appBody.style.display = 'flex';
         }
 

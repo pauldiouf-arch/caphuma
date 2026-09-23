@@ -28,6 +28,16 @@ function capHumaDraftClear(draftKey) {
     }
 }
 
+function capHumaDraftClearAll() {
+    try {
+        Object.keys(sessionStorage)
+            .filter(key => key.startsWith('draft:'))
+            .forEach(key => sessionStorage.removeItem(key));
+    } catch (e) {
+        console.warn("[Draft] Échec de la suppression des brouillons :", e);
+    }
+}
+
 function capHumaDefaultDraftCollect(containerEl) {
     const data = {};
     containerEl.querySelectorAll('input[name], input[id], textarea[name], textarea[id], select[name], select[id]').forEach(el => {
