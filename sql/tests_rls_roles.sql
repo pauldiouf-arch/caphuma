@@ -9,12 +9,11 @@
 -- ecritures de test. Le bilan est dans ce message (l'editeur n'affiche pas les RAISE NOTICE) :
 --   - "A3 BILAN : TOUS LES TESTS ONT REUSSI" : rien a faire ;
 --   - "A3 BILAN : N ECHEC(S)" : chercher les lignes "A3-XX ECHEC" plus bas ;
---   - "A3-06 IGNORE" : test non executable, ni succes ni echec.
+--   - "A3-33 IGNORE" ou "A3-34 IGNORE" : audit_logs vide, test non executable, ni succes ni echec.
 --
 -- Prerequis : un compte actif de chaque role, dont un visitor, doit exister dans users.
 -- Aucun identifiant reel n'est code en dur, les fiches de test sont factices.
--- Limites : insertion d'evaluation protegee (nullabilite de mission_id non confirmee) ;
--- pas de DELETE reel sur users (protection confirmee via pg_policies).
+-- Limite : pas de DELETE reel sur users (protection confirmee via pg_policies).
 
 do $$
 declare
@@ -47,8 +46,8 @@ declare
     v_comment_redlisted_id     uuid;
     v_comment_control_id       uuid;
     v_comment_owned_by_user_id uuid;
+    v_mission_id               uuid;
     v_eval_devalidated_id      uuid;
-    v_eval_setup_ok            boolean := false;
     v_token_admin_id           uuid;
     v_token_user_id            uuid;
 
@@ -109,17 +108,15 @@ begin
             'TEST RLS temporaire - commentaire du user de test', v_user_email)
     returning id into v_comment_owned_by_user_id;
 
-    -- S8 : evaluation de test, protegee (nullabilite de mission_id non confirmee)
-    begin
-        insert into evaluations (talent_id, author_id, context, author_email)
-        values (v_talent_devalidated_id, v_admin_id,
-                'TEST RLS temporaire - evaluation sur talent devalide', v_admin_email)
-        returning id into v_eval_devalidated_id;
-        v_eval_setup_ok := true;
-    exception when others then
-        v_eval_setup_ok := false;
-        v_report := v_report || format('Setup evaluations ECHEC (%s) - le test A3-06 sera IGNORE', sqlerrm) || chr(10);
-    end;
+    -- S8 : poste et evaluation de test (une evaluation exige un poste)
+    insert into missions (title, pool_level, location, pool)
+    values ('TEST RLS temporaire (A3)', 'mission', 'TEST', 'COLOG')
+    returning id into v_mission_id;
+
+    insert into evaluations (mission_id, talent_id, author_id, context, author_email)
+    values (v_mission_id, v_talent_devalidated_id, v_admin_id,
+            'TEST RLS temporaire - evaluation sur talent devalide', v_admin_email)
+    returning id into v_eval_devalidated_id;
 
     -- S9/S10 : jetons de partage de test
     insert into share_tokens (token, talent_id, created_by, created_by_name, expires_at)
@@ -161,14 +158,9 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-05 ECHEC - visitor voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
 
     -- evaluations : visibilite
-    if v_eval_setup_ok then
-        select count(*) into v_count from evaluations where id = v_eval_devalidated_id;
-        if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-06 OK - visitor ne voit pas l''evaluation liee au talent devalide' || chr(10);
-        else v_fail := v_fail + 1; v_report := v_report || format('A3-06 ECHEC - visitor voit %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
-    else
-        v_skip := v_skip + 1;
-        v_report := v_report || 'A3-06 IGNORE - insertion de test evaluations impossible au setup (voir message ci-dessus)' || chr(10);
-    end if;
+    select count(*) into v_count from evaluations where id = v_eval_devalidated_id;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-06 OK - visitor ne voit pas l''evaluation liee au talent devalide' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-06 ECHEC - visitor voit %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
 
     -- talents : ecriture interdite
     begin
@@ -441,6 +433,19 @@ begin
     -- Bilan et rollback force
     perform set_config('role', v_admin_role, true);
 
+    begin
+        delete from pools where pool_id = 'COLOG';
+        v_fail := v_fail + 1; v_report := v_report || 'A3-43 ECHEC - un pool rattache a des talents a pu etre supprime' || chr(10);
+    exception when foreign_key_violation or restrict_violation then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-43 OK - suppression d''un pool utilise refusee (il s''archive)' || chr(10);
+    end;
+
+    insert into pools (pool_id, name, full_name, level) values ('TESTA3', 'TESTA3', 'TEST RLS temporaire (A3)', 'mission');
+    delete from pools where pool_id = 'TESTA3';
+    get diagnostics v_rows = row_count;
+    if v_rows = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-44 OK - un pool jamais utilise peut etre supprime' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-44 ECHEC - %s pool supprime (attendu 1)', v_rows) || chr(10); end if;
+
     select count(*) into v_count from audit_logs
         where entity_name = 'TEST-A3-AUTEUR' and user_email = v_visitor_email;
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-41 OK - e-mail de l''auteur impose par la base (valeur envoyee ignoree)' || chr(10);
@@ -455,5 +460,5 @@ begin
     end if;
 
     -- Seul un RAISE EXCEPTION est affiche par l'editeur : bilan en premiere ligne, detail ensuite.
-    raise exception E'%\n\n--- Detail des 42 tests ---\n%', v_final_message, v_report;
+    raise exception E'%\n\n--- Detail des 44 tests ---\n%', v_final_message, v_report;
 end $$;
