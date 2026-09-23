@@ -754,28 +754,13 @@ const IdCardPage = {};
                     errorEl.classList.remove('hidden');
                     return;
                 }
-                const previousPool = talent.pool || null;
 
                 try {
-                    const { error: histError } = await IdCardPage.supabaseClient.from('pool_history').insert({
-                        talent_id: IdCardPage.talentId,
-                        from_pool: previousPool,
-                        to_pool: newPool,
-                        changed_by: IdCardPage.currentUserId,
-                        changed_by_name: currentUserName || currentUserEmail
+                    const { error } = await IdCardPage.supabaseClient.rpc('change_talent_pool', {
+                        p_talent_id: IdCardPage.talentId,
+                        p_new_pool: newPool
                     });
-                    if (histError) throw histError;
-
-                    const { data, error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
-                                pool: newPool,
-                                months_without_mission: 0,
-                                last_mission_end_date: null,
-                                pool_integration_date: new Date().toISOString()
-                            }, 'id');
                     if (error) throw error;
-                    if (!data || data.length === 0) {
-                        throw new Error("La mise à jour n'a affecté aucune ligne (policy RLS ?).");
-                    }
 
                     poolChangeModal.classList.add('hidden');
                     toastMessage("Pool mis à jour.", "success");
@@ -826,27 +811,11 @@ const IdCardPage = {};
                 }
 
                 try {
-                    const { error: histError } = await IdCardPage.supabaseClient.from('pool_history').insert({
-                        talent_id: IdCardPage.talentId,
-                        from_pool: null,
-                        to_pool: newPool,
-                        changed_by: IdCardPage.currentUserId,
-                        changed_by_name: currentUserName || currentUserEmail
+                    const { error } = await IdCardPage.supabaseClient.rpc('promote_national_to_expat', {
+                        p_talent_id: IdCardPage.talentId,
+                        p_pool: newPool
                     });
-                    if (histError) throw histError;
-
-                    const { data, error } = await CapHumaData.updateTalent(IdCardPage.supabaseClient, IdCardPage.talentId, {
-                                staff_type: 'expat',
-                                pool: newPool,
-                                national_inactive_since: null,
-                                months_without_mission: 0,
-                                last_mission_end_date: null,
-                                pool_integration_date: new Date().toISOString()
-                            }, 'id');
                     if (error) throw error;
-                    if (!data || data.length === 0) {
-                        throw new Error("La mise à jour n'a affecté aucune ligne (policy RLS ?).");
-                    }
 
                     promoteModal.classList.add('hidden');
                     toastMessage("Le talent est passé en expat.", "success");
