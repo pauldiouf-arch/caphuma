@@ -3,7 +3,7 @@
 -- passent ensemble ou pas du tout. Remplace archive_mission_occupant(), supprimée.
 -- save_mission() refuse l'enregistrement si les postes en conflit ne sont plus ceux affichés à l'écran.
 -- Un seul bloc : tout s'applique ou rien. Rejouable sans risque.
--- Pas encore exécuté en base.
+-- Exécuté en base le 23/09/2026.
 
 do $$
 begin
