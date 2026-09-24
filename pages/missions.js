@@ -65,6 +65,7 @@ const MissionsPage = {};
         MissionsPage.MISSIONS_PAGE_SIZE = 12;
         MissionsPage.MISSIONS_COLUMNS = 'id, title, pool, pool_level, status, country, country_code, location, project_name, candidate_type, desk, occupant_id, contract_start_date, contract_end_date, contract_end_type, contract_status, future_talent_id, future_contract_start_date, future_contract_end_date';
         MissionsPage.poolTalents = [];
+        MissionsPage.poolTalentsLoadFailed = false;
         MissionsPage.talentNameById = {};
 
         const logAuditAction = capHumaMakeAuditLogger(
@@ -179,6 +180,8 @@ const MissionsPage = {};
 
             } catch (error) {
                 console.error("Erreur de récupération des talents du pool :", error);
+                MissionsPage.poolTalentsLoadFailed = true;
+                toastMessage("Liste des talents du pool non chargée : rechargez la page.", 'error');
             }
         }
 

@@ -750,8 +750,7 @@ const IdCardPage = {};
                 errorEl.classList.add('hidden');
                 const newPool = document.getElementById('modal-pool-select').value;
                 if (!newPool) {
-                    errorEl.textContent = "Veuillez choisir un pool de destination.";
-                    errorEl.classList.remove('hidden');
+                    capHumaShowInlineError(errorEl, "Veuillez choisir un pool de destination.");
                     return;
                 }
 
@@ -767,8 +766,7 @@ const IdCardPage = {};
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
-                    errorEl.textContent = "Échec du changement de pool : " + (err.message || 'erreur inconnue');
-                    errorEl.classList.remove('hidden');
+                    capHumaShowInlineError(errorEl, "Échec du changement de pool : " + (err.message || 'erreur inconnue'));
                 }
             };
         }
@@ -805,8 +803,7 @@ const IdCardPage = {};
                 errorEl.classList.add('hidden');
                 const newPool = document.getElementById('modal-promote-pool-select').value;
                 if (!newPool) {
-                    errorEl.textContent = "Veuillez choisir un pool d'intégration.";
-                    errorEl.classList.remove('hidden');
+                    capHumaShowInlineError(errorEl, "Veuillez choisir un pool d'intégration.");
                     return;
                 }
 
@@ -822,8 +819,7 @@ const IdCardPage = {};
                     await loadTalentData();
                 } catch (err) {
                     console.error(err);
-                    errorEl.textContent = "Échec du passage en expat : " + (err.message || 'erreur inconnue');
-                    errorEl.classList.remove('hidden');
+                    capHumaShowInlineError(errorEl, "Échec du passage en expat : " + (err.message || 'erreur inconnue'));
                 }
             };
         }

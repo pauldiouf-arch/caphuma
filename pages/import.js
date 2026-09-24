@@ -71,6 +71,8 @@
         tabBtnMissions.addEventListener('click', () => { pageHeaderTitle.textContent = 'Import de postes'; });
 
         let cachedPools = [];
+        let poolsLoadFailed = false;
+        let emailsLoadFailed = false;
         let cachedExistingEmails = new Set();
         let lastParsedRows = [];
 
@@ -115,6 +117,7 @@
                 cachedPools = data || [];
             } catch (err) {
                 console.error('[Import] Erreur de chargement des pools :', err);
+                poolsLoadFailed = true;
             }
             try {
                 const { data, error } = await CapHumaData.getTalents(supabaseClient, { select: 'email' });
@@ -122,6 +125,7 @@
                 cachedExistingEmails = new Set((data || []).map(t => (t.email || '').trim().toLowerCase()).filter(Boolean));
             } catch (err) {
                 console.error('[Import] Erreur de chargement des emails existants :', err);
+                emailsLoadFailed = true;
             }
         }
 
@@ -885,6 +889,12 @@
             document.getElementById('previewCardMissions').classList.add('hidden');
             if (!file) { statusMsg.textContent = ''; return; }
 
+            if (poolsLoadFailed) {
+                statusMsg.textContent = "La liste des pools n'a pas pu être chargée : rechargez la page avant d'importer.";
+                statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
+                return;
+            }
+
             const fileError = validateImportFile(file);
             if (fileError) {
                 statusMsg.textContent = fileError;
@@ -924,6 +934,12 @@
             const statusMsg = document.getElementById('fileStatusMsg');
             document.getElementById('previewCard').classList.add('hidden');
             if (!file) { statusMsg.textContent = ''; return; }
+
+            if (poolsLoadFailed || emailsLoadFailed) {
+                statusMsg.textContent = "La liste des pools ou des e-mails existants n'a pas pu être chargée : rechargez la page avant d'importer.";
+                statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
+                return;
+            }
 
             const fileError = validateImportFile(file);
             if (fileError) {

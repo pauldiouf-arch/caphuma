@@ -521,8 +521,7 @@
             payload.alima_trainings = getTrainingsValues();
 
             if (!payload.first_name || !payload.last_name || !payload.status) {
-                formError.textContent = "Merci de remplir au minimum Prénom, Nom et Statut (onglets 1 et 2).";
-                formError.classList.remove('hidden');
+                capHumaShowInlineError(formError, "Merci de remplir au minimum Prénom, Nom et Statut (onglets 1 et 2).");
                 return;
             }
 
@@ -552,10 +551,9 @@
                 await TalentsPage.loadTalents();
             } catch (err) {
                 console.error(err);
-                formError.textContent = err.code === '23505'
+                capHumaShowInlineError(formError, err.code === '23505'
                     ? "Un autre talent utilise déjà cet e-mail."
-                    : "Erreur lors de l'enregistrement : " + err.message;
-                formError.classList.remove('hidden');
+                    : "Erreur lors de l'enregistrement : " + err.message);
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.textContent = 'Enregistrer';

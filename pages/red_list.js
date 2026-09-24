@@ -223,7 +223,7 @@
                 selectTalent.disabled = false;
             } catch (e) {
                 console.error(e);
-                showError("Impossible de charger les talents de ce pool : " + e.message);
+                toastMessage("Impossible de charger les talents de ce pool : " + e.message, "error");
             }
         }
 

@@ -293,8 +293,7 @@
                 contentEl.classList.remove('hidden');
             } catch (error) {
                 console.error("Erreur analyse IA du pool :", error);
-                errorEl.textContent = "Impossible de générer l'analyse : " + (error && error.message ? error.message : 'erreur inconnue.');
-                errorEl.classList.remove('hidden');
+                capHumaShowInlineError(errorEl, "Impossible de générer l'analyse : " + (error && error.message ? error.message : 'erreur inconnue.'));
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('hidden');

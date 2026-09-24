@@ -153,15 +153,21 @@ function toastMessage(msg, type = "success") {
     toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl shadow-xl text-white font-semibold text-sm transition-all z-[70] transform translate-y-10 opacity-0 duration-300 ${
         type === 'success' ? 'bg-green-600' : 'bg-red-600'
     }`;
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
+    toast.setAttribute('role', type === 'success' ? 'status' : 'alert');
+    toast.setAttribute('aria-live', type === 'success' ? 'polite' : 'assertive');
     toast.textContent = msg;
     document.body.appendChild(toast);
     setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 100);
     setTimeout(() => {
         toast.classList.add('translate-y-10', 'opacity-0');
         setTimeout(() => toast.remove(), 300);
-    }, 3500);
+    }, type === 'success' ? 3500 : 7000);
+}
+
+function capHumaShowInlineError(el, message) {
+    el.textContent = message;
+    el.classList.remove('hidden');
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 function showError(msg) {

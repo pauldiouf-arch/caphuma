@@ -45,6 +45,8 @@
 
         let currentPools = [];
         let poolStats = {};
+        let talentStatsFailed = false;
+        let missionStatsFailed = false;
         let showArchivedPools = false;
         let currentUserId = null;
         let currentUserEmail = null;
@@ -115,6 +117,7 @@
         async function loadPools() {
             try {
                 const { data: pools, error } = await CapHumaData.getPools(supabaseClient, { orderBy: 'name' });
+                if (error) throw error;
 
                 if (pools && pools.length > 0) {
                     currentPools = pools;
@@ -140,6 +143,8 @@
 
         async function loadPoolStats() {
             poolStats = {};
+            talentStatsFailed = false;
+            missionStatsFailed = false;
 
             try {
                 const { data: rows, error } = await capHumaWithRetry(() =>
@@ -160,6 +165,7 @@
 
             } catch (error) {
                 console.error("Erreur de récupération des KPIs talents :", error);
+                talentStatsFailed = true;
             }
 
             try {
@@ -179,6 +185,14 @@
 
             } catch (error) {
                 console.error("Erreur de récupération des KPIs postes :", error);
+                missionStatsFailed = true;
+            }
+
+            if (talentStatsFailed || missionStatsFailed) {
+                const statsMessage = "Certains chiffres des pools n'ont pas pu être chargés (affichés « — ») : rechargez la page.";
+                capHumaShowInlineError(poolsError, poolsError.classList.contains('hidden')
+                    ? statsMessage
+                    : poolsError.textContent + ' ' + statsMessage);
             }
         }
 
@@ -441,7 +455,9 @@
             }
 
             poolsToRender.forEach(pool => {
-                const stats = poolStats[pool.pool_id] || { active: 0, available: 0, atRisk: 0, positions: 0 };
+                const stats = { ...(poolStats[pool.pool_id] || { active: 0, available: 0, atRisk: 0, positions: 0 }) };
+                if (talentStatsFailed) stats.active = stats.available = stats.atRisk = '—';
+                if (missionStatsFailed) stats.positions = '—';
                 const isArchived = pool.is_archived === true;
 
                 const card = document.createElement('div');

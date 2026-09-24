@@ -229,8 +229,7 @@
             };
 
             if (!payload.context || !payload.rating || payload.rating < 1 || payload.rating > 10) {
-                evaluationFormError.textContent = "Le contexte et une note entre 1 et 10 sont obligatoires.";
-                evaluationFormError.classList.remove('hidden');
+                capHumaShowInlineError(evaluationFormError, "Le contexte et une note entre 1 et 10 sont obligatoires.");
                 return;
             }
 
@@ -267,8 +266,7 @@
 
             } catch (error) {
                 console.error("Erreur d'enregistrement de l'évaluation :", error);
-                evaluationFormError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
-                evaluationFormError.classList.remove('hidden');
+                capHumaShowInlineError(evaluationFormError, "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.'));
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.textContent = evaluationId ? 'Enregistrer les modifications' : "Ajouter l'évaluation";

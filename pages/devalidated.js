@@ -445,8 +445,7 @@
         document.getElementById('redListModalConfirm').addEventListener('click', async () => {
             const reason = redListReasonInput.value.trim();
             if (!reason) {
-                redListModalError.textContent = "Le motif est obligatoire.";
-                redListModalError.classList.remove('hidden');
+                capHumaShowInlineError(redListModalError, "Le motif est obligatoire.");
                 return;
             }
 
@@ -466,8 +465,7 @@
                 await loadDevalidatedTalents();
 
             } catch (error) {
-                redListModalError.textContent = "Erreur : " + (error.message || 'erreur inconnue');
-                redListModalError.classList.remove('hidden');
+                capHumaShowInlineError(redListModalError, "Erreur : " + (error.message || 'erreur inconnue'));
             }
         });
 

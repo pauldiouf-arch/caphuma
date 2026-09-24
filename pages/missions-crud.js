@@ -58,6 +58,8 @@
 
         fieldContractEndType.addEventListener('change', toggleContractEndDateField);
 
+        const POOL_TALENTS_NOT_LOADED = "La liste des talents du pool n'a pas pu être chargée : rechargez la page avant d'enregistrer un poste.";
+
         function refreshOccupantDropdowns() {
             MissionsPage.populateTalentDropdown('fieldOccupant');
             MissionsPage.populateTalentDropdown('fieldFutureOccupant');
@@ -80,6 +82,7 @@
             toggleContractEndDateField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
+            if (MissionsPage.poolTalentsLoadFailed) capHumaShowInlineError(formError, POOL_TALENTS_NOT_LOADED);
         }
 
         function openEditModal(missionId) {
@@ -112,6 +115,7 @@
             toggleContractEndDateField();
             formError.classList.add('hidden');
             missionModal.classList.remove('hidden');
+            if (MissionsPage.poolTalentsLoadFailed) capHumaShowInlineError(formError, POOL_TALENTS_NOT_LOADED);
         }
 
         function toDateInputValue(isoDate) {
@@ -230,13 +234,17 @@
 
             if (error) {
                 console.error("Erreur de recherche des détachements de l'occupant :", error);
-                return [];
+                return null;
             }
             return data || [];
         }
 
         function describeDetachments(talentId, detachments) {
             const talentLabel = MissionsPage.talentNameById[talentId] || 'Ce talent';
+            if (detachments === null) {
+                return `Impossible de vérifier si ${talentLabel} occupe aussi un détachement : ` +
+                    `vérifiez-le et libérez-le si nécessaire.`;
+            }
             const titles = detachments.map(d => `« ${d.title} »`).join(', ');
             return detachments.length > 1
                 ? `${talentLabel} occupe aussi les détachements ${titles}. Ils ne seront pas libérés ` +
@@ -252,7 +260,7 @@
                 return true;
             }
             const detachments = await findOccupiedDetachments(originalMission.occupant_id);
-            if (detachments.length === 0) return true;
+            if (detachments !== null && detachments.length === 0) return true;
             return window.confirm(describeDetachments(originalMission.occupant_id, detachments) + `\n\nContinuer ?`);
         }
 
@@ -330,13 +338,17 @@
             e.preventDefault();
             formError.classList.add('hidden');
 
+            if (MissionsPage.poolTalentsLoadFailed) {
+                capHumaShowInlineError(formError, POOL_TALENTS_NOT_LOADED);
+                return;
+            }
+
             const missionId = document.getElementById('missionId').value;
             const payload = buildMissionPayloadFromForm();
 
             const validationError = validateMissionPayload(payload);
             if (validationError) {
-                formError.textContent = validationError;
-                formError.classList.remove('hidden');
+                capHumaShowInlineError(formError, validationError);
                 return;
             }
 
@@ -350,8 +362,7 @@
                     await MissionsPage.loadMissions();
                 } catch (error) {
                     console.error("Erreur d'enregistrement du poste :", error);
-                    formError.textContent = "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.');
-                    formError.classList.remove('hidden');
+                    capHumaShowInlineError(formError, "Erreur lors de l'enregistrement : " + (error && error.message ? error.message : 'erreur inconnue.'));
                 }
             });
         }
@@ -367,7 +378,7 @@
             let confirmMessage = `Supprimer définitivement « ${label} » ? Cette action est irréversible.`;
             if (mission && mission.candidate_type === 'nat' && mission.occupant_id) {
                 const detachments = await findOccupiedDetachments(mission.occupant_id);
-                if (detachments.length > 0) {
+                if (detachments === null || detachments.length > 0) {
                     confirmMessage += '\n\n' + describeDetachments(mission.occupant_id, detachments);
                 }
             }
