@@ -475,6 +475,12 @@ begin
                       end;
 
     elsif TG_OP = 'UPDATE' then
+        if v_user_id is null
+           and to_jsonb(NEW) - array['experience_months_alima', 'experience_months_humanitarian', 'months_without_mission', 'last_experience_update']
+             = to_jsonb(OLD) - array['experience_months_alima', 'experience_months_humanitarian', 'months_without_mission', 'last_experience_update'] then
+            return NEW;
+        end if;
+
         v_entity_id := NEW.id::text;
         v_entity_name := NEW.first_name || ' ' || NEW.last_name;
 
