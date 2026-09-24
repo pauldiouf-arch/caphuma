@@ -378,7 +378,7 @@
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5 flex-wrap">
                             <a href="id-card.html?id=${encodeURIComponent(t.id)}" class="text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all">Voir la fiche</a>
-                            <button class="btn-remove-redlist text-xs font-semibold text-green-600 hover:bg-green-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${escapeHtml(t.id)}" data-name="${escapeHtml(fullName)}">
+                            <button class="btn-remove-redlist text-xs font-semibold text-green-700 hover:bg-green-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${escapeHtml(t.id)}" data-name="${escapeHtml(fullName)}">
                                 Retirer
                             </button>
                         </div>

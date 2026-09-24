@@ -37,7 +37,8 @@
                 document.getElementById('user-display-name').textContent = s.email;
                 document.getElementById('pageContent').classList.remove('hidden');
                 appBody.style.display = '';
-                await loadReferenceData();
+                referenceDataReady = loadReferenceData();
+                await referenceDataReady;
 
             } catch (err) {
                 window.location.replace('login.html');
@@ -71,6 +72,7 @@
         tabBtnMissions.addEventListener('click', () => { pageHeaderTitle.textContent = 'Import de postes'; });
 
         let cachedPools = [];
+        let referenceDataReady = null;
         let poolsLoadFailed = false;
         let emailsLoadFailed = false;
         let cachedExistingEmails = new Set();
@@ -468,7 +470,7 @@
                                         : escapeHtml(r.normalized.pool || '')}</td>
                                     <td class="px-3 py-2">
                                         ${r.errors.length === 0
-                                            ? '<span class="text-emerald-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
+                                            ? '<span class="text-emerald-700 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
                                             : `<span class="text-red-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${escapeHtml(r.errors.join(' · '))}</span>`}
                                     </td>
                                 </tr>
@@ -790,7 +792,7 @@
                                     <td class="px-3 py-2">${escapeHtml(((r.normalized.location || '') + ' — ' + (CapHumaCountries.getCountryName(r.normalized.country_code) || '')))}</td>
                                     <td class="px-3 py-2">
                                         ${r.errors.length === 0
-                                            ? '<span class="text-emerald-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
+                                            ? '<span class="text-emerald-700 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> Valide</span>'
                                             : `<span class="text-red-600 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg> ${escapeHtml(r.errors.join(' · '))}</span>`}
                                     </td>
                                 </tr>
@@ -889,6 +891,7 @@
             document.getElementById('previewCardMissions').classList.add('hidden');
             if (!file) { statusMsg.textContent = ''; return; }
 
+            await referenceDataReady;
             if (poolsLoadFailed) {
                 statusMsg.textContent = "La liste des pools n'a pas pu être chargée : rechargez la page avant d'importer.";
                 statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
@@ -916,11 +919,11 @@
                 cachedMissionRows = result.rows;
                 if (cachedMissionRows.length === 0) {
                     statusMsg.textContent = 'Aucune ligne de données trouvée dans le fichier.';
-                    statusMsg.className = 'text-xs text-amber-600 font-semibold mt-2';
+                    statusMsg.className = 'text-xs text-amber-700 font-semibold mt-2';
                     return;
                 }
                 statusMsg.textContent = `${cachedMissionRows.length} ligne(s) lue(s) — voir l'aperçu ci-dessous.`;
-                statusMsg.className = 'text-xs text-emerald-600 font-semibold mt-2';
+                statusMsg.className = 'text-xs text-emerald-700 font-semibold mt-2';
                 renderMissionPreview(cachedMissionRows);
             } catch (err) {
                 console.error('[Import] Erreur de lecture du fichier :', err);
@@ -935,6 +938,7 @@
             document.getElementById('previewCard').classList.add('hidden');
             if (!file) { statusMsg.textContent = ''; return; }
 
+            await referenceDataReady;
             if (poolsLoadFailed || emailsLoadFailed) {
                 statusMsg.textContent = "La liste des pools ou des e-mails existants n'a pas pu être chargée : rechargez la page avant d'importer.";
                 statusMsg.className = 'text-xs text-red-600 font-semibold mt-2';
@@ -962,11 +966,11 @@
                 lastParsedRows = result.rows;
                 if (lastParsedRows.length === 0) {
                     statusMsg.textContent = 'Aucune ligne de données trouvée dans le fichier.';
-                    statusMsg.className = 'text-xs text-amber-600 font-semibold mt-2';
+                    statusMsg.className = 'text-xs text-amber-700 font-semibold mt-2';
                     return;
                 }
                 statusMsg.textContent = `${lastParsedRows.length} ligne(s) lue(s) — voir l'aperçu ci-dessous.`;
-                statusMsg.className = 'text-xs text-emerald-600 font-semibold mt-2';
+                statusMsg.className = 'text-xs text-emerald-700 font-semibold mt-2';
                 renderPreview(lastParsedRows);
             } catch (err) {
                 console.error('[Import] Erreur de lecture du fichier :', err);

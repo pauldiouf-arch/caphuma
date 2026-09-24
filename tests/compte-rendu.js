@@ -34,7 +34,7 @@ class CompteRendu {
             lignes.push('## Tests échoués', '');
             for (const element of echecs) {
                 const { test, resultat } = element;
-                const erreur = sansCouleurs(resultat.error && (resultat.error.message || resultat.error.value)).split('\n').filter(Boolean).slice(0, 12).join('\n');
+                const erreur = sansCouleurs(resultat.error && (resultat.error.message || resultat.error.value)).split('\n').filter(Boolean).slice(0, 30).join('\n');
                 const captures = resultat.attachments.filter(a => a.path && a.contentType.startsWith('image/')).map(a => path.relative(path.join(__dirname, 'resultats'), a.path));
                 lignes.push(`### ${titre(element)}`, '', `- Emplacement : ${path.basename(test.location.file)}, ligne ${test.location.line}`);
                 if (captures.length) lignes.push(`- Capture d'écran : ${captures.join(', ')}`);
@@ -44,6 +44,11 @@ class CompteRendu {
 
         if (instables.length > 0) {
             lignes.push('## Réussis seulement au 2e essai', '', ...instables.map(e => `- ${titre(e)}`), '');
+        }
+
+        const remarques = [...new Set(liste.flatMap(({ test, resultat }) => [...(resultat.annotations || []), ...test.annotations].filter(a => a.type.endsWith('(non bloquant)')).map(a => `${a.type} — ${a.description}`)))];
+        if (remarques.length > 0) {
+            lignes.push('## Points à améliorer, non bloquants', '', ...remarques.map(r => `- ${r}`), '');
         }
 
         lignes.push('## Tests réussis', '', ...reussis.map(e => `- ${titre(e)}`), '');

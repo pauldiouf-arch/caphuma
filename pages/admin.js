@@ -152,7 +152,7 @@
                 const isOwnAccount = u.id === currentUserId;
                 const statusBadge = u.is_active
                     ? '<span class="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">Actif</span>'
-                    : '<span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Suspendu</span>';
+                    : '<span class="text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">Suspendu</span>';
                 const roleBadge = `<span class="text-xs font-semibold ${roleColors[u.role] || 'bg-slate-100 text-slate-600'} px-2.5 py-1 rounded-full">${roleLabels[u.role] || u.role}</span>`;
 
                 return `
@@ -164,7 +164,7 @@
                     <td class="py-3 pr-4 text-slate-500 text-xs">${createdDate}</td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5 flex-wrap">
-                            ${isOwnAccount ? '' : `<button class="btn-toggle-active text-xs font-semibold ${u.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-active="${u.is_active}">
+                            ${isOwnAccount ? '' : `<button class="btn-toggle-active text-xs font-semibold ${u.is_active ? 'text-amber-700 hover:bg-amber-50' : 'text-green-700 hover:bg-green-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}" data-active="${u.is_active}">
                                 ${u.is_active ? 'Suspendre' : 'Réactiver'}
                             </button>`}
                             <button class="btn-reset-password text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all" data-id="${u.id}">
@@ -387,7 +387,7 @@
             tbody.innerHTML = poolsList.map(p => {
                 const isArchived = !!p.is_archived;
                 const statusBadge = isArchived
-                    ? '<span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Archivé</span>'
+                    ? '<span class="text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">Archivé</span>'
                     : '<span class="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">Actif</span>';
                 const levelBadge = p.level
                     ? `<span class="text-xs font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-full">${escapeHtml(levelLabels[p.level] || p.level)}</span>`
@@ -402,7 +402,7 @@
                     <td class="py-3 pr-4">${statusBadge}</td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5">
-                            <button class="btn-toggle-pool-archive text-xs font-semibold ${isArchived ? 'text-green-600 hover:bg-green-50' : 'text-amber-600 hover:bg-amber-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-archived="${isArchived}" data-code="${escapeHtml(p.pool_id)}">
+                            <button class="btn-toggle-pool-archive text-xs font-semibold ${isArchived ? 'text-green-700 hover:bg-green-50' : 'text-amber-700 hover:bg-amber-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-archived="${isArchived}" data-code="${escapeHtml(p.pool_id)}">
                                 ${isArchived ? 'Désarchiver' : 'Archiver'}
                             </button>
                         </div>

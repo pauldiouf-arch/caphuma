@@ -323,7 +323,7 @@
                 : '';
 
             const poolBadge = poolLabelText
-                ? `<span class="ml-2 text-[10px] font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">${escapeHtml(poolLabelText)}</span>`
+                ? `<span class="ml-2 text-[10px] font-bold text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">${escapeHtml(poolLabelText)}</span>`
                 : '';
 
             row.innerHTML = `

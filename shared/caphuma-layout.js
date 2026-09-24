@@ -112,7 +112,7 @@ function renderPageLayout(options) {
                     <button id="reportIssueBtn" type="button" title="Copier un rapport technique à transmettre à l'administrateur" class="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-600 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg> Signaler un problème
                     </button>
-                    <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
+                    <span id="user-display-name" class="hidden md:inline text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">Chargement...</span>
                     <button id="logoutBtn" class="${logoutClass}">Déconnexion</button>
                 </div>
             </div>

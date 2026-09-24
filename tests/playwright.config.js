@@ -25,8 +25,7 @@ module.exports = defineConfig({
         { name: 'téléphone', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
     ],
     webServer: {
-        command: `python3 -m http.server ${PORT} --bind 127.0.0.1`,
-        cwd: '..',
+        command: `node serveur-statique.js ${PORT}`,
         url: `http://localhost:${PORT}/login.html`,
         reuseExistingServer: !process.env.CI,
     },

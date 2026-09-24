@@ -219,9 +219,9 @@ const IdCardPage = {};
 
             const statusBadge = document.getElementById('talent-status-badge');
             statusBadge.textContent = talent.status || "N/A";
-            statusBadge.className = "bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider";
+            statusBadge.className = "bg-white/10 text-white text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider";
             if (talent.status === 'En poste ALIMA') {
-                statusBadge.classList.add('bg-green-600');
+                statusBadge.classList.add('bg-green-700');
             }
 
             if (talent.is_red_listed || talent.isRedListed) {
@@ -266,7 +266,7 @@ const IdCardPage = {};
                     vBar.className = "h-full bg-orange-400 rounded-full";
                 } else {
                     vLabel.textContent = "Validité pool : Stable";
-                    vLabel.className = "text-green-600 font-bold";
+                    vLabel.className = "text-green-700 font-bold";
                     vBar.className = "h-full bg-green-500 rounded-full";
                 }
                 vSub.textContent = `Date de référence du calcul : ${v.refDate ? new Date(v.refDate).toLocaleDateString('fr-FR') : 'N/A'}`;
@@ -302,7 +302,7 @@ const IdCardPage = {};
             document.getElementById('info-alima-missions').textContent = MISSION_COUNT_LABELS[nbMissions] || "0";
 
             renderBadges('skills-badges-container', talent.key_skills || talent.keySkills, 'bg-blue-50 text-blue-700 border-blue-200');
-            renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent border-orange-200');
+            renderBadges('contexts-badges-container', talent.intervention_contexts || talent.interventionContexts, 'bg-orange-50 text-accent-dark border-orange-200');
             renderBadges('zones-badges-container', talent.intervention_zones || talent.interventionZones, 'bg-green-50 text-green-700 border-green-200');
         }
 

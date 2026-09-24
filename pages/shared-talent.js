@@ -107,7 +107,7 @@
             const statusBadge = document.getElementById('talent-status-badge');
             statusBadge.textContent = talent.status || "N/A";
             if (talent.status === 'En poste ALIMA') {
-                statusBadge.classList.add('bg-green-600');
+                statusBadge.classList.add('bg-green-700');
             }
 
             document.getElementById('info-email').textContent = talent.email || "N/A";

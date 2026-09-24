@@ -13,10 +13,17 @@ GitHub les lance tout seul à chaque dépôt de fichiers, grâce à
 
 | Fichier | Contenu |
 |---|---|
-| `erreurs-visibles.spec.js` | Chaque erreur qui bloque une action affiche un message lisible en entier, sans avoir à faire défiler : talents, postes, évaluations, Dévalidés, fiche talent, statistiques, Liste Rouge, import, tableau de bord. Les enregistrements normaux ferment toujours leur fenêtre. |
+| `pages.spec.js` | Chaque page, pour chaque rôle (admin, recruteur, visiteur) : la page s'ouvre sans erreur, chacun voit les bons boutons et pas les autres, les pages refusées renvoient ailleurs, un texte piégé (`<b data-xss>`) s'affiche comme du texte, pas de problème d'accessibilité grave (outil axe, normes WCAG 2.2 AA), pas de défilement horizontal sur téléphone. Sans session ou avec un compte suspendu, retour à la connexion. |
+| `erreurs-visibles.spec.js` | Chaque erreur qui bloque une action affiche un message lisible en entier, sans avoir à faire défiler. Les enregistrements normaux ferment toujours leur fenêtre. |
+| `regles.spec.js` | Les règles de calcul communes (validité des 24 mois, durées, pays, pagination, lecture par pages, nouvel essai réseau, brouillons, notifications) et les liens entre les pages. |
 | `non-regression.spec.js` | La police Inter se charge depuis le site sur les 15 pages, sans appel vers un autre site ni blocage de sécurité ; le PDF de la fiche talent se génère. |
+| `donnees.js` | Le jeu de données fictif : talents, postes, comptes, commentaires… avec des textes piégés. |
 | `simulateur-supabase.js` | La fausse base Supabase utilisée par les tests. |
+| `serveur-statique.js` | Sert les pages du site pendant les tests. |
 | `compte-rendu.js` | Écrit le compte rendu en français. |
+
+Les problèmes d'accessibilité graves font échouer le test ; les autres sont listés
+dans le compte rendu, rubrique « Points à améliorer, non bloquants ».
 
 Les droits en base se testent à part, avec `sql/tests_rls_roles.sql`.
 

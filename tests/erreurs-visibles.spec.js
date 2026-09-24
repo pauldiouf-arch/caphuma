@@ -257,6 +257,14 @@ test.describe('Import', () => {
         });
     }
 
+    test('fichier choisi pendant le chargement des e-mails : la vérification attend la fin du chargement', async ({ page }) => {
+        await ouvrirPage(page, 'import.html', (requete) => {
+            if (fin(requete, 'talents')) return new Promise(resoudre => setTimeout(() => resoudre(erreurServeur()), 1500));
+        });
+        await page.setInputFiles('#importFileInput', fichier);
+        await attendreMessageLisible(page, '#fileStatusMsg', "n'a pas pu être chargée : rechargez la page avant d'importer");
+    });
+
     test('pools non chargés, import de postes : message', async ({ page }) => {
         await ouvrirPage(page, 'import.html', (requete) => {
             if (fin(requete, 'pools')) return erreurServeur();

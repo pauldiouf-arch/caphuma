@@ -4,7 +4,7 @@
             title: 'Extraction',
             subtitle: 'Export Excel multi-pool',
             actionsHtml: `
-                <button id="generateBtn" disabled class="bg-accent hover:bg-accent-dark text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <button id="generateBtn" disabled class="bg-accent-dark hover:bg-orange-800 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     ${CapHumaIcons.get('inboxDown', 'w-4 h-4 inline-block align-[-0.15em] shrink-0')} <span id="generateBtnLabel">Générer le fichier Excel</span>
                 </button>
             `

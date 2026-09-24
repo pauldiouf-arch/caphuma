@@ -186,7 +186,7 @@
             let barColor, textColor;
             if (status.isInvalid || status.totalMonths >= DEVALIDATION_MAX_MONTHS) { barColor = 'bg-red-600'; textColor = 'text-red-600'; }
             else if (status.totalMonths >= DEVALIDATION_CRITICAL_MONTHS) { barColor = 'bg-red-50'; textColor = 'text-red-600'; }
-            else if (status.totalMonths >= DEVALIDATION_AT_RISK_MONTHS) { barColor = 'bg-orange-400'; textColor = 'text-orange-600'; }
+            else if (status.totalMonths >= DEVALIDATION_AT_RISK_MONTHS) { barColor = 'bg-orange-400'; textColor = 'text-orange-700'; }
             else { barColor = 'bg-green-500'; textColor = 'text-slate-500'; }
 
             return { ...status, barColor, textColor };
