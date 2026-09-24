@@ -176,7 +176,10 @@
                         .from('red-list-documents')
                         .upload(path, file, { contentType: file.type || 'application/octet-stream' })
                 );
-                if (error) throw new Error(`Échec de l'envoi de "${file.name}" : ${error.message}`);
+                if (error) {
+                    await CapHumaData.removeRedListDocuments(supabaseClient, paths);
+                    throw new Error(`Échec de l'envoi de "${file.name}" : ${error.message}`);
+                }
                 paths.push(path);
             }
             return paths;
@@ -263,9 +266,10 @@
             btn.disabled = true;
             spinner.classList.remove('hidden');
 
+            let documentPaths = [];
             try {
                 label.textContent = 'Envoi des documents...';
-                const documentPaths = await uploadRedlistDocuments(selectedTalentForRedlist.id, selectedRedlistFiles);
+                documentPaths = await uploadRedlistDocuments(selectedTalentForRedlist.id, selectedRedlistFiles);
 
                 label.textContent = 'Inscription...';
                 const { error } = await CapHumaData.updateTalent(supabaseClient, selectedTalentForRedlist.id, {
@@ -277,7 +281,10 @@
                     red_list_documents: documentPaths
                 });
 
-                if (error) throw error;
+                if (error) {
+                    await CapHumaData.removeRedListDocuments(supabaseClient, documentPaths);
+                    throw error;
+                }
 
                 document.getElementById('redlist-add-modal').classList.add('hidden');
                 toastMessage("Talent inscrit en Liste Rouge avec succès.");
@@ -298,6 +305,7 @@
         document.getElementById('modal-redlist-add-reason').addEventListener('input', updateModalConfirmState);
         document.getElementById('btn-header-add-redlist').addEventListener('click', openRedlistAddModal);
         document.getElementById('btn-empty-add-redlist').addEventListener('click', openRedlistAddModal);
+        document.getElementById('btn-mobile-add-redlist').addEventListener('click', openRedlistAddModal);
 
         async function loadRedList(page) {
             if (typeof page === 'number') redListPage = page;

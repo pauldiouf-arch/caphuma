@@ -190,20 +190,23 @@
                 || payload.status !== 'occupied' || !payload.occupant_id) {
                 return true;
             }
-            const { data: nationalPost, error: natError } = await MissionsPage.supabaseClient
+            const { data: nationalPosts, error: natError } = await MissionsPage.supabaseClient
                 .from('missions')
                 .select('title, contract_end_date, contract_end_type')
                 .eq('occupant_id', payload.occupant_id)
                 .eq('candidate_type', 'nat')
-                .eq('status', 'occupied')
-                .maybeSingle();
-
-            if (natError) {
-                console.error("Erreur de vérification du poste national sous-jacent :", natError);
-                return true;
-            }
+                .eq('status', 'occupied');
 
             const talentLabel = MissionsPage.talentNameById[payload.occupant_id] || 'Ce talent';
+            if (natError) {
+                console.error("Erreur de vérification du poste national sous-jacent :", natError);
+                return window.confirm(
+                    `Impossible de vérifier le poste national de ${talentLabel} : vérifiez que ce ` +
+                    `détachement reste cohérent avec lui.\n\nContinuer quand même ?`
+                );
+            }
+
+            const nationalPost = (nationalPosts || [])[0];
             if (!nationalPost) {
                 return window.confirm(
                     `${talentLabel} n'occupe actuellement aucun poste national.\n\n` +

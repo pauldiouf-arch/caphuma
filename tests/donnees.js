@@ -17,6 +17,7 @@ const ID = {
     posteVacant: '33333333-3333-3333-3333-333333333332',
     detachement: '33333333-3333-3333-3333-333333333333',
     posteExpat: '33333333-3333-3333-3333-333333333334',
+    posteAwa: '33333333-3333-3333-3333-333333333335',
 };
 
 const ilYa = (mois) => {
@@ -46,7 +47,7 @@ const talents = [
     { ...talentBase, id: ID.devalide, first_name: `Dado ${PIEGE}`, last_name: 'Sow', is_valid: false, devalidation_date: ilYa(2) },
     { ...talentBase, id: ID.aArbitrer, first_name: 'Fanta', last_name: 'Camara', email: 'fanta@exemple.org', last_mission_end_date: ilYa(25), months_without_mission: 25, languages: ['Anglais'], has_visa: false },
     { ...talentBase, id: ID.listeRouge, first_name: `Eli ${PIEGE}`, last_name: 'Ba', is_red_listed: true, red_list_date: ilYa(1) + 'T10:00:00Z',
-        red_list_reason: `Motif ${PIEGE}`, red_list_added_by: ID_COMPTES.user, red_list_added_by_name: `Recruteur ${PIEGE}`, red_list_documents: [] },
+        red_list_reason: `Motif ${PIEGE}`, red_list_added_by: ID_COMPTES.user, red_list_added_by_name: `Recruteur ${PIEGE}`, red_list_documents: [`${ID.listeRouge}/1_preuve.pdf`] },
 ];
 
 const missionBase = {
@@ -58,8 +59,9 @@ const missionBase = {
 const missions = [
     { ...missionBase, id: ID.posteNational, title: `Coordinateur national ${PIEGE}`, location: `Bamako ${PIEGE}`, status: 'occupied', occupant_id: ID.national, candidate_type: 'nat', contract_start_date: ilYa(8), contract_end_date: dansJours(25) },
     { ...missionBase, id: ID.posteVacant, title: 'Médecin référent', status: 'vacant' },
-    { ...missionBase, id: ID.detachement, title: 'Détachement Kayes', pool_level: 'projet', project_name: `Projet ${PIEGE}`, status: 'occupied', occupant_id: ID.national, candidate_type: 'detache', contract_start_date: ilYa(2), contract_end_date: dansJours(60) },
+    { ...missionBase, id: ID.detachement, title: 'Détachement Dakar', country_code: 'SN', location: 'Dakar', pool_level: 'project', project_name: `Projet ${PIEGE}`, status: 'occupied', occupant_id: ID.national, candidate_type: 'detache', contract_start_date: ilYa(2), contract_end_date: dansJours(60) },
     { ...missionBase, id: ID.posteExpat, title: 'Coordinateur médical', status: 'recruiting', candidate_type: 'expat' },
+    { ...missionBase, id: ID.posteAwa, title: 'Référente nutrition Niger', country_code: 'NE', location: 'Niamey', status: 'occupied', occupant_id: ID.expat, candidate_type: 'expat', contract_start_date: ilYa(4), contract_end_date: dansJours(200) },
 ];
 
 const DONNEES = {
@@ -79,6 +81,7 @@ const DONNEES = {
         { id: 'c1', talent_id: ID.expat, user_id: ID_COMPTES.user, content: `Commentaire ${PIEGE}`, created_at: '2026-05-01T10:00:00Z', author_email: 'reco@alima.ngo' },
     ],
     evaluations: [
+        { id: 'e2', mission_id: ID.posteNational, talent_id: ID.national, author_id: ID_COMPTES.admin, context: "Évaluation de l'admin", positive_points: null, negative_points: null, rating: 9, is_archived: false, created_at: '2026-04-01T10:00:00Z', author_email: 'admin@alima.ngo' },
         { id: 'e1', mission_id: ID.posteNational, talent_id: ID.national, author_id: ID_COMPTES.user, context: `Évaluation ${PIEGE}`, positive_points: PIEGE, negative_points: PIEGE, rating: 7, is_archived: false, created_at: '2026-05-01T10:00:00Z', author_email: 'reco@alima.ngo' },
     ],
     share_tokens: [

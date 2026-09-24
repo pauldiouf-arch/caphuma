@@ -383,6 +383,7 @@
 
                 if (error) throw error;
 
+                toastMessage(`${t.first_name} ${t.last_name} a été réintégré(e) dans le pool.`);
                 await loadDevalidatedTalents();
 
             } catch (error) {
@@ -460,8 +461,10 @@
 
                 if (error) throw error;
 
+                const talentName = `${pageState.redListTargetTalent.first_name} ${pageState.redListTargetTalent.last_name}`;
                 closeRedListModal();
                 discardRedListDraft();
+                toastMessage(`${talentName} a été inscrit(e) en Liste Rouge.`);
                 await loadDevalidatedTalents();
 
             } catch (error) {
@@ -484,7 +487,9 @@
 
             try {
                 const { documentsRemoved } = await CapHumaData.deleteTalentPermanently(supabaseClient, t.id);
-                if (!documentsRemoved) {
+                if (documentsRemoved) {
+                    toastMessage(`Fiche de ${t.first_name} ${t.last_name} supprimée définitivement.`);
+                } else {
                     toastMessage(`Fiche supprimée, mais ses documents de liste rouge sont restés dans le stockage (dossier ${t.id}).`, "error");
                 }
 

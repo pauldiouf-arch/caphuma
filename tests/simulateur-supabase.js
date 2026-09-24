@@ -88,6 +88,20 @@ function reponsesParDefaut(requete, role, actif, base) {
         if (!compte) return { status: 400, body: { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' } };
         return sessionPour(Object.keys(ID_COMPTES).find(r => ID_COMPTES[r] === compte.id));
     }
+    if (requete.chemin.startsWith('/storage/v1/object/')) {
+        const reste = requete.chemin.replace('/storage/v1/object/', '');
+        if (reste.startsWith('sign/')) return { signedURL: `/object/${reste}?token=lien-temporaire` };
+        if (requete.methode === 'POST' || requete.methode === 'PUT') {
+            base.stockage.push(reste);
+            return { Key: reste, Id: nouvelId() };
+        }
+        if (requete.methode === 'DELETE') {
+            const { prefixes = [] } = lireJson(requete.corps) || {};
+            const seau = reste.replace(/\/$/, '');
+            base.stockage = base.stockage.filter(chemin => !prefixes.includes(chemin.slice(seau.length + 1)));
+            return prefixes.map(name => ({ name }));
+        }
+    }
     if (requete.chemin.startsWith('/auth/v1/')) return requete.chemin.endsWith('/user') ? sessionPour(role).user : {};
     if (table === 'users' && requete.parametres.get('id') === `eq.${ID_COMPTES[role]}`) {
         const u = base.users.find(x => x.id === ID_COMPTES[role]);
@@ -141,6 +155,7 @@ async function ouvrirPage(page, chemin, reponses = () => undefined, { role = 'ad
     page.dialogues = dialogues;
     page.erreursPage = erreursPage;
     const base = structuredClone(DONNEES);
+    base.stockage = [];
     page.base = base;
 
     page.on('pageerror', (erreur) => erreursPage.push(erreur.message));

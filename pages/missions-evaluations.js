@@ -193,14 +193,14 @@
             }
 
             try {
-                const { error } = await capHumaWithRetry(() =>
-                    MissionsPage.supabaseClient
-                        .from('evaluations')
-                        .delete()
-                        .eq('id', evaluationId)
-                );
+                const { data, error } = await MissionsPage.supabaseClient
+                    .from('evaluations')
+                    .delete()
+                    .eq('id', evaluationId)
+                    .select('id');
 
                 if (error) throw error;
+                if (!data || data.length === 0) throw new Error("la suppression n'a été acceptée par la base pour aucune évaluation.");
 
                 toastMessage('Évaluation supprimée.', 'success');
                 await loadEvaluations(currentEvaluationMission.id);
@@ -239,13 +239,15 @@
 
             try {
                 if (evaluationId) {
-                    const { error } = await capHumaWithRetry(() =>
+                    const { data, error } = await capHumaWithRetry(() =>
                         MissionsPage.supabaseClient
                             .from('evaluations')
                             .update(payload)
                             .eq('id', evaluationId)
+                            .select('id')
                     );
                     if (error) throw error;
+                    if (!data || data.length === 0) throw new Error("la modification n'a été acceptée par la base pour aucune évaluation.");
                     toastMessage('Évaluation modifiée.', 'success');
                 } else {
                     payload.mission_id = currentEvaluationMission.id;
