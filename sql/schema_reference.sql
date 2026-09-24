@@ -455,6 +455,9 @@ declare
 begin
     select email, name into v_user_email, v_user_name
     from public.users where id = v_user_id;
+    if v_user_id is null then
+        v_user_name := 'Système';
+    end if;
 
     if TG_OP = 'INSERT' then
         v_action := 'create';
@@ -1525,7 +1528,7 @@ grant delete, insert, maintain, references, select, trigger, truncate, update on
 grant delete, insert, select, update on table public.missions to authenticated;
 revoke all on table public.notification_preferences from public, anon, authenticated, service_role;
 grant insert, select, update on table public.notification_preferences to authenticated;
-grant maintain, references, trigger, truncate on table public.notification_preferences to service_role;
+grant maintain, references, select, trigger, truncate on table public.notification_preferences to service_role;
 revoke all on table public.pool_history from public, anon, authenticated, service_role;
 grant delete, insert, maintain, references, select, trigger, truncate, update on table public.pool_history to service_role;
 grant insert, select on table public.pool_history to authenticated;

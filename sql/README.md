@@ -132,6 +132,7 @@ est en fin de fichier.
 | 23/09/2026 | `changement_pool_atomique.sql` | Changement de pool et passage en expat en une seule opération | Oui | — |
 | 23/09/2026 | `sortie_occupant_poste.sql` | Sortie et entrée d'un occupant, contrats échus traités en base (reconstitué) | Non | `enregistrement_poste_atomique.sql` (`archive_mission_occupant()` supprimée) |
 | 23/09/2026 | `enregistrement_poste_atomique.sql` | Enregistrement, suppression et resynchronisation d'un poste en une seule opération | Oui | — |
+| 24/09/2026 | `monthly_maintenance_sauvegarde_journal.sql` | Lecture de `notification_preferences` pour la sauvegarde mensuelle ; auteur « Système » dans le journal des talents sans compte connecté | Oui | — |
 
 « Reconstitué » : le script d'origine n'avait pas été conservé ; il a été
 réécrit d'après la base réelle, et son en-tête le précise.
