@@ -167,7 +167,7 @@ function toastMessage(msg, type = "success") {
 function capHumaShowInlineError(el, message) {
     el.textContent = message;
     el.classList.remove('hidden');
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    requestAnimationFrame(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }));
 }
 
 function showError(msg) {
