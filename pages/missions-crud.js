@@ -220,6 +220,42 @@
             return true;
         }
 
+        async function findOccupiedDetachments(talentId) {
+            const { data, error } = await MissionsPage.supabaseClient
+                .from('missions')
+                .select('title')
+                .eq('occupant_id', talentId)
+                .eq('candidate_type', 'detache')
+                .eq('status', 'occupied');
+
+            if (error) {
+                console.error("Erreur de recherche des détachements de l'occupant :", error);
+                return [];
+            }
+            return data || [];
+        }
+
+        function describeDetachments(talentId, detachments) {
+            const talentLabel = MissionsPage.talentNameById[talentId] || 'Ce talent';
+            const titles = detachments.map(d => `« ${d.title} »`).join(', ');
+            return detachments.length > 1
+                ? `${talentLabel} occupe aussi les détachements ${titles}. Ils ne seront pas libérés ` +
+                  `automatiquement : pensez à les libérer si nécessaire.`
+                : `${talentLabel} occupe aussi le détachement ${titles}. Il ne sera pas libéré ` +
+                  `automatiquement : pensez à le libérer si nécessaire.`;
+        }
+
+        async function checkOutgoingNationalDetachments(payload, missionId) {
+            const originalMission = MissionsPage.currentMissions.find(m => m.id === missionId);
+            if (!originalMission || originalMission.candidate_type !== 'nat' || !originalMission.occupant_id
+                || originalMission.occupant_id === payload.occupant_id) {
+                return true;
+            }
+            const detachments = await findOccupiedDetachments(originalMission.occupant_id);
+            if (detachments.length === 0) return true;
+            return window.confirm(describeDetachments(originalMission.occupant_id, detachments) + `\n\nContinuer ?`);
+        }
+
         function buildMissionPayloadFromForm() {
             const candidateType = document.getElementById('fieldCandidateType').value || null;
             const selectedStatus = document.getElementById('fieldStatus').value;
@@ -261,6 +297,7 @@
             if (!checkFutureOccupantOverlap(payload, missionId)) return { proceed: false };
             if (!checkNationalityMismatch(payload)) return { proceed: false };
             if (!(await checkDetachmentDuration(payload))) return { proceed: false };
+            if (!(await checkOutgoingNationalDetachments(payload, missionId))) return { proceed: false };
 
             return { proceed: true, conflictMissionToVacate: occupantCheck.conflictMissionToVacate };
         }
@@ -327,7 +364,15 @@
             const mission = MissionsPage.currentMissions.find(m => m.id === missionId);
             const label = mission ? mission.title : 'ce poste';
 
-            if (!window.confirm(`Supprimer définitivement « ${label} » ? Cette action est irréversible.`)) {
+            let confirmMessage = `Supprimer définitivement « ${label} » ? Cette action est irréversible.`;
+            if (mission && mission.candidate_type === 'nat' && mission.occupant_id) {
+                const detachments = await findOccupiedDetachments(mission.occupant_id);
+                if (detachments.length > 0) {
+                    confirmMessage += '\n\n' + describeDetachments(mission.occupant_id, detachments);
+                }
+            }
+
+            if (!window.confirm(confirmMessage)) {
                 return;
             }
 
