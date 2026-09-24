@@ -113,10 +113,11 @@ const StatisticsPage = {};
             if (et) throw et;
             StatisticsPage.rawTalents = talents || [];
 
-            const { data: mData, error: em } = await capHumaWithRetry(() =>
+            const { data: mData, error: em } = await capHumaSelectAllPages(() =>
                 StatisticsPage.supabaseClient
                     .from('missions')
-                    .select('pool, pool_id, status, candidate_type, contract_start_date, contract_end_date, contract_status, country_code, desk, future_talent_id')
+                    .select('pool, pool_id, status, candidate_type, contract_start_date, contract_end_date, contract_status, country_code, desk, future_talent_id', { count: 'exact' })
+                    .order('id')
             );
             if (em) throw em;
             StatisticsPage.rawMissions = mData || [];

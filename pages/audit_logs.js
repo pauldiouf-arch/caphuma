@@ -105,11 +105,12 @@
                 document.getElementById('statTotal').textContent = totalCount || 0;
 
                 const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-                const { data: recentLogs, error: recentErr } = await capHumaWithRetry(() =>
+                const { data: recentLogs, error: recentErr } = await capHumaSelectAllPages(() =>
                     supabaseClient
                         .from('audit_logs')
-                        .select('user_email, user_id, action')
+                        .select('user_email, user_id, action', { count: 'exact' })
                         .gte('created_at', sevenDaysAgoIso)
+                        .order('id')
                 );
                 if (recentErr) throw recentErr;
 

@@ -60,6 +60,19 @@ const MISSION_COUNT_LABELS = {
     none: "0 mission", one: "1 mission", two: "2 missions", three_plus: "3 missions et +"
 };
 
+async function capHumaSelectAllPages(queryBuilderFn, pageSize = 1000) {
+    const rows = [];
+    while (true) {
+        const { data, error, count } = await capHumaWithRetry(() =>
+            queryBuilderFn().range(rows.length, rows.length + pageSize - 1)
+        );
+        if (error) return { data: null, error };
+        if (!data || data.length === 0) return { data: rows, error: null };
+        rows.push(...data);
+        if (typeof count === 'number' && rows.length >= count) return { data: rows, error: null };
+    }
+}
+
 // queryBuilderFn doit renvoyer une requête sans .range(), ajoutée ici.
 async function paginateQuery(queryBuilderFn, supabaseClient, page, pageSize) {
     const from = (page - 1) * pageSize;

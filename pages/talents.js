@@ -850,8 +850,8 @@ const TalentsPage = {};
                     };
                     const sortColumn = sortColumnMap[TalentsPage.searchFilters.sortBy] || 'pool_integration_date';
                     const ascending = TalentsPage.searchFilters.sortOrder === 'asc';
-                    const { data, error } = await capHumaWithRetry(() => {
-                        let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality_code, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa').order(sortColumn, { ascending });
+                    const { data, error } = await capHumaSelectAllPages(() => {
+                        let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality_code, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa', { count: 'exact' }).order(sortColumn, { ascending }).order('id');
                         if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
                         else query = query.eq('staff_type', 'expat');
                         if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);

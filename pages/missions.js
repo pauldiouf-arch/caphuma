@@ -221,12 +221,13 @@ const MissionsPage = {};
             try {
                 missionsError.classList.add('hidden');
 
-                const { data: missions, error } = await capHumaWithRetry(() =>
+                const { data: missions, error } = await capHumaSelectAllPages(() =>
                     MissionsPage.supabaseClient
                         .from('missions')
-                        .select(MissionsPage.MISSIONS_COLUMNS)
+                        .select(MissionsPage.MISSIONS_COLUMNS, { count: 'exact' })
                         .eq('pool', MissionsPage.currentPoolId)
                         .order('title', { ascending: true })
+                        .order('id')
                 );
 
                 if (error) throw error;
@@ -258,12 +259,13 @@ const MissionsPage = {};
         }
 
         async function refreshCurrentMissions() {
-            const { data: refreshed, error } = await capHumaWithRetry(() =>
+            const { data: refreshed, error } = await capHumaSelectAllPages(() =>
                 MissionsPage.supabaseClient
                     .from('missions')
-                    .select(MissionsPage.MISSIONS_COLUMNS)
+                    .select(MissionsPage.MISSIONS_COLUMNS, { count: 'exact' })
                     .eq('pool', MissionsPage.currentPoolId)
                     .order('title', { ascending: true })
+                    .order('id')
             );
             if (!error) MissionsPage.currentMissions = refreshed || MissionsPage.currentMissions;
         }

@@ -16,10 +16,12 @@ const CapHumaData = (() => {
     }
 
     async function getTalents(sb, { select = '*', filters = {}, orderBy = null } = {}) {
-        let q = sb.from('talents').select(select);
-        for (const [key, val] of Object.entries(filters)) q = q.eq(key, val);
-        if (orderBy) { const [col, asc] = Array.isArray(orderBy) ? orderBy : [orderBy, true]; q = q.order(col, { ascending: asc }); }
-        return capHumaWithRetry(() => q);
+        return capHumaSelectAllPages(() => {
+            let q = sb.from('talents').select(select, { count: 'exact' });
+            for (const [key, val] of Object.entries(filters)) q = q.eq(key, val);
+            if (orderBy) { const [col, asc] = Array.isArray(orderBy) ? orderBy : [orderBy, true]; q = q.order(col, { ascending: asc }); }
+            return q.order('id');
+        });
     }
 
     async function updateTalent(sb, id, payload, returning = null) {
