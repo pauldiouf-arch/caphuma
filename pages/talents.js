@@ -142,7 +142,10 @@ const TalentsPage = {};
             return false;
         }
 
+        let latestLoadId = 0;
+
         async function loadTalents() {
+            const loadId = ++latestLoadId;
             TalentsPage.isFullListMode = computeIsFullListMode();
 
             if (TalentsPage.isFullListMode) {
@@ -150,10 +153,25 @@ const TalentsPage = {};
                 if (TalentsPage.allTalents === null) {
                     await fetchAllTalents();
                 }
+                if (loadId !== latestLoadId) return;
                 applyFiltersAndRender();
             } else {
-                await fetchPagedTalents();
+                await fetchPagedTalents(() => loadId === latestLoadId);
             }
+        }
+
+        function applyServerFilters(query) {
+            if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
+            else query = query.eq('staff_type', 'expat');
+            if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
+
+            if (TalentsPage.searchFilters.validityFilter === 'active') {
+                query = query.or('is_valid.is.null,is_valid.eq.true')
+                             .or('is_red_listed.is.null,is_red_listed.eq.false');
+            } else if (TalentsPage.searchFilters.validityFilter === 'devalidated') {
+                query = query.eq('is_valid', false);
+            }
+            return query;
         }
 
         let pendingAllTalentsRequest = null;
@@ -187,7 +205,7 @@ const TalentsPage = {};
             }
         }
 
-        async function fetchPagedTalents() {
+        async function fetchPagedTalents(isStillCurrent) {
             const listEl = document.getElementById('talentsList');
             const errorEl = document.getElementById('listError');
             try {
@@ -205,25 +223,15 @@ const TalentsPage = {};
 
                 const { data, error, count } = await capHumaWithRetry(() => {
                     // select('*') volontaire, voir requestAllTalents().
-                    let query = TalentsPage.supabaseClient
+                    const query = TalentsPage.supabaseClient
                         .from('talents')
                         .select('*', { count: 'exact' })
                         .order(sortColumn, { ascending })
+                        .order('id')
                         .range(from, to);
-
-                    if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
-                    else query = query.eq('staff_type', 'expat');
-                    if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
-
-                    if (TalentsPage.searchFilters.validityFilter === 'active') {
-                        query = query.or('is_valid.is.null,is_valid.eq.true')
-                                     .or('is_red_listed.is.null,is_red_listed.eq.false');
-                    } else if (TalentsPage.searchFilters.validityFilter === 'devalidated') {
-                        query = query.eq('is_valid', false);
-                    }
-
-                    return query;
+                    return applyServerFilters(query);
                 });
+                if (!isStillCurrent()) return;
                 if (error) throw error;
 
                 TalentsPage.totalCount = count || 0;
@@ -852,11 +860,8 @@ const TalentsPage = {};
                     const sortColumn = sortColumnMap[TalentsPage.searchFilters.sortBy] || 'pool_integration_date';
                     const ascending = TalentsPage.searchFilters.sortOrder === 'asc';
                     const { data, error } = await capHumaSelectAllPages(() => {
-                        let query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality_code, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa', { count: 'exact' }).order(sortColumn, { ascending }).order('id');
-                        if (TalentsPage.currentPoolId) query = query.eq('pool', TalentsPage.currentPoolId);
-                        else query = query.eq('staff_type', 'expat');
-                        if (TalentsPage.searchFilters.statusFilter) query = query.eq('status', TalentsPage.searchFilters.statusFilter);
-                        return query;
+                        const query = TalentsPage.supabaseClient.from('talents').select('first_name, last_name, gender, email, nationality_code, pool, last_mission_end_date, experience_months_alima, experience_months_humanitarian, pool_integration_date, availability_type, availability_months, availability_date, has_emergency_mission, emergency_mission_comments, has_mission_opening, mission_opening_comments, intervention_contexts, intervention_zones, number_of_alima_missions, has_visa', { count: 'exact' }).order(sortColumn, { ascending }).order('id');
+                        return applyServerFilters(query);
                     });
                     if (error) throw error;
                     rowsToExport = data || [];

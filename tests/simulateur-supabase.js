@@ -22,52 +22,114 @@ function sessionPour(role) {
 const erreurServeur = (message = 'erreur simulée du serveur', code = 'XX000', status = 500) =>
     ({ status, body: { code, message, details: null, hint: null } });
 
+function condition(ligne, colonne, expression) {
+    const [operateur, ...reste] = expression.split('.');
+    const attendu = reste.join('.');
+    const valeur = ligne[colonne] === null || ligne[colonne] === undefined ? null : String(ligne[colonne]);
+    if (operateur === 'eq') return valeur === attendu;
+    if (operateur === 'neq') return valeur !== attendu;
+    if (operateur === 'is') return attendu === 'null' ? valeur === null : valeur === attendu;
+    if (operateur === 'not') return !condition(ligne, colonne, attendu);
+    if (operateur === 'in') return attendu.replace(/^\(|\)$/g, '').split(',').map(v => v.replace(/^"|"$/g, '')).includes(valeur);
+    if (operateur === 'gte') return valeur !== null && valeur >= attendu;
+    if (operateur === 'lte') return valeur !== null && valeur <= attendu;
+    if (operateur === 'gt') return valeur !== null && valeur > attendu;
+    if (operateur === 'lt') return valeur !== null && valeur < attendu;
+    if (operateur === 'ilike') return valeur !== null && new RegExp('^' + attendu.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/[*%]/g, '.*') + '$', 'i').test(valeur);
+    return true;
+}
+
 function filtrer(lignes, parametres) {
     let resultat = lignes;
     for (const [colonne, valeur] of parametres.entries()) {
-        if (['select', 'order', 'offset', 'limit', 'or', 'and', 'on_conflict', 'columns'].includes(colonne)) continue;
-        const [operateur, ...reste] = valeur.split('.');
-        const attendu = reste.join('.');
-        const texte = (ligne) => (ligne[colonne] === null || ligne[colonne] === undefined ? null : String(ligne[colonne]));
-        if (operateur === 'eq') resultat = resultat.filter(l => texte(l) === attendu);
-        else if (operateur === 'neq') resultat = resultat.filter(l => texte(l) !== attendu);
-        else if (operateur === 'is' && attendu === 'null') resultat = resultat.filter(l => texte(l) === null);
-        else if (operateur === 'not' && attendu === 'is.null') resultat = resultat.filter(l => texte(l) !== null);
-        else if (operateur === 'in') {
-            const liste = attendu.replace(/^\(|\)$/g, '').split(',').map(v => v.replace(/^"|"$/g, ''));
-            resultat = resultat.filter(l => liste.includes(texte(l)));
+        if (['select', 'order', 'offset', 'limit', 'on_conflict', 'columns'].includes(colonne)) continue;
+        if (colonne === 'or') {
+            const alternatives = valeur.replace(/^\(|\)$/g, '').split(',').map(a => {
+                const point = a.indexOf('.');
+                return [a.slice(0, point), a.slice(point + 1)];
+            });
+            resultat = resultat.filter(l => alternatives.some(([c, e]) => condition(l, c, e)));
+        } else {
+            resultat = resultat.filter(l => condition(l, colonne, valeur));
         }
     }
     return resultat;
 }
 
-function reponsesParDefaut(requete, role, actif) {
+function trier(lignes, ordre) {
+    if (!ordre) return lignes;
+    const criteres = ordre.split(',').map(c => {
+        const [colonne, sens, nulls] = c.split('.');
+        return { colonne, desc: sens === 'desc', nullsFirst: nulls === 'nullsfirst' };
+    });
+    return [...lignes].sort((a, b) => {
+        for (const { colonne, desc } of criteres) {
+            const x = a[colonne], y = b[colonne];
+            if (x === y) continue;
+            if (x === null || x === undefined) return desc ? -1 : 1;
+            if (y === null || y === undefined) return desc ? 1 : -1;
+            const cmp = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+            return desc ? -cmp : cmp;
+        }
+        return 0;
+    });
+}
+
+const lireJson = (texte) => { try { return texte ? JSON.parse(texte) : null; } catch { return texte; } };
+
+let compteur = 0;
+const nouvelId = () => `00000000-0000-4000-8000-${String(++compteur).padStart(12, '0')}`;
+
+function reponsesParDefaut(requete, role, actif, base) {
     const table = requete.chemin.replace(/^\/rest\/v1\//, '');
+    if (requete.chemin === '/auth/v1/token') {
+        const { email } = lireJson(requete.corps) || {};
+        const compte = base.users.find(u => u.email === email);
+        if (!compte) return { status: 400, body: { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' } };
+        return sessionPour(Object.keys(ID_COMPTES).find(r => ID_COMPTES[r] === compte.id));
+    }
     if (requete.chemin.startsWith('/auth/v1/')) return requete.chemin.endsWith('/user') ? sessionPour(role).user : {};
     if (table === 'users' && requete.parametres.get('id') === `eq.${ID_COMPTES[role]}`) {
-        const u = DONNEES.users.find(x => x.id === ID_COMPTES[role]);
+        const u = base.users.find(x => x.id === ID_COMPTES[role]);
         return [{ role: u.role, name: u.name, is_active: actif }];
     }
     if (requete.chemin === '/functions/v1/sensitive-reads') {
-        const demande = JSON.parse(requete.corps || '{}');
+        const demande = lireJson(requete.corps) || {};
         if (demande.resource === 'red_list') {
-            const liste = DONNEES.talents.filter(t => t.is_red_listed);
+            const liste = base.talents.filter(t => t.is_red_listed);
             return { success: true, data: liste, count: liste.length, page: 1, totalPages: 1 };
         }
         if (demande.resource === 'extraction') {
-            return { success: true, talents: DONNEES.talents.filter(t => t.staff_type === 'expat'), missions: DONNEES.missions };
+            return { success: true, talents: base.talents.filter(t => t.staff_type === 'expat'), missions: base.missions };
         }
         if (demande.resource === 'audit_logs') {
-            return { success: true, data: DONNEES.audit_logs, count: DONNEES.audit_logs.length, page: 1, totalPages: 1 };
+            return { success: true, data: base.audit_logs, count: base.audit_logs.length, page: 1, totalPages: 1 };
         }
     }
-    if (table === 'rpc/get_pool_talent_stats') return DONNEES.stats_talents;
-    if (table === 'rpc/get_pool_mission_counts') return DONNEES.stats_postes;
-    if (table === 'rpc/get_notification_alerts') return DONNEES.alertes;
-    if (table === 'rpc/get_shared_talent') return DONNEES.talent_partage;
+    if (table === 'rpc/get_pool_talent_stats') return base.stats_talents;
+    if (table === 'rpc/get_pool_mission_counts') return base.stats_postes;
+    if (table === 'rpc/get_notification_alerts') return base.alertes;
+    if (table === 'rpc/get_shared_talent') return base.talent_partage;
     if (table.startsWith('rpc/')) return null;
-    if (DONNEES[table] && requete.methode === 'GET') return filtrer(DONNEES[table], requete.parametres);
-    if (DONNEES[table] && requete.methode === 'HEAD') return filtrer(DONNEES[table], requete.parametres);
+    if (!base[table]) return [];
+    if (requete.methode === 'GET' || requete.methode === 'HEAD') return filtrer(base[table], requete.parametres);
+    if (requete.methode === 'POST') {
+        const corps = lireJson(requete.corps) || [];
+        const lignes = (Array.isArray(corps) ? corps : [corps]).map(l => ({ id: nouvelId(), created_at: new Date().toISOString(), ...l }));
+        base[table].push(...lignes);
+        return lignes;
+    }
+    if (requete.methode === 'PATCH') {
+        const changement = lireJson(requete.corps) || {};
+        const cibles = filtrer(base[table], requete.parametres);
+        cibles.forEach(l => Object.assign(l, changement));
+        return cibles;
+    }
+    if (requete.methode === 'DELETE') {
+        const cibles = filtrer(base[table], requete.parametres);
+        base[table] = base[table].filter(l => !cibles.includes(l));
+        return cibles;
+    }
     return [];
 }
 
@@ -78,10 +140,12 @@ async function ouvrirPage(page, chemin, reponses = () => undefined, { role = 'ad
     page.envois = envois;
     page.dialogues = dialogues;
     page.erreursPage = erreursPage;
+    const base = structuredClone(DONNEES);
+    page.base = base;
 
     page.on('pageerror', (erreur) => erreursPage.push(erreur.message));
     page.on('dialog', async (dialogue) => {
-        dialogues.push(dialogue.message());
+        dialogues.push([dialogue.message(), dialogue.defaultValue()].filter(Boolean).join(' '));
         if (dialogue.type() === 'prompt') await dialogue.dismiss(); else await dialogue.accept();
     });
 
@@ -100,10 +164,14 @@ async function ouvrirPage(page, chemin, reponses = () => undefined, { role = 'ad
         const requete = { methode: req.method(), chemin: url.pathname, parametres: url.searchParams, corps: req.postData() };
         const entetes = { 'access-control-allow-origin': '*', 'access-control-expose-headers': 'content-range' };
         if (requete.methode === 'OPTIONS') return route.fulfill({ status: 204, headers: { ...entetes, 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
-        if (requete.methode !== 'GET' && requete.methode !== 'HEAD') envois.push(`${requete.methode} ${requete.chemin}`);
+        if (requete.methode !== 'GET' && requete.methode !== 'HEAD') {
+            envois.push(`${requete.methode} ${requete.chemin}`);
+            page.corpsEnvoyes = page.corpsEnvoyes || [];
+            page.corpsEnvoyes.push({ methode: requete.methode, chemin: requete.chemin, parametres: Object.fromEntries(url.searchParams), corps: lireJson(requete.corps) });
+        }
 
         let reponse = await reponses(requete);
-        if (reponse === undefined) reponse = reponsesParDefaut(requete, role, actif);
+        if (reponse === undefined) reponse = reponsesParDefaut(requete, role, actif, base);
 
         if (reponse && reponse.status) {
             return route.fulfill({ status: reponse.status, contentType: 'application/json', headers: entetes, body: JSON.stringify(reponse.body) });
@@ -111,12 +179,20 @@ async function ouvrirPage(page, chemin, reponses = () => undefined, { role = 'ad
 
         const objetSeul = (req.headers()['accept'] || '').includes('vnd.pgrst.object');
         let donnees = reponse;
-        if (Array.isArray(donnees) && Number(url.searchParams.get('offset') || 0) > 0) donnees = [];
+        let debut = 0;
+        let total = Array.isArray(donnees) ? donnees.length : 1;
+        if (Array.isArray(donnees) && requete.methode === 'GET') {
+            donnees = trier(donnees, url.searchParams.get('order'));
+            debut = Number(url.searchParams.get('offset') || 0);
+            const limite = url.searchParams.has('limit') ? Number(url.searchParams.get('limit')) : 1000;
+            total = donnees.length;
+            donnees = donnees.slice(debut, debut + Math.min(limite, 1000));
+        }
         if (objetSeul && Array.isArray(donnees)) donnees = donnees[0] ?? null;
-        const total = Array.isArray(donnees) ? donnees.length : 1;
+        const recus = Array.isArray(donnees) ? donnees.length : 1;
         return route.fulfill({
             status: 200, contentType: 'application/json',
-            headers: { ...entetes, 'content-range': `0-${Math.max(0, total - 1)}/${total}` },
+            headers: { ...entetes, 'content-range': `${recus ? `${debut}-${debut + recus - 1}` : '*'}/${total}` },
             body: requete.methode === 'HEAD' ? '' : JSON.stringify(donnees),
         });
     });

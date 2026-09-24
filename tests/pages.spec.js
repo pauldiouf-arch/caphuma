@@ -67,8 +67,9 @@ async function controlesCommuns(page, testInfo) {
     await page.waitForLoadState('networkidle');
     expect(page.erreursPage, 'erreurs JavaScript dans la page').toEqual([]);
     expect(await page.locator('[data-xss]').count(), 'texte piégé interprété comme du code').toBe(0);
-    const largeur = await page.evaluate(() => ({ contenu: document.documentElement.scrollWidth, ecran: window.innerWidth }));
-    expect(largeur.contenu, 'défilement horizontal').toBeLessThanOrEqual(largeur.ecran + 1);
+    const ecran = page.viewportSize().width;
+    const contenu = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(contenu, 'défilement horizontal').toBeLessThanOrEqual(ecran + 1);
     await verifierAccessibilite(page, testInfo);
 }
 
@@ -111,7 +112,7 @@ for (const definition of PAGES) {
 
 test.describe('Lien de partage public', () => {
     test('profil partagé : affichage, sécurité, accessibilité', async ({ page }, testInfo) => {
-        await ouvrirPage(page, 'shared-talent.html?token=jeton-actif', undefined, { connecte: false, attendre: false });
+        await ouvrirPage(page, 'shared-talent.html?token=st_jeton-de-test-actif', undefined, { connecte: false, attendre: false });
         await expect(page.locator('#talent-card')).toBeVisible();
         await controlesCommuns(page, testInfo);
     });

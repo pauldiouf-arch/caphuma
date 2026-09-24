@@ -87,13 +87,25 @@
             `;
 
             row.querySelector('.btn-copy-share-link').addEventListener('click', async () => {
-                await navigator.clipboard.writeText(buildShareUrl(link.token));
-                toastMessage("Lien copié dans le presse-papiers.", "success");
+                if (await copyShareUrl(buildShareUrl(link.token))) {
+                    toastMessage("Lien copié dans le presse-papiers.", "success");
+                }
             });
 
             row.querySelector('.btn-revoke-share-link').addEventListener('click', () => revokeShareLink(link.id));
 
             return row;
+        }
+
+        async function copyShareUrl(url) {
+            try {
+                await navigator.clipboard.writeText(url);
+                return true;
+            } catch (err) {
+                console.warn("[Partage] Copie automatique impossible :", err);
+                window.prompt("Copie automatique impossible : sélectionnez ce lien (Ctrl/Cmd+C) pour le copier.", url);
+                return false;
+            }
         }
 
         async function revokeShareLink(linkId) {
@@ -156,23 +168,22 @@
             try {
                 // Jeton d'accès sans compte : jamais Math.random(), prévisible.
                 const token = 'st_' + crypto.randomUUID();
-                const { error } = await capHumaWithRetry(() =>
-                    IdCardPage.supabaseClient.from('share_tokens').insert({
-                        token,
-                        talent_id: IdCardPage.talentId,
-                        created_by: IdCardPage.currentUserId,
-                        created_by_name: document.getElementById('user-display-name').textContent,
-                        expires_at: expiry.value,
-                        is_revoked: false,
-                        view_count: 0
-                    })
-                );
+                const { error } = await IdCardPage.supabaseClient.from('share_tokens').insert({
+                    token,
+                    talent_id: IdCardPage.talentId,
+                    created_by: IdCardPage.currentUserId,
+                    created_by_name: document.getElementById('user-display-name').textContent,
+                    expires_at: expiry.value,
+                    is_revoked: false,
+                    view_count: 0
+                });
 
                 if (error) throw error;
 
-                await navigator.clipboard.writeText(buildShareUrl(token));
-                toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
                 await loadShareLinks();
+                if (await copyShareUrl(buildShareUrl(token))) {
+                    toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
+                }
             } catch (err) {
                 console.error(err);
                 toastMessage("Échec de la génération du lien de partage.", "error");

@@ -12,6 +12,7 @@ const ID = {
     national: '11111111-1111-1111-1111-111111111113',
     devalide: '11111111-1111-1111-1111-111111111114',
     listeRouge: '11111111-1111-1111-1111-111111111115',
+    aArbitrer: '11111111-1111-1111-1111-111111111116',
     posteNational: '33333333-3333-3333-3333-333333333331',
     posteVacant: '33333333-3333-3333-3333-333333333332',
     detachement: '33333333-3333-3333-3333-333333333333',
@@ -43,6 +44,7 @@ const talents = [
     { ...talentBase, id: ID.aRisque, first_name: 'Binta', last_name: 'Koné', email: 'binta@exemple.org', last_mission_end_date: ilYa(23), months_without_mission: 23 },
     { ...talentBase, id: ID.national, first_name: 'Cheick', last_name: 'Traoré', staff_type: 'national', pool: null, tracking_pool: 'P1', status: 'En poste ALIMA', is_currently_on_mission: true, months_without_mission: 0 },
     { ...talentBase, id: ID.devalide, first_name: `Dado ${PIEGE}`, last_name: 'Sow', is_valid: false, devalidation_date: ilYa(2) },
+    { ...talentBase, id: ID.aArbitrer, first_name: 'Fanta', last_name: 'Camara', email: 'fanta@exemple.org', last_mission_end_date: ilYa(25), months_without_mission: 25, languages: ['Anglais'], has_visa: false },
     { ...talentBase, id: ID.listeRouge, first_name: `Eli ${PIEGE}`, last_name: 'Ba', is_red_listed: true, red_list_date: ilYa(1) + 'T10:00:00Z',
         red_list_reason: `Motif ${PIEGE}`, red_list_added_by: ID_COMPTES.user, red_list_added_by_name: `Recruteur ${PIEGE}`, red_list_documents: [] },
 ];
@@ -80,7 +82,7 @@ const DONNEES = {
         { id: 'e1', mission_id: ID.posteNational, talent_id: ID.national, author_id: ID_COMPTES.user, context: `Évaluation ${PIEGE}`, positive_points: PIEGE, negative_points: PIEGE, rating: 7, is_archived: false, created_at: '2026-05-01T10:00:00Z', author_email: 'reco@alima.ngo' },
     ],
     share_tokens: [
-        { id: 's1', token: 'jeton-actif', talent_id: ID.expat, created_by: ID_COMPTES.user, expires_at: dansJours(20) + 'T00:00:00Z', is_revoked: false, view_count: 3, created_at: '2026-09-01T10:00:00Z', created_by_name: `Recruteur ${PIEGE}` },
+        { id: 's1', token: 'st_jeton-de-test-actif', talent_id: ID.expat, created_by: ID_COMPTES.user, expires_at: dansJours(20) + 'T00:00:00Z', is_revoked: false, view_count: 3, created_at: '2026-09-01T10:00:00Z', created_by_name: `Recruteur ${PIEGE}` },
     ],
     pool_history: [
         { id: 'h1', talent_id: ID.expat, from_pool: 'P2', to_pool: 'P1', changed_at: '2025-06-01T10:00:00Z', changed_by: ID_COMPTES.admin, changed_by_name: `Admin ${PIEGE}` },
