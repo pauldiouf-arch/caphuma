@@ -18,8 +18,6 @@
         let redListPage = 1;
         let pendingConfirmAction = null;
         let currentUserId = null;
-        let currentUserEmail = null;
-        let currentUserName = null;
         let poolsForSelect = [];
         let talentsInSelectedPool = [];
         let selectedTalentForRedlist = null;
@@ -35,14 +33,7 @@
         const REDLIST_MAX_FILE_SIZE_MB = 10;
         const REDLIST_MAX_FILE_SIZE_BYTES = REDLIST_MAX_FILE_SIZE_MB * 1024 * 1024;
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => supabaseClient,
-            () => ({
-                userId: currentUserId,
-                userEmail: currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => supabaseClient);
 
         async function checkSession() {
             try {
@@ -56,8 +47,6 @@
 
                 document.getElementById('user-display-name').textContent = s.email;
                 currentUserId = s.userId;
-                currentUserEmail = s.email;
-                currentUserName = s.name;
 
                 capHumaStartIdleTimeout(supabaseClient);
                 appBody.style.display = '';
@@ -513,7 +502,7 @@
         });
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });

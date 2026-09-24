@@ -19,30 +19,19 @@
         const generateBtnLabel = document.getElementById('generateBtnLabel');
 
         let currentUserRole = null;
-        let currentUserId = null;
         let currentUserEmail = null;
-        let currentUserName = null;
         let pools = [];
         let allTalents = [];
         let allMissions = [];
         const talentPoolsSelected = new Set();
         const positionPoolsSelected = new Set();
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => supabaseClient,
-            () => ({
-                userId: currentUserId,
-                userEmail: currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => supabaseClient);
 
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(supabaseClient);
-                currentUserId = s.userId;
                 currentUserEmail = s.email;
-                currentUserName = s.name;
 
                 capHumaStartIdleTimeout(supabaseClient);
                 document.getElementById('user-display-name').textContent = currentUserEmail;
@@ -62,7 +51,7 @@
         checkSession();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

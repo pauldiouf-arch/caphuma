@@ -10,12 +10,23 @@
             return token.substring(0, 6) + '••••••••' + token.substring(token.length - 4);
         }
 
+        const SHARE_MAX_DAYS = 90;
+
+        function isoDateInDays(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
         function openShareLinksModal() {
             document.getElementById('share-links-modal').classList.remove('hidden');
             document.getElementById('share-links-modal').classList.add('flex');
             document.getElementById('share-links-duration').value = '30';
-            document.getElementById('share-links-custom-date').value = '';
-            document.getElementById('share-links-custom-date').classList.add('hidden');
+            const customDate = document.getElementById('share-links-custom-date');
+            customDate.value = '';
+            customDate.min = isoDateInDays(1);
+            customDate.max = isoDateInDays(SHARE_MAX_DAYS);
+            customDate.classList.add('hidden');
             loadShareLinks();
         }
 
@@ -148,6 +159,9 @@
                 if (expiresAt.getTime() <= Date.now()) {
                     return { error: "La date d'expiration doit être dans le futur." };
                 }
+                if (dateVal > isoDateInDays(SHARE_MAX_DAYS)) {
+                    return { error: `Un lien de partage est valable ${SHARE_MAX_DAYS} jours au plus.` };
+                }
                 return { value: expiresAt.toISOString() };
             }
 
@@ -166,22 +180,16 @@
 
             btn.disabled = true;
             try {
-                // Jeton d'accès sans compte : jamais Math.random(), prévisible.
-                const token = 'st_' + crypto.randomUUID();
-                const { error } = await IdCardPage.supabaseClient.from('share_tokens').insert({
-                    token,
+                const { data: created, error } = await IdCardPage.supabaseClient.from('share_tokens').insert({
                     talent_id: IdCardPage.talentId,
                     created_by: IdCardPage.currentUserId,
-                    created_by_name: document.getElementById('user-display-name').textContent,
-                    expires_at: expiry.value,
-                    is_revoked: false,
-                    view_count: 0
-                });
+                    expires_at: expiry.value
+                }).select('token').single();
 
                 if (error) throw error;
 
                 await loadShareLinks();
-                if (await copyShareUrl(buildShareUrl(token))) {
+                if (await copyShareUrl(buildShareUrl(created.token))) {
                     toastMessage("Nouveau lien généré et copié dans le presse-papiers !", "success");
                 }
             } catch (err) {

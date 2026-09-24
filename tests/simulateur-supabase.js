@@ -125,11 +125,15 @@ function reponsesParDefaut(requete, role, actif, base) {
     if (table === 'rpc/get_notification_alerts') return base.alertes;
     if (table === 'rpc/get_shared_talent') return base.talent_partage;
     if (table.startsWith('rpc/')) return null;
+    if (table === 'audit_logs' && requete.methode !== 'GET' && requete.methode !== 'HEAD') {
+        return { status: 403, body: { code: '42501', message: 'permission denied for table audit_logs' } };
+    }
     if (!base[table]) return [];
     if (requete.methode === 'GET' || requete.methode === 'HEAD') return filtrer(base[table], requete.parametres);
     if (requete.methode === 'POST') {
         const corps = lireJson(requete.corps) || [];
         const lignes = (Array.isArray(corps) ? corps : [corps]).map(l => ({ id: nouvelId(), created_at: new Date().toISOString(), ...l }));
+        if (table === 'share_tokens') lignes.forEach(l => { l.token = `st_${crypto.randomUUID()}`; l.is_revoked = false; l.view_count = 0; });
         base[table].push(...lignes);
         return lignes;
     }

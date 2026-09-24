@@ -33,20 +33,12 @@
             submitLoginBtn.textContent = 'Connexion...';
 
             try {
-                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
 
                 try {
-                    await supabaseClient.from('audit_logs').insert({
-                        user_id: data && data.user ? data.user.id : null,
-                        user_email: email,
-                        user_name: null,
-                        action: 'login',
-                        entity_type: 'user',
-                        entity_id: data && data.user ? data.user.id : null,
-                        entity_name: email,
-                        details: null
-                    });
+                    const { error: auditError } = await supabaseClient.rpc('log_client_event', { p_action: 'login', p_entity_type: 'user' });
+                    if (auditError) throw auditError;
                 } catch (auditErr) {
                     console.warn("[Audit] Échec de l'enregistrement du log :", auditErr);
                 }

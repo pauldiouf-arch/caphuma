@@ -30,23 +30,14 @@ const TalentsPage = {};
         TalentsPage.currentUserId = null;
         TalentsPage.currentUserEmail = null;
         TalentsPage.currentUserRole = null;
-        TalentsPage.currentUserName = null;
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => TalentsPage.supabaseClient,
-            () => ({
-                userId: TalentsPage.currentUserId,
-                userEmail: TalentsPage.currentUserEmail,
-                userName: typeof TalentsPage.currentUserName !== 'undefined' ? TalentsPage.currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => TalentsPage.supabaseClient);
 
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(TalentsPage.supabaseClient);
                 TalentsPage.currentUserId = s.userId;
                 TalentsPage.currentUserEmail = s.email;
-                TalentsPage.currentUserName = s.name;
                 TalentsPage.currentUserRole = s.role;
                 capHumaStartIdleTimeout(TalentsPage.supabaseClient);
 
@@ -71,7 +62,7 @@ const TalentsPage = {};
         capHumaInitModalA11y();
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', TalentsPage.currentUserId, TalentsPage.currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await TalentsPage.supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

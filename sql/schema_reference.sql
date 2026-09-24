@@ -147,7 +147,7 @@ create table public.share_tokens (
     token text not null,
     talent_id uuid not null,
     created_by uuid not null,
-    expires_at timestamp with time zone,
+    expires_at timestamp with time zone not null,
     is_revoked boolean default false,
     view_count integer default 0,
     last_viewed_at timestamp with time zone,
@@ -353,6 +353,39 @@ end;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.audit_comments_changes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+    v_user_id uuid := auth.uid();
+    v_user_email text;
+    v_user_name text;
+    v_row public.comments := coalesce(new, old);
+    v_talent_name text;
+begin
+    select first_name || ' ' || last_name into v_talent_name from public.talents where id = v_row.talent_id;
+    if not found then
+        return v_row;
+    end if;
+
+    select email, name into v_user_email, v_user_name from public.users where id = v_user_id;
+    if v_user_id is null then
+        v_user_name := 'Système';
+    end if;
+
+    insert into public.audit_logs (user_id, user_email, user_name, action, entity_type, entity_id, entity_name, details)
+    values (v_user_id, v_user_email, v_user_name,
+            case tg_op when 'INSERT' then 'create' when 'UPDATE' then 'update' else 'delete' end,
+            'comment', v_row.id::text, v_talent_name, null);
+
+    return v_row;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.audit_missions_changes()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -391,6 +424,65 @@ begin
     values (v_user_id, v_user_email, v_user_name, v_action, 'mission', v_entity_id, v_entity_name, null);
 
     return coalesce(NEW, OLD);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.audit_pools_changes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+    v_user_id uuid := auth.uid();
+    v_user_email text;
+    v_user_name text;
+    v_row public.pools := coalesce(new, old);
+    v_action text;
+    v_details text;
+    v_changes text[] := '{}';
+    v_levels constant jsonb := '{"mission": "Mission", "project": "Projet"}';
+begin
+    if tg_op = 'INSERT' then
+        v_action := 'create';
+        v_details := new.full_name;
+    elsif tg_op = 'DELETE' then
+        v_action := 'delete';
+        v_details := 'Pool supprimé';
+    else
+        v_action := 'update';
+        if new.is_archived is distinct from old.is_archived then
+            v_changes := v_changes || case when new.is_archived then 'Pool archivé' else 'Pool désarchivé' end;
+        end if;
+        if new.pool_id is distinct from old.pool_id then
+            v_changes := v_changes || format('Code : %s → %s', old.pool_id, new.pool_id);
+        end if;
+        if new.full_name is distinct from old.full_name then
+            v_changes := v_changes || format('Nom complet : %s → %s', old.full_name, new.full_name);
+        end if;
+        if new.level is distinct from old.level then
+            v_changes := v_changes || format('Niveau : %s → %s',
+                coalesce(v_levels ->> old.level, old.level), coalesce(v_levels ->> new.level, new.level));
+        end if;
+        if new.description is distinct from old.description then
+            v_changes := v_changes || format('Description : %s → %s', coalesce(old.description, '—'), coalesce(new.description, '—'));
+        end if;
+        if cardinality(v_changes) = 0 then
+            return new;
+        end if;
+        v_details := array_to_string(v_changes, ' ; ');
+    end if;
+
+    select email, name into v_user_email, v_user_name from public.users where id = v_user_id;
+    if v_user_id is null then
+        v_user_name := 'Système';
+    end if;
+
+    insert into public.audit_logs (user_id, user_email, user_name, action, entity_type, entity_id, entity_name, details)
+    values (v_user_id, v_user_email, v_user_name, v_action, 'system', v_row.id::text, 'Pool ' || v_row.pool_id, left(v_details, 2000));
+
+    return v_row;
 end;
 $function$
 ;
@@ -459,6 +551,7 @@ declare
     v_entity_id text;
     v_entity_name text;
     v_details text;
+    v_changed text;
 begin
     select email, name into v_user_email, v_user_name
     from public.users where id = v_user_id;
@@ -493,7 +586,7 @@ begin
 
         if NEW.is_red_listed = true and coalesce(OLD.is_red_listed, false) = false then
             v_action := 'add_to_red_list';
-            v_details := NEW.red_list_reason;
+            v_details := 'Ajout en Liste Rouge';
 
         elsif coalesce(OLD.is_red_listed, false) = true and coalesce(NEW.is_red_listed, false) = false then
             v_action := 'remove_from_red_list';
@@ -518,12 +611,15 @@ begin
 
         else
             v_action := 'update';
-            v_details := null;
+            select string_agg(n.key, ', ' order by n.key) into v_changed
+            from jsonb_each(to_jsonb(NEW)) n
+            where n.value is distinct from to_jsonb(OLD) -> n.key;
+            v_details := case when v_changed is not null then 'Champs modifiés : ' || v_changed end;
         end if;
     end if;
 
     insert into public.audit_logs (user_id, user_email, user_name, action, entity_type, entity_id, entity_name, details)
-    values (v_user_id, v_user_email, v_user_name, v_action, 'talent', v_entity_id, v_entity_name, v_details);
+    values (v_user_id, v_user_email, v_user_name, v_action, 'talent', v_entity_id, v_entity_name, left(v_details, 2000));
 
     return coalesce(NEW, OLD);
 end;
@@ -633,16 +729,29 @@ CREATE OR REPLACE FUNCTION public.dismiss_access_code_request(p_id uuid)
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-    begin
-        if not public.is_admin() then
-            raise exception 'Accès refusé' using errcode = '42501';
-        end if;
+declare
+    v_email text;
+    v_account_id uuid;
+begin
+    if not public.is_admin() then
+        raise exception 'Accès refusé' using errcode = '42501';
+    end if;
 
-        update public.access_code_requests
-        set resolved_at = now(), resolved_by = auth.uid()
-        where id = p_id and resolved_at is null;
-    end;
-    $function$
+    update public.access_code_requests
+    set resolved_at = now(), resolved_by = auth.uid()
+    where id = p_id and resolved_at is null
+    returning email into v_email;
+
+    if v_email is null then
+        return;
+    end if;
+
+    select id into v_account_id from public.users where lower(email) = lower(v_email);
+
+    insert into public.audit_logs (user_id, action, entity_type, entity_id, entity_name, details)
+    values (auth.uid(), 'update', 'user', v_account_id::text, v_email, 'Demande de nouveau code d''accès ignorée');
+end;
+$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.enforce_missions_occupant_staff_type()
@@ -669,6 +778,30 @@ begin
     end if;
 
     return NEW;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.enforce_share_token_rules()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+    if tg_op = 'INSERT' then
+        new.token := 'st_' || gen_random_uuid()::text;
+        new.is_revoked := false;
+        new.view_count := 0;
+        new.last_viewed_at := null;
+        if new.expires_at is null or new.expires_at <= now() or new.expires_at > now() + interval '91 days' then
+            raise exception 'La date d''expiration d''un lien de partage doit être dans le futur et à 90 jours au plus.'
+                using errcode = '22023';
+        end if;
+    elsif coalesce(old.is_revoked, false) and not coalesce(new.is_revoked, false) then
+        raise exception 'Un lien de partage révoqué ne peut pas être réactivé.' using errcode = '22023';
+    end if;
+    return new;
 end;
 $function$
 ;
@@ -786,29 +919,30 @@ CREATE OR REPLACE FUNCTION public.get_shared_talent(p_token text)
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE
+declare
     v_link record;
     v_talent jsonb;
     v_mission jsonb;
     v_detachment jsonb;
-BEGIN
-    SELECT * INTO v_link
-    FROM public.share_tokens
-    WHERE token = p_token;
+begin
+    select * into v_link
+    from public.share_tokens
+    where token = p_token;
 
-    IF NOT FOUND THEN
-        RETURN jsonb_build_object('error', 'invalid_token');
-    END IF;
+    if not found then
+        return jsonb_build_object('error', 'invalid_token');
+    end if;
 
-    IF v_link.is_revoked THEN
-        RETURN jsonb_build_object('error', 'revoked');
-    END IF;
+    if v_link.is_revoked
+       or not exists (select 1 from public.users u where u.id = v_link.created_by and u.is_active is not false) then
+        return jsonb_build_object('error', 'revoked');
+    end if;
 
-    IF v_link.expires_at IS NOT NULL AND v_link.expires_at < now() THEN
-        RETURN jsonb_build_object('error', 'expired');
-    END IF;
+    if v_link.expires_at is null or v_link.expires_at < now() then
+        return jsonb_build_object('error', 'expired');
+    end if;
 
-    SELECT jsonb_build_object(
+    select jsonb_build_object(
         'first_name', t.first_name,
         'last_name', t.last_name,
         'current_function', t.current_function,
@@ -830,49 +964,59 @@ BEGIN
         'key_skills', t.key_skills,
         'intervention_contexts', t.intervention_contexts,
         'intervention_zones', t.intervention_zones,
-        'archived_position_passages', t.archived_position_passages
-    ) INTO v_talent
-    FROM public.talents t
-    WHERE t.id = v_link.talent_id
-      AND coalesce(t.is_red_listed, false) = false;
+        'archived_position_passages', coalesce((
+            select jsonb_agg(jsonb_build_object(
+                'positionTitle', p.passage -> 'positionTitle',
+                'startDate', p.passage -> 'startDate',
+                'endDate', p.passage -> 'endDate'
+            ) order by p.ordre)
+            from jsonb_array_elements(
+                case when jsonb_typeof(t.archived_position_passages) = 'array' then t.archived_position_passages else '[]'::jsonb end
+            ) with ordinality as p(passage, ordre)
+        ), '[]'::jsonb)
+    ) into v_talent
+    from public.talents t
+    where t.id = v_link.talent_id
+      and coalesce(t.is_red_listed, false) = false
+      and coalesce(t.is_valid, true) = true;
 
-    IF v_talent IS NULL THEN
-        RETURN jsonb_build_object('error', 'talent_not_found');
-    END IF;
+    if v_talent is null then
+        return jsonb_build_object('error', 'talent_not_found');
+    end if;
 
-    UPDATE public.share_tokens
-    SET view_count = COALESCE(view_count, 0) + 1,
+    update public.share_tokens
+    set view_count = coalesce(view_count, 0) + 1,
         last_viewed_at = now()
-    WHERE token = p_token;
+    where token = p_token;
 
-    SELECT jsonb_build_object(
+    select jsonb_build_object(
         'title', m.title,
         'country', m.country,
         'country_code', m.country_code,
         'contract_start_date', m.contract_start_date
-    ) INTO v_mission
-    FROM public.missions m
-    WHERE m.occupant_id = v_link.talent_id
-    AND m.status = 'occupied'
-    AND m.candidate_type IS DISTINCT FROM 'detache'
-    ORDER BY m.contract_start_date DESC NULLS LAST
-    LIMIT 1;
+    ) into v_mission
+    from public.missions m
+    where m.occupant_id = v_link.talent_id
+      and m.status = 'occupied'
+      and m.candidate_type is distinct from 'detache'
+    order by m.contract_start_date desc nulls last
+    limit 1;
 
-    SELECT jsonb_build_object(
+    select jsonb_build_object(
         'title', m.title,
         'country', m.country,
         'country_code', m.country_code,
         'contract_start_date', m.contract_start_date
-    ) INTO v_detachment
-    FROM public.missions m
-    WHERE m.occupant_id = v_link.talent_id
-    AND m.status = 'occupied'
-    AND m.candidate_type = 'detache'
-    ORDER BY m.contract_start_date DESC NULLS LAST
-    LIMIT 1;
+    ) into v_detachment
+    from public.missions m
+    where m.occupant_id = v_link.talent_id
+      and m.status = 'occupied'
+      and m.candidate_type = 'detache'
+    order by m.contract_start_date desc nulls last
+    limit 1;
 
-    RETURN jsonb_build_object('talent', v_talent, 'mission', v_mission, 'detachment', v_detachment);
-END;
+    return jsonb_build_object('talent', v_talent, 'mission', v_mission, 'detachment', v_detachment);
+end;
 $function$
 ;
 
@@ -925,6 +1069,40 @@ CREATE OR REPLACE FUNCTION public.is_admin()
 AS $function$
         select public.has_active_role('admin');
     $function$
+;
+
+CREATE OR REPLACE FUNCTION public.log_client_event(p_action text, p_entity_type text, p_entity_id text DEFAULT NULL::text, p_entity_name text DEFAULT NULL::text, p_details text DEFAULT NULL::text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+    v_uid uuid := auth.uid();
+    v_email text;
+begin
+    if v_uid is null or not public.is_active_user() then
+        raise exception 'Accès refusé' using errcode = '42501';
+    end if;
+
+    if p_action in ('login', 'logout') and p_entity_type = 'user' then
+        select email into v_email from public.users where id = v_uid;
+        p_entity_id := v_uid::text;
+        p_entity_name := v_email;
+        p_details := null;
+    elsif p_action = 'export' and p_entity_type in ('talent', 'system') then
+        null;
+    elsif p_action = 'create' and p_entity_type in ('talent', 'mission') then
+        p_entity_id := null;
+        p_entity_name := 'Import en masse';
+    else
+        raise exception 'Action non journalisable depuis le site : % / %', p_action, p_entity_type using errcode = '22023';
+    end if;
+
+    insert into public.audit_logs (user_id, action, entity_type, entity_id, entity_name, details)
+    values (v_uid, p_action, p_entity_type, left(p_entity_id, 100), left(p_entity_name, 1000), left(p_details, 2000));
+end;
+$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.process_expired_missions(p_pool text)
@@ -1421,13 +1599,16 @@ AS $function$
 
 CREATE TRIGGER trg_set_author_audit_logs BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
 CREATE TRIGGER trg_set_author_client_error_logs BEFORE INSERT ON public.client_error_logs FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
+CREATE TRIGGER trg_audit_comments AFTER INSERT OR DELETE OR UPDATE OF content ON public.comments FOR EACH ROW EXECUTE FUNCTION audit_comments_changes();
 CREATE TRIGGER trg_set_author_comments BEFORE INSERT OR UPDATE ON public.comments FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
 CREATE TRIGGER trg_set_author_evaluations BEFORE INSERT OR UPDATE ON public.evaluations FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
 CREATE TRIGGER trg_audit_missions AFTER INSERT OR DELETE OR UPDATE ON public.missions FOR EACH ROW EXECUTE FUNCTION audit_missions_changes();
 CREATE TRIGGER trg_enforce_missions_occupant_staff_type BEFORE INSERT OR UPDATE ON public.missions FOR EACH ROW EXECUTE FUNCTION enforce_missions_occupant_staff_type();
 CREATE TRIGGER trg_set_attribution_missions BEFORE INSERT OR UPDATE ON public.missions FOR EACH ROW EXECUTE FUNCTION set_attribution_from_session();
 CREATE TRIGGER trg_set_author_pool_history BEFORE INSERT ON public.pool_history FOR EACH ROW EXECUTE FUNCTION set_author_from_session();
+CREATE TRIGGER trg_audit_pools AFTER INSERT OR DELETE OR UPDATE ON public.pools FOR EACH ROW EXECUTE FUNCTION audit_pools_changes();
 CREATE TRIGGER trg_audit_share_tokens AFTER INSERT OR DELETE OR UPDATE ON public.share_tokens FOR EACH ROW EXECUTE FUNCTION audit_share_tokens_changes();
+CREATE TRIGGER trg_enforce_share_token_rules BEFORE INSERT OR UPDATE ON public.share_tokens FOR EACH ROW EXECUTE FUNCTION enforce_share_token_rules();
 CREATE TRIGGER trg_set_attribution_share_tokens BEFORE INSERT OR UPDATE ON public.share_tokens FOR EACH ROW EXECUTE FUNCTION set_attribution_from_session();
 CREATE TRIGGER trg_audit_talents AFTER INSERT OR DELETE OR UPDATE ON public.talents FOR EACH ROW EXECUTE FUNCTION audit_talents_changes();
 CREATE TRIGGER trg_set_attribution_talents BEFORE INSERT OR UPDATE ON public.talents FOR EACH ROW EXECUTE FUNCTION set_attribution_from_session();
@@ -1452,9 +1633,6 @@ alter table public.users enable row level security;
 
 create policy access_code_requests_select_admin on public.access_code_requests as permissive for select to authenticated
     using (( SELECT is_admin() AS is_admin));
-
-create policy audit_logs_insert_own_action on public.audit_logs as permissive for insert to authenticated
-    with check ((( SELECT auth.uid() AS uid) = user_id));
 
 create policy audit_logs_select_admin_only on public.audit_logs as permissive for select to authenticated
     using (( SELECT is_admin() AS is_admin));
@@ -1600,7 +1778,7 @@ grant delete, select, update on table public.access_code_requests to service_rol
 grant select on table public.access_code_requests to authenticated;
 revoke all on table public.audit_logs from public, anon, authenticated, service_role;
 grant delete, insert, maintain, references, select, trigger, truncate, update on table public.audit_logs to service_role;
-grant insert, select on table public.audit_logs to authenticated;
+grant select on table public.audit_logs to authenticated;
 revoke all on table public.client_error_logs from public, anon, authenticated, service_role;
 grant delete, maintain, references, select, trigger, truncate on table public.client_error_logs to service_role;
 grant insert, select on table public.client_error_logs to authenticated;
@@ -1626,7 +1804,8 @@ revoke all on table public.rate_limit_log from public, anon, authenticated, serv
 grant delete, insert, maintain, references, select, trigger, truncate on table public.rate_limit_log to service_role;
 revoke all on table public.share_tokens from public, anon, authenticated, service_role;
 grant delete, insert, maintain, references, select, trigger, truncate, update on table public.share_tokens to service_role;
-grant delete, insert, select, update on table public.share_tokens to authenticated;
+grant delete, insert, select on table public.share_tokens to authenticated;
+grant update (is_revoked) on table public.share_tokens to authenticated;
 revoke all on table public.talents from public, anon, authenticated, service_role;
 grant delete, insert, maintain, references, select, trigger, truncate, update on table public.talents to service_role;
 grant delete, insert, select, update on table public.talents to authenticated;
@@ -1638,7 +1817,9 @@ grant select on table public.users to authenticated;
 
 revoke all on function public.admin_revoke_user_sessions(target_user_id uuid) from public, anon, authenticated, service_role;
 grant execute on function public.admin_revoke_user_sessions(target_user_id uuid) to service_role;
+revoke all on function public.audit_comments_changes() from public, anon, authenticated, service_role;
 revoke all on function public.audit_missions_changes() from public, anon, authenticated, service_role;
+revoke all on function public.audit_pools_changes() from public, anon, authenticated, service_role;
 revoke all on function public.audit_share_tokens_changes() from public, anon, authenticated, service_role;
 revoke all on function public.audit_talents_changes() from public, anon, authenticated, service_role;
 revoke all on function public.change_talent_pool(p_talent_id uuid, p_new_pool text) from public, anon, authenticated, service_role;
@@ -1650,6 +1831,7 @@ grant execute on function public.delete_mission(p_mission_id uuid) to authentica
 revoke all on function public.dismiss_access_code_request(p_id uuid) from public, anon, authenticated, service_role;
 grant execute on function public.dismiss_access_code_request(p_id uuid) to authenticated;
 revoke all on function public.enforce_missions_occupant_staff_type() from public, anon, authenticated, service_role;
+revoke all on function public.enforce_share_token_rules() from public, anon, authenticated, service_role;
 revoke all on function public.get_notification_alerts(p_pool_scope text[]) from public, anon, authenticated, service_role;
 grant execute on function public.get_notification_alerts(p_pool_scope text[]) to authenticated;
 grant execute on function public.get_notification_alerts(p_pool_scope text[]) to service_role;
@@ -1671,6 +1853,8 @@ revoke all on function public.is_active_user() from public, anon, authenticated,
 grant execute on function public.is_active_user() to authenticated;
 revoke all on function public.is_admin() from public, anon, authenticated, service_role;
 grant execute on function public.is_admin() to authenticated;
+revoke all on function public.log_client_event(p_action text, p_entity_type text, p_entity_id text, p_entity_name text, p_details text) from public, anon, authenticated, service_role;
+grant execute on function public.log_client_event(p_action text, p_entity_type text, p_entity_id text, p_entity_name text, p_details text) to authenticated;
 revoke all on function public.process_expired_missions(p_pool text) from public, anon, authenticated, service_role;
 grant execute on function public.process_expired_missions(p_pool text) to authenticated;
 revoke all on function public.promote_national_to_expat(p_talent_id uuid, p_pool text) from public, anon, authenticated, service_role;

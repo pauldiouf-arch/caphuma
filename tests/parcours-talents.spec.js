@@ -6,6 +6,7 @@ const { ouvrirPage, erreurServeur, CLE_SESSION } = require('./simulateur-supabas
 const { ID, ID_COMPTES, PIEGE } = require('./donnees');
 
 const envoi = (page, methode, fin) => (page.corpsEnvoyes || []).filter(e => e.methode === methode && e.chemin.endsWith(fin));
+const journal = (page) => envoi(page, 'POST', '/rpc/log_client_event').map(e => e.corps);
 const notification = (page, texte) => page.locator('div.fixed.bottom-5', { hasText: texte });
 const lignesTalents = (page) => page.locator('#talentsList a[href^="id-card.html"]');
 
@@ -16,8 +17,8 @@ test.describe('Connexion', () => {
         await page.fill('#loginPassword', 'secret');
         await page.click('#submitLoginBtn');
         await expect(page).toHaveURL(/dashboard\.html/);
-        const journal = envoi(page, 'POST', '/audit_logs');
-        expect(journal.map(j => [j.corps.action, j.corps.user_email])).toContainEqual(['login', 'reco@alima.ngo']);
+        expect(journal(page)).toContainEqual({ p_action: 'login', p_entity_type: 'user' });
+        expect(envoi(page, 'POST', '/audit_logs')).toEqual([]);
     });
 
     test('mauvais identifiants : message clair, bouton de nouveau utilisable', async ({ page }) => {
@@ -73,7 +74,8 @@ test.describe('Connexion', () => {
         await page.locator('#logoutBtn').click();
         await expect(page).toHaveURL(/login\.html/);
         expect(await page.evaluate((cle) => localStorage.getItem(cle), CLE_SESSION)).toBeNull();
-        expect(envoi(page, 'POST', '/audit_logs').map(j => j.corps.action)).toContain('logout');
+        expect(journal(page).map(j => j.p_action)).toContain('logout');
+        expect(envoi(page, 'POST', '/audit_logs')).toEqual([]);
     });
 });
 
@@ -242,7 +244,7 @@ test.describe('Liste des talents', () => {
             const lignes = XLSX.utils.sheet_to_json(classeur.Sheets[classeur.SheetNames[0]]);
             expect(lignes.map(l => l['Prénom(s) et Nom'].split(' ')[0]).sort()).toEqual(attendu);
             expect(Object.keys(lignes[0])).toEqual(expect.arrayContaining(['Genre', 'Adresse mail', 'Nationalité', 'Visa Schengen', 'Nombre de missions ALIMA']));
-            await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => j.corps.action)).toContain('export');
+            await expect.poll(() => journal(page).map(j => j.p_action)).toContain('export');
         });
     }
 });
@@ -311,6 +313,8 @@ test.describe('Fiche talent', () => {
         await page.click('[data-comment-id="c1"] .btn-delete-comment');
         await expect(notification(page, 'Commentaire supprimé.')).toBeVisible();
         await expect(page.locator('#comments-list-container')).toContainText('Aucun commentaire');
+        expect(journal(page), 'le journal des commentaires est tenu par la base').toEqual([]);
+        expect(envoi(page, 'POST', '/audit_logs')).toEqual([]);
     });
 
     test('lien de partage : liste masquée, création 30 jours copiée, révocation', async ({ page, context }) => {
@@ -321,11 +325,14 @@ test.describe('Fiche talent', () => {
         await page.click('#share-links-generate');
         await expect(notification(page, 'Nouveau lien généré et copié')).toBeVisible();
         const [creation] = envoi(page, 'POST', '/share_tokens');
-        expect(creation.corps.token).toMatch(/^st_[0-9a-f-]{36}$/);
+        expect(creation.corps).not.toHaveProperty('token');
+        expect(creation.parametres.select).toBe('token');
         const jours = (new Date(creation.corps.expires_at) - Date.now()) / 864e5;
         expect(jours).toBeGreaterThan(29.9);
         expect(jours).toBeLessThan(30.1);
-        expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(`shared-talent.html?token=${creation.corps.token}`);
+        const jetonDeLaBase = page.base.share_tokens.at(-1).token;
+        expect(jetonDeLaBase).toMatch(/^st_[0-9a-f-]{36}$/);
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(`shared-talent.html?token=${jetonDeLaBase}`);
         await expect(page.locator('#share-links-list > div')).toHaveCount(2);
         await page.locator('#share-links-list .btn-revoke-share-link').first().click();
         await expect(notification(page, 'Lien révoqué.')).toBeVisible();
@@ -340,6 +347,22 @@ test.describe('Fiche talent', () => {
         await page.click('#share-links-generate');
         await expect(notification(page, "La date d'expiration doit être dans le futur.")).toBeVisible();
         expect(envoi(page, 'POST', '/share_tokens')).toEqual([]);
+    });
+
+    test('lien de partage : 90 jours au plus, dans le calendrier comme à l\'envoi', async ({ page }) => {
+        await ouvrirPage(page, fiche(), undefined, { role: 'user' });
+        await page.click('#share-btn');
+        await page.selectOption('#share-links-duration', 'custom');
+        const date = page.locator('#share-links-custom-date');
+        const dansJours = (n) => page.evaluate((j) => { const d = new Date(); d.setDate(d.getDate() + j); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }, n);
+        await expect(date).toHaveAttribute('max', await dansJours(90));
+        await date.fill(await dansJours(91));
+        await page.click('#share-links-generate');
+        await expect(notification(page, 'Un lien de partage est valable 90 jours au plus.')).toBeVisible();
+        expect(envoi(page, 'POST', '/share_tokens')).toEqual([]);
+        await date.fill(await dansJours(90));
+        await page.click('#share-links-generate');
+        await expect.poll(() => envoi(page, 'POST', '/share_tokens').length).toBe(1);
     });
 
     test('lien de partage : si la copie automatique est impossible, le lien est affiché pour être copié à la main', async ({ page, context }) => {

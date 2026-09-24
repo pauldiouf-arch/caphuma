@@ -90,7 +90,6 @@
                         }
 
                         toastMessage("Commentaire supprimé.", "success");
-                        await IdCardPage.logAuditAction('delete', 'comment', id, null, `Sur talent ${IdCardPage.talentId}`);
                         await loadComments();
                     } catch (err) {
                         console.error(err);

@@ -32,26 +32,24 @@ async function capHumaInitSession(supabaseClient) {
 }
 
 // À attendre (await) avant toute redirection, sinon l'écriture du log peut être perdue.
-async function capHumaLogAudit(supabaseClient, ctx, action, entityType, entityId, entityName, details) {
+async function capHumaLogAudit(supabaseClient, action, entityType, entityId, entityName, details) {
     try {
-        await supabaseClient.from('audit_logs').insert({
-            user_id: ctx.userId || null,
-            user_email: ctx.userEmail || null,
-            user_name: ctx.userName || null,
-            action: action,
-            entity_type: entityType,
-            entity_id: entityId || null,
-            entity_name: entityName || null,
-            details: details || null
+        const { error } = await supabaseClient.rpc('log_client_event', {
+            p_action: action,
+            p_entity_type: entityType,
+            p_entity_id: entityId || null,
+            p_entity_name: entityName || null,
+            p_details: details || null
         });
+        if (error) throw error;
     } catch (err) {
         console.warn("[Audit] Échec de l'enregistrement du log :", err);
     }
 }
 
-function capHumaMakeAuditLogger(getSupabaseClient, getCtx) {
+function capHumaMakeAuditLogger(getSupabaseClient) {
     return async function logAuditAction(action, entityType, entityId, entityName, details) {
-        await capHumaLogAudit(getSupabaseClient(), getCtx(), action, entityType, entityId, entityName, details);
+        await capHumaLogAudit(getSupabaseClient(), action, entityType, entityId, entityName, details);
     };
 }
 

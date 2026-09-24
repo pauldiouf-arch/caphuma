@@ -11,20 +11,13 @@
         const appBody = document.getElementById('appBody');
         const supabaseClient = capHumaGetSupabaseClient();
         let currentUserId = null;
-        let currentUserEmail = null;
-        let currentUserName = null;
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => supabaseClient,
-            () => ({ userId: currentUserId, userEmail: currentUserEmail, userName: currentUserName })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => supabaseClient);
 
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(supabaseClient);
                 currentUserId = s.userId;
-                currentUserEmail = s.email;
-                currentUserName = s.name;
 
                 capHumaStartIdleTimeout(supabaseClient);
 
@@ -46,7 +39,7 @@
         }
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });

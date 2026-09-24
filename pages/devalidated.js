@@ -23,14 +23,7 @@
         pageState.currentUserRole = null;
         pageState.currentUserEmail = null;
 
-        async function logAuditAction(action, entityType, entityId, entityName, details) {
-            const userName = typeof pageState.currentUserName !== 'undefined' ? pageState.currentUserName : null;
-            await capHumaLogAudit(
-                supabaseClient,
-                { userId: pageState.currentUserId, userEmail: pageState.currentUserEmail, userName: userName },
-                action, entityType, entityId, entityName, details
-            );
-        }
+        const logAuditAction = capHumaMakeAuditLogger(() => supabaseClient);
 
         async function checkSession() {
             try {
@@ -60,7 +53,7 @@
         capHumaInitModalA11y();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
-            await logAuditAction('logout', 'user', pageState.currentUserId, pageState.currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

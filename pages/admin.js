@@ -17,17 +17,8 @@
         const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
         let pendingConfirmAction = null;
         let currentUserId = null;
-        let currentUserEmail = null;
-        let currentUserName = null;
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => supabaseClient,
-            () => ({
-                userId: currentUserId,
-                userEmail: currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => supabaseClient);
 
         async function checkSession() {
             try {
@@ -41,8 +32,6 @@
 
                 document.getElementById('user-display-name').textContent = s.email;
                 currentUserId = s.userId;
-                currentUserEmail = s.email;
-                currentUserName = s.name;
 
                 capHumaStartIdleTimeout(supabaseClient);
                 appBody.style.display = '';
@@ -237,8 +226,6 @@
         async function onDismissAccessRequest(requestId) {
             const request = accessRequestsList.find(r => r.id === requestId);
             if (!request) return;
-            const account = findAccountByEmail(request.email);
-
             openConfirmModal({
                 title: "Ignorer la demande",
                 message: `La demande de ${request.email} sera retirée de la liste, sans générer de nouveau code.`,
@@ -247,7 +234,6 @@
                 onConfirm: async () => {
                     const { error } = await supabaseClient.rpc('dismiss_access_code_request', { p_id: requestId });
                     if (error) throw error;
-                    await logAuditAction('update', 'user', account ? account.id : null, request.email, "Demande de nouveau code d'accès ignorée");
                     toastMessage("Demande ignorée.");
                     await loadAccessCodeRequests();
                 }
@@ -463,7 +449,6 @@
                     if (error) throw error;
                     if (!updated || updated.length === 0) throw new Error("Le pool n'a pas été modifié : il a peut-être été supprimé ou vos droits ont changé. Rechargez la page.");
                     toastMessage(nextState ? "Pool archivé." : "Pool désarchivé.");
-                    await logAuditAction('update', 'system', poolId, `Pool ${code}`, nextState ? 'Pool archivé' : 'Pool désarchivé');
                     await loadPools();
                     focusAfterPoolsReload(`.btn-toggle-pool-archive[data-id="${poolId}"]`);
                 }
@@ -486,7 +471,6 @@
                     }
                     if (!deleted || deleted.length === 0) throw new Error("le pool n'a pas été supprimé : il a peut-être déjà été supprimé ou vos droits ont changé. Rechargez la page.");
                     toastMessage("Pool supprimé.");
-                    await logAuditAction('delete', 'system', poolId, `Pool ${code}`, 'Pool supprimé');
                     await loadPools();
                     focusAfterPoolsReload('#btn-open-create-pool');
                 }
@@ -512,21 +496,11 @@
 
         async function savePoolChanges(pool, fullName, level, description) {
             const changes = {};
-            const details = [];
-            if (fullName !== pool.full_name) {
-                changes.full_name = fullName;
-                details.push(`Nom complet : ${pool.full_name} → ${fullName}`);
-            }
-            if (level !== pool.level) {
-                changes.level = level;
-                details.push(`Niveau : ${POOL_LEVEL_LABELS[pool.level] || pool.level} → ${POOL_LEVEL_LABELS[level] || level}`);
-            }
-            if ((description || null) !== (pool.description || null)) {
-                changes.description = description || null;
-                details.push(`Description : ${pool.description || '—'} → ${description || '—'}`);
-            }
+            if (fullName !== pool.full_name) changes.full_name = fullName;
+            if (level !== pool.level) changes.level = level;
+            if ((description || null) !== (pool.description || null)) changes.description = description || null;
 
-            if (details.length === 0) {
+            if (Object.keys(changes).length === 0) {
                 document.getElementById('modal-create-pool').classList.add('hidden');
                 return;
             }
@@ -536,7 +510,6 @@
             if (!updated || updated.length === 0) throw new Error("le pool n'a pas été modifié : il a peut-être été supprimé ou vos droits ont changé. Rechargez la page.");
             document.getElementById('modal-create-pool').classList.add('hidden');
             toastMessage("Pool modifié.");
-            await logAuditAction('update', 'system', pool.id, `Pool ${pool.pool_id}`, details.join(' ; '));
             await loadPools();
             focusAfterPoolsReload(`.btn-edit-pool[data-id="${pool.id}"]`);
         }
@@ -585,7 +558,6 @@
                 if (error) throw error;
                 document.getElementById('modal-create-pool').classList.add('hidden');
                 toastMessage("Pool créé avec succès.");
-                await logAuditAction('create', 'system', null, `Pool ${code}`, fullName);
                 await loadPools();
             } catch (e) {
                 console.error(e);
@@ -695,7 +667,7 @@
         });
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });

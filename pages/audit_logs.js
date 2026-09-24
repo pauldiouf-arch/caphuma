@@ -14,30 +14,19 @@
         const appBody = document.getElementById('appBody');
         const pageError = document.getElementById('pageError');
 
-        let currentUserId = null;
         let currentUserEmail = null;
-        let currentUserName = null;
 
         const PAGE_SIZE = 50;
         let currentPage = 0;
         let currentPageLogs = [];       // lignes de la page actuellement affichée
         let currentFilteredCount = 0;   // nombre total de lignes correspondant aux filtres actifs (toutes pages confondues)
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => supabaseClient,
-            () => ({
-                userId: currentUserId,
-                userEmail: currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => supabaseClient);
 
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(supabaseClient);
-                currentUserId = s.userId;
                 currentUserEmail = s.email;
-                currentUserName = s.name;
 
                 capHumaStartIdleTimeout(supabaseClient);
                 document.getElementById('user-display-name').textContent = currentUserEmail;
@@ -56,7 +45,7 @@
         checkSession();
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

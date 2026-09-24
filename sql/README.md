@@ -67,7 +67,7 @@ passés en argument de `format()`.
 Couvert : extensions installées dans `public`, séquences, tables et
 colonnes, contraintes, index, fonctions, déclencheurs (y compris ceux posés
 hors `public` qui appellent une fonction de `public`), RLS, policies de
-`public` et de `storage`, droits, buckets.
+`public` et de `storage`, droits (y compris par colonne), buckets.
 
 Les droits sont d'abord tous retirés puis redonnés exactement : un projet
 Supabase neuf accorde par défaut des droits larges à `anon` et
@@ -94,7 +94,7 @@ les données elles-mêmes (sauvegarde mensuelle dans le bucket `backups`).
 Coller `sql/tests_rls_roles.sql` en entier dans l'éditeur SQL, puis **Run**.
 Le script finit toujours par une erreur rouge volontaire, qui annule toutes
 les données de test ; sa première ligne donne le bilan. Attendu :
-`A3 BILAN : TOUS LES TESTS ONT REUSSI (84/84, 0 IGNORE)`. L'en-tête du script
+`A3 BILAN : TOUS LES TESTS ONT REUSSI (100/100, 0 IGNORE)`. L'en-tête du script
 explique les cas IGNORE possibles.
 
 À relancer après tout changement de droits, de policy ou de fonction appelée
@@ -159,6 +159,7 @@ est en fin de fichier.
 | 24/09/2026 | `journal_auteur_systeme_postes_liens.sql` | Auteur « Système » dans le journal des postes et des liens de partage sans compte connecté | Oui | — |
 | 24/09/2026 | `auteurs_imposes_talents_postes_liens.sql` | Auteur et date imposés par la base : Liste Rouge, prolongation de validité, `created_by` des talents et postes, nom de l'auteur d'un lien de partage | Oui | — |
 | 24/09/2026 | `email_talent_unique_search_path_stats.sql` | Un e-mail ne peut appartenir qu'à un seul talent ; `search_path` fixé sur les 4 fonctions de statistiques du tableau de bord | Oui | — |
+| 24/09/2026 | `partage_journal_rgpd.sql` | Lien public sans évaluations ; liens de partage verrouillés par la base (jeton, 90 jours maximum, révocation définitive) ; journal d'audit écrit par la base ou par `log_client_event()` uniquement ; motif de Liste Rouge retiré du journal | Oui | — |
 
 « Reconstitué » : le script d'origine n'avait pas été conservé ; il a été
 réécrit d'après la base réelle, et son en-tête le précise.

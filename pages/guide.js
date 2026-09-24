@@ -7,9 +7,7 @@
         const supabaseClient = capHumaGetSupabaseClient();
 
         const appBody = document.getElementById('appBody');
-        let currentUserId = null;
         let currentUserEmail = null;
-        let currentUserName = null;
         let currentUserRole = null;
 
         const ROLE_SECTIONS = {
@@ -29,21 +27,12 @@
             document.getElementById('roleBadge').classList.remove('hidden');
         }
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => supabaseClient,
-            () => ({
-                userId: currentUserId,
-                userEmail: currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => supabaseClient);
 
         async function checkSession() {
             try {
                 const s = await capHumaInitSession(supabaseClient);
-                currentUserId = s.userId;
                 currentUserEmail = s.email;
-                currentUserName = s.name;
                 currentUserRole = s.role;
 
                 capHumaStartIdleTimeout(supabaseClient);
@@ -60,7 +49,7 @@
         checkSession();
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', currentUserId, currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

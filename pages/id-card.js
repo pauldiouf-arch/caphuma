@@ -19,19 +19,10 @@ const IdCardPage = {};
         let activeMission = null;
         let activeDetachment = null;
         IdCardPage.currentUserId = null;
-        let currentUserEmail = null;
         IdCardPage.currentUserRole = null;
-        let currentUserName = null;
         IdCardPage.comments = [];
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => IdCardPage.supabaseClient,
-            () => ({
-                userId: IdCardPage.currentUserId,
-                userEmail: currentUserEmail,
-                userName: typeof currentUserName !== 'undefined' ? currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => IdCardPage.supabaseClient);
 
         // Deux formats coexistent dans archived_position_passages : ancien (camelCase, epoch ms) et nouveau (snake_case, ISO).
         function passageDateMs(value) {
@@ -73,9 +64,7 @@ const IdCardPage = {};
 
                 document.getElementById('user-display-name').textContent = s.email;
                 IdCardPage.currentUserId = s.userId;
-                currentUserEmail = s.email;
                 IdCardPage.currentUserRole = s.role;
-                currentUserName = s.name;
 
                 capHumaStartIdleTimeout(IdCardPage.supabaseClient);
                 appBody.style.display = '';
@@ -598,7 +587,6 @@ const IdCardPage = {};
                         input.value = '';
                         if (currentCommentDraftKey) capHumaDraftClear(currentCommentDraftKey);
                         toastMessage("Commentaire ajouté.", "success");
-                        await logAuditAction('create', 'comment', data[0].id, null, `Sur talent ${IdCardPage.talentId}`);
                         await IdCardPage.loadComments();
                     } catch (err) {
                         console.error(err);
@@ -868,12 +856,11 @@ const IdCardPage = {};
             bindDeleteTalentButton();
         }
 
-        IdCardPage.logAuditAction = logAuditAction;
         IdCardPage.passageDateMs = passageDateMs;
         IdCardPage.normalizePassageComment = normalizePassageComment;
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', IdCardPage.currentUserId, null, null);
+            await logAuditAction('logout', 'user');
             await IdCardPage.supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

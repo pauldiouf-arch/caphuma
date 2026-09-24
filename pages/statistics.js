@@ -17,19 +17,9 @@ const StatisticsPage = {};
         StatisticsPage.expatChartInstance = null;
         StatisticsPage.genderChartInstance = null;
         StatisticsPage.nationalityChartInstance = null;
-        StatisticsPage.currentUserId = null;
-        StatisticsPage.currentUserEmail = null;
         StatisticsPage.currentUserRole = null;
-        StatisticsPage.currentUserName = null;
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => StatisticsPage.supabaseClient,
-            () => ({
-                userId: StatisticsPage.currentUserId,
-                userEmail: StatisticsPage.currentUserEmail,
-                userName: typeof StatisticsPage.currentUserName !== 'undefined' ? StatisticsPage.currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => StatisticsPage.supabaseClient);
 
         async function checkSession() {
             try {
@@ -42,9 +32,6 @@ const StatisticsPage = {};
                 }
 
                 document.getElementById('user-display-name').textContent = s.email;
-                StatisticsPage.currentUserId = s.userId;
-                StatisticsPage.currentUserEmail = s.email;
-                StatisticsPage.currentUserName = s.name;
 
                 capHumaStartIdleTimeout(StatisticsPage.supabaseClient);
                 StatisticsPage.currentUserRole = s.role;
@@ -124,7 +111,7 @@ const StatisticsPage = {};
         }
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await logAuditAction('logout', 'user', StatisticsPage.currentUserId, StatisticsPage.currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await StatisticsPage.supabaseClient.auth.signOut();
             window.location.replace('login.html');
         });

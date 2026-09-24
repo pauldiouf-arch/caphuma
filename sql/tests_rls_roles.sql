@@ -1,7 +1,8 @@
 -- Test des policies RLS par role (visitor / user / admin, puis compte suspendu) sur talents, comments,
 -- evaluations, share_tokens, audit_logs, users et access_code_requests, et des fonctions appelees par le site
 -- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus), et des auteurs
--- imposes par la base (Liste Rouge, prolongation, created_by, liens de partage).
+-- imposes par la base (Liste Rouge, prolongation, created_by, liens de partage), des regles des liens de partage
+-- (jeton, expiration, revocation, contenu public) et de la journalisation (log_client_event, declencheurs).
 --
 -- Execution : coller ce fichier en entier dans l'editeur SQL Supabase, sans rien ajouter autour,
 -- puis Run. Tout tient dans un seul bloc do $$ : l'editeur ne garantit pas une connexion unique
@@ -64,7 +65,8 @@ declare
         'public.request_access_code_reset(text)', 'public.dismiss_access_code_request(uuid)',
         'public.change_talent_pool(uuid,text)', 'public.promote_national_to_expat(uuid,text)',
         'public.save_mission(uuid,jsonb,uuid)', 'public.delete_mission(uuid)',
-        'public.resync_mission_occupant(uuid)', 'public.process_expired_missions(text)'];
+        'public.resync_mission_occupant(uuid)', 'public.process_expired_missions(text)',
+        'public.log_client_event(text,text,text,text,text)'];
     v_request_testable     boolean;
     v_unknown_email        text;
     v_request_id           uuid;
@@ -79,6 +81,10 @@ declare
     v_attr_talent_id       uuid;
     v_user_display_name    text;
     v_attr_ok              boolean;
+    v_token_user_value     text;
+    v_json                 jsonb;
+    v_new_token_id         uuid;
+    v_cascade_talent_id    uuid;
 begin
     select session_user into v_admin_role;
 
@@ -151,6 +157,11 @@ begin
     values ('test-a3-user-' || gen_random_uuid()::text, v_talent_control_id,
             v_user_id, 'TEST A3 User', now() + interval '7 days')
     returning id into v_token_user_id;
+
+    select token into v_token_user_value from share_tokens where id = v_token_user_id;
+    update talents
+    set archived_position_passages = '[{"positionTitle":"TEST A3 poste archive","startDate":"2020-01-01","endDate":"2021-01-01","comments":[{"negative_points":"TEST A3 point negatif","rating":2,"author_email":"a3@example.com"}]}]'
+    where id = v_talent_control_id;
 
     v_report := v_report || 'Setup termine (comptes resolus par role, 3 talents factices, talent d''ecriture, 3 commentaires, jetons de partage, evaluation si possible)' || chr(10);
 
@@ -252,9 +263,16 @@ begin
     begin
         insert into audit_logs (user_id, user_email, action, entity_type, entity_name)
         values (v_visitor_id, 'usurpation-a3@example.com', 'login', 'user', 'TEST-A3-AUTEUR');
-        v_ok := v_ok + 1; v_report := v_report || 'A3-15 OK - visitor a bien pu journaliser sa propre action' || chr(10);
+        v_fail := v_fail + 1; v_report := v_report || 'A3-15 ECHEC - visitor a ecrit directement dans audit_logs' || chr(10);
+    exception when insufficient_privilege then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-15 OK - aucune ecriture directe dans audit_logs' || chr(10);
+    end;
+
+    begin
+        perform log_client_event('login', 'user', 'TEST-A3-FAUX-ID', 'TEST-A3-AUTEUR', 'TEST-A3');
+        v_ok := v_ok + 1; v_report := v_report || 'A3-85 OK - visitor journalise sa connexion via log_client_event' || chr(10);
     exception when others then
-        v_fail := v_fail + 1; v_report := v_report || format('A3-15 ECHEC - INSERT bloque alors qu''il devrait etre autorise (%s)', sqlerrm) || chr(10);
+        v_fail := v_fail + 1; v_report := v_report || format('A3-85 ECHEC - log_client_event refuse une connexion (%s)', sqlerrm) || chr(10);
     end;
 
     begin
@@ -343,6 +361,96 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-27 ECHEC - user voit %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
 
     begin
+        perform log_client_event('delete', 'talent', null, 'TEST-A3-FAUX', 'TEST-A3');
+        v_fail := v_fail + 1; v_report := v_report || 'A3-86 ECHEC - user a journalise une suppression inventee' || chr(10);
+    exception when invalid_parameter_value then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-86 OK - log_client_event refuse les actions metier (suppression inventee)' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-86 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+
+    insert into share_tokens (token, talent_id, created_by, expires_at)
+    values ('choisi-par-le-client', v_talent_control_id, v_user_id, now() + interval '30 days')
+    returning id into v_new_token_id;
+    select count(*) into v_count from share_tokens
+        where id = v_new_token_id and token like 'st\_%' and token <> 'choisi-par-le-client' and length(token) = 39;
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-87 OK - jeton de partage genere par la base (valeur du client ignoree)' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-87 ECHEC - jeton de partage choisi par le client' || chr(10); end if;
+
+    begin
+        insert into share_tokens (token, talent_id, created_by, expires_at)
+        values ('test-a3-' || gen_random_uuid()::text, v_talent_control_id, v_user_id, now() + interval '120 days');
+        v_fail := v_fail + 1; v_report := v_report || 'A3-88 ECHEC - lien de partage a plus de 90 jours accepte' || chr(10);
+    exception when invalid_parameter_value then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-88 OK - expiration au-dela de 90 jours refusee' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-88 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+
+    begin
+        insert into share_tokens (token, talent_id, created_by, expires_at)
+        values ('test-a3-' || gen_random_uuid()::text, v_talent_control_id, v_user_id, null);
+        v_fail := v_fail + 1; v_report := v_report || 'A3-89 ECHEC - lien de partage sans expiration accepte' || chr(10);
+    exception when invalid_parameter_value or not_null_violation then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-89 OK - lien de partage sans expiration refuse' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-89 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+
+    begin
+        update share_tokens set expires_at = now() + interval '5 years' where id = v_new_token_id;
+        v_fail := v_fail + 1; v_report := v_report || 'A3-90 ECHEC - le createur a prolonge son lien' || chr(10);
+    exception when insufficient_privilege then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-90 OK - seule la revocation est modifiable par le createur' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-90 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+
+    update share_tokens set is_revoked = true where id = v_new_token_id;
+    begin
+        update share_tokens set is_revoked = false where id = v_new_token_id;
+        v_fail := v_fail + 1; v_report := v_report || 'A3-91 ECHEC - un lien revoque a ete reactive' || chr(10);
+    exception when invalid_parameter_value then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-91 OK - la revocation d''un lien est definitive' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-91 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+
+    insert into comments (talent_id, user_id, content)
+    values (v_talent_control_id, v_user_id, 'TEST RLS temporaire - journalisation par la base');
+    perform set_config('role', v_admin_role, true);
+    select count(*) into v_count from audit_logs
+        where entity_type = 'comment' and action = 'create' and user_id = v_user_id
+          and entity_name = 'TEST-A3 CONTROL' and created_at > now() - interval '1 minute';
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-92 OK - ajout de commentaire journalise par la base' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-92 ECHEC - %s ligne(s) de journal pour l''ajout de commentaire (attendu 1)', v_count) || chr(10); end if;
+
+    perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+    perform set_config('role', 'anon', true);
+    v_json := get_shared_talent(v_token_user_value);
+    perform set_config('role', v_admin_role, true);
+    if v_json #>> '{talent,archived_position_passages,0,positionTitle}' = 'TEST A3 poste archive'
+       and v_json::text not like '%TEST A3 point negatif%' and v_json::text not like '%a3@example.com%' then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-93 OK - lien public : anciens postes sans aucune evaluation' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-93 ECHEC - lien public : evaluations internes exposees ou postes absents' || chr(10); end if;
+
+    insert into talents (first_name, last_name, pool) values ('TEST-A3', 'CASCADE', 'COLOG') returning id into v_cascade_talent_id;
+    insert into comments (talent_id, user_id, content) values (v_cascade_talent_id, v_admin_id, 'TEST RLS temporaire - cascade');
+    delete from talents where id = v_cascade_talent_id;
+    select count(*) into v_count from audit_logs where entity_type = 'comment' and action = 'delete' and created_at > now() - interval '1 minute';
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-100 OK - suppression d''un talent : ses commentaires ne sont pas journalises un par un' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-100 ECHEC - %s suppression(s) de commentaire journalisee(s) lors de la suppression du talent', v_count) || chr(10); end if;
+
+    update share_tokens set talent_id = v_talent_devalidated_id where id = v_token_admin_id;
+    select get_shared_talent(token) into v_json from share_tokens where id = v_token_admin_id;
+    if v_json ->> 'error' = 'talent_not_found' then v_ok := v_ok + 1; v_report := v_report || 'A3-94 OK - lien public d''un talent devalide inactif' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-94 ECHEC - lien public d''un talent devalide : %s', left(v_json::text, 80)) || chr(10); end if;
+    update share_tokens set talent_id = v_talent_control_id where id = v_token_admin_id;
+
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
+    perform set_config('role', 'authenticated', true);
+
+    begin
         update users set role = 'admin' where id = v_user_id;
         get diagnostics v_rows = row_count;
         if v_rows = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-28 OK - auto-promotion bloquee (0 ligne)' || chr(10);
@@ -364,6 +472,27 @@ begin
 
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_admin_id), true);
     perform set_config('role', 'authenticated', true);
+
+    update pools set description = 'TEST A3 description' where pool_id = 'COLOG';
+    select count(*) into v_count from audit_logs
+        where entity_name = 'Pool COLOG' and action = 'update' and user_id = v_admin_id
+          and details like '%Description : % → TEST A3 description%';
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-95 OK - modification de pool journalisee par la base, ancienne et nouvelle valeur' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-95 ECHEC - %s ligne(s) de journal pour la modification du pool (attendu 1)', v_count) || chr(10); end if;
+
+    update talents set current_function = 'TEST A3 fonction' where id = v_talent_control_id;
+    select count(*) into v_count from audit_logs
+        where entity_id = v_talent_control_id::text and action = 'update' and details = 'Champs modifiés : current_function';
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-96 OK - modification de talent : champs modifies journalises, sans les valeurs' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-96 ECHEC - %s ligne(s) de journal detaillant les champs modifies (attendu 1)', v_count) || chr(10); end if;
+
+    update talents set is_red_listed = true, red_list_reason = 'TEST A3 motif confidentiel' where id = v_talent_control_id;
+    select count(*) into v_count from audit_logs
+        where entity_id = v_talent_control_id::text and action = 'add_to_red_list' and details = 'Ajout en Liste Rouge';
+    select v_count + count(*) * 100 into v_count from audit_logs where details like '%TEST A3 motif confidentiel%';
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-97 OK - ajout en Liste Rouge journalise sans le motif' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-97 ECHEC - motif de Liste Rouge recopie dans le journal ou ajout non journalise' || chr(10); end if;
+    update talents set is_red_listed = false, red_list_reason = null where id = v_talent_control_id;
 
     select count(*) into v_count from audit_logs;
     if v_count >= 1 then v_ok := v_ok + 1; v_report := v_report || format('A3-30 OK - admin voit %s ligne(s) d''audit_logs', v_count) || chr(10);
@@ -413,13 +542,13 @@ begin
         into v_count, v_rows
         from unnest(v_site_functions) sig;
     if v_count = 0 and v_rows = 1 and has_function_privilege('anon', 'public.request_access_code_reset(text)', 'execute') then
-        v_ok := v_ok + 1; v_report := v_report || 'A3-45 OK - les 8 fonctions du site existent, anon n''execute que request_access_code_reset' || chr(10);
+        v_ok := v_ok + 1; v_report := v_report || 'A3-45 OK - les 9 fonctions du site existent, anon n''execute que request_access_code_reset' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-45 ECHEC - %s fonction(s) absente(s), %s executable(s) par anon (attendu 0 et 1)', v_count, v_rows) || chr(10); end if;
 
     select count(*) into v_count from unnest(v_site_functions) sig
         where to_regprocedure(sig) is not null and has_function_privilege('authenticated', to_regprocedure(sig), 'execute');
-    if v_count = 8 then v_ok := v_ok + 1; v_report := v_report || 'A3-46 OK - les 8 fonctions du site sont executables par un compte connecte' || chr(10);
-    else v_fail := v_fail + 1; v_report := v_report || format('A3-46 ECHEC - %s fonction(s) executable(s) par authenticated (attendu 8)', v_count) || chr(10); end if;
+    if v_count = 9 then v_ok := v_ok + 1; v_report := v_report || 'A3-46 OK - les 9 fonctions du site sont executables par un compte connecte' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-46 ECHEC - %s fonction(s) executable(s) par authenticated (attendu 9)', v_count) || chr(10); end if;
 
     select count(*) into v_count from unnest(array['public.record_occupant_exit(public.missions,timestamptz)', 'public.record_occupant_entry(uuid,text)']) sig
         where to_regprocedure(sig) is null
@@ -509,6 +638,13 @@ begin
     select count(*) into v_count from access_code_requests where id = v_request_id and resolved_at is not null and resolved_by = v_admin_id;
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-57 OK - admin a ignore la demande (classee a son nom)' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || 'A3-57 ECHEC - la demande n''a pas ete classee par l''admin' || chr(10); end if;
+
+    select count(*) into v_count from audit_logs
+        where user_id = v_admin_id and action = 'update' and entity_type = 'user'
+          and details = 'Demande de nouveau code d''accès ignorée'
+          and entity_name = (select email from access_code_requests where id = v_request_id);
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-98 OK - demande ignoree journalisee par la base' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-98 ECHEC - %s ligne(s) de journal pour la demande ignoree (attendu 1)', v_count) || chr(10); end if;
 
     insert into pools (pool_id, name, full_name, level) values
         ('TESTA3P1', 'TESTA3P1', 'TEST RLS temporaire (A3) 1', 'mission'),
@@ -818,12 +954,21 @@ begin
     end;
 
     begin
-        insert into audit_logs (user_id, action, entity_type)
-        values (v_admin_id, 'action_inventee', 'user');
-        v_fail := v_fail + 1; v_report := v_report || 'A3-42 ECHEC - admin a journalise une action inconnue' || chr(10);
-    exception when check_violation then
-        v_ok := v_ok + 1; v_report := v_report || 'A3-42 OK - action inconnue refusee par la contrainte' || chr(10);
+        perform log_client_event('logout', 'user');
+        v_fail := v_fail + 1; v_report := v_report || 'A3-42 ECHEC - admin suspendu a ecrit dans le journal' || chr(10);
+    exception when insufficient_privilege then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-42 OK - compte suspendu : aucune ecriture dans le journal' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-42 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
     end;
+
+    perform set_config('role', v_admin_role, true);
+    perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+    perform set_config('role', 'anon', true);
+    v_json := get_shared_talent(v_token_user_value);
+    perform set_config('role', v_admin_role, true);
+    if v_json ->> 'error' = 'revoked' then v_ok := v_ok + 1; v_report := v_report || 'A3-99 OK - lien public d''un createur suspendu inactif' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-99 ECHEC - lien public d''un createur suspendu : %s', left(v_json::text, 80)) || chr(10); end if;
 
     -- Bilan et rollback force
     perform set_config('role', v_admin_role, true);
@@ -842,9 +987,10 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-44 ECHEC - %s pool supprime (attendu 1)', v_rows) || chr(10); end if;
 
     select count(*) into v_count from audit_logs
-        where entity_name = 'TEST-A3-AUTEUR' and user_email = v_visitor_email;
-    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-41 OK - e-mail de l''auteur impose par la base (valeur envoyee ignoree)' || chr(10);
-    else v_fail := v_fail + 1; v_report := v_report || 'A3-41 ECHEC - l''e-mail envoye par le client a ete conserve dans audit_logs' || chr(10); end if;
+        where action = 'login' and user_id = v_visitor_id and user_email = v_visitor_email
+          and entity_id = v_visitor_id::text and entity_name = v_visitor_email and details is null;
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-41 OK - connexion journalisee : auteur et compte imposes par la base (valeurs envoyees ignorees)' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-41 ECHEC - log_client_event a conserve des valeurs envoyees par le client' || chr(10); end if;
 
     v_total := v_ok + v_fail + v_skip;
 

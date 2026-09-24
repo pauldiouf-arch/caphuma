@@ -159,6 +159,17 @@ sections (ordre, titre, contenu) as (
             left join pg_roles r on r.oid = a.grantee
             where a.grantee <> o.proprietaire
             group by o.nom_complet, o.genre, a.grantee, r.rolname
+            union all
+            select t.nom_complet, 2,
+                   format('grant %s (%I) on table %s to %s;',
+                       string_agg(lower(a.privilege_type), ', ' order by a.privilege_type), att.attname, t.nom_complet,
+                       case when a.grantee = 0 then 'public' else quote_ident(r.rolname) end)
+            from tables_app t
+            join pg_attribute att on att.attrelid = t.oid and att.attacl is not null and not att.attisdropped
+            cross join lateral aclexplode(att.attacl) a
+            left join pg_roles r on r.oid = a.grantee
+            where a.grantee <> t.relowner
+            group by t.nom_complet, att.attname, a.grantee, r.rolname
         ) d
     )
     union all
@@ -203,9 +214,6 @@ sections (ordre, titre, contenu) as (
             select 'fonction de type agrégat ou fenêtre ' || proname from pg_proc
             where pronamespace = 'public'::regnamespace and prokind in ('a', 'w')
               and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = pg_proc.oid and d.deptype = 'e')
-            union all
-            select 'droit par colonne sur ' || attrelid::regclass::text || '.' || attname from pg_attribute
-            where attacl is not null and attrelid in (select oid from tables_app)
             union all
             select 'publication ' || pubname || ' : table ' || tablename from pg_publication_tables
             where schemaname = 'public'

@@ -59,7 +59,6 @@ const MissionsPage = {};
         MissionsPage.currentUserId = null;
         MissionsPage.currentUserEmail = null;
         MissionsPage.currentUserRole = null;
-        MissionsPage.currentUserName = null;
         MissionsPage.currentMissions = [];
         MissionsPage.currentPage = 1;
         MissionsPage.MISSIONS_PAGE_SIZE = 12;
@@ -68,14 +67,7 @@ const MissionsPage = {};
         MissionsPage.poolTalentsLoadFailed = false;
         MissionsPage.talentNameById = {};
 
-        const logAuditAction = capHumaMakeAuditLogger(
-            () => MissionsPage.supabaseClient,
-            () => ({
-                userId: MissionsPage.currentUserId,
-                userEmail: MissionsPage.currentUserEmail,
-                userName: typeof MissionsPage.currentUserName !== 'undefined' ? MissionsPage.currentUserName : null
-            })
-        );
+        const logAuditAction = capHumaMakeAuditLogger(() => MissionsPage.supabaseClient);
 
         MissionsPage.POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
 
@@ -85,7 +77,6 @@ const MissionsPage = {};
 
                 MissionsPage.currentUserId = s.userId;
                 MissionsPage.currentUserEmail = s.email;
-                MissionsPage.currentUserName = s.name;
 
                 capHumaStartIdleTimeout(MissionsPage.supabaseClient);
                 document.getElementById('user-display-name').textContent = MissionsPage.currentUserEmail;
@@ -120,7 +111,7 @@ const MissionsPage = {};
         capHumaInitModalA11y();
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
-            await logAuditAction('logout', 'user', MissionsPage.currentUserId, MissionsPage.currentUserEmail, null);
+            await logAuditAction('logout', 'user');
             await MissionsPage.supabaseClient.auth.signOut();
             window.location.href = 'login.html';
         });

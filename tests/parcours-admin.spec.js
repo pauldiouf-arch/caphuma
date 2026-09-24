@@ -7,6 +7,8 @@ const { ouvrirPage, erreurServeur } = require('./simulateur-supabase');
 const { ID, ID_COMPTES, DONNEES, PIEGE } = require('./donnees');
 
 const envoi = (page, methode, fin) => (page.corpsEnvoyes || []).filter(e => e.methode === methode && e.chemin.endsWith(fin));
+const journal = (page) => envoi(page, 'POST', '/rpc/log_client_event').map(e => e.corps);
+const ecrituresJournal = (page) => [...envoi(page, 'POST', '/audit_logs'), ...envoi(page, 'POST', '/rpc/log_client_event')];
 const notification = (page, texte) => page.locator('div.fixed.bottom-5', { hasText: texte });
 const MODELES = path.join(__dirname, '..', 'templates');
 
@@ -112,6 +114,7 @@ test.describe('Comptes', () => {
         await page.click('#btn-confirm-confirm');
         await expect(notification(page, 'Demande ignorée.')).toBeVisible();
         expect(envoi(page, 'POST', '/rpc/dismiss_access_code_request')[0].corps).toEqual({ p_id: 'r1' });
+        expect(ecrituresJournal(page)).toEqual([]);
     });
 });
 
@@ -182,7 +185,7 @@ test.describe('Pools', () => {
         await expect(ligne('P9').locator('.btn-delete-pool')).toHaveAccessibleName('Supprimer le pool P9');
     });
 
-    test('modifier un pool : fenêtre préremplie, code verrouillé, seuls les champs changés envoyés et journalisés', async ({ page }) => {
+    test('modifier un pool : fenêtre préremplie, code verrouillé, seuls les champs changés envoyés, journal laissé à la base', async ({ page }) => {
         await ouvrirPage(page, 'admin.html', gestionComptes());
         await page.click('[data-tab="pools"]');
         await page.click('.btn-edit-pool[data-id="2"]');
@@ -207,7 +210,7 @@ test.describe('Pools', () => {
         await expect(page.locator('#pools-tbody')).toContainText(`Pool Deux corrigé ${PIEGE}`);
         expect(await page.locator('#pools-tbody [data-xss]').count()).toBe(0);
         await expect(page.locator('.btn-edit-pool[data-id="2"]')).toBeFocused();
-        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => j.corps.details)).toContainEqual(`Nom complet : Pool Deux → Pool Deux corrigé ${PIEGE} ; Description : — → Nouvelle description`);
+        expect(ecrituresJournal(page)).toEqual([]);
     });
 
     test('modifier puis recréer : la fenêtre de création revient vide et le code redevient saisissable', async ({ page }) => {
@@ -252,7 +255,7 @@ test.describe('Pools', () => {
         await expect(notification(page, 'Pool modifié.')).toHaveCount(0);
     });
 
-    test('supprimer un pool jamais utilisé : confirmation, suppression et journal', async ({ page }) => {
+    test('supprimer un pool jamais utilisé : confirmation et suppression, journal laissé à la base', async ({ page }) => {
         await ouvrirPage(page, 'admin.html', gestionComptes());
         await page.click('[data-tab="pools"]');
         await page.click('.btn-delete-pool[data-code="P9"]');
@@ -262,7 +265,7 @@ test.describe('Pools', () => {
         expect(envoi(page, 'DELETE', '/rest/v1/pools')[0].parametres.id).toBe('eq.3');
         await expect(page.locator('#pools-tbody tr')).toHaveCount(2);
         await expect(page.locator('#btn-open-create-pool')).toBeFocused();
-        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => [j.corps.action, j.corps.entity_name])).toContainEqual(['delete', 'Pool P9']);
+        expect(ecrituresJournal(page)).toEqual([]);
     });
 
     test('pool devenu utilisé entre-temps : la base refuse, message clair et bouton retiré', async ({ page }) => {
@@ -283,7 +286,7 @@ test.describe('Pools', () => {
         await expect(notification(page, 'le pool P9 est maintenant utilisé par des talents ou des postes. Archivez-le plutôt.')).toBeVisible();
         await expect(page.locator('.btn-delete-pool')).toHaveCount(0);
         await expect(page.locator('#pools-tbody tr', { hasText: 'P9' })).toContainText('Utilisé : 0 talent, 1 poste');
-        expect(envoi(page, 'POST', '/audit_logs').filter(j => j.corps.action === 'delete')).toEqual([]);
+        expect(ecrituresJournal(page)).toEqual([]);
     });
 
     test('utilisation des pools illisible : aucune suppression proposée, le reste fonctionne', async ({ page }) => {
@@ -298,7 +301,7 @@ test.describe('Pools', () => {
         await expect(page.locator('#pools-tbody')).not.toContainText('Jamais utilisé');
     });
 
-    test('création et archivage de pool inscrits au journal', async ({ page }) => {
+    test('création et archivage de pool : aucune écriture du site dans le journal, tenu par la base', async ({ page }) => {
         await ouvrirPage(page, 'admin.html', gestionComptes());
         await page.click('[data-tab="pools"]');
         await page.click('#btn-open-create-pool');
@@ -310,10 +313,7 @@ test.describe('Pools', () => {
         await page.click('#btn-confirm-confirm');
         await expect(notification(page, 'Pool archivé.')).toBeVisible();
         await expect(page.locator('.btn-toggle-pool-archive[data-code="P2"]')).toBeFocused();
-        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => [j.corps.action, j.corps.entity_name, j.corps.details])).toEqual(expect.arrayContaining([
-            ['create', 'Pool COSAN', 'Coordination santé'],
-            ['update', 'Pool P2', 'Pool archivé'],
-        ]));
+        expect(ecrituresJournal(page)).toEqual([]);
     });
 });
 
@@ -344,7 +344,7 @@ test.describe('Import en masse', () => {
         const [creation] = envoi(page, 'POST', '/rest/v1/talents');
         expect(creation.corps).toHaveLength(1);
         expect(creation.corps[0]).toMatchObject({ first_name: 'Ines', email: 'ines@exemple.org', pool: 'P1', languages: ['Français', 'Anglais'], has_visa: true, created_by: ID_COMPTES.admin });
-        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => j.corps.details)).toContainEqual(expect.stringContaining('1 talent(s) importé(s)'));
+        await expect.poll(() => journal(page)).toContainEqual(expect.objectContaining({ p_action: 'create', p_entity_type: 'talent', p_details: expect.stringContaining('1 talent(s) importé(s)') }));
     });
 
     test('fichier au mauvais format ou trop long : refusé avant tout envoi', async ({ page }) => {
@@ -387,7 +387,7 @@ test.describe('Extraction Excel', () => {
         const postes = XLSX.utils.sheet_to_json(classeur.Sheets['Postes P1']);
         expect(postes.find(l => l['Titre'] === 'Référente nutrition Niger')).toMatchObject({ 'Rôle': 'Occupant actuel', 'Email talent': 'awa@exemple.org', 'Pays': 'Niger' });
         await expect(page.locator('#exportStatus')).toContainText('Fichier Excel généré');
-        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => j.corps.action)).toContain('export');
+        await expect.poll(() => journal(page).map(j => j.p_action)).toContain('export');
     });
 
     test('un texte qui ressemble à une formule reste du texte dans le fichier', async ({ page }) => {
@@ -496,7 +496,7 @@ test.describe('Journal d\'audit', () => {
         const lignes = XLSX.utils.sheet_to_json(classeur.Sheets["Logs d'audit"]);
         expect(lignes).toHaveLength(2);
         expect(lignes.map(l => l['Utilisateur'])).toContain('Système');
-        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => j.corps.action)).toContain('export');
+        await expect.poll(() => journal(page).map(j => j.p_action)).toContain('export');
     });
 });
 
