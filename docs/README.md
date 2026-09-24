@@ -12,10 +12,11 @@ Si vous découvrez ce dépôt sans contexte, cette page est le bon point de dép
 
 | Emplacement | Contenu |
 |---|---|
-| Racine (`*.html`) | Les 15 pages du site (HTML + JS, sans étape de build) |
-| `shared/` | Le code JS commun à toutes les pages (`caphuma-config.js`, `caphuma-utils.js`, `caphuma-auth.js`) |
-| `shared/vendor/` | Les 4 bibliothèques externes, hébergées localement et figées en version (Tailwind, supabase-js, chart.js, xlsx) |
-| `sql/` | Le code source versionné des objets de base de données conservés dans le dépôt |
+| Racine (`*.html`) | Les 15 pages du site (HTML, sans étape de build) |
+| `pages/` | Le JavaScript propre à chaque page (un ou plusieurs fichiers par page) |
+| `shared/` | Le code JS commun à toutes les pages : configuration, authentification, en-tête et navigation, accès aux données, utilitaires |
+| `shared/vendor/` | Les bibliothèques externes, hébergées localement et figées en version (Tailwind, supabase-js, Chart.js, xlsx, jsPDF et son extension AutoTable) |
+| `sql/` | Le code SQL de la base : schéma de référence exécutable, tests des droits et historique des scripts exécutés — voir [`sql/README.md`](../sql/README.md) |
 | `templates/` | Le modèle Excel d'import en masse de talents |
 | `docs/` | Cette page, et les documents destinés à une reprise du projet |
 
@@ -64,9 +65,8 @@ Elle comprend :
 | `FINAL_MASTER_CONTEXT.md` | Le contexte, les règles de méthode et les chantiers ouverts — le document à lire en premier pour comprendre *pourquoi* le projet est fait comme il est fait |
 | `Cap_Huma_Presentation_Equipe.docx` | La présentation fonctionnelle, pour l'équipe (lecteur non technique) |
 | `Cap_Huma_Presentation_IT_SIRH.docx` | Le dossier de reprise technique, à destination du service IT |
-| Scripts SQL exécutés en base | Historique des modifications de la base de données |
 
-**Dernière synchronisation de ce renvoi : 19/09/2026.**
+**Dernière synchronisation de ce renvoi : 24/09/2026.**
 
 ## Contact
 

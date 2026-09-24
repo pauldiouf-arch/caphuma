@@ -21,7 +21,7 @@ lecture seule).
   publié sur GitHub Pages ; n'importe quel hébergeur de fichiers statiques
   ferait l'affaire.
 - Un projet **Supabase** qui porte toute la donnée et toute la sécurité : base
-  Postgres, authentification, stockage de fichiers, et trois fonctions serveur.
+  Postgres, authentification, stockage de fichiers, et quatre fonctions serveur.
 - Une documentation technique complète, tenue à jour à chaque intervention
   (voir la fin de cette page).
 
@@ -121,11 +121,12 @@ Le code est aujourd'hui dans un dépôt **public** et publié sur une adresse
 personnelle. Le passage sous le contrôle d'ALIMA suppose un dépôt privé et,
 si vous le souhaitez, un domaine ALIMA.
 
-> ⚠️ **Piège à connaître avant de déménager le site.** Deux des trois fonctions
+> ⚠️ **Piège à connaître avant de déménager le site.** Trois des quatre fonctions
 > serveur n'acceptent les requêtes que depuis l'adresse actuelle du site, codée
 > en dur dans leur configuration (`ALLOWED_ORIGIN`). **Changer de domaine sans
-> mettre à jour cette valeur casse l'administration des comptes et l'analyse
-> IA**, avec une erreur réseau peu explicite côté navigateur. C'est le premier
+> mettre à jour cette valeur casse l'administration des comptes, l'analyse
+> IA, la Liste Rouge, l'extraction de données et le journal d'audit**, avec une
+> erreur réseau peu explicite côté navigateur. C'est le premier
 > réflexe à avoir si quelque chose cesse de fonctionner après un déménagement.
 
 **Coût :** quelques heures, plus le coût du domaine s'il en faut un.
@@ -189,7 +190,7 @@ Utile à savoir pour dimensionner la charge :
 - **Aucun serveur à administrer**, aucun conteneur, aucune mise à jour système.
 - **Aucune chaîne de compilation**, aucun gestionnaire de paquets. Modifier une
   page consiste à éditer un fichier et à le déposer.
-- **Aucune dépendance externe au chargement** : les quatre bibliothèques
+- **Aucune dépendance externe au chargement** : les bibliothèques
   utilisées sont copiées dans le dépôt et figées. Une panne chez un tiers
   n'empêche pas le site de fonctionner.
 - **Aucune migration de données** : la base reste où elle est, seul le
@@ -206,8 +207,13 @@ Par honnêteté, et parce que vous les découvririez de toute façon :
   elle ne remplace pas un second interlocuteur technique. Identifier cette
   personne pendant que l'auteure est encore disponible est le meilleur
   investissement possible.
-- **Aucun test automatisé.** La validation repose sur une checklist manuelle,
-  rejouée après chaque modification.
+- **Aucun test automatisé des pages.** Leur validation repose sur une
+  checklist manuelle, rejouée après chaque modification. Les règles d'accès à
+  la base sont, elles, vérifiées par un script (`sql/tests_rls_roles.sql`,
+  77 contrôles) à lancer à la main après tout changement de droits.
+- **Un administrateur voit le code d'accès qu'il transmet** lorsqu'un
+  utilisateur demande un nouveau code. Consigne : vérifier l'identité du
+  demandeur (appel ou messagerie ALIMA) avant de le lui transmettre.
 - **Aucun environnement de test séparé.** Un second projet Supabase gratuit
   serait à créer avant toute manipulation risquée.
 - **Le déploiement se fait sans filet** : pas de revue avant mise en ligne, pas
@@ -229,11 +235,4 @@ ouverts.
 **Contact pendant la transition :** la personne ayant construit et maintenu
 l'outil au sein d'ALIMA, joignable via le service IT.
 
-*Page rédigée le 18/08/2026. Session du 11/09/2026 : refonte emojis → icônes
-SVG sur tout le site (détail dans FINAL_MASTER_CONTEXT.md) — aucun impact
-sur la sécurité, la base de données ou l'architecture décrites ci-dessus.
-Session du 19/09/2026 : nouvelle vérification de sécurité indépendante
-(aucune anomalie critique ni importante, trois corrections mineures
-appliquées par précaution) ; évolution du schéma de base pour le suivi du
-personnel national et des détachements (voir dossier de passation technique)
-— aucun impact sur les cinq actions de reprise décrites ci-dessus.*
+*Page rédigée le 18/08/2026, dernière mise à jour le 24/09/2026.*
