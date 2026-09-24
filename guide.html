@@ -5,8 +5,8 @@
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-        font-src https://fonts.gstatic.com;
+        style-src 'self' 'unsafe-inline';
+        font-src 'self';
         img-src 'self';
         connect-src 'self' https://bhjycotcmkqiumukkkih.supabase.co;
         object-src 'none';
@@ -27,9 +27,7 @@
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="shared/caphuma.css" rel="stylesheet">
 
     <style type="text/tailwindcss">
         @theme {
@@ -78,6 +76,8 @@
                 uniquement depuis la page Comptes, il n'existe pas d'auto-inscription. Après 5 heures
                 d'inactivité, la session se ferme automatiquement ; en cas de doute sur un poste partagé,
                 pense à te déconnecter manuellement (bouton en haut à droite).
+                Mot de passe oublié : clique sur « Mot de passe oublié ? » sur la page de connexion et
+                saisis ton email ; un administrateur est prévenu et te transmettra un nouveau mot de passe.
             </p>
         </section>
 
@@ -183,6 +183,7 @@
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
                     <p><strong>Créer un talent</strong> — bouton "Nouveau talent" depuis la liste d'un pool. Le formulaire couvre l'identité, le statut et la disponibilité, la formation, les compétences/langues/zones d'intervention, et l'historique de missions ALIMA antérieures le cas échéant. Une saisie non enregistrée est sauvegardée automatiquement en brouillon local (récupérable si vous fermez la fenêtre par erreur).</p>
                     <p><strong>Modifier / rechercher</strong> — recherche par nom, prénom, fonction ou email, et filtres avancés (statut, disponibilité, nationalité, langue, visa, contextes, zones d'intervention) ; cliquez sur un talent pour éditer sa fiche.</p>
+                    <p><strong>Email unique</strong> — un même email ne peut appartenir qu'à un seul talent. S'il est déjà utilisé, l'enregistrement est refusé avec le message « Un autre talent utilise déjà cet e-mail. » : retrouvez la fiche existante avec la recherche plutôt que d'en créer une seconde.</p>
                     <p><strong>Exporter le pool</strong> — bouton "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75H6.912a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H15M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859M12 3v8.25m0 0-3-3m3 3 3-3"/></svg> Exporter Excel" en haut de la liste : génère un fichier avec les talents actuellement filtrés (pas seulement la page affichée). Cette action est tracée dans le journal d'audit.</p>
                 </div>
             </details>
@@ -220,6 +221,7 @@
                     <p><strong>Créer / modifier un poste</strong> — titre, pays, lieu, type de candidat (expatrié/national/détachement), desk, statut, occupant actuel, type de fin de contrat (date précise, CDI, ou sans fin prévue), dates de contrat, et futur occupant prévu si une rotation est planifiée.</p>
                     <p><strong>Rotation d'occupant</strong> — quand un occupant sort (changement, fin de contrat, suppression du poste), ses évaluations sont automatiquement archivées dans l'historique de sa fiche talent, et son compteur de disponibilité mis à jour.</p>
                     <p><strong>Évaluations</strong> — depuis un poste occupé, ajoutez une évaluation (contexte, points forts, axes d'amélioration, note sur 10). Vous ne pouvez modifier/supprimer que vos propres évaluations.</p>
+                    <p><strong>Resynchroniser le compteur du talent</strong> — bouton sous un poste occupé : remet l'occupant « En poste ALIMA » avec son compteur de mois sans mission à zéro, sans lui compter une mission de plus. À utiliser si sa fiche ne reflète pas le poste qu'il occupe.</p>
                     <p><strong>Analyse IA du pool</strong> — bouton dédié sur cette page : synthèse et recommandations générées à la demande à partir des statistiques agrégées du pool (jamais de données nominatives envoyées à l'IA).</p>
                 </div>
             </details>
@@ -232,7 +234,7 @@
                     <p><strong>Staff national</strong> — un statut de la personne, pas seulement du poste : un professionnel recruté localement, distinct d'un expatrié. Bouton "+ Nouveau staff national" depuis la liste d'un pool pour en créer un.</p>
                     <p><strong>Suivi sans poste</strong> — un staff national qui n'a plus de poste actif reste rattaché à un pool de suivi et apparaît mis en avant en tête de la liste de ce pool, avec le nombre de mois écoulés depuis sa sortie, pour ne pas le perdre de vue entre deux missions.</p>
                     <p><strong>Passer en expat</strong> — depuis sa fiche, si son parcours l'amène à devenir expatrié : choisissez le pool d'intégration, son historique (parcours, détachements passés) reste conservé.</p>
-                    <p><strong>Détachement</strong> — un 3ᵉ type de poste, à côté d'Expatrié et National : un staff déjà en poste national envoyé temporairement sur un autre poste (souvent un projet, hors de son pays). Un détachement se termine automatiquement si le poste national d'origine du staff se termine.</p>
+                    <p><strong>Détachement</strong> — un 3ᵉ type de poste, à côté d'Expatrié et National : un staff déjà en poste national envoyé temporairement sur un autre poste (souvent un projet, hors de son pays). Un détachement se termine automatiquement à la fin de contrat du poste national d'origine du staff. En revanche, si vous changez l'occupant de ce poste national ou le supprimez, ses détachements ne sont pas libérés : un message vous le rappelle, libérez-les vous-même si nécessaire.</p>
                     <p>Sur la fiche d'un staff qui occupe à la fois un poste national et un détachement, les deux postes s'affichent distinctement — y compris sur un lien de partage public le concernant.</p>
                 </div>
             </details>
@@ -302,11 +304,15 @@
                     </div>
                     <div>
                         <p class="font-semibold text-slate-700">J'ai oublié mon mot de passe.</p>
-                        <p>Demande à un administrateur de te générer un nouveau code d'accès depuis la page Comptes.</p>
+                        <p>Sur la page de connexion, clique sur « Mot de passe oublié ? » et saisis ton email : un administrateur est prévenu et te transmettra un nouveau mot de passe. Il pourra te contacter avant, pour vérifier que la demande vient bien de toi.</p>
                     </div>
                     <div>
                         <p class="font-semibold text-slate-700">Un message de confirmation inhabituel apparaît en enregistrant un poste.</p>
-                        <p>C'est un avertissement, pas un blocage — par exemple si la nationalité de l'occupant choisi ne correspond pas au pays du poste, ou si un détachement est enregistré sans poste national actif derrière. Si la situation est volontaire, tu peux continuer.</p>
+                        <p>C'est un avertissement, pas un blocage — par exemple si la nationalité de l'occupant choisi ne correspond pas au pays du poste, ou si un détachement est enregistré sans poste national actif derrière, ou si l'occupant que tu retires d'un poste national occupe aussi un détachement. Si la situation est volontaire, tu peux continuer.</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-700">Le message « La liste des postes a changé depuis l'ouverture de la page » apparaît.</p>
+                        <p>Quelqu'un a modifié un poste de ce pool pendant que tu travaillais. Rien n'a été enregistré : recharge la page, puis refais ta modification.</p>
                     </div>
                 </div>
             </details>
@@ -337,6 +343,7 @@
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
                     <p><strong>Créer un talent</strong> — bouton "Nouveau talent" depuis la liste d'un pool. Le formulaire couvre l'identité, le statut et la disponibilité, la formation, les compétences/langues/zones d'intervention, et l'historique de missions ALIMA antérieures le cas échéant. Une saisie non enregistrée est sauvegardée automatiquement en brouillon local (récupérable si vous fermez la fenêtre par erreur).</p>
                     <p><strong>Modifier / rechercher</strong> — recherche par nom, prénom, fonction ou email, et filtres avancés (statut, disponibilité, nationalité, langue, visa, contextes, zones d'intervention) ; cliquez sur un talent pour éditer sa fiche.</p>
+                    <p><strong>Email unique</strong> — un même email ne peut appartenir qu'à un seul talent. S'il est déjà utilisé, l'enregistrement est refusé avec le message « Un autre talent utilise déjà cet e-mail. » : retrouvez la fiche existante avec la recherche plutôt que d'en créer une seconde.</p>
                     <p><strong>Exporter le pool</strong> — bouton "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-3.5 h-3.5 inline-block align-[-0.15em] shrink-0" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75H6.912a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H15M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859M12 3v8.25m0 0-3-3m3 3 3-3"/></svg> Exporter Excel" en haut de la liste : génère un fichier avec les talents actuellement filtrés. Cette action est tracée dans le journal d'audit.</p>
                 </div>
             </details>
@@ -375,6 +382,7 @@
                     <p><strong>Créer / modifier un poste</strong> — titre, pays, lieu, type de candidat (expatrié/national/détachement), desk, statut, occupant actuel, type de fin de contrat (date précise, CDI, ou sans fin prévue), dates de contrat, et futur occupant prévu si une rotation est planifiée.</p>
                     <p><strong>Rotation d'occupant</strong> — quand un occupant sort (changement, fin de contrat, suppression du poste), ses évaluations sont automatiquement archivées dans l'historique de sa fiche talent, et son compteur de disponibilité mis à jour.</p>
                     <p><strong>Évaluations</strong> — depuis un poste occupé, ajoutez une évaluation (contexte, points forts, axes d'amélioration, note sur 10). Vous pouvez modifier ou supprimer n'importe quelle évaluation, pas seulement les vôtres.</p>
+                    <p><strong>Resynchroniser le compteur du talent</strong> — bouton sous un poste occupé : remet l'occupant « En poste ALIMA » avec son compteur de mois sans mission à zéro, sans lui compter une mission de plus. À utiliser si sa fiche ne reflète pas le poste qu'il occupe.</p>
                     <p><strong>Analyse IA du pool</strong> — bouton dédié sur cette page : synthèse et recommandations générées à la demande à partir des statistiques agrégées du pool (jamais de données nominatives envoyées à l'IA).</p>
                 </div>
             </details>
@@ -387,7 +395,7 @@
                     <p><strong>Staff national</strong> — un statut de la personne, pas seulement du poste : un professionnel recruté localement, distinct d'un expatrié. Bouton "+ Nouveau staff national" depuis la liste d'un pool pour en créer un.</p>
                     <p><strong>Suivi sans poste</strong> — un staff national qui n'a plus de poste actif reste rattaché à un pool de suivi et apparaît mis en avant en tête de la liste de ce pool, avec le nombre de mois écoulés depuis sa sortie, pour ne pas le perdre de vue entre deux missions.</p>
                     <p><strong>Passer en expat</strong> — depuis sa fiche, si son parcours l'amène à devenir expatrié : choisissez le pool d'intégration, son historique (parcours, détachements passés) reste conservé.</p>
-                    <p><strong>Détachement</strong> — un 3ᵉ type de poste, à côté d'Expatrié et National : un staff déjà en poste national envoyé temporairement sur un autre poste (souvent un projet, hors de son pays). Un détachement se termine automatiquement si le poste national d'origine du staff se termine.</p>
+                    <p><strong>Détachement</strong> — un 3ᵉ type de poste, à côté d'Expatrié et National : un staff déjà en poste national envoyé temporairement sur un autre poste (souvent un projet, hors de son pays). Un détachement se termine automatiquement à la fin de contrat du poste national d'origine du staff. En revanche, si vous changez l'occupant de ce poste national ou le supprimez, ses détachements ne sont pas libérés : un message vous le rappelle, libérez-les vous-même si nécessaire.</p>
                     <p>Sur la fiche d'un staff qui occupe à la fois un poste national et un détachement, les deux postes s'affichent distinctement — y compris sur un lien de partage public le concernant.</p>
                 </div>
             </details>
@@ -437,6 +445,7 @@
                 <div class="mt-3 text-sm text-slate-600 space-y-2">
                     <p><strong>Créer un compte</strong> — email, rôle (admin/recruteur/visiteur), nom complet. Un code d'accès temporaire est généré automatiquement et affiché une seule fois : transmettez-le à la personne par un canal sûr, elle devra le changer à sa première connexion.</p>
                     <p><strong>Réinitialiser le mot de passe</strong> — génère un nouveau code d'accès et révoque immédiatement toutes les sessions déjà ouvertes avec l'ancien, utile en cas de compte compromis.</p>
+                    <p><strong>Demandes de nouveau code d'accès</strong> — quand quelqu'un clique sur « Mot de passe oublié ? », sa demande apparaît en haut de la page Comptes. Avant tout, vérifiez qu'elle vient bien de la personne (appel, ou message sur sa messagerie ALIMA) : n'importe qui peut saisir l'email d'un autre. Puis « Réinitialiser » génère le nouveau code à lui transmettre, ou « Ignorer » retire la demande sans rien changer.</p>
                     <p><strong>Suspendre / réactiver</strong> — bloque l'accès sans supprimer le compte (réversible), à privilégier pour un départ temporaire.</p>
                     <p><strong>Supprimer</strong> — définitif. Vous ne pouvez pas supprimer le compte avec lequel vous êtes actuellement connecté (protection volontaire contre un blocage accidentel).</p>
                 </div>
@@ -489,7 +498,11 @@
                     </div>
                     <div>
                         <p class="font-semibold text-slate-700">Un message de confirmation inhabituel apparaît en enregistrant un poste.</p>
-                        <p>C'est un avertissement, pas un blocage — par exemple si la nationalité de l'occupant choisi ne correspond pas au pays du poste, ou si un détachement est enregistré sans poste national actif derrière. Si la situation est volontaire, tu peux continuer.</p>
+                        <p>C'est un avertissement, pas un blocage — par exemple si la nationalité de l'occupant choisi ne correspond pas au pays du poste, ou si un détachement est enregistré sans poste national actif derrière, ou si l'occupant que tu retires d'un poste national occupe aussi un détachement. Si la situation est volontaire, tu peux continuer.</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-700">Le message « La liste des postes a changé depuis l'ouverture de la page » apparaît.</p>
+                        <p>Quelqu'un a modifié un poste de ce pool pendant que tu travaillais. Rien n'a été enregistré : recharge la page, puis refais ta modification.</p>
                     </div>
                 </div>
             </details>

@@ -48,6 +48,7 @@ const TalentsPage = {};
                 TalentsPage.currentUserEmail = s.email;
                 TalentsPage.currentUserName = s.name;
                 TalentsPage.currentUserRole = s.role;
+                capHumaStartIdleTimeout(TalentsPage.supabaseClient);
 
                 document.getElementById('user-display-name').textContent = TalentsPage.currentUserEmail;
                 document.getElementById('newTalentBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');

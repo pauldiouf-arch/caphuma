@@ -46,6 +46,7 @@
                     throw new Error("Accès non autorisé pour ce rôle.");
                 }
 
+                capHumaStartIdleTimeout(supabaseClient);
                 appBody.style.display = '';
                 await loadDevalidatedTalents();
 

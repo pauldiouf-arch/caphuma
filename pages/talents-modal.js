@@ -543,7 +543,7 @@
                     }
                     payload.created_by = TalentsPage.currentUserId;
                     payload.is_valid = true;
-                    // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait la fiche.
+                    // Pas de capHumaWithRetry() : une relance après un envoi réussi dupliquerait la fiche.
                     const { error } = await CapHumaData.createTalent(TalentsPage.supabaseClient, payload);
                     if (error) throw error;
                 }
@@ -552,7 +552,9 @@
                 await TalentsPage.loadTalents();
             } catch (err) {
                 console.error(err);
-                formError.textContent = "Erreur lors de l'enregistrement : " + err.message;
+                formError.textContent = err.code === '23505'
+                    ? "Un autre talent utilise déjà cet e-mail."
+                    : "Erreur lors de l'enregistrement : " + err.message;
                 formError.classList.remove('hidden');
             } finally {
                 saveBtn.disabled = false;

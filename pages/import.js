@@ -520,7 +520,7 @@
                 });
 
                 try {
-                    // Pas de capHumaWithRetry() : pas de contrainte UNIQUE, une relance dupliquerait tout le lot.
+                    // Pas de capHumaWithRetry() : une relance après un envoi réussi dupliquerait ou rejetterait tout le lot.
                     const { data, error } = await CapHumaData.createTalent(supabaseClient, payload, 'id');
                     if (error) throw error;
                     successCount += (data || []).length;
@@ -529,7 +529,9 @@
                     batch.forEach(r => failures.push({
                         rowNumber: r.rowNumber,
                         name: `${r.normalized.first_name || ''} ${r.normalized.last_name || ''}`.trim(),
-                        message: (err && err.message) || 'Erreur inconnue'
+                        message: err && err.code === '23505'
+                            ? 'Lot refusé : un e-mail de ce lot vient d\'être utilisé par un autre talent'
+                            : (err && err.message) || 'Erreur inconnue'
                     }));
                 }
             }

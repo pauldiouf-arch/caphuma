@@ -496,8 +496,8 @@ const IdCardPage = {};
             document.getElementById('pdf-btn').onclick = async () => {
                 try {
                     const lang = capHumaGetExportLang();
-                    await capHumaLoadScriptOnce('shared/vendor/jspdf-2.5.1.js');
-                    await capHumaLoadScriptOnce('shared/vendor/jspdf-autotable-3.5.29.js');
+                    await capHumaLoadScriptOnce('shared/vendor/jspdf-4.2.1.js');
+                    await capHumaLoadScriptOnce('shared/vendor/jspdf-autotable-5.0.8.js');
                     IdCardPage.exportTalentCardPDF(talent, activeMission, activeDetachment, lang);
                     toastMessage(lang === 'en' ? "PDF document generated and downloaded." : "Document PDF généré et téléchargé.", "success");
                     const fullName = `${talent.first_name || ''} ${talent.last_name || ''}`.trim() || null;

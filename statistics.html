@@ -5,8 +5,8 @@
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-        font-src https://fonts.gstatic.com;
+        style-src 'self' 'unsafe-inline';
+        font-src 'self';
         img-src 'self';
         connect-src 'self' https://bhjycotcmkqiumukkkih.supabase.co;
         object-src 'none';
@@ -31,7 +31,7 @@
     <script defer src="shared/caphuma-auth.js"></script>
     <script defer src="shared/caphuma-layout.js"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="shared/caphuma.css" rel="stylesheet">
 
     <style type="text/tailwindcss">
         @theme {
@@ -258,7 +258,7 @@
 
             <div class="space-y-3">
                 <label for="ai-prompt-input" class="sr-only">Question personnalisée pour l'analyse IA</label>
-                <textarea id="ai-prompt-input" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none placeholder-slate-400" placeholder="Saisissez une question personnalisée ou cliquez sur l'une des requêtes recommandées ci-dessus..."></textarea>
+                <textarea id="ai-prompt-input" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" placeholder="Saisissez une question personnalisée ou cliquez sur l'une des requêtes recommandées ci-dessus..."></textarea>
 
                 <div class="flex justify-between items-center">
                     <div class="text-xs text-slate-500 flex items-center gap-1">
