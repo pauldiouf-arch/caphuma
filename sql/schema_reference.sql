@@ -368,6 +368,9 @@ declare
 begin
     select email, name into v_user_email, v_user_name
     from public.users where id = v_user_id;
+    if v_user_id is null then
+        v_user_name := 'Système';
+    end if;
 
     if TG_OP = 'INSERT' then
         v_action := 'create';
@@ -408,6 +411,9 @@ declare
 begin
     select email, name into v_user_email, v_user_name
     from public.users where id = v_user_id;
+    if v_user_id is null then
+        v_user_name := 'Système';
+    end if;
 
     if TG_OP = 'INSERT' then
         v_action := 'create';

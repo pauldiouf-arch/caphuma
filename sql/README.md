@@ -11,6 +11,7 @@ scripts de changement déjà exécutés en base.
 | `schema_reference.sql` | Script exécutable qui recrée toute la structure de la base. **C'est la référence.** |
 | `generer_schema_reference.sql` | Requête en lecture seule qui produit `schema_reference.sql` depuis la base réelle. |
 | `tests_rls_roles.sql` | Tests des droits par rôle (visiteur, recruteur, admin, compte suspendu) et des fonctions appelées par le site. |
+| `purge_donnees_test_avant_lancement.sql` | À exécuter une seule fois, le jour du lancement : vide les données de test (voir plus bas). |
 | `historique/` | Scripts de changement déjà exécutés en base, conservés pour mémoire (catalogue ci-dessous). |
 | `archives/` | Anciens instantanés `schema_snapshot_AAAA-MM-JJ.sql`, non exécutables, plus produits. |
 
@@ -99,6 +100,27 @@ explique les cas IGNORE possibles.
 À relancer après tout changement de droits, de policy ou de fonction appelée
 par le site.
 
+## Le jour du lancement : purge des données de test
+
+`purge_donnees_test_avant_lancement.sql` vide les talents, postes, commentaires,
+évaluations, liens de partage, historique des pools, demandes de nouveau code,
+erreurs client, compteurs de débit et journal d'audit. Il conserve les pools,
+les comptes et leurs préférences de notification.
+
+Dans l'ordre :
+
+1. Supprimer les comptes de test depuis `admin.html`.
+2. Vider le bucket `red-list-documents` depuis Storage (le script refuse de
+   s'exécuter tant qu'il contient des fichiers).
+3. Lancer `monthly-maintenance` une dernière fois et vérifier sa réponse : sa
+   sauvegarde est le seul retour arrière possible.
+4. Exécuter le script ; le tableau affiché doit indiquer 0 pour chaque table
+   purgée.
+5. Relancer `monthly-maintenance` pour une première sauvegarde propre, puis
+   supprimer du bucket `backups` les sauvegardes antérieures.
+6. Consigner la date et le nom de la personne qui a lancé la purge, puis
+   déplacer le script dans `historique/`.
+
 ## Catalogue de `historique/`
 
 Scripts déjà exécutés en base, dans l'ordre d'exécution. Ne rien rejouer sur
@@ -134,6 +156,7 @@ est en fin de fichier.
 | 23/09/2026 | `enregistrement_poste_atomique.sql` | Enregistrement, suppression et resynchronisation d'un poste en une seule opération | Oui | — |
 | 24/09/2026 | `monthly_maintenance_sauvegarde_journal.sql` | Lecture de `notification_preferences` pour la sauvegarde mensuelle ; auteur « Système » dans le journal des talents sans compte connecté | Oui | `journal_calcul_mensuel.sql` (`audit_talents_changes()` réécrite) |
 | 24/09/2026 | `journal_calcul_mensuel.sql` | Le calcul mensuel des compteurs n'est plus journalisé talent par talent (une ligne récapitulative à la place) | Oui | — |
+| 24/09/2026 | `journal_auteur_systeme_postes_liens.sql` | Auteur « Système » dans le journal des postes et des liens de partage sans compte connecté | Oui | — |
 
 « Reconstitué » : le script d'origine n'avait pas été conservé ; il a été
 réécrit d'après la base réelle, et son en-tête le précise.
