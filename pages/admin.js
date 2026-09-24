@@ -12,6 +12,9 @@
         let accountsList = [];
         let accessRequestsList = [];
         let poolsList = [];
+        let poolUsage = null;
+        let editingPool = null;
+        const POOL_LEVEL_LABELS = { mission: 'Mission', project: 'Projet' };
         let pendingConfirmAction = null;
         let currentUserId = null;
         let currentUserEmail = null;
@@ -356,9 +359,14 @@
             table.classList.add('hidden');
 
             try {
-                const { data, error } = await CapHumaData.getPools(supabaseClient, { select: 'id, pool_id, full_name, level, description, is_archived' });
-                if (error) throw error;
-                poolsList = data || [];
+                const [poolsRes, usageRes] = await Promise.all([
+                    CapHumaData.getPools(supabaseClient, { select: 'id, pool_id, full_name, level, description, is_archived' }),
+                    CapHumaData.getPoolUsage(supabaseClient)
+                ]);
+                if (poolsRes.error) throw poolsRes.error;
+                if (usageRes.error) console.error(usageRes.error);
+                poolsList = poolsRes.data || [];
+                poolUsage = usageRes.data;
                 renderPools();
             } catch (e) {
                 console.error(e);
@@ -382,16 +390,17 @@
             table.classList.remove('hidden');
             empty.classList.add('hidden');
 
-            const levelLabels = { mission: 'Mission', project: 'Projet' };
-
             tbody.innerHTML = poolsList.map(p => {
                 const isArchived = !!p.is_archived;
                 const statusBadge = isArchived
                     ? '<span class="text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">Archivé</span>'
                     : '<span class="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">Actif</span>';
                 const levelBadge = p.level
-                    ? `<span class="text-xs font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-full">${escapeHtml(levelLabels[p.level] || p.level)}</span>`
+                    ? `<span class="text-xs font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-full">${escapeHtml(POOL_LEVEL_LABELS[p.level] || p.level)}</span>`
                     : '—';
+                const usage = poolUsage ? (poolUsage[p.pool_id] || { talents: 0, missions: 0, history: 0 }) : null;
+                const neverUsed = !!usage && usage.talents === 0 && usage.missions === 0 && usage.history === 0;
+                const code = escapeHtml(p.pool_id);
 
                 return `
                 <tr class="text-slate-700">
@@ -399,16 +408,40 @@
                     <td class="py-3 pr-4">${escapeHtml(p.full_name)}</td>
                     <td class="py-3 pr-4">${levelBadge}</td>
                     <td class="py-3 pr-4 text-slate-500 text-xs max-w-xs truncate">${escapeHtml(p.description || '—')}</td>
-                    <td class="py-3 pr-4">${statusBadge}</td>
+                    <td class="py-3 pr-4">
+                        ${statusBadge}
+                        ${usage ? `<p class="mt-1.5 text-xs text-slate-500 whitespace-nowrap">${poolUsageLabel(usage)}</p>` : ''}
+                    </td>
                     <td class="py-3 pr-4">
                         <div class="flex justify-end gap-1.5">
-                            <button class="btn-toggle-pool-archive text-xs font-semibold ${isArchived ? 'text-green-700 hover:bg-green-50' : 'text-amber-700 hover:bg-amber-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-archived="${isArchived}" data-code="${escapeHtml(p.pool_id)}">
+                            <button class="btn-edit-pool text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" aria-label="Modifier le pool ${code}">
+                                Modifier
+                            </button>
+                            <button class="btn-toggle-pool-archive text-xs font-semibold ${isArchived ? 'text-green-700 hover:bg-green-50' : 'text-amber-700 hover:bg-amber-50'} px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-archived="${isArchived}" data-code="${code}" aria-label="${isArchived ? 'Désarchiver' : 'Archiver'} le pool ${code}">
                                 ${isArchived ? 'Désarchiver' : 'Archiver'}
                             </button>
+                            ${neverUsed ? `<button class="btn-delete-pool text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-all" data-id="${p.id}" data-code="${code}" aria-label="Supprimer le pool ${code}">
+                                Supprimer
+                            </button>` : ''}
                         </div>
                     </td>
                 </tr>`;
             }).join('');
+        }
+
+        function poolUsageLabel(usage) {
+            const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+            if (usage.talents > 0 || usage.missions > 0) {
+                return `Utilisé : ${plural(usage.talents, 'talent')}, ${plural(usage.missions, 'poste')}`;
+            }
+            return usage.history > 0 ? "Présent dans l'historique des talents" : 'Jamais utilisé';
+        }
+
+        function focusAfterPoolsReload(selector) {
+            requestAnimationFrame(() => {
+                const target = document.querySelector(selector) || document.getElementById('btn-open-create-pool');
+                target.focus();
+            });
         }
 
         async function onTogglePoolArchive(poolId, currentlyArchived, code) {
@@ -430,17 +463,85 @@
                     if (error) throw error;
                     if (!updated || updated.length === 0) throw new Error("Le pool n'a pas été modifié : il a peut-être été supprimé ou vos droits ont changé. Rechargez la page.");
                     toastMessage(nextState ? "Pool archivé." : "Pool désarchivé.");
+                    await logAuditAction('update', 'system', poolId, `Pool ${code}`, nextState ? 'Pool archivé' : 'Pool désarchivé');
                     await loadPools();
+                    focusAfterPoolsReload(`.btn-toggle-pool-archive[data-id="${poolId}"]`);
                 }
             });
         }
 
-        document.getElementById('btn-open-create-pool').addEventListener('click', () => {
-            document.getElementById('input-pool-code').value = '';
-            document.getElementById('input-pool-fullname').value = '';
-            document.getElementById('input-pool-description').value = '';
+        function onDeletePool(poolId, code) {
+            openConfirmModal({
+                title: `Supprimer le pool ${code}`,
+                message: "Ce pool n'a jamais été utilisé. Il sera supprimé définitivement.",
+                actionLabel: "Supprimer",
+                onConfirm: async () => {
+                    const { data: deleted, error } = await CapHumaData.deletePool(supabaseClient, poolId);
+                    if (error) {
+                        if (error.code === '23503') {
+                            await loadPools();
+                            throw new Error(`le pool ${code} est maintenant utilisé par des talents ou des postes. Archivez-le plutôt.`);
+                        }
+                        throw error;
+                    }
+                    if (!deleted || deleted.length === 0) throw new Error("le pool n'a pas été supprimé : il a peut-être déjà été supprimé ou vos droits ont changé. Rechargez la page.");
+                    toastMessage("Pool supprimé.");
+                    await logAuditAction('delete', 'system', poolId, `Pool ${code}`, 'Pool supprimé');
+                    await loadPools();
+                    focusAfterPoolsReload('#btn-open-create-pool');
+                }
+            });
+        }
+
+        function openPoolModal(pool) {
+            editingPool = pool;
+            const codeInput = document.getElementById('input-pool-code');
+            const lockedHint = document.getElementById('pool-code-locked-hint');
+            codeInput.value = pool ? pool.pool_id : '';
+            codeInput.disabled = !!pool;
+            lockedHint.classList.toggle('hidden', !pool);
+            if (pool) codeInput.setAttribute('aria-describedby', 'pool-code-locked-hint');
+            else codeInput.removeAttribute('aria-describedby');
+            document.getElementById('input-pool-fullname').value = pool ? pool.full_name : '';
+            document.getElementById('input-pool-level').value = pool ? pool.level : 'project';
+            document.getElementById('input-pool-description').value = pool ? (pool.description || '') : '';
+            document.getElementById('modal-create-pool-title').textContent = pool ? `Modifier le pool ${pool.pool_id}` : 'Nouveau pool';
+            document.getElementById('pool-submit-label').textContent = pool ? 'Enregistrer' : 'Créer le pool';
             document.getElementById('modal-create-pool').classList.remove('hidden');
-        });
+        }
+
+        async function savePoolChanges(pool, fullName, level, description) {
+            const changes = {};
+            const details = [];
+            if (fullName !== pool.full_name) {
+                changes.full_name = fullName;
+                details.push(`Nom complet : ${pool.full_name} → ${fullName}`);
+            }
+            if (level !== pool.level) {
+                changes.level = level;
+                details.push(`Niveau : ${POOL_LEVEL_LABELS[pool.level] || pool.level} → ${POOL_LEVEL_LABELS[level] || level}`);
+            }
+            if ((description || null) !== (pool.description || null)) {
+                changes.description = description || null;
+                details.push(`Description : ${pool.description || '—'} → ${description || '—'}`);
+            }
+
+            if (details.length === 0) {
+                document.getElementById('modal-create-pool').classList.add('hidden');
+                return;
+            }
+
+            const { data: updated, error } = await CapHumaData.updatePool(supabaseClient, pool.id, changes);
+            if (error) throw error;
+            if (!updated || updated.length === 0) throw new Error("le pool n'a pas été modifié : il a peut-être été supprimé ou vos droits ont changé. Rechargez la page.");
+            document.getElementById('modal-create-pool').classList.add('hidden');
+            toastMessage("Pool modifié.");
+            await logAuditAction('update', 'system', pool.id, `Pool ${pool.pool_id}`, details.join(' ; '));
+            await loadPools();
+            focusAfterPoolsReload(`.btn-edit-pool[data-id="${pool.id}"]`);
+        }
+
+        document.getElementById('btn-open-create-pool').addEventListener('click', () => openPoolModal(null));
         document.getElementById('btn-cancel-create-pool').addEventListener('click', () => {
             document.getElementById('modal-create-pool').classList.add('hidden');
         });
@@ -453,12 +554,24 @@
             const btn = document.getElementById('btn-confirm-create-pool');
 
             if (!code || !fullName) {
-                toastMessage("Le code et le nom complet sont obligatoires.", "error");
+                toastMessage(editingPool ? "Le nom complet est obligatoire." : "Le code et le nom complet sont obligatoires.", "error");
                 return;
             }
 
             btn.disabled = true;
             spinner.classList.remove('hidden');
+            if (editingPool) {
+                try {
+                    await savePoolChanges(editingPool, fullName, level, description);
+                } catch (e) {
+                    console.error(e);
+                    toastMessage("Échec de la modification du pool : " + e.message, "error");
+                } finally {
+                    btn.disabled = false;
+                    spinner.classList.add('hidden');
+                }
+                return;
+            }
             try {
                 const { error } = await CapHumaData.createPool(supabaseClient, {
                     pool_id: code,
@@ -472,6 +585,7 @@
                 if (error) throw error;
                 document.getElementById('modal-create-pool').classList.add('hidden');
                 toastMessage("Pool créé avec succès.");
+                await logAuditAction('create', 'system', null, `Pool ${code}`, fullName);
                 await loadPools();
             } catch (e) {
                 console.error(e);
@@ -570,10 +684,14 @@
         });
 
         document.getElementById('pools-tbody').addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.btn-edit-pool');
+            if (editBtn) { openPoolModal(poolsList.find(p => String(p.id) === editBtn.dataset.id)); return; }
+
             const archiveBtn = e.target.closest('.btn-toggle-pool-archive');
-            if (archiveBtn) {
-                onTogglePoolArchive(archiveBtn.dataset.id, archiveBtn.dataset.archived === 'true', archiveBtn.dataset.code);
-            }
+            if (archiveBtn) { onTogglePoolArchive(archiveBtn.dataset.id, archiveBtn.dataset.archived === 'true', archiveBtn.dataset.code); return; }
+
+            const deleteBtn = e.target.closest('.btn-delete-pool');
+            if (deleteBtn) onDeletePool(deleteBtn.dataset.id, deleteBtn.dataset.code);
         });
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {

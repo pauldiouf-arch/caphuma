@@ -15,6 +15,33 @@ const CapHumaData = (() => {
         return sb.from('pools').insert(payload);
     }
 
+    async function deletePool(sb, id) {
+        return sb.from('pools').delete().eq('id', id).select('id');
+    }
+
+    async function getPoolUsage(sb) {
+        const [talents, missions, history] = await Promise.all([
+            capHumaSelectAllPages(() => sb.from('talents').select('pool, tracking_pool', { count: 'exact' }).order('id')),
+            capHumaSelectAllPages(() => sb.from('missions').select('pool', { count: 'exact' }).order('id')),
+            capHumaSelectAllPages(() => sb.from('pool_history').select('from_pool, to_pool', { count: 'exact' }).order('id'))
+        ]);
+        const error = talents.error || missions.error || history.error;
+        if (error) return { data: null, error };
+
+        const usage = {};
+        const entry = code => (usage[code] = usage[code] || { talents: 0, missions: 0, history: 0 });
+        talents.data.forEach(t => {
+            if (t.pool) entry(t.pool).talents++;
+            if (t.tracking_pool && t.tracking_pool !== t.pool) entry(t.tracking_pool).talents++;
+        });
+        missions.data.forEach(m => { if (m.pool) entry(m.pool).missions++; });
+        history.data.forEach(h => {
+            if (h.from_pool) entry(h.from_pool).history++;
+            if (h.to_pool && h.to_pool !== h.from_pool) entry(h.to_pool).history++;
+        });
+        return { data: usage, error: null };
+    }
+
     async function getTalents(sb, { select = '*', filters = {}, orderBy = null } = {}) {
         return capHumaSelectAllPages(() => {
             let q = sb.from('talents').select(select, { count: 'exact' });
@@ -61,7 +88,7 @@ const CapHumaData = (() => {
     }
 
     return {
-        getPools, updatePool, createPool,
+        getPools, updatePool, createPool, deletePool, getPoolUsage,
         getTalents, updateTalent, createTalent,
         removeRedListDocuments, deleteTalentPermanently
     };

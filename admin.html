@@ -193,7 +193,8 @@
             <div class="space-y-3">
                 <div>
                     <label class="text-xs font-semibold text-slate-600" for="input-pool-code">Code du pool</label>
-                    <input id="input-pool-code" type="text" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary uppercase" placeholder="Ex : COLOG">
+                    <input id="input-pool-code" type="text" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary uppercase disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed" placeholder="Ex : COLOG">
+                    <p id="pool-code-locked-hint" class="hidden mt-1 text-xs text-slate-500">Le code ne peut pas être modifié : il sert de référence aux talents et aux postes.</p>
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-600" for="input-pool-fullname">Nom complet</label>
@@ -214,7 +215,7 @@
             <div class="flex justify-end gap-2 pt-2">
                 <button id="btn-cancel-create-pool" data-modal-dismiss class="text-sm font-semibold text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-xl transition-all">Annuler</button>
                 <button id="btn-confirm-create-pool" class="bg-primary hover:bg-primary-dark text-white font-semibold text-sm px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2">
-                    <span>Créer le pool</span>
+                    <span id="pool-submit-label">Créer le pool</span>
                     <div id="create-pool-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 </button>
             </div>

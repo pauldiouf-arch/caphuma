@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
+const AxeBuilder = require('@axe-core/playwright').default;
 const XLSX = require('../shared/vendor/xlsx.core.min.js');
 const { ouvrirPage, erreurServeur } = require('./simulateur-supabase');
-const { ID, ID_COMPTES, DONNEES } = require('./donnees');
+const { ID, ID_COMPTES, DONNEES, PIEGE } = require('./donnees');
 
 const envoi = (page, methode, fin) => (page.corpsEnvoyes || []).filter(e => e.methode === methode && e.chemin.endsWith(fin));
 const notification = (page, texte) => page.locator('div.fixed.bottom-5', { hasText: texte });
@@ -168,6 +169,151 @@ test.describe('Pools', () => {
         await page.click('#btn-confirm-confirm');
         await expect(notification(page, "Le pool n'a pas été modifié")).toBeVisible();
         await expect(notification(page, 'Pool archivé.')).toHaveCount(0);
+    });
+
+    test('utilisation de chaque pool affichée, suppression proposée seulement pour un pool jamais utilisé', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', gestionComptes());
+        await page.click('[data-tab="pools"]');
+        const ligne = (code) => page.locator('#pools-tbody tr', { has: page.locator('td:first-child', { hasText: new RegExp(`^${code}$`) }) });
+        await expect(ligne('P1')).toContainText('Utilisé : 6 talents, 5 postes');
+        await expect(ligne('P2')).toContainText("Présent dans l'historique des talents");
+        await expect(ligne('P9')).toContainText('Jamais utilisé');
+        await expect(page.locator('.btn-delete-pool')).toHaveCount(1);
+        await expect(ligne('P9').locator('.btn-delete-pool')).toHaveAccessibleName('Supprimer le pool P9');
+    });
+
+    test('modifier un pool : fenêtre préremplie, code verrouillé, seuls les champs changés envoyés et journalisés', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', gestionComptes());
+        await page.click('[data-tab="pools"]');
+        await page.click('.btn-edit-pool[data-id="2"]');
+        await expect(page.locator('#modal-create-pool-title')).toHaveText('Modifier le pool P2');
+        await expect(page.locator('#input-pool-code')).toHaveValue('P2');
+        await expect(page.locator('#input-pool-code')).toBeDisabled();
+        await expect(page.locator('#input-pool-code')).toHaveAccessibleDescription(/ne peut pas être modifié/);
+        await expect(page.locator('#input-pool-fullname')).toHaveValue('Pool Deux');
+        await expect(page.locator('#input-pool-fullname')).toBeFocused();
+        await expect(page.locator('#pool-submit-label')).toHaveText('Enregistrer');
+        const { violations } = await new AxeBuilder({ page }).include('#modal-create-pool').withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+        expect(violations.filter(v => ['serious', 'critical'].includes(v.impact)).map(v => v.id)).toEqual([]);
+
+        await page.fill('#input-pool-fullname', `Pool Deux corrigé ${PIEGE}`);
+        await page.fill('#input-pool-description', 'Nouvelle description');
+        await page.click('#btn-confirm-create-pool');
+        await expect(notification(page, 'Pool modifié.')).toBeVisible();
+        await expect(page.locator('#modal-create-pool')).toBeHidden();
+        const [maj] = envoi(page, 'PATCH', '/rest/v1/pools');
+        expect(maj.parametres.id).toBe('eq.2');
+        expect(maj.corps).toEqual({ full_name: `Pool Deux corrigé ${PIEGE}`, description: 'Nouvelle description' });
+        await expect(page.locator('#pools-tbody')).toContainText(`Pool Deux corrigé ${PIEGE}`);
+        expect(await page.locator('#pools-tbody [data-xss]').count()).toBe(0);
+        await expect(page.locator('.btn-edit-pool[data-id="2"]')).toBeFocused();
+        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => j.corps.details)).toContainEqual(`Nom complet : Pool Deux → Pool Deux corrigé ${PIEGE} ; Description : — → Nouvelle description`);
+    });
+
+    test('modifier puis recréer : la fenêtre de création revient vide et le code redevient saisissable', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', gestionComptes());
+        await page.click('[data-tab="pools"]');
+        await page.click('.btn-edit-pool[data-id="2"]');
+        await page.click('#btn-cancel-create-pool');
+        await page.click('#btn-open-create-pool');
+        await expect(page.locator('#modal-create-pool-title')).toHaveText('Nouveau pool');
+        await expect(page.locator('#input-pool-code')).toBeEnabled();
+        await expect(page.locator('#input-pool-code')).toHaveValue('');
+        await expect(page.locator('#input-pool-code')).not.toHaveAttribute('aria-describedby');
+        await expect(page.locator('#pool-code-locked-hint')).toBeHidden();
+        await expect(page.locator('#pool-submit-label')).toHaveText('Créer le pool');
+    });
+
+    test('modifier sans rien changer : aucune demande ; nom vidé : refusé', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', gestionComptes());
+        await page.click('[data-tab="pools"]');
+        await page.click('.btn-edit-pool[data-id="2"]');
+        await page.click('#btn-confirm-create-pool');
+        await expect(page.locator('#modal-create-pool')).toBeHidden();
+        await page.click('.btn-edit-pool[data-id="2"]');
+        await page.fill('#input-pool-fullname', '  ');
+        await page.click('#btn-confirm-create-pool');
+        await expect(notification(page, 'Le nom complet est obligatoire.')).toBeVisible();
+        await expect(page.locator('#modal-create-pool')).toBeVisible();
+        expect(envoi(page, 'PATCH', '/rest/v1/pools')).toEqual([]);
+    });
+
+    test('modification refusée sans erreur du serveur : l\'échec est signalé et la fenêtre reste ouverte', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', (requete) => {
+            if (requete.chemin.endsWith('/rest/v1/pools') && requete.methode === 'PATCH') return [];
+            return gestionComptes()(requete);
+        });
+        await page.click('[data-tab="pools"]');
+        await page.click('.btn-edit-pool[data-id="2"]');
+        await page.fill('#input-pool-fullname', 'Autre nom');
+        await page.click('#btn-confirm-create-pool');
+        await expect(notification(page, "Échec de la modification du pool : le pool n'a pas été modifié")).toBeVisible();
+        await expect(page.locator('#modal-create-pool')).toBeVisible();
+        await expect(notification(page, 'Pool modifié.')).toHaveCount(0);
+    });
+
+    test('supprimer un pool jamais utilisé : confirmation, suppression et journal', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', gestionComptes());
+        await page.click('[data-tab="pools"]');
+        await page.click('.btn-delete-pool[data-code="P9"]');
+        await expect(page.locator('#confirm-title')).toHaveText('Supprimer le pool P9');
+        await page.click('#btn-confirm-confirm');
+        await expect(notification(page, 'Pool supprimé.')).toBeVisible();
+        expect(envoi(page, 'DELETE', '/rest/v1/pools')[0].parametres.id).toBe('eq.3');
+        await expect(page.locator('#pools-tbody tr')).toHaveCount(2);
+        await expect(page.locator('#btn-open-create-pool')).toBeFocused();
+        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => [j.corps.action, j.corps.entity_name])).toContainEqual(['delete', 'Pool P9']);
+    });
+
+    test('pool devenu utilisé entre-temps : la base refuse, message clair et bouton retiré', async ({ page }) => {
+        let utilise = false;
+        await ouvrirPage(page, 'admin.html', (requete) => {
+            if (requete.chemin.endsWith('/rest/v1/pools') && requete.methode === 'DELETE') {
+                utilise = true;
+                return erreurServeur('update or delete on table "pools" violates foreign key constraint "talents_pool_fkey"', '23503', 409);
+            }
+            if (utilise && requete.chemin.endsWith('/rest/v1/missions') && requete.parametres.get('select') === 'pool') {
+                return [{ pool: 'P9' }];
+            }
+            return gestionComptes()(requete);
+        });
+        await page.click('[data-tab="pools"]');
+        await page.click('.btn-delete-pool[data-code="P9"]');
+        await page.click('#btn-confirm-confirm');
+        await expect(notification(page, 'le pool P9 est maintenant utilisé par des talents ou des postes. Archivez-le plutôt.')).toBeVisible();
+        await expect(page.locator('.btn-delete-pool')).toHaveCount(0);
+        await expect(page.locator('#pools-tbody tr', { hasText: 'P9' })).toContainText('Utilisé : 0 talent, 1 poste');
+        expect(envoi(page, 'POST', '/audit_logs').filter(j => j.corps.action === 'delete')).toEqual([]);
+    });
+
+    test('utilisation des pools illisible : aucune suppression proposée, le reste fonctionne', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', (requete) => {
+            if (requete.chemin.endsWith('/rest/v1/pool_history')) return erreurServeur('permission denied', '42501', 403);
+            return gestionComptes()(requete);
+        });
+        await page.click('[data-tab="pools"]');
+        await expect(page.locator('#pools-tbody tr')).toHaveCount(3);
+        await expect(page.locator('.btn-edit-pool')).toHaveCount(3);
+        await expect(page.locator('.btn-delete-pool')).toHaveCount(0);
+        await expect(page.locator('#pools-tbody')).not.toContainText('Jamais utilisé');
+    });
+
+    test('création et archivage de pool inscrits au journal', async ({ page }) => {
+        await ouvrirPage(page, 'admin.html', gestionComptes());
+        await page.click('[data-tab="pools"]');
+        await page.click('#btn-open-create-pool');
+        await page.fill('#input-pool-code', 'cosan');
+        await page.fill('#input-pool-fullname', 'Coordination santé');
+        await page.click('#btn-confirm-create-pool');
+        await expect(notification(page, 'Pool créé avec succès.')).toBeVisible();
+        await page.click('.btn-toggle-pool-archive[data-code="P2"]');
+        await page.click('#btn-confirm-confirm');
+        await expect(notification(page, 'Pool archivé.')).toBeVisible();
+        await expect(page.locator('.btn-toggle-pool-archive[data-code="P2"]')).toBeFocused();
+        await expect.poll(() => envoi(page, 'POST', '/audit_logs').map(j => [j.corps.action, j.corps.entity_name, j.corps.details])).toEqual(expect.arrayContaining([
+            ['create', 'Pool COSAN', 'Coordination santé'],
+            ['update', 'Pool P2', 'Pool archivé'],
+        ]));
     });
 });
 
