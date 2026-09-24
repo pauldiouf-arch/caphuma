@@ -426,8 +426,9 @@
                         ? { is_archived: true, archived_at: new Date().toISOString(), archived_by_name: session.user.email }
                         : { is_archived: false, archived_at: null, archived_by_name: null };
 
-                    const { error } = await CapHumaData.updatePool(supabaseClient, poolId, updatePayload);
+                    const { data: updated, error } = await CapHumaData.updatePool(supabaseClient, poolId, updatePayload);
                     if (error) throw error;
+                    if (!updated || updated.length === 0) throw new Error("Le pool n'a pas été modifié : il a peut-être été supprimé ou vos droits ont changé. Rechargez la page.");
                     toastMessage(nextState ? "Pool archivé." : "Pool désarchivé.");
                     await loadPools();
                 }
@@ -474,7 +475,9 @@
                 await loadPools();
             } catch (e) {
                 console.error(e);
-                toastMessage("Échec de la création du pool : " + e.message, "error");
+                toastMessage(e.code === '23505'
+                    ? `Un pool avec le code ${code} existe déjà.`
+                    : "Échec de la création du pool : " + e.message, "error");
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('hidden');

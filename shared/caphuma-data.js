@@ -8,11 +8,11 @@ const CapHumaData = (() => {
     }
 
     async function updatePool(sb, id, payload) {
-        return capHumaWithRetry(() => sb.from('pools').update(payload).eq('id', id));
+        return capHumaWithRetry(() => sb.from('pools').update(payload).eq('id', id).select('id'));
     }
 
     async function createPool(sb, payload) {
-        return capHumaWithRetry(() => sb.from('pools').insert(payload));
+        return sb.from('pools').insert(payload);
     }
 
     async function getTalents(sb, { select = '*', filters = {}, orderBy = null } = {}) {

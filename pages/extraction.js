@@ -139,7 +139,7 @@
                         ${count} ${unitLabel}${count > 1 ? 's' : ''}
                     </span>
                 `;
-                row.addEventListener('click', () => {
+                row.querySelector('.pool-checkbox').addEventListener('change', () => {
                     if (selectedSet.has(pool.pool_id)) selectedSet.delete(pool.pool_id);
                     else selectedSet.add(pool.pool_id);
                     renderPoolLists();
