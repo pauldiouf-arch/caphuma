@@ -1,6 +1,7 @@
 -- Test des policies RLS par role (visitor / user / admin, puis compte suspendu) sur talents, comments,
 -- evaluations, share_tokens, audit_logs, users et access_code_requests, et des fonctions appelees par le site
--- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus).
+-- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus), et des auteurs
+-- imposes par la base (Liste Rouge, prolongation, created_by, liens de partage).
 --
 -- Execution : coller ce fichier en entier dans l'editeur SQL Supabase, sans rien ajouter autour,
 -- puis Run. Tout tient dans un seul bloc do $$ : l'editeur ne garantit pas une connexion unique
@@ -75,6 +76,9 @@ declare
     v_mission_payload      jsonb;
     v_test_mission_1_id    uuid;
     v_test_mission_2_id    uuid;
+    v_attr_talent_id       uuid;
+    v_user_display_name    text;
+    v_attr_ok              boolean;
 begin
     select session_user into v_admin_role;
 
@@ -678,6 +682,73 @@ begin
         where id = v_test_mission_1_id and occupant_id = v_occupant_b_id and future_talent_id is null;
     if v_count = 1 and v_rows = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-76 OK - user : contrat echu du pool de test transfere au futur occupant' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-76 ECHEC - contrat echu non traite (%s poste(s) transfere(s))', v_rows) || chr(10); end if;
+
+    perform set_config('role', v_admin_role, true);
+    select coalesce(nullif(name, ''), email) into v_user_display_name from users where id = v_user_id;
+    insert into talents (first_name, last_name, pool, staff_type)
+    values ('TEST-A3', 'ATTRIBUTION', 'TESTA3P1', 'expat') returning id into v_attr_talent_id;
+
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
+    perform set_config('role', 'authenticated', true);
+    update talents
+    set is_red_listed = true, red_list_reason = 'TEST RLS temporaire (A3)', red_list_date = '2000-01-01',
+        red_list_added_by = v_admin_id, red_list_added_by_name = 'FAUX AUTEUR A3'
+    where id = v_attr_talent_id;
+    perform set_config('role', v_admin_role, true);
+    select red_list_added_by = v_user_id and red_list_added_by_name = v_user_display_name
+           and red_list_date > now() - interval '1 hour'
+    into v_attr_ok from talents where id = v_attr_talent_id;
+    if v_attr_ok then v_ok := v_ok + 1; v_report := v_report || 'A3-78 OK - ajout en Liste Rouge : auteur, nom et date imposes par la base' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-78 ECHEC - auteur, nom ou date de Liste Rouge falsifiable' || chr(10); end if;
+
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_admin_id), true);
+    perform set_config('role', 'authenticated', true);
+    update talents set red_list_reason = 'TEST RLS temporaire (A3) bis', red_list_added_by_name = 'FAUX AUTEUR A3'
+    where id = v_attr_talent_id;
+    perform set_config('role', v_admin_role, true);
+    select red_list_reason = 'TEST RLS temporaire (A3) bis' and red_list_added_by_name = v_user_display_name
+    into v_attr_ok from talents where id = v_attr_talent_id;
+    if v_attr_ok then v_ok := v_ok + 1; v_report := v_report || 'A3-79 OK - talent deja en Liste Rouge : motif modifiable, auteur fige' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-79 ECHEC - auteur de Liste Rouge reecrit apres coup' || chr(10); end if;
+
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
+    perform set_config('role', 'authenticated', true);
+    update talents
+    set devalidation_extension_until = current_date + 90, devalidation_extension_months = 3,
+        devalidation_extension_granted_by = v_admin_id, devalidation_extension_granted_by_name = 'FAUX AUTEUR A3',
+        devalidation_extension_granted_at = '2000-01-01'
+    where id = v_attr_talent_id;
+    insert into talents (first_name, last_name, pool, staff_type, created_by)
+    values ('TEST-A3', 'CREATED-BY', 'TESTA3P1', 'expat', v_admin_id);
+    insert into missions (title, pool, pool_level, location, created_by)
+    values ('TEST RLS temporaire (A3) created_by', 'TESTA3P1', 'mission', 'TEST', v_admin_id);
+    insert into share_tokens (token, talent_id, created_by, created_by_name, expires_at)
+    values ('test-a3-attr-' || gen_random_uuid()::text, v_attr_talent_id, v_user_id, 'FAUX AUTEUR A3', now() + interval '1 day');
+    perform set_config('role', v_admin_role, true);
+
+    select devalidation_extension_granted_by = v_user_id and devalidation_extension_granted_by_name = v_user_display_name
+           and devalidation_extension_granted_at > now() - interval '1 hour'
+    into v_attr_ok from talents where id = v_attr_talent_id;
+    if v_attr_ok then v_ok := v_ok + 1; v_report := v_report || 'A3-80 OK - prolongation de validite : auteur, nom et date imposes' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-80 ECHEC - auteur de prolongation falsifiable' || chr(10); end if;
+
+    select count(*) into v_count from talents where last_name = 'CREATED-BY' and created_by = v_user_id;
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-81 OK - talent cree : created_by impose par la base' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-81 ECHEC - created_by d''un talent falsifiable' || chr(10); end if;
+
+    select count(*) into v_count from missions where title = 'TEST RLS temporaire (A3) created_by' and created_by = v_user_id;
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-82 OK - poste cree hors site : created_by impose par la base' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-82 ECHEC - created_by d''un poste falsifiable' || chr(10); end if;
+
+    select count(*) into v_count from share_tokens where talent_id = v_attr_talent_id and created_by_name = v_user_display_name;
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-83 OK - lien de partage : nom de l''auteur impose' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-83 ECHEC - nom de l''auteur d''un lien falsifiable' || chr(10); end if;
+
+    if to_regprocedure('public.set_attribution_from_session()') is not null
+       and not has_function_privilege('anon', 'public.set_attribution_from_session()', 'execute')
+       and not has_function_privilege('authenticated', 'public.set_attribution_from_session()', 'execute') then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-84 OK - set_attribution_from_session existe et reste inaccessible au site' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || 'A3-84 ECHEC - set_attribution_from_session absente ou appelable par le site' || chr(10); end if;
 
     -- Tests en tant que user puis admin suspendus (suspension annulee par le rollback force)
     perform set_config('role', v_admin_role, true);
