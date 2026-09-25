@@ -17,9 +17,9 @@ const PAGES = [
         visitor: contenu([], ['#adminNavGroup', '#notifBellBtn', '#navRedList', '#navDevalidated', '#navExtraction']),
     } },
     { nom: 'Talents du pool', chemin: 'talents.html?pool=P1', attendu: {
-        admin: contenu(['#newTalentBtn', '.edit-btn >> nth=0']),
-        user: contenu(['#newTalentBtn', '.edit-btn >> nth=0']),
-        visitor: contenu([], ['#newTalentBtn', '.edit-btn']),
+        admin: contenu(['#newTalentBtn', '.edit-btn >> nth=0', '#exportPoolExcelBtn']),
+        user: contenu(['#newTalentBtn', '.edit-btn >> nth=0', '#exportPoolExcelBtn']),
+        visitor: contenu([], ['#newTalentBtn', '.edit-btn', '#exportPoolExcelBtn']),
     } },
     { nom: 'Fiche talent', chemin: `id-card.html?id=${ID.expat}`, attendu: {
         admin: contenu(['#share-btn', '#btn-redlist', '#btn-change-pool', '#btn-delete-talent']),

@@ -466,8 +466,10 @@ test.describe('Journal d\'audit', () => {
         await page.selectOption('#filterPeriod', 'week');
         await expect(page.locator('#resetFiltersBtn')).toBeVisible();
         const derniere = () => envoi(page, 'POST', '/functions/v1/sensitive-reads').filter(e => e.corps.resource === 'audit_logs').at(-1).corps;
-        await expect.poll(() => derniere().filters.action).toBe('delete');
-        expect(Date.now() - new Date(derniere().filters.gte).getTime()).toBeGreaterThan(6.9 * 864e5);
+        await expect.poll(() => {
+            const { action, gte } = derniere().filters;
+            return action === 'delete' && Date.now() - new Date(gte).getTime() > 6.9 * 864e5;
+        }).toBe(true);
         await page.fill('#filterExactDate', '2026-09-01');
         await expect(page.locator('#filterPeriod')).toBeDisabled();
         await expect.poll(() => derniere().filters.lte).toBeTruthy();

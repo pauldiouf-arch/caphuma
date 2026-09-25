@@ -54,7 +54,7 @@
             create: 'Création', update: 'Modification', delete: 'Suppression',
             devalidate: 'Dévalidation', reintegrate: 'Réintégration',
             add_to_red_list: 'Ajout liste rouge', remove_from_red_list: 'Retrait liste rouge',
-            login: 'Connexion', logout: 'Déconnexion', export: 'Export'
+            login: 'Connexion', logout: 'Déconnexion', export: 'Export', view: 'Consultation'
         };
         const ACTION_BADGE_CLASS = {
             create: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -66,7 +66,8 @@
             remove_from_red_list: 'bg-slate-100 text-slate-600 border-slate-200',
             login: 'bg-slate-100 text-slate-600 border-slate-200',
             logout: 'bg-slate-100 text-slate-600 border-slate-200',
-            export: 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            export: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+            view: 'bg-slate-100 text-slate-600 border-slate-200'
         };
         const ENTITY_TYPE_LABELS = {
             talent: 'Talent', mission: 'Poste', comment: 'Commentaire',

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
 const XLSX = require('../shared/vendor/xlsx.core.min.js');
-const { ouvrirPage, erreurServeur, CLE_SESSION } = require('./simulateur-supabase');
+const { ouvrirPage, erreurServeur, attendreMessageLisible, CLE_SESSION } = require('./simulateur-supabase');
 const { ID, ID_COMPTES, PIEGE } = require('./donnees');
 
 const envoi = (page, methode, fin) => (page.corpsEnvoyes || []).filter(e => e.methode === methode && e.chemin.endsWith(fin));
@@ -433,6 +433,91 @@ test.describe('Fiche talent', () => {
         expect(page.dialogues[0]).toContain('Binta Koné');
         expect(envoi(page, 'DELETE', '/talents')[0].parametres.id).toBe(`eq.${ID.aRisque}`);
         await expect(page).toHaveURL(/talents\.html/);
+    });
+});
+
+test.describe('Visiteur : lecture par les portes de la base', () => {
+    const TABLES_FERMEES = ['/rest/v1/talents', '/rest/v1/missions', '/rest/v1/comments', '/rest/v1/pool_history', '/rest/v1/evaluations'];
+    const limiteAtteinte = erreurServeur('Limite de consultation atteinte (50 fiches par heure). Réessayez plus tard.', '54000');
+
+    async function ouvrirEnVisiteur(page, chemin, reponses = () => undefined) {
+        page.lectures = [];
+        await ouvrirPage(page, chemin, (requete) => {
+            if (requete.methode === 'GET') page.lectures.push(requete.chemin);
+            return reponses(requete);
+        }, { role: 'visitor' });
+    }
+    const tablesLues = (page) => page.lectures.filter(chemin => TABLES_FERMEES.includes(chemin));
+
+    test('liste : une page servie par la base, sans lecture de table, export Excel masqué', async ({ page }) => {
+        await ouvrirEnVisiteur(page, 'talents.html?pool=P1');
+        await expect(page.locator('#searchResultsSummary')).toHaveText('3 talents au total');
+        const texte = await page.locator('#talentsList').innerText();
+        expect(texte).toContain('Binta');
+        expect(texte).toContain('Cheick');
+        expect(texte).not.toContain('Dado');
+        expect(texte).not.toContain('Eli');
+        await expect(page.locator('#exportPoolExcelBtn')).toBeHidden();
+        const [demande] = envoi(page, 'POST', '/rpc/visitor_talents_page');
+        expect(demande.corps).toMatchObject({ p_pool: 'P1', p_page: 0, p_filters: { validity: 'active', sort_by: 'integration', sort_order: 'desc' } });
+        expect(tablesLues(page)).toEqual([]);
+    });
+
+    test('recherche : la frappe est regroupée en une seule demande, filtrée par la base', async ({ page }) => {
+        await ouvrirEnVisiteur(page, 'talents.html?pool=P1');
+        await expect(page.locator('#searchResultsSummary')).toHaveText('3 talents au total');
+        await page.locator('#searchInput').pressSequentially('binta', { delay: 40 });
+        await expect(page.locator('#searchResultsSummary')).toHaveText('1 talent au total');
+        await expect(lignesTalents(page).filter({ hasText: 'Binta' })).toHaveCount(1);
+        const demandes = envoi(page, 'POST', '/rpc/visitor_talents_page');
+        expect(demandes).toHaveLength(2);
+        expect(demandes[1].corps.p_filters.search).toBe('binta');
+    });
+
+    test('filtre de nationalité : envoyé sous forme de codes pays', async ({ page }) => {
+        await ouvrirEnVisiteur(page, 'talents.html?pool=P1');
+        await page.click('#toggleAdvancedBtn');
+        await page.fill('#filterNationality', 'malienne');
+        await expect.poll(() => envoi(page, 'POST', '/rpc/visitor_talents_page').length).toBe(2);
+        const codes = envoi(page, 'POST', '/rpc/visitor_talents_page')[1].corps.p_filters.nationality_codes;
+        expect(codes).toContain('ML');
+        expect(codes).not.toContain('SN');
+        await expect(page.locator('#searchResultsSummary')).toHaveText('3 talents au total');
+    });
+
+    test('liste : limite horaire atteinte, message lisible', async ({ page }) => {
+        await ouvrirEnVisiteur(page, 'talents.html?pool=P1', (requete) => {
+            if (requete.chemin.endsWith('/rpc/visitor_talents_page')) return limiteAtteinte;
+        });
+        await attendreMessageLisible(page, '#listError', 'Limite de consultation atteinte');
+    });
+
+    test('fiche : servie par la base, évaluations sans l\'e-mail de leur auteur, sans lecture de table', async ({ page }) => {
+        await ouvrirEnVisiteur(page, `id-card.html?id=${ID.expat}`);
+        await expect(page.locator('#talent-fullname')).toContainText('Awa');
+        await expect(page.locator('#info-email')).toHaveText('awa@exemple.org');
+        await expect(page.locator('#timeline-container')).toContainText('Ancien poste');
+        await expect(page.locator('#timeline-container')).toContainText('Référente nutrition Niger');
+        await expect(page.locator('#timeline-container')).not.toContainText('reco@alima.ngo');
+        await expect(page.locator('#pool-history-container')).toContainText('P2');
+        await expect(page.locator('#comments-list-container')).toContainText('Commentaire');
+        await expect(page.locator('#comment-form-container')).toBeHidden();
+        expect(envoi(page, 'POST', '/rpc/visitor_talent_card').map(e => e.corps)).toEqual([{ p_talent_id: ID.expat }]);
+        expect(tablesLues(page)).toEqual([]);
+        expect(page.erreursPage).toEqual([]);
+    });
+
+    test('fiche d\'un talent en Liste Rouge : refusée par la base, message « n\'existe pas »', async ({ page }) => {
+        await ouvrirEnVisiteur(page, `id-card.html?id=${ID.listeRouge}`);
+        await expect(page.locator('#error-message')).toContainText("n'existe pas");
+        await expect(page.locator('#talent-fullname')).not.toContainText('Eli');
+    });
+
+    test('fiche : limite horaire atteinte, message lisible', async ({ page }) => {
+        await ouvrirEnVisiteur(page, `id-card.html?id=${ID.expat}`, (requete) => {
+            if (requete.chemin.endsWith('/rpc/visitor_talent_card')) return limiteAtteinte;
+        });
+        await attendreMessageLisible(page, '#error-banner', 'Limite de consultation atteinte');
     });
 });
 

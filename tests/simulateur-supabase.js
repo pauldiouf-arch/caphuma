@@ -80,6 +80,57 @@ const lireJson = (texte) => { try { return texte ? JSON.parse(texte) : null; } c
 let compteur = 0;
 const nouvelId = () => `00000000-0000-4000-8000-${String(++compteur).padStart(12, '0')}`;
 
+const CHAMPS_LISTE_VISITEUR = ['id', 'first_name', 'last_name', 'current_function', 'status', 'pool', 'tracking_pool', 'staff_type',
+    'experience_months_alima', 'experience_months_humanitarian', 'availability_type', 'availability_months', 'availability_date',
+    'is_valid', 'is_red_listed', 'is_currently_on_mission', 'last_mission_end_date', 'pool_integration_date', 'months_without_mission',
+    'devalidation_extension_until', 'national_inactive_since', 'created_at'];
+const CHAMPS_FICHE_VISITEUR = ['id', 'first_name', 'last_name', 'email', 'gender', 'nationality_code', 'country_of_residence', 'has_visa',
+    'languages', 'current_function', 'pool', 'tracking_pool', 'staff_type', 'status', 'is_valid', 'is_red_listed', 'is_currently_on_mission',
+    'last_mission_end_date', 'pool_integration_date', 'months_without_mission', 'experience_months_alima', 'experience_months_humanitarian',
+    'number_of_alima_missions', 'education_level', 'education_specialty', 'key_skills', 'intervention_contexts', 'intervention_zones'];
+const garder = (ligne, champs) => Object.fromEntries(champs.map(c => [c, ligne[c] ?? null]));
+const visiblePourVisiteur = (t) => t.is_valid !== false && !t.is_red_listed;
+const contient = (valeur, recherche) => String(valeur || '').toLowerCase().includes(recherche);
+
+function pageVisiteur(base, { p_pool: pool, p_filters: f = {}, p_page: numero = 0 }) {
+    const recherche = (f.search || '').toLowerCase();
+    const langue = (f.language || '').toLowerCase();
+    const lignes = trier(base.talents
+        .filter(visiblePourVisiteur)
+        .filter(t => f.validity !== 'devalidated')
+        .filter(t => (pool ? t.pool === pool : t.staff_type === 'expat'))
+        .filter(t => !f.status || t.status === f.status)
+        .filter(t => !recherche || contient(`${t.first_name} ${t.last_name}`, recherche) || contient(t.email, recherche) || contient(t.current_function, recherche))
+        .filter(t => !f.nationality_codes || f.nationality_codes.includes(t.nationality_code))
+        .filter(t => !langue || (t.languages || []).some(l => contient(l, langue)))
+        .filter(t => !f.has_visa || !!t.has_visa === (f.has_visa === 'oui')), 'pool_integration_date.desc,id');
+    const suivis = pool ? base.talents.filter(t => visiblePourVisiteur(t) && t.staff_type === 'national' && t.tracking_pool === pool) : [];
+    return {
+        total: lignes.length,
+        page_size: 20,
+        rows: lignes.slice(numero * 20, numero * 20 + 20).map(t => garder(t, CHAMPS_LISTE_VISITEUR)),
+        tracked: suivis.map(t => garder(t, CHAMPS_LISTE_VISITEUR)),
+    };
+}
+
+function ficheVisiteur(base, { p_talent_id: id }) {
+    const t = base.talents.find(x => x.id === id && visiblePourVisiteur(x));
+    if (!t) return { talent: null };
+    base.audit_logs.push({ id: nouvelId(), user_id: null, action: 'view', entity_type: 'talent', entity_id: id, entity_name: `${t.first_name} ${t.last_name}`, created_at: new Date().toISOString() });
+    const passages = (t.archived_position_passages || []).map(p => (Array.isArray(p.comments)
+        ? { ...p, comments: p.comments.map(({ author_email, ...reste }) => reste) }
+        : p));
+    return {
+        talent: { ...garder(t, CHAMPS_FICHE_VISITEUR), archived_position_passages: passages },
+        occupied_missions: base.missions.filter(m => m.occupant_id === id && m.status === 'occupied')
+            .map(m => garder(m, ['id', 'title', 'pool', 'pool_id', 'country_code', 'candidate_type', 'contract_start_date'])),
+        pool_history: base.pool_history.filter(h => h.talent_id === id)
+            .map(h => garder(h, ['from_pool', 'to_pool', 'changed_at', 'changed_by_name'])),
+        comments: base.comments.filter(c => c.talent_id === id)
+            .map(c => garder(c, ['id', 'content', 'author_email', 'created_at'])),
+    };
+}
+
 function reponsesParDefaut(requete, role, actif, base) {
     const table = requete.chemin.replace(/^\/rest\/v1\//, '');
     if (requete.chemin === '/auth/v1/token') {
@@ -124,6 +175,12 @@ function reponsesParDefaut(requete, role, actif, base) {
     if (table === 'rpc/get_pool_mission_counts') return base.stats_postes;
     if (table === 'rpc/get_notification_alerts') return base.alertes;
     if (table === 'rpc/get_shared_talent') return base.talent_partage;
+    if (table === 'rpc/visitor_talents_page' || table === 'rpc/visitor_talent_card') {
+        if (role !== 'visitor' || !actif) return { status: 403, body: { code: '42501', message: 'Accès refusé' } };
+        return table === 'rpc/visitor_talents_page'
+            ? pageVisiteur(base, lireJson(requete.corps) || {})
+            : ficheVisiteur(base, lireJson(requete.corps) || {});
+    }
     if (table.startsWith('rpc/')) return null;
     if (table === 'audit_logs' && requete.methode !== 'GET' && requete.methode !== 'HEAD') {
         return { status: 403, body: { code: '42501', message: 'permission denied for table audit_logs' } };

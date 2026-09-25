@@ -153,4 +153,5 @@
         }
 
         IdCardPage.loadComments = loadComments;
+        IdCardPage.renderComments = renderComments;
 })();

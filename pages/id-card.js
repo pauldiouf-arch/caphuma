@@ -88,8 +88,32 @@ const IdCardPage = {};
             }
         }
 
+        async function loadVisitorCard() {
+            const { data, error } = await capHumaWithRetry(() =>
+                IdCardPage.supabaseClient.rpc('visitor_talent_card', { p_talent_id: IdCardPage.talentId })
+            );
+            if (error) throw error;
+            if (!data || !data.talent) {
+                throw new Error("Le professionnel demandé n'existe pas dans la base de données.");
+            }
+
+            talent = data.talent;
+            const occupiedMissions = data.occupied_missions || [];
+            activeMission = mostRecentByContractStart(occupiedMissions.filter(m => m.candidate_type !== 'detache'));
+            activeDetachment = mostRecentByContractStart(occupiedMissions.filter(m => m.candidate_type === 'detache'));
+
+            renderTalentCard();
+            IdCardPage.comments = data.comments || [];
+            IdCardPage.renderComments();
+            renderPoolHistory(data.pool_history || []);
+        }
+
         async function loadTalentData() {
             try {
+                if (IdCardPage.currentUserRole === 'visitor') {
+                    await loadVisitorCard();
+                    return;
+                }
                 const [talentResult, missionResult] = await Promise.all([
                     (async () => {
                         const { data: t, error: et } = await capHumaWithRetry(() =>

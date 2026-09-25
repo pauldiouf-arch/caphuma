@@ -1,6 +1,6 @@
 -- Test des policies RLS par role (visitor / user / admin, puis compte suspendu) sur talents, comments,
 -- evaluations, share_tokens, audit_logs, users et access_code_requests, et des fonctions appelees par le site
--- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus), et des auteurs
+-- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus, portes du visiteur), et des auteurs
 -- imposes par la base (Liste Rouge, prolongation, created_by, liens de partage), des regles des liens de partage
 -- (jeton, expiration, revocation, contenu public) et de la journalisation (log_client_event, declencheurs).
 --
@@ -66,7 +66,8 @@ declare
         'public.change_talent_pool(uuid,text)', 'public.promote_national_to_expat(uuid,text)',
         'public.save_mission(uuid,jsonb,uuid)', 'public.delete_mission(uuid)',
         'public.resync_mission_occupant(uuid)', 'public.process_expired_missions(text)',
-        'public.log_client_event(text,text,text,text,text)'];
+        'public.log_client_event(text,text,text,text,text)',
+        'public.visitor_talents_page(text,jsonb,integer)', 'public.visitor_talent_card(uuid)'];
     v_request_testable     boolean;
     v_unknown_email        text;
     v_request_id           uuid;
@@ -85,6 +86,7 @@ declare
     v_json                 jsonb;
     v_new_token_id         uuid;
     v_cascade_talent_id    uuid;
+    v_state                text;
 begin
     select session_user into v_admin_role;
 
@@ -304,10 +306,94 @@ begin
         v_ok := v_ok + 1; v_report := v_report || 'A3-19 OK - INSERT bloque comme attendu' || chr(10);
     end;
 
+    -- portes du visiteur : liste et fiche talent
+    begin
+        v_json := visitor_talents_page('COLOG', '{"search":"TEST-A3"}'::jsonb, 0);
+        select count(*) filter (where r ->> 'id' = v_talent_control_id::text),
+               count(*) filter (where r ->> 'id' in (v_talent_redlisted_id::text, v_talent_devalidated_id::text))
+            into v_count, v_rows
+            from jsonb_array_elements(v_json -> 'rows') r;
+        if v_count = 1 and v_rows = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-101 OK - liste du visiteur : talent temoin present, Liste Rouge et devalide absents' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-101 ECHEC - liste du visiteur : temoin %s, Liste Rouge ou devalide %s (attendu 1 et 0)', v_count, v_rows) || chr(10); end if;
+
+        select count(*) into v_count from jsonb_array_elements(v_json -> 'rows') r
+            where r ? 'email' or r ? 'archived_position_passages' or r ? 'gender' or r ? 'nationality_code';
+        if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-102 OK - liste du visiteur sans e-mail, genre, nationalite ni evaluations' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-102 ECHEC - %s ligne(s) de la liste du visiteur portent des donnees de la fiche', v_count) || chr(10); end if;
+    exception when others then
+        v_fail := v_fail + 2; v_report := v_report || format('A3-101/102 ECHEC - liste du visiteur indisponible (%s)', sqlerrm) || chr(10);
+    end;
+
+    begin
+        v_json := visitor_talent_card(v_talent_control_id);
+        if v_json -> 'talent' ->> 'id' = v_talent_control_id::text
+           and v_json -> 'talent' ? 'email'
+           and not (v_json -> 'talent' ? 'red_list_reason')
+           and v_json::text like '%TEST A3 point negatif%'
+           and v_json::text not like '%a3@example.com%'
+           and jsonb_array_length(v_json -> 'comments') >= 1 then
+            v_ok := v_ok + 1; v_report := v_report || 'A3-103 OK - fiche du visiteur complete, evaluations sans l''e-mail de leur auteur' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-103 ECHEC - fiche du visiteur inattendue : %s', left(v_json::text, 120)) || chr(10); end if;
+
+        if visitor_talent_card(v_talent_redlisted_id) -> 'talent' = 'null'::jsonb
+           and visitor_talent_card(v_talent_devalidated_id) -> 'talent' = 'null'::jsonb then
+            v_ok := v_ok + 1; v_report := v_report || 'A3-104 OK - fiche du visiteur refusee pour un talent en Liste Rouge ou devalide' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || 'A3-104 ECHEC - le visiteur obtient la fiche d''un talent en Liste Rouge ou devalide' || chr(10); end if;
+    exception when others then
+        v_fail := v_fail + 2; v_report := v_report || format('A3-103/104 ECHEC - fiche du visiteur indisponible (%s)', sqlerrm) || chr(10);
+    end;
+
+    perform set_config('role', v_admin_role, true);
+    select count(*) into v_count from audit_logs
+        where action = 'view' and entity_type = 'talent' and entity_id = v_talent_control_id::text
+          and user_id = v_visitor_id and user_email = v_visitor_email;
+    select count(*) into v_rows from audit_logs
+        where action = 'view' and entity_id in (v_talent_redlisted_id::text, v_talent_devalidated_id::text);
+    if v_count = 1 and v_rows = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-105 OK - consultation d''une fiche par le visiteur journalisee (et seulement les fiches obtenues)' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-105 ECHEC - %s consultation(s) journalisee(s) pour le temoin, %s pour les fiches refusees (attendu 1 et 0)', v_count, v_rows) || chr(10); end if;
+
+    insert into rate_limit_log (user_id, function_name)
+        select v_visitor_id, 'visitor_talent_card' from generate_series(1, 50);
+    insert into rate_limit_log (user_id, function_name)
+        select v_visitor_id, 'visitor_talents_page' from generate_series(1, 600);
+    perform set_config('role', 'authenticated', true);
+
+    begin
+        perform visitor_talent_card(v_talent_control_id);
+        v_fail := v_fail + 1; v_report := v_report || 'A3-106 ECHEC - fiche obtenue au-dela de 50 consultations par heure' || chr(10);
+    exception when others then
+        get stacked diagnostics v_state = returned_sqlstate;
+        if v_state = '54000' then v_ok := v_ok + 1; v_report := v_report || 'A3-106 OK - au-dela de 50 fiches par heure, la consultation est refusee' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-106 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10); end if;
+    end;
+
+    begin
+        perform visitor_talents_page('COLOG', '{}'::jsonb, 0);
+        v_fail := v_fail + 1; v_report := v_report || 'A3-107 ECHEC - liste obtenue au-dela de 600 pages par heure' || chr(10);
+    exception when others then
+        get stacked diagnostics v_state = returned_sqlstate;
+        if v_state = '54000' then v_ok := v_ok + 1; v_report := v_report || 'A3-107 OK - au-dela de 600 pages de liste par heure, la liste est refusee' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-107 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10); end if;
+    end;
+
+    perform set_config('role', v_admin_role, true);
+    delete from rate_limit_log where user_id = v_visitor_id;
+    perform set_config('role', 'authenticated', true);
+
     -- Tests en tant que user
     perform set_config('role', v_admin_role, true);
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
     perform set_config('role', 'authenticated', true);
+
+    begin
+        perform visitor_talent_card(v_talent_control_id);
+        v_fail := v_fail + 1; v_report := v_report || 'A3-108 ECHEC - un recruteur peut appeler la porte du visiteur' || chr(10);
+    exception when insufficient_privilege then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-108 OK - les portes du visiteur sont reservees au visiteur' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-108 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+
 
     select count(*) into v_count from talents where id = v_talent_redlisted_id;
     if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-20 OK - user voit le talent Liste Rouge (restriction visitor uniquement)' || chr(10);
@@ -542,13 +628,13 @@ begin
         into v_count, v_rows
         from unnest(v_site_functions) sig;
     if v_count = 0 and v_rows = 1 and has_function_privilege('anon', 'public.request_access_code_reset(text)', 'execute') then
-        v_ok := v_ok + 1; v_report := v_report || 'A3-45 OK - les 9 fonctions du site existent, anon n''execute que request_access_code_reset' || chr(10);
+        v_ok := v_ok + 1; v_report := v_report || 'A3-45 OK - les 11 fonctions du site existent, anon n''execute que request_access_code_reset' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-45 ECHEC - %s fonction(s) absente(s), %s executable(s) par anon (attendu 0 et 1)', v_count, v_rows) || chr(10); end if;
 
     select count(*) into v_count from unnest(v_site_functions) sig
         where to_regprocedure(sig) is not null and has_function_privilege('authenticated', to_regprocedure(sig), 'execute');
-    if v_count = 9 then v_ok := v_ok + 1; v_report := v_report || 'A3-46 OK - les 9 fonctions du site sont executables par un compte connecte' || chr(10);
-    else v_fail := v_fail + 1; v_report := v_report || format('A3-46 ECHEC - %s fonction(s) executable(s) par authenticated (attendu 9)', v_count) || chr(10); end if;
+    if v_count = 11 then v_ok := v_ok + 1; v_report := v_report || 'A3-46 OK - les 11 fonctions du site sont executables par un compte connecte' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-46 ECHEC - %s fonction(s) executable(s) par authenticated (attendu 11)', v_count) || chr(10); end if;
 
     select count(*) into v_count from unnest(array['public.record_occupant_exit(public.missions,timestamptz)', 'public.record_occupant_entry(uuid,text)']) sig
         where to_regprocedure(sig) is null
@@ -888,6 +974,19 @@ begin
 
     -- Tests en tant que user puis admin suspendus (suspension annulee par le rollback force)
     perform set_config('role', v_admin_role, true);
+    update users set is_active = false where id = v_visitor_id;
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_visitor_id), true);
+    perform set_config('role', 'authenticated', true);
+    begin
+        perform visitor_talents_page('COLOG', '{}'::jsonb, 0);
+        v_fail := v_fail + 1; v_report := v_report || 'A3-109 ECHEC - un visiteur suspendu obtient encore la liste des talents' || chr(10);
+    exception when insufficient_privilege then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-109 OK - visiteur suspendu : portes fermees' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-109 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+    perform set_config('role', v_admin_role, true);
+
     update users set is_active = false where id in (v_user_id, v_admin_id);
 
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);

@@ -6,7 +6,6 @@ module.exports = defineConfig({
     testDir: '.',
     testMatch: '*.spec.js',
     outputDir: 'resultats/details',
-    snapshotPathTemplate: '{testDir}/captures-reference/{arg}{ext}',
     timeout: 30000,
     retries: process.env.CI ? 1 : 0,
     workers: process.env.CI ? 2 : 4,

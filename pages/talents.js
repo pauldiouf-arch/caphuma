@@ -43,13 +43,14 @@ const TalentsPage = {};
 
                 document.getElementById('user-display-name').textContent = TalentsPage.currentUserEmail;
                 document.getElementById('newTalentBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');
+                document.getElementById('exportPoolExcelBtn').classList.toggle('hidden', TalentsPage.currentUserRole === 'visitor');
                 if (TalentsPage.currentUserRole !== 'visitor') {
                     await populateTrackingPoolOptions();
                 }
 
                 appBody.style.display = '';
                 await loadPoolInfo();
-                if (TalentsPage.currentPoolId) {
+                if (TalentsPage.currentPoolId && TalentsPage.currentUserRole !== 'visitor') {
                     await loadTrackedNationalStaff();
                 }
                 await loadTalents();
@@ -137,6 +138,11 @@ const TalentsPage = {};
 
         async function loadTalents() {
             const loadId = ++latestLoadId;
+            if (TalentsPage.currentUserRole === 'visitor') {
+                TalentsPage.isFullListMode = false;
+                await fetchVisitorPage(() => loadId === latestLoadId);
+                return;
+            }
             TalentsPage.isFullListMode = computeIsFullListMode();
 
             if (TalentsPage.isFullListMode) {
@@ -227,6 +233,69 @@ const TalentsPage = {};
 
                 TalentsPage.totalCount = count || 0;
                 TalentsPage.currentFilteredTalents = data || [];
+                renderTalents(TalentsPage.currentFilteredTalents);
+                updateSearchSummary();
+                updateResetButtonVisibility();
+                updateTalentsPaginationControls();
+
+            } catch (err) {
+                console.error(err);
+                listEl.innerHTML = '';
+                errorEl.textContent = "Impossible de charger les talents : " + err.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function visitorNationalityCodes(query) {
+            const q = query.toLowerCase();
+            return CapHumaCountries.getAll()
+                .map(c => c.code)
+                .filter(code => (CapHumaCountries.getNationality(code) || '').toLowerCase().includes(q));
+        }
+
+        function buildVisitorFilters() {
+            const f = TalentsPage.searchFilters;
+            const filters = {
+                search: f.searchQuery,
+                keyword: f.keywordFilter,
+                status: f.statusFilter,
+                validity: f.validityFilter,
+                min_exp_alima: f.minExpAlima,
+                min_exp_humanitarian: f.minExpHumanitarian,
+                available_from: f.availableFrom,
+                available_to: f.availableTo,
+                country: f.countryFilter,
+                language: f.languagesFilter,
+                has_visa: f.hasVisaFilter,
+                has_mission_opening: f.hasMissionOpeningFilter,
+                has_emergency_mission: f.hasEmergencyMissionFilter,
+                has_mission_closure: f.hasMissionClosureFilter,
+                context: f.interventionContextFilter,
+                zone: f.interventionZoneFilter,
+                sort_by: f.sortBy,
+                sort_order: f.sortOrder
+            };
+            if (f.nationalityFilter) filters.nationality_codes = visitorNationalityCodes(f.nationalityFilter);
+            return filters;
+        }
+
+        async function fetchVisitorPage(isStillCurrent) {
+            const listEl = document.getElementById('talentsList');
+            const errorEl = document.getElementById('listError');
+            try {
+                const { data, error } = await capHumaWithRetry(() =>
+                    TalentsPage.supabaseClient.rpc('visitor_talents_page', {
+                        p_pool: TalentsPage.currentPoolId || null,
+                        p_filters: buildVisitorFilters(),
+                        p_page: TalentsPage.currentPage
+                    })
+                );
+                if (!isStillCurrent()) return;
+                if (error) throw error;
+
+                TalentsPage.totalCount = data.total || 0;
+                TalentsPage.trackedNationalStaff = data.tracked || [];
+                TalentsPage.currentFilteredTalents = data.rows || [];
                 renderTalents(TalentsPage.currentFilteredTalents);
                 updateSearchSummary();
                 updateResetButtonVisibility();
@@ -762,8 +831,15 @@ const TalentsPage = {};
             document.getElementById('resetFiltersBtn').classList.toggle('hidden', !hasAnyFilter);
         }
 
+        let visitorReloadTimer = null;
+
         function onFiltersChanged() {
             TalentsPage.currentPage = 0;
+            if (TalentsPage.currentUserRole === 'visitor') {
+                clearTimeout(visitorReloadTimer);
+                visitorReloadTimer = setTimeout(loadTalents, 300);
+                return;
+            }
             loadTalents();
         }
 

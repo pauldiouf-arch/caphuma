@@ -94,7 +94,7 @@ les données elles-mêmes (sauvegarde mensuelle dans le bucket `backups`).
 Coller `sql/tests_rls_roles.sql` en entier dans l'éditeur SQL, puis **Run**.
 Le script finit toujours par une erreur rouge volontaire, qui annule toutes
 les données de test ; sa première ligne donne le bilan. Attendu :
-`A3 BILAN : TOUS LES TESTS ONT REUSSI (100/100, 0 IGNORE)`. L'en-tête du script
+`A3 BILAN : TOUS LES TESTS ONT REUSSI (109/109, 0 IGNORE)`. L'en-tête du script
 explique les cas IGNORE possibles.
 
 À relancer après tout changement de droits, de policy ou de fonction appelée
@@ -160,6 +160,7 @@ est en fin de fichier.
 | 24/09/2026 | `auteurs_imposes_talents_postes_liens.sql` | Auteur et date imposés par la base : Liste Rouge, prolongation de validité, `created_by` des talents et postes, nom de l'auteur d'un lien de partage | Oui | — |
 | 24/09/2026 | `email_talent_unique_search_path_stats.sql` | Un e-mail ne peut appartenir qu'à un seul talent ; `search_path` fixé sur les 4 fonctions de statistiques du tableau de bord | Oui | — |
 | 24/09/2026 | `partage_journal_rgpd.sql` | Lien public sans évaluations ; liens de partage verrouillés par la base (jeton, 90 jours maximum, révocation définitive) ; journal d'audit écrit par la base ou par `log_client_event()` uniquement ; motif de Liste Rouge retiré du journal | Oui | — |
+| 25/09/2026 | `visiteur_portes_talents.sql` | Le visiteur lit la liste des talents et les fiches par deux fonctions de la base (`visitor_talents_page()`, `visitor_talent_card()`) : colonnes limitées, 600 pages de liste et 50 fiches par heure, consultation d'une fiche journalisée (action `view`), évaluations sans l'e-mail de leur auteur | Oui | — |
 
 « Reconstitué » : le script d'origine n'avait pas été conservé ; il a été
 réécrit d'après la base réelle, et son en-tête le précise.
