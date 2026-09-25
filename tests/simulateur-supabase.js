@@ -131,6 +131,48 @@ function ficheVisiteur(base, { p_talent_id: id }) {
     };
 }
 
+function postesVisiteur(base, { p_pool: pool }) {
+    const postes = trier(base.missions.filter(m => m.pool === pool), 'title,id');
+    const suivis = base.talents.filter(t => visiblePourVisiteur(t)
+        && (t.pool === pool || (t.staff_type === 'national' && t.tracking_pool === pool))
+        && postes.some(m => [m.occupant_id, m.future_talent_id].includes(t.id)));
+    return {
+        missions: postes.map(m => garder(m, ['id', 'title', 'pool', 'pool_level', 'status', 'country', 'country_code', 'location', 'project_name',
+            'candidate_type', 'desk', 'occupant_id', 'contract_start_date', 'contract_end_date', 'contract_end_type', 'contract_status',
+            'future_talent_id', 'future_contract_start_date', 'future_contract_end_date'])),
+        talent_names: Object.fromEntries(suivis.map(t => [t.id, `${t.first_name || ''} ${t.last_name || ''}`.trim()])),
+    };
+}
+
+function evaluationsVisiteur(base, { p_mission_id: id }) {
+    const poste = base.missions.find(m => m.id === id);
+    if (!poste) return [];
+    base.audit_logs.push({ id: nouvelId(), user_id: null, action: 'view', entity_type: 'mission', entity_id: id, entity_name: poste.title, details: 'Évaluations du poste', created_at: new Date().toISOString() });
+    return trier(base.evaluations.filter(e => e.mission_id === id
+        && (!e.talent_id || base.talents.some(t => t.id === e.talent_id && visiblePourVisiteur(t)))), 'created_at.desc')
+        .map(e => garder(e, ['id', 'mission_id', 'talent_id', 'context', 'positive_points', 'negative_points', 'rating', 'created_at']));
+}
+
+function statistiquesVisiteur(base) {
+    return {
+        talents: base.talents.filter(t => t.staff_type === 'expat' && visiblePourVisiteur(t))
+            .map(t => garder(t, ['pool', 'status', 'is_valid', 'is_red_listed', 'is_currently_on_mission', 'last_mission_end_date', 'months_without_mission',
+                'pool_integration_date', 'experience_months_alima', 'availability_type', 'availability_date', 'availability_months', 'gender', 'nationality_code', 'languages'])),
+        missions: base.missions.map(m => ({
+            ...garder(m, ['pool', 'pool_id', 'status', 'candidate_type', 'contract_start_date', 'contract_end_date', 'contract_status', 'country_code', 'desk']),
+            future_talent_id: m.future_talent_id ? true : null,
+        })),
+    };
+}
+
+const PORTES_VISITEUR = {
+    'rpc/visitor_talents_page': pageVisiteur,
+    'rpc/visitor_talent_card': ficheVisiteur,
+    'rpc/visitor_pool_missions': postesVisiteur,
+    'rpc/visitor_mission_evaluations': evaluationsVisiteur,
+    'rpc/visitor_statistics_rows': statistiquesVisiteur,
+};
+
 function reponsesParDefaut(requete, role, actif, base) {
     const table = requete.chemin.replace(/^\/rest\/v1\//, '');
     if (requete.chemin === '/auth/v1/token') {
@@ -175,11 +217,9 @@ function reponsesParDefaut(requete, role, actif, base) {
     if (table === 'rpc/get_pool_mission_counts') return base.stats_postes;
     if (table === 'rpc/get_notification_alerts') return base.alertes;
     if (table === 'rpc/get_shared_talent') return base.talent_partage;
-    if (table === 'rpc/visitor_talents_page' || table === 'rpc/visitor_talent_card') {
+    if (PORTES_VISITEUR[table]) {
         if (role !== 'visitor' || !actif) return { status: 403, body: { code: '42501', message: 'Accès refusé' } };
-        return table === 'rpc/visitor_talents_page'
-            ? pageVisiteur(base, lireJson(requete.corps) || {})
-            : ficheVisiteur(base, lireJson(requete.corps) || {});
+        return PORTES_VISITEUR[table](base, lireJson(requete.corps) || {});
     }
     if (table.startsWith('rpc/')) return null;
     if (table === 'audit_logs' && requete.methode !== 'GET' && requete.methode !== 'HEAD') {

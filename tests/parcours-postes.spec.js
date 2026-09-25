@@ -196,12 +196,60 @@ test.describe('Évaluations', () => {
         await expect(notification(page, 'Évaluation supprimée.')).toHaveCount(0);
     });
 
-    test('visiteur : évaluations lisibles, formulaire caché', async ({ page }) => {
+    test('visiteur : évaluations lisibles sans l\'e-mail de leur auteur, formulaire caché', async ({ page }) => {
         await ouvrirPage(page, POSTES, undefined, { role: 'visitor' });
         await carte(page, ID.posteNational).locator('.evaluationsBtn').click();
         await expect(page.locator('#evaluationsList > div')).toHaveCount(2);
         await expect(page.locator('#evaluationForm')).toBeHidden();
         await expect(page.locator('#evaluationsList .deleteEvaluationBtn')).toHaveCount(0);
+        await expect(page.locator('#evaluationsList')).toContainText('Auteur inconnu');
+        await expect(page.locator('#evaluationsList')).not.toContainText('@alima.ngo');
+        expect(envoi(page, 'POST', '/rpc/visitor_mission_evaluations').map(e => e.corps)).toEqual([{ p_mission_id: ID.posteNational }]);
+    });
+});
+
+test.describe('Visiteur : postes et statistiques par les portes de la base', () => {
+    const TABLES_FERMEES = ['/rest/v1/talents', '/rest/v1/missions', '/rest/v1/comments', '/rest/v1/pool_history', '/rest/v1/evaluations'];
+    const limiteAtteinte = erreurServeur('Limite de consultation atteinte (50 fiches par heure). Réessayez plus tard.', '54000');
+
+    async function ouvrirEnVisiteur(page, chemin, reponses = () => undefined) {
+        page.lectures = [];
+        await ouvrirPage(page, chemin, (requete) => {
+            if (requete.methode === 'GET') page.lectures.push(requete.chemin);
+            return reponses(requete);
+        }, { role: 'visitor' });
+    }
+    const tablesLues = (page) => page.lectures.filter(chemin => TABLES_FERMEES.includes(chemin));
+
+    test('postes : cartes, occupants et indicateurs servis par la base, sans liste de talents', async ({ page }) => {
+        await ouvrirEnVisiteur(page, POSTES);
+        await expect(page.locator('#kpiTotal')).toHaveText('5');
+        await expect(page.locator('#kpiOccupied')).toHaveText('3');
+        await expect(carte(page, ID.posteAwa)).toContainText('Awa');
+        await expect(carte(page, ID.posteNational)).toContainText('Cheick Traoré');
+        expect(envoi(page, 'POST', '/rpc/visitor_pool_missions').map(e => e.corps)).toEqual([{ p_pool: 'P1' }]);
+        await carte(page, ID.posteNational).locator('.evaluationsBtn').click();
+        await expect(page.locator('#evaluationsList > div')).toHaveCount(2);
+        expect(tablesLues(page)).toEqual([]);
+        expect(page.erreursPage).toEqual([]);
+    });
+
+    test('évaluations : limite horaire atteinte, message lisible', async ({ page }) => {
+        await ouvrirEnVisiteur(page, POSTES, (requete) => {
+            if (requete.chemin.endsWith('/rpc/visitor_mission_evaluations')) return limiteAtteinte;
+        });
+        await carte(page, ID.posteNational).locator('.evaluationsBtn').click();
+        await expect(page.locator('#evaluationsError')).toContainText('Limite de consultation atteinte');
+    });
+
+    test('statistiques : mêmes indicateurs, lignes anonymes servies par la base, sans lecture de table', async ({ page }) => {
+        await ouvrirEnVisiteur(page, 'statistics.html');
+        await expect(page.locator('#kpi-occupancy-sub')).toHaveText('3 de 5 postes occupés');
+        await expect(page.locator('#kpi-vacancies')).toHaveText('1');
+        await expect(page.locator('#kpi-talents-active')).not.toHaveText('0');
+        expect(envoi(page, 'POST', '/rpc/visitor_statistics_rows')).toHaveLength(1);
+        expect(tablesLues(page)).toEqual([]);
+        expect(page.erreursPage).toEqual([]);
     });
 });
 

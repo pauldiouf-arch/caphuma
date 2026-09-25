@@ -1,6 +1,6 @@
 -- Test des policies RLS par role (visitor / user / admin, puis compte suspendu) sur talents, comments,
 -- evaluations, share_tokens, audit_logs, users et access_code_requests, et des fonctions appelees par le site
--- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus, portes du visiteur), et des auteurs
+-- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus, portes du visiteur : talents, postes, evaluations, statistiques), et des auteurs
 -- imposes par la base (Liste Rouge, prolongation, created_by, liens de partage), des regles des liens de partage
 -- (jeton, expiration, revocation, contenu public) et de la journalisation (log_client_event, declencheurs).
 --
@@ -67,7 +67,8 @@ declare
         'public.save_mission(uuid,jsonb,uuid)', 'public.delete_mission(uuid)',
         'public.resync_mission_occupant(uuid)', 'public.process_expired_missions(text)',
         'public.log_client_event(text,text,text,text,text)',
-        'public.visitor_talents_page(text,jsonb,integer)', 'public.visitor_talent_card(uuid)'];
+        'public.visitor_talents_page(text,jsonb,integer)', 'public.visitor_talent_card(uuid)',
+        'public.visitor_pool_missions(text)', 'public.visitor_mission_evaluations(uuid)', 'public.visitor_statistics_rows()'];
     v_request_testable     boolean;
     v_unknown_email        text;
     v_request_id           uuid;
@@ -87,6 +88,7 @@ declare
     v_new_token_id         uuid;
     v_cascade_talent_id    uuid;
     v_state                text;
+    v_eval_control_id      uuid;
 begin
     select session_user into v_admin_role;
 
@@ -380,6 +382,57 @@ begin
     delete from rate_limit_log where user_id = v_visitor_id;
     perform set_config('role', 'authenticated', true);
 
+    perform set_config('role', v_admin_role, true);
+    insert into evaluations (mission_id, talent_id, author_id, context, negative_points, rating, author_email)
+    values (v_mission_id, v_talent_control_id, v_admin_id, 'TEST RLS temporaire - evaluation du temoin', 'TEST A3 axe d''amelioration', 5, v_admin_email)
+    returning id into v_eval_control_id;
+    perform set_config('role', 'authenticated', true);
+
+    begin
+        v_json := visitor_pool_missions('COLOG');
+        select count(*) into v_count from jsonb_array_elements(v_json -> 'missions') m where m ->> 'id' = v_mission_id::text;
+        if v_count = 1 and not (v_json -> 'talent_names' ? v_talent_redlisted_id::text)
+           and not (v_json -> 'talent_names' ? v_talent_devalidated_id::text) then
+            v_ok := v_ok + 1; v_report := v_report || 'A3-110 OK - postes du visiteur servis par la base, sans nom de talent en Liste Rouge ou devalide' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-110 ECHEC - postes du visiteur inattendus : %s', left(v_json::text, 120)) || chr(10); end if;
+    exception when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-110 ECHEC - postes du visiteur indisponibles (%s)', sqlerrm) || chr(10);
+    end;
+
+    begin
+        v_json := visitor_mission_evaluations(v_mission_id);
+        select count(*) into v_count from jsonb_array_elements(v_json) e where e ->> 'id' = v_eval_control_id::text;
+        select count(*) into v_rows from jsonb_array_elements(v_json) e
+            where e ->> 'id' = v_eval_devalidated_id::text or e ? 'author_email' or e ? 'author_id';
+        if v_count = 1 and v_rows = 0 and v_json::text like '%TEST A3 axe d''amelioration%' then
+            v_ok := v_ok + 1; v_report := v_report || 'A3-111 OK - evaluations d''un poste pour le visiteur : sans auteur, sans talent devalide' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-111 ECHEC - evaluations du visiteur inattendues : %s', left(v_json::text, 120)) || chr(10); end if;
+    exception when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-111 ECHEC - evaluations du visiteur indisponibles (%s)', sqlerrm) || chr(10);
+    end;
+
+    perform set_config('role', v_admin_role, true);
+    select count(*) into v_count from audit_logs
+        where action = 'view' and entity_type = 'mission' and entity_id = v_mission_id::text and user_id = v_visitor_id;
+    select count(*) into v_rows from talents
+        where staff_type = 'expat' and coalesce(is_valid, true) and not coalesce(is_red_listed, false);
+    perform set_config('role', 'authenticated', true);
+    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-112 OK - consultation des evaluations d''un poste par le visiteur journalisee' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-112 ECHEC - %s consultation(s) des evaluations journalisee(s) (attendu 1)', v_count) || chr(10); end if;
+
+    begin
+        v_json := visitor_statistics_rows();
+        select count(*) into v_count from jsonb_array_elements(v_json -> 'talents') t
+            where t ? 'id' or t ? 'first_name' or t ? 'last_name' or t ? 'email';
+        if v_count = 0 and jsonb_array_length(v_json -> 'talents') = v_rows
+           and jsonb_array_length(v_json -> 'missions') >= 1 then
+            v_ok := v_ok + 1; v_report := v_report || 'A3-113 OK - statistiques du visiteur : lignes anonymes, talents actifs seulement' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || format('A3-113 ECHEC - statistiques du visiteur : %s ligne(s) nominative(s), %s talent(s) pour %s attendu(s)', v_count, jsonb_array_length(v_json -> 'talents'), v_rows) || chr(10); end if;
+    exception when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-113 ECHEC - statistiques du visiteur indisponibles (%s)', sqlerrm) || chr(10);
+    end;
+
+
     -- Tests en tant que user
     perform set_config('role', v_admin_role, true);
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_user_id), true);
@@ -392,6 +445,15 @@ begin
         v_ok := v_ok + 1; v_report := v_report || 'A3-108 OK - les portes du visiteur sont reservees au visiteur' || chr(10);
     when others then
         v_fail := v_fail + 1; v_report := v_report || format('A3-108 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
+    end;
+
+    begin
+        perform visitor_statistics_rows();
+        v_fail := v_fail + 1; v_report := v_report || 'A3-114 ECHEC - un recruteur peut appeler les statistiques du visiteur' || chr(10);
+    exception when insufficient_privilege then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-114 OK - statistiques du visiteur reservees au visiteur' || chr(10);
+    when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-114 ECHEC - erreur inattendue (%s)', sqlerrm) || chr(10);
     end;
 
 
@@ -628,13 +690,13 @@ begin
         into v_count, v_rows
         from unnest(v_site_functions) sig;
     if v_count = 0 and v_rows = 1 and has_function_privilege('anon', 'public.request_access_code_reset(text)', 'execute') then
-        v_ok := v_ok + 1; v_report := v_report || 'A3-45 OK - les 11 fonctions du site existent, anon n''execute que request_access_code_reset' || chr(10);
+        v_ok := v_ok + 1; v_report := v_report || 'A3-45 OK - les 14 fonctions du site existent, anon n''execute que request_access_code_reset' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-45 ECHEC - %s fonction(s) absente(s), %s executable(s) par anon (attendu 0 et 1)', v_count, v_rows) || chr(10); end if;
 
     select count(*) into v_count from unnest(v_site_functions) sig
         where to_regprocedure(sig) is not null and has_function_privilege('authenticated', to_regprocedure(sig), 'execute');
-    if v_count = 11 then v_ok := v_ok + 1; v_report := v_report || 'A3-46 OK - les 11 fonctions du site sont executables par un compte connecte' || chr(10);
-    else v_fail := v_fail + 1; v_report := v_report || format('A3-46 ECHEC - %s fonction(s) executable(s) par authenticated (attendu 11)', v_count) || chr(10); end if;
+    if v_count = 14 then v_ok := v_ok + 1; v_report := v_report || 'A3-46 OK - les 14 fonctions du site sont executables par un compte connecte' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-46 ECHEC - %s fonction(s) executable(s) par authenticated (attendu 14)', v_count) || chr(10); end if;
 
     select count(*) into v_count from unnest(array['public.record_occupant_exit(public.missions,timestamptz)', 'public.record_occupant_entry(uuid,text)']) sig
         where to_regprocedure(sig) is null

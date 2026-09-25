@@ -88,11 +88,24 @@ const StatisticsPage = {};
 
             } catch (e) {
                 console.error(e);
-                showError("Échec du chargement des indicateurs analytiques.");
+                showError(e && e.code === '54000' ? e.message : "Échec du chargement des indicateurs analytiques.");
             }
         }
 
+        async function loadVisitorRawData() {
+            const { data, error } = await capHumaWithRetry(() =>
+                StatisticsPage.supabaseClient.rpc('visitor_statistics_rows')
+            );
+            if (error) throw error;
+            StatisticsPage.rawTalents = data.talents || [];
+            StatisticsPage.rawMissions = data.missions || [];
+        }
+
         async function loadRawData() {
+            if (StatisticsPage.currentUserRole === 'visitor') {
+                await loadVisitorRawData();
+                return;
+            }
             const { data: talents, error: et } = await CapHumaData.getTalents(StatisticsPage.supabaseClient, {
                 select: 'pool, status, is_valid, is_red_listed, is_currently_on_mission, last_mission_end_date, months_without_mission, pool_integration_date, experience_months_alima, availability_type, availability_date, availability_months, gender, nationality_code, languages',
                 filters: { staff_type: 'expat' }

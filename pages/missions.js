@@ -94,7 +94,9 @@ const MissionsPage = {};
 
                 if (MissionsPage.currentPoolId) {
                     await loadPoolInfo();
-                    await loadPoolTalents();
+                    if (MissionsPage.currentUserRole !== 'visitor') {
+                        await loadPoolTalents();
+                    }
                     await loadMissions();
                 }
 
@@ -211,11 +213,20 @@ const MissionsPage = {};
             select.value = eligible.some(t => t.id === currentValue) ? currentValue : '';
         }
 
+        async function fetchVisitorMissions() {
+            const { data, error } = await capHumaWithRetry(() =>
+                MissionsPage.supabaseClient.rpc('visitor_pool_missions', { p_pool: MissionsPage.currentPoolId })
+            );
+            if (error) return { data: null, error };
+            MissionsPage.talentNameById = data.talent_names || {};
+            return { data: data.missions || [], error: null };
+        }
+
         async function loadMissions() {
             try {
                 missionsError.classList.add('hidden');
 
-                const { data: missions, error } = await capHumaSelectAllPages(() =>
+                const { data: missions, error } = MissionsPage.currentUserRole === 'visitor' ? await fetchVisitorMissions() : await capHumaSelectAllPages(() =>
                     MissionsPage.supabaseClient
                         .from('missions')
                         .select(MissionsPage.MISSIONS_COLUMNS, { count: 'exact' })
@@ -240,7 +251,7 @@ const MissionsPage = {};
             } catch (error) {
                 console.error("Erreur de récupération des postes :", error);
                 missionsGrid.innerHTML = '';
-                missionsError.textContent = "Impossible de charger les postes de ce pool depuis Supabase.";
+                missionsError.textContent = error && error.code === '54000' ? error.message : "Impossible de charger les postes de ce pool depuis Supabase.";
                 missionsError.classList.remove('hidden');
             }
         }

@@ -92,11 +92,13 @@
         async function loadEvaluations(missionId) {
             try {
                 const { data: evaluations, error } = await capHumaWithRetry(() =>
-                    MissionsPage.supabaseClient
-                        .from('evaluations')
-                        .select('id, mission_id, talent_id, author_id, author_email, context, positive_points, negative_points, rating, created_at')
-                        .eq('mission_id', missionId)
-                        .order('created_at', { ascending: false })
+                    MissionsPage.currentUserRole === 'visitor'
+                        ? MissionsPage.supabaseClient.rpc('visitor_mission_evaluations', { p_mission_id: missionId })
+                        : MissionsPage.supabaseClient
+                            .from('evaluations')
+                            .select('id, mission_id, talent_id, author_id, author_email, context, positive_points, negative_points, rating, created_at')
+                            .eq('mission_id', missionId)
+                            .order('created_at', { ascending: false })
                 );
 
                 if (error) throw error;
@@ -106,7 +108,7 @@
 
             } catch (error) {
                 console.error("Erreur de récupération des évaluations :", error);
-                evaluationsError.textContent = "Impossible de charger les évaluations depuis Supabase.";
+                evaluationsError.textContent = error && error.code === '54000' ? error.message : "Impossible de charger les évaluations depuis Supabase.";
                 evaluationsError.classList.remove('hidden');
             }
         }
