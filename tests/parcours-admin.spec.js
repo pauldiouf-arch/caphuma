@@ -477,6 +477,17 @@ test.describe('Journal d\'audit', () => {
         await expect.poll(() => derniere().filters).toEqual({});
     });
 
+    test('consultations du visiteur : filtre « Consultation » transmis au serveur et libellé affiché', async ({ page }) => {
+        await ouvrirPage(page, 'audit_logs.html', (requete) => {
+            if (requete.chemin === '/functions/v1/sensitive-reads') {
+                return { success: true, data: [{ id: 'v1', user_id: ID_COMPTES.visitor, user_email: 'visit@alima.ngo', user_name: 'Visiteur Un', action: 'view', entity_type: 'talent', entity_id: ID.expat, entity_name: 'Awa Diallo', details: null, created_at: new Date().toISOString() }], count: 1, page: 1, totalPages: 1 };
+            }
+        });
+        await expect(page.locator('#logsTableBody')).toContainText('Consultation');
+        await page.selectOption('#filterAction', 'view');
+        await expect.poll(() => envoi(page, 'POST', '/functions/v1/sensitive-reads').filter(e => e.corps.resource === 'audit_logs').at(-1).corps.filters.action).toBe('view');
+    });
+
     test('pagination : 120 actions sur 3 pages', async ({ page }) => {
         await ouvrirPage(page, 'audit_logs.html', (requete) => {
             if (requete.chemin === '/functions/v1/sensitive-reads') {
