@@ -1,6 +1,6 @@
 -- Test des policies RLS par role (visitor / user / admin, puis compte suspendu) sur talents, comments,
 -- evaluations, share_tokens, audit_logs, users et access_code_requests, et des fonctions appelees par le site
--- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus, portes du visiteur : talents, postes, evaluations, statistiques), et des auteurs
+-- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus, portes du visiteur : talents, postes, evaluations, statistiques ; tables fermees au visiteur), et des auteurs
 -- imposes par la base (Liste Rouge, prolongation, created_by, liens de partage), des regles des liens de partage
 -- (jeton, expiration, revocation, contenu public) et de la journalisation (log_client_event, declencheurs).
 --
@@ -89,6 +89,7 @@ declare
     v_cascade_talent_id    uuid;
     v_state                text;
     v_eval_control_id      uuid;
+    v_dashboard_visitor    jsonb;
 begin
     select session_user into v_admin_role;
 
@@ -183,8 +184,8 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-02 ECHEC - visitor voit %s ligne(s) du talent devalide (attendu 0)', v_count) || chr(10); end if;
 
     select count(*) into v_count from talents where id = v_talent_control_id;
-    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-03 OK - visitor voit bien le talent temoin (sanity check)' || chr(10);
-    else v_fail := v_fail + 1; v_report := v_report || format('A3-03 ECHEC - visitor voit %s ligne(s) du talent temoin (attendu 1)', v_count) || chr(10); end if;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-03 OK - visitor ne lit plus directement la table talents (temoin compris)' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-03 ECHEC - visitor lit directement %s ligne(s) du talent temoin (attendu 0)', v_count) || chr(10); end if;
 
     -- comments : visibilite
     select count(*) into v_count from comments where id = v_comment_redlisted_id;
@@ -192,8 +193,12 @@ begin
     else v_fail := v_fail + 1; v_report := v_report || format('A3-04 ECHEC - visitor voit %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
 
     select count(*) into v_count from comments where id = v_comment_control_id;
-    if v_count = 1 then v_ok := v_ok + 1; v_report := v_report || 'A3-05 OK - visitor voit le commentaire lie au talent temoin' || chr(10);
-    else v_fail := v_fail + 1; v_report := v_report || format('A3-05 ECHEC - visitor voit %s ligne(s) (attendu 1)', v_count) || chr(10); end if;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-05 OK - visitor ne lit plus directement la table comments (temoin compris)' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-05 ECHEC - visitor lit directement %s ligne(s) (attendu 0)', v_count) || chr(10); end if;
+
+    select (select count(*) from missions) + (select count(*) from pool_history) + (select count(*) from evaluations) into v_count;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-115 OK - visitor ne lit plus directement missions, pool_history ni evaluations' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-115 ECHEC - visitor lit directement %s ligne(s) de missions, pool_history ou evaluations (attendu 0)', v_count) || chr(10); end if;
 
     -- evaluations : visibilite
     select count(*) into v_count from evaluations where id = v_eval_devalidated_id;
@@ -613,6 +618,24 @@ begin
 
     -- Tests en tant que admin
     perform set_config('role', v_admin_role, true);
+
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_visitor_id), true);
+    perform set_config('role', 'authenticated', true);
+    select jsonb_build_object(
+        'talents', (select coalesce(jsonb_agg(to_jsonb(x) order by x.pool_id), '[]'::jsonb) from get_pool_talent_stats() x),
+        'missions', (select coalesce(jsonb_agg(to_jsonb(y) order by y.pool_id), '[]'::jsonb) from get_pool_mission_counts() y))
+    into v_dashboard_visitor;
+    perform set_config('role', v_admin_role, true);
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_admin_id), true);
+    perform set_config('role', 'authenticated', true);
+    select jsonb_build_object(
+        'talents', (select coalesce(jsonb_agg(to_jsonb(x) order by x.pool_id), '[]'::jsonb) from get_pool_talent_stats() x),
+        'missions', (select coalesce(jsonb_agg(to_jsonb(y) order by y.pool_id), '[]'::jsonb) from get_pool_mission_counts() y))
+    into v_json;
+    perform set_config('role', v_admin_role, true);
+    if v_json = v_dashboard_visitor and jsonb_array_length(v_json -> 'talents') > 0 and jsonb_array_length(v_json -> 'missions') > 0 then
+        v_ok := v_ok + 1; v_report := v_report || 'A3-116 OK - tableau de bord : memes chiffres pour le visiteur et pour l''admin' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-116 ECHEC - tableau de bord du visiteur different : %s', left(v_dashboard_visitor::text, 120)) || chr(10); end if;
 
     -- Vrai total actuel, mesure ici en bypass RLS (donc fiable quel que
     -- soit le nombre reel de comptes) plutot qu'un seuil fige a comparer.
@@ -1057,6 +1080,10 @@ begin
     select count(*) into v_count from talents;
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-35 OK - user suspendu ne voit aucun talent' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-35 ECHEC - user suspendu voit %s talent(s) (attendu 0)', v_count) || chr(10); end if;
+
+    select (select count(*) from get_pool_talent_stats()) + (select count(*) from get_pool_mission_counts()) into v_count;
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-117 OK - user suspendu : tableau de bord vide' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-117 ECHEC - user suspendu obtient %s ligne(s) du tableau de bord (attendu 0)', v_count) || chr(10); end if;
 
     select count(*) into v_count from comments;
     if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-36 OK - user suspendu ne voit aucun commentaire' || chr(10);

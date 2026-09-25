@@ -110,6 +110,21 @@ for (const definition of PAGES) {
     });
 }
 
+test.describe('Visiteur : tables fermées', () => {
+    const TABLES_FERMEES = ['/rest/v1/talents', '/rest/v1/missions', '/rest/v1/comments', '/rest/v1/pool_history', '/rest/v1/evaluations'];
+    for (const definition of PAGES.filter(p => p.attendu.visitor.type === 'contenu')) {
+        test(`${definition.nom} : aucune lecture directe des tables fermées au visiteur`, async ({ page }) => {
+            const lectures = [];
+            await ouvrirPage(page, definition.chemin, (requete) => {
+                if (requete.methode === 'GET' && TABLES_FERMEES.includes(requete.chemin)) lectures.push(requete.chemin);
+            }, { role: 'visitor' });
+            await page.waitForLoadState('networkidle');
+            expect(lectures).toEqual([]);
+            expect(page.erreursPage).toEqual([]);
+        });
+    }
+});
+
 test.describe('Lien de partage public', () => {
     test('profil partagé : affichage, sécurité, accessibilité', async ({ page }, testInfo) => {
         await ouvrirPage(page, 'shared-talent.html?token=st_jeton-de-test-actif', undefined, { connecte: false, attendre: false });

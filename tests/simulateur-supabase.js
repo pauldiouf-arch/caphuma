@@ -88,6 +88,7 @@ const CHAMPS_FICHE_VISITEUR = ['id', 'first_name', 'last_name', 'email', 'gender
     'languages', 'current_function', 'pool', 'tracking_pool', 'staff_type', 'status', 'is_valid', 'is_red_listed', 'is_currently_on_mission',
     'last_mission_end_date', 'pool_integration_date', 'months_without_mission', 'experience_months_alima', 'experience_months_humanitarian',
     'number_of_alima_missions', 'education_level', 'education_specialty', 'key_skills', 'intervention_contexts', 'intervention_zones'];
+const TABLES_FERMEES_VISITEUR = ['talents', 'missions', 'comments', 'evaluations', 'pool_history'];
 const garder = (ligne, champs) => Object.fromEntries(champs.map(c => [c, ligne[c] ?? null]));
 const visiblePourVisiteur = (t) => t.is_valid !== false && !t.is_red_listed;
 const contient = (valeur, recherche) => String(valeur || '').toLowerCase().includes(recherche);
@@ -225,6 +226,7 @@ function reponsesParDefaut(requete, role, actif, base) {
     if (table === 'audit_logs' && requete.methode !== 'GET' && requete.methode !== 'HEAD') {
         return { status: 403, body: { code: '42501', message: 'permission denied for table audit_logs' } };
     }
+    if (role === 'visitor' && TABLES_FERMEES_VISITEUR.includes(table) && ['GET', 'HEAD'].includes(requete.methode)) return [];
     if (!base[table]) return [];
     if (requete.methode === 'GET' || requete.methode === 'HEAD') return filtrer(base[table], requete.parametres);
     if (requete.methode === 'POST') {

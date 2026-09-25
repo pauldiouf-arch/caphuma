@@ -94,7 +94,7 @@ les données elles-mêmes (sauvegarde mensuelle dans le bucket `backups`).
 Coller `sql/tests_rls_roles.sql` en entier dans l'éditeur SQL, puis **Run**.
 Le script finit toujours par une erreur rouge volontaire, qui annule toutes
 les données de test ; sa première ligne donne le bilan. Attendu :
-`A3 BILAN : TOUS LES TESTS ONT REUSSI (114/114, 0 IGNORE)`. L'en-tête du script
+`A3 BILAN : TOUS LES TESTS ONT REUSSI (117/117, 0 IGNORE)`. L'en-tête du script
 explique les cas IGNORE possibles.
 
 À relancer après tout changement de droits, de policy ou de fonction appelée
@@ -162,6 +162,7 @@ est en fin de fichier.
 | 24/09/2026 | `partage_journal_rgpd.sql` | Lien public sans évaluations ; liens de partage verrouillés par la base (jeton, 90 jours maximum, révocation définitive) ; journal d'audit écrit par la base ou par `log_client_event()` uniquement ; motif de Liste Rouge retiré du journal | Oui | — |
 | 25/09/2026 | `visiteur_portes_talents.sql` | Le visiteur lit la liste des talents et les fiches par deux fonctions de la base (`visitor_talents_page()`, `visitor_talent_card()`) : colonnes limitées, 600 pages de liste et 50 fiches par heure, consultation d'une fiche journalisée (action `view`), évaluations sans l'e-mail de leur auteur | Oui | — |
 | 25/09/2026 | `visiteur_portes_postes_statistiques.sql` | Le visiteur lit les postes d'un pool, les évaluations d'un poste et les statistiques par trois fonctions de la base (`visitor_pool_missions()`, `visitor_mission_evaluations()`, `visitor_statistics_rows()`) : noms des seuls occupants, évaluations sans auteur et journalisées, lignes de statistiques anonymes ; mêmes quotas horaires que la liste et les fiches, 60 chargements des statistiques | Oui | — |
+| 25/09/2026 | `visiteur_fermeture_tables.sql` | Le visiteur ne lit plus directement `talents`, `missions`, `comments`, `evaluations` ni `pool_history` (il passe par les fonctions `visitor_*()`) ; `get_pool_talent_stats()` et `get_pool_mission_counts()` s'exécutent avec les droits de la base pour tout compte actif | Oui | — |
 
 « Reconstitué » : le script d'origine n'avait pas été conservé ; il a été
 réécrit d'après la base réelle, et son en-tête le précise.
