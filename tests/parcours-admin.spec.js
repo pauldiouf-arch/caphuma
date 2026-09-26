@@ -420,7 +420,7 @@ test.describe('Statistiques', () => {
         await expect(page.locator('#kpi-talents-active')).toHaveText('0');
     });
 
-    test('analyse IA globale : aucune donnée nominative envoyée, réponse affichée sans code actif', async ({ page }) => {
+    test('analyse IA globale : la page n\'envoie que la demande, réponse affichée sans code actif', async ({ page }) => {
         await ouvrirPage(page, 'statistics.html', IA('## Synthèse\n**Point clé** : <img src=x data-xss="1"> pool stable\n- Recommandation'), { role: 'user' });
         await page.fill('#ai-prompt-input', 'Quels risques ?');
         await page.click('#ai-generate-btn');
@@ -432,14 +432,37 @@ test.describe('Statistiques', () => {
             expect(envoye).not.toContain(t.last_name.split(' ')[0]);
             if (t.email) expect(envoye).not.toContain(t.email);
         }
-        expect(envoye).toContain('Quels risques ?');
+        expect(envoi(page, 'POST', '/functions/v1/ai-proxy')[0].corps).toEqual({ analysis: 'report', pool: 'global', question: 'Quels risques ?' });
     });
 
     test('analyse IA d\'un pool : réponse affichée', async ({ page }) => {
         await ouvrirPage(page, 'statistics.html', IA('## Analyse du pool\nTout va bien'), { role: 'user' });
         await page.selectOption('#pool-selector', 'P1');
+        await page.fill('#pool-ai-question', '  Qui recruter ?  ');
         await page.click('#pool-ai-analysis-btn');
         await expect(page.locator('#pool-ai-analysis-content')).toContainText('Tout va bien');
+        expect(envoi(page, 'POST', '/functions/v1/ai-proxy')[0].corps).toEqual({ analysis: 'pool', pool: 'P1', question: 'Qui recruter ?' });
+    });
+
+    test('questions à l\'IA : 500 caractères au plus et mise en garde affichée sous chaque champ', async ({ page }) => {
+        await ouvrirPage(page, 'statistics.html', undefined, { role: 'user' });
+        await page.selectOption('#pool-selector', 'P1');
+        for (const [champ, mention] of [['#ai-prompt-input', '#ai-prompt-warning'], ['#pool-ai-question', '#pool-ai-question-warning']]) {
+            await expect(page.locator(champ)).toHaveAttribute('maxlength', '500');
+            await expect(page.locator(mention)).toHaveText("Ne saisissez aucun nom ni information permettant d'identifier une personne : la question est transmise à un service d'IA externe.");
+            await expect(page.locator(champ)).toHaveAttribute('aria-describedby', mention.slice(1));
+        }
+    });
+
+    test('question refusée par le serveur (nom d\'une personne) : message lisible', async ({ page }) => {
+        const refus = "La question cite le nom d'une personne. Reformulez-la sans information permettant d'identifier une personne.";
+        await ouvrirPage(page, 'statistics.html', (requete) => {
+            if (requete.chemin === '/functions/v1/ai-proxy') return { status: 400, body: { error: refus } };
+        }, { role: 'user' });
+        await page.selectOption('#pool-selector', 'P1');
+        await page.fill('#pool-ai-question', 'Pourquoi Binta Koné est-elle sans poste ?');
+        await page.click('#pool-ai-analysis-btn');
+        await expect(page.locator('#pool-ai-analysis-error')).toContainText(refus);
     });
 
     test('analyse IA en panne : message d\'erreur', async ({ page }) => {

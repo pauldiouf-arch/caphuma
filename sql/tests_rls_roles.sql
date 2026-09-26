@@ -1,6 +1,6 @@
 -- Test des policies RLS par role (visitor / user / admin, puis compte suspendu) sur talents, comments,
 -- evaluations, share_tokens, audit_logs, users et access_code_requests, et des fonctions appelees par le site
--- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus, portes du visiteur : talents, postes, evaluations, statistiques ; tables fermees au visiteur), et des auteurs
+-- (demandes de nouveau code, changement de pool, enregistrement des postes, contrats echus, portes du visiteur : talents, postes, evaluations, statistiques ; tables fermees au visiteur ; donnees de l'analyse IA), et des auteurs
 -- imposes par la base (Liste Rouge, prolongation, created_by, liens de partage), des regles des liens de partage
 -- (jeton, expiration, revocation, contenu public) et de la journalisation (log_client_event, declencheurs).
 --
@@ -720,6 +720,25 @@ begin
         where to_regprocedure(sig) is not null and has_function_privilege('authenticated', to_regprocedure(sig), 'execute');
     if v_count = 14 then v_ok := v_ok + 1; v_report := v_report || 'A3-46 OK - les 14 fonctions du site sont executables par un compte connecte' || chr(10);
     else v_fail := v_fail + 1; v_report := v_report || format('A3-46 ECHEC - %s fonction(s) executable(s) par authenticated (attendu 14)', v_count) || chr(10); end if;
+
+    select count(*) into v_count from unnest(array['public.ai_statistics_rows()', 'public.ai_question_mentions_person(text)']) sig
+        where to_regprocedure(sig) is null
+           or has_function_privilege('anon', to_regprocedure(sig), 'execute')
+           or has_function_privilege('authenticated', to_regprocedure(sig), 'execute')
+           or not has_function_privilege('service_role', to_regprocedure(sig), 'execute');
+    if v_count = 0 then v_ok := v_ok + 1; v_report := v_report || 'A3-118 OK - fonctions de l''analyse IA reservees a la cle de service' || chr(10);
+    else v_fail := v_fail + 1; v_report := v_report || format('A3-118 ECHEC - %s fonction(s) de l''analyse IA absente(s) ou appelable(s) par le site', v_count) || chr(10); end if;
+
+    begin
+        if ai_question_mentions_person('Pourquoi test-a3 CONTROL n''a pas de poste ?')
+           and ai_question_mentions_person('Et control test a3 ?')
+           and not ai_question_mentions_person('Quels risques de penurie sur le pool COLOG ?')
+           and not ai_question_mentions_person('Parle-moi de CONTROL') then
+            v_ok := v_ok + 1; v_report := v_report || 'A3-119 OK - analyse IA : une question citant prenom et nom d''un talent est reconnue, une question ordinaire non' || chr(10);
+        else v_fail := v_fail + 1; v_report := v_report || 'A3-119 ECHEC - detection des noms dans la question a l''IA incorrecte' || chr(10); end if;
+    exception when others then
+        v_fail := v_fail + 1; v_report := v_report || format('A3-119 ECHEC - detection des noms indisponible (%s)', sqlerrm) || chr(10);
+    end;
 
     select count(*) into v_count from unnest(array['public.record_occupant_exit(public.missions,timestamptz)', 'public.record_occupant_entry(uuid,text)']) sig
         where to_regprocedure(sig) is null
